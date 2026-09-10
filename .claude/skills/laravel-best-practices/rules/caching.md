@@ -93,7 +93,7 @@ Repeated calls return the memoized result without rerunning the callback. Use `o
 
 ## Configure Failover Cache Stores in Production
 
-The failover driver tries each configured store operation throws an exception. It does not consult later stores for an ordinary cache miss, and data is not replicated between stores.
+The failover driver tries each configured store in order when a store operation throws an exception. It does not consult later stores for an ordinary cache miss, and data is not replicated between stores.
 
 ```php
 'failover' => ['driver' => 'failover', 'stores' => ['redis', 'database']],
