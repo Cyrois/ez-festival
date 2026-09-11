@@ -1,9 +1,25 @@
 @import 'tailwindcss';
+@config '../../tailwind.config.js';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
+/*
+ * Theme tokens mirror tailwind.config.js. Prefer named utilities (bg-brand,
+ * text-charcoal, border-line, …) over raw hex in class strings.
+ */
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --color-charcoal: #1A1A1A;
+    --color-page: #F4F5F7;
+    --color-muted: #6B7280;
+    --color-line: #E5E7EB;
+    --color-brand: #1F7A74;
+    --color-brand-hover: #196560;
+    --color-accent: #3D6B8A;
+    --color-danger: #B91C1C;
+    --color-success: #65A30D;
+    --color-warning: #CA8A04;
 }
