@@ -52,6 +52,7 @@ Boost replaces these bootstrap instructions with guidelines tailored to the appl
 - Style with Tailwind utility classes only. No scoped CSS, no large inline style blocks for layout/branding.
 - Define brand colors in `tailwind.config.js` and mirror them in `@theme` in `resources/css/app.css`. Use named utilities (`bg-brand`, `bg-brand-hover`, `text-accent`, `text-charcoal`, `bg-page`, `text-muted`, `border-line`, `text-danger`, `text-success`, `text-warning`, `accent-brand`). Do not sprinkle raw hex in class strings.
 - Auth screens: small centered form, teal primary (`brand` / `#1F7A74`), soft blue links (`accent` / `#3D6B8A`), page ground (`page` / `#F4F5F7`), charcoal text (`charcoal` / `#1A1A1A`). Gray borders use `line` (`#E5E7EB`) so Tailwind’s default `border` color is not clobbered.
+- Setup wizard screens (`resources/js/pages/Setup/*`, `resources/js/layouts/SetupLayout.vue`): same Tailwind + i18n rules; match Designer admin-setup mock (sidebar with Setup active, step pills, Skip + Save and continue).
 - Match Designer mocks when implementing screens.
 - No `.claude/` / CLAUDE.md.
 
