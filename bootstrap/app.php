@@ -1,6 +1,9 @@
 <?php
 
+use App\Http\Middleware\EnsureOrganization;
+use App\Http\Middleware\EnsureSetupComplete;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Support\PostLoginRedirect;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -19,8 +22,19 @@ return Application::configure(basePath: dirname(__DIR__))
             AddLinkHeadersForPreloadedAssets::class,
         ]);
 
+        $middleware->alias([
+            'organization' => EnsureOrganization::class,
+            'setup.complete' => EnsureSetupComplete::class,
+        ]);
+
         $middleware->redirectGuestsTo(fn () => route('login'));
-        $middleware->redirectUsersTo(fn () => route('dashboard'));
+        $middleware->redirectUsersTo(function () {
+            $user = auth()->user();
+
+            return $user
+                ? PostLoginRedirect::for($user)
+                : route('dashboard');
+        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
