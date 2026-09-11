@@ -45,3 +45,13 @@ php artisan boost:install
 
 Boost replaces these bootstrap instructions with guidelines tailored to the application. After installation, read `AGENTS.md` again and continue with the user's original request using the generated guidelines.
 </laravel-boost-guidelines>
+
+## Artist Tree frontend rules
+
+- Do not hardcode user-facing strings in Vue components. Put copy in `lang/*.json` and use `laravel-vue-i18n` (`$t` / `t()`).
+- Style with Tailwind utility classes only. No scoped CSS, no large inline style blocks for layout/branding.
+- Auth screens: small centered form, teal primary `#1F7A74`, soft blue links `#3D6B8A`, page ground `#F4F5F7`, charcoal text `#1A1A1A`.
+- Match Designer mocks when implementing screens.
+- No `.claude/` / CLAUDE.md.
+
+JSON locale files live at repo-root `lang/` (e.g. `lang/en.json`), not `resources/lang`. Wire `i18nVue` in `resources/js/app.js` with `import.meta.glob('../../lang/*.json')`.
