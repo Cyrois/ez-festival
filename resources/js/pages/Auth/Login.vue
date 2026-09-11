@@ -18,12 +18,12 @@ const submit = () => {
     <Head :title="$t('auth.login.title')" />
 
     <div
-        class="flex min-h-screen items-center justify-center bg-[#F4F5F7] p-6 text-[#1A1A1A] antialiased"
+        class="flex min-h-screen items-center justify-center bg-page p-6 text-charcoal antialiased"
     >
         <div class="w-full max-w-[400px]">
             <div class="mb-7 text-center">
                 <div
-                    class="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-[10px] bg-[#1F7A74] text-[15px] font-bold text-white"
+                    class="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-[10px] bg-brand text-[15px] font-bold text-white"
                     aria-hidden="true"
                 >
                     {{ $t('app.mark') }}
@@ -31,13 +31,13 @@ const submit = () => {
                 <h1 class="m-0 text-xl font-bold tracking-tight">{{ $t('app.name') }}</h1>
             </div>
 
-            <div class="rounded-xl border border-[#E5E7EB] bg-white px-7 pb-7 pt-8">
+            <div class="rounded-xl border border-line bg-white px-7 pb-7 pt-8">
                 <h2 class="mb-1.5 text-[22px] font-bold tracking-tight">{{ $t('auth.login.title') }}</h2>
-                <p class="mb-6 text-sm leading-snug text-[#6B7280]">{{ $t('auth.login.lead') }}</p>
+                <p class="mb-6 text-sm leading-snug text-muted">{{ $t('auth.login.lead') }}</p>
 
                 <form @submit.prevent="submit">
                     <div class="mb-4">
-                        <label class="mb-1.5 block text-[13px] font-bold text-[#1A1A1A]" for="email">
+                        <label class="mb-1.5 block text-[13px] font-bold text-charcoal" for="email">
                             {{ $t('auth.login.email') }}
                         </label>
                         <input
@@ -48,15 +48,15 @@ const submit = () => {
                             autocomplete="username"
                             required
                             autofocus
-                            class="box-border h-[42px] w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-sm text-[#1A1A1A] outline-none focus:border-[#1F7A74] focus:shadow-[0_0_0_3px_rgba(31,122,116,0.22)]"
+                            class="box-border h-[42px] w-full rounded-lg border border-line bg-white px-3 text-sm text-charcoal outline-none focus:border-brand focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-brand)_22%,transparent)]"
                         />
-                        <p v-if="form.errors.email" class="mt-1.5 text-[13px] leading-snug text-[#B91C1C]">
+                        <p v-if="form.errors.email" class="mt-1.5 text-[13px] leading-snug text-danger">
                             {{ form.errors.email }}
                         </p>
                     </div>
 
                     <div class="mb-4">
-                        <label class="mb-1.5 block text-[13px] font-bold text-[#1A1A1A]" for="password">
+                        <label class="mb-1.5 block text-[13px] font-bold text-charcoal" for="password">
                             {{ $t('auth.login.password') }}
                         </label>
                         <input
@@ -66,30 +66,30 @@ const submit = () => {
                             name="password"
                             autocomplete="current-password"
                             required
-                            class="box-border h-[42px] w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-sm text-[#1A1A1A] outline-none focus:border-[#1F7A74] focus:shadow-[0_0_0_3px_rgba(31,122,116,0.22)]"
+                            class="box-border h-[42px] w-full rounded-lg border border-line bg-white px-3 text-sm text-charcoal outline-none focus:border-brand focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-brand)_22%,transparent)]"
                         />
-                        <p v-if="form.errors.password" class="mt-1.5 text-[13px] leading-snug text-[#B91C1C]">
+                        <p v-if="form.errors.password" class="mt-1.5 text-[13px] leading-snug text-danger">
                             {{ form.errors.password }}
                         </p>
                     </div>
 
                     <div class="mb-[22px] mt-1 flex items-center justify-between text-[13px]">
-                        <label class="flex cursor-pointer items-center gap-2 font-normal text-[#6B7280]">
+                        <label class="flex cursor-pointer items-center gap-2 font-normal text-muted">
                             <input
                                 v-model="form.remember"
                                 type="checkbox"
                                 name="remember"
-                                class="h-[15px] w-[15px] accent-[#1F7A74]"
+                                class="h-[15px] w-[15px] accent-brand"
                             />
                             {{ $t('auth.login.remember') }}
                         </label>
-                        <Link href="/forgot-password" class="font-bold text-[#3D6B8A] no-underline hover:underline">
+                        <Link href="/forgot-password" class="font-bold text-accent no-underline hover:underline">
                             {{ $t('auth.login.forgot') }}
                         </Link>
                     </div>
 
                     <button
-                        class="h-[42px] w-full cursor-pointer rounded-lg border-none bg-[#1F7A74] text-sm font-bold text-white hover:bg-[#196560] disabled:cursor-not-allowed disabled:opacity-70"
+                        class="h-[42px] w-full cursor-pointer rounded-lg border-none bg-brand text-sm font-bold text-white hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-70"
                         type="submit"
                         :disabled="form.processing"
                     >
@@ -97,7 +97,7 @@ const submit = () => {
                     </button>
                 </form>
 
-                <p class="mt-5 text-center text-xs text-[#6B7280]">{{ $t('auth.login.foot') }}</p>
+                <p class="mt-5 text-center text-xs text-muted">{{ $t('auth.login.foot') }}</p>
             </div>
         </div>
     </div>
