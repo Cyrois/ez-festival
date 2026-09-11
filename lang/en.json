@@ -1,0 +1,21 @@
+{
+    "app.name": "Artist Tree",
+    "app.mark": "AT",
+    "auth.login.title": "Sign in",
+    "auth.login.lead": "Office access for your festival organization.",
+    "auth.login.email": "Email",
+    "auth.login.password": "Password",
+    "auth.login.remember": "Remember me",
+    "auth.login.forgot": "Forgot password?",
+    "auth.login.submit": "Sign in",
+    "auth.login.foot": "No public site. Organization accounts only.",
+    "auth.forgot.title": "Forgot password",
+    "auth.forgot.body": "Password reset is not enabled yet. Contact your organization admin if you need access.",
+    "auth.forgot.back": "Back to sign in",
+    "dashboard.title": "Dashboard",
+    "dashboard.signed_in_as": "Signed in as :email.",
+    "dashboard.unknown": "unknown",
+    "dashboard.sign_out": "Sign out",
+    "welcome.badge": "Vue 3 + Inertia",
+    "welcome.body": "Welcome — Vue 3 and Inertia are wired up and working."
+}
