@@ -3,107 +3,31 @@ import { Head, Link } from '@inertiajs/vue3';
 </script>
 
 <template>
-    <Head title="Forgot password" />
+    <Head :title="$t('auth.forgot.title')" />
 
-    <div class="page">
-        <div class="shell">
-            <div class="brand">
-                <div class="mark" aria-hidden="true">AT</div>
-                <h1>Artist Tree</h1>
+    <div
+        class="flex min-h-screen items-center justify-center bg-[#F4F5F7] p-6 text-[#1A1A1A] antialiased"
+    >
+        <div class="w-full max-w-[400px]">
+            <div class="mb-7 text-center">
+                <div
+                    class="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-[10px] bg-[#1F7A74] text-[15px] font-bold text-white"
+                    aria-hidden="true"
+                >
+                    {{ $t('app.mark') }}
+                </div>
+                <h1 class="m-0 text-xl font-bold tracking-tight">{{ $t('app.name') }}</h1>
             </div>
 
-            <div class="card">
-                <h2>Forgot password</h2>
-                <p class="lead">
-                    Password reset is not enabled yet. Contact your organization admin if you need access.
+            <div class="rounded-xl border border-[#E5E7EB] bg-white px-7 pb-7 pt-8">
+                <h2 class="mb-1.5 text-[22px] font-bold tracking-tight">{{ $t('auth.forgot.title') }}</h2>
+                <p class="mb-6 text-sm leading-snug text-[#6B7280]">
+                    {{ $t('auth.forgot.body') }}
                 </p>
-                <Link class="back" href="/login">Back to sign in</Link>
+                <Link href="/login" class="text-sm font-bold text-[#3D6B8A] no-underline hover:underline">
+                    {{ $t('auth.forgot.back') }}
+                </Link>
             </div>
         </div>
     </div>
 </template>
-
-<style scoped>
-.page {
-    --white: #ffffff;
-    --charcoal: #1a1a1a;
-    --teal: #1f7a74;
-    --blue: #3d6b8a;
-    --muted: #6b7280;
-    --border: #e5e7eb;
-    --page: #f4f5f7;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 24px;
-    background: var(--page);
-    color: var(--charcoal);
-    font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
-    -webkit-font-smoothing: antialiased;
-}
-
-.shell {
-    width: 100%;
-    max-width: 400px;
-}
-
-.brand {
-    text-align: center;
-    margin-bottom: 28px;
-}
-
-.mark {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    border-radius: 10px;
-    background: var(--teal);
-    color: white;
-    font-weight: 700;
-    font-size: 15px;
-    margin-bottom: 12px;
-}
-
-.brand h1 {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-}
-
-.card {
-    background: var(--white);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 32px 28px 28px;
-}
-
-.card h2 {
-    margin: 0 0 6px;
-    font-size: 22px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-}
-
-.lead {
-    margin: 0 0 24px;
-    font-size: 14px;
-    color: var(--muted);
-    line-height: 1.45;
-}
-
-.back {
-    color: var(--blue);
-    text-decoration: none;
-    font-weight: 700;
-    font-size: 14px;
-}
-
-.back:hover {
-    text-decoration: underline;
-}
-</style>

@@ -15,22 +15,31 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Sign in" />
+    <Head :title="$t('auth.login.title')" />
 
-    <div class="login-page">
-        <div class="shell">
-            <div class="brand">
-                <div class="mark" aria-hidden="true">AT</div>
-                <h1>Artist Tree</h1>
+    <div
+        class="flex min-h-screen items-center justify-center bg-[#F4F5F7] p-6 text-[#1A1A1A] antialiased"
+    >
+        <div class="w-full max-w-[400px]">
+            <div class="mb-7 text-center">
+                <div
+                    class="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-[10px] bg-[#1F7A74] text-[15px] font-bold text-white"
+                    aria-hidden="true"
+                >
+                    {{ $t('app.mark') }}
+                </div>
+                <h1 class="m-0 text-xl font-bold tracking-tight">{{ $t('app.name') }}</h1>
             </div>
 
-            <div class="card">
-                <h2>Sign in</h2>
-                <p class="lead">Office access for your festival organization.</p>
+            <div class="rounded-xl border border-[#E5E7EB] bg-white px-7 pb-7 pt-8">
+                <h2 class="mb-1.5 text-[22px] font-bold tracking-tight">{{ $t('auth.login.title') }}</h2>
+                <p class="mb-6 text-sm leading-snug text-[#6B7280]">{{ $t('auth.login.lead') }}</p>
 
                 <form @submit.prevent="submit">
-                    <div class="field">
-                        <label class="field-label" for="email">Email</label>
+                    <div class="mb-4">
+                        <label class="mb-1.5 block text-[13px] font-bold text-[#1A1A1A]" for="email">
+                            {{ $t('auth.login.email') }}
+                        </label>
                         <input
                             id="email"
                             v-model="form.email"
@@ -39,12 +48,17 @@ const submit = () => {
                             autocomplete="username"
                             required
                             autofocus
+                            class="box-border h-[42px] w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-sm text-[#1A1A1A] outline-none focus:border-[#1F7A74] focus:shadow-[0_0_0_3px_rgba(31,122,116,0.22)]"
                         />
-                        <p v-if="form.errors.email" class="error">{{ form.errors.email }}</p>
+                        <p v-if="form.errors.email" class="mt-1.5 text-[13px] leading-snug text-[#B91C1C]">
+                            {{ form.errors.email }}
+                        </p>
                     </div>
 
-                    <div class="field">
-                        <label class="field-label" for="password">Password</label>
+                    <div class="mb-4">
+                        <label class="mb-1.5 block text-[13px] font-bold text-[#1A1A1A]" for="password">
+                            {{ $t('auth.login.password') }}
+                        </label>
                         <input
                             id="password"
                             v-model="form.password"
@@ -52,203 +66,39 @@ const submit = () => {
                             name="password"
                             autocomplete="current-password"
                             required
+                            class="box-border h-[42px] w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-sm text-[#1A1A1A] outline-none focus:border-[#1F7A74] focus:shadow-[0_0_0_3px_rgba(31,122,116,0.22)]"
                         />
-                        <p v-if="form.errors.password" class="error">{{ form.errors.password }}</p>
+                        <p v-if="form.errors.password" class="mt-1.5 text-[13px] leading-snug text-[#B91C1C]">
+                            {{ form.errors.password }}
+                        </p>
                     </div>
 
-                    <div class="row">
-                        <label class="check">
-                            <input v-model="form.remember" type="checkbox" name="remember" />
-                            Remember me
+                    <div class="mb-[22px] mt-1 flex items-center justify-between text-[13px]">
+                        <label class="flex cursor-pointer items-center gap-2 font-normal text-[#6B7280]">
+                            <input
+                                v-model="form.remember"
+                                type="checkbox"
+                                name="remember"
+                                class="h-[15px] w-[15px] accent-[#1F7A74]"
+                            />
+                            {{ $t('auth.login.remember') }}
                         </label>
-                        <Link href="/forgot-password">Forgot password?</Link>
+                        <Link href="/forgot-password" class="font-bold text-[#3D6B8A] no-underline hover:underline">
+                            {{ $t('auth.login.forgot') }}
+                        </Link>
                     </div>
 
-                    <button class="primary" type="submit" :disabled="form.processing">
-                        Sign in
+                    <button
+                        class="h-[42px] w-full cursor-pointer rounded-lg border-none bg-[#1F7A74] text-sm font-bold text-white hover:bg-[#196560] disabled:cursor-not-allowed disabled:opacity-70"
+                        type="submit"
+                        :disabled="form.processing"
+                    >
+                        {{ $t('auth.login.submit') }}
                     </button>
                 </form>
 
-                <p class="foot">No public site. Organization accounts only.</p>
+                <p class="mt-5 text-center text-xs text-[#6B7280]">{{ $t('auth.login.foot') }}</p>
             </div>
         </div>
     </div>
 </template>
-
-<style scoped>
-.login-page {
-    --white: #ffffff;
-    --charcoal: #1a1a1a;
-    --teal: #1f7a74;
-    --teal-hover: #196560;
-    --blue: #3d6b8a;
-    --muted: #6b7280;
-    --border: #e5e7eb;
-    --page: #f4f5f7;
-    --danger: #b91c1c;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 24px;
-    background: var(--page);
-    color: var(--charcoal);
-    font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
-    -webkit-font-smoothing: antialiased;
-}
-
-.shell {
-    width: 100%;
-    max-width: 400px;
-}
-
-.brand {
-    text-align: center;
-    margin-bottom: 28px;
-}
-
-.mark {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    border-radius: 10px;
-    background: var(--teal);
-    color: white;
-    font-weight: 700;
-    font-size: 15px;
-    margin-bottom: 12px;
-}
-
-.brand h1 {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-}
-
-.card {
-    background: var(--white);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 32px 28px 28px;
-}
-
-.card h2 {
-    margin: 0 0 6px;
-    font-size: 22px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-}
-
-.lead {
-    margin: 0 0 24px;
-    font-size: 14px;
-    color: var(--muted);
-    line-height: 1.45;
-}
-
-.field {
-    margin-bottom: 16px;
-}
-
-.field-label {
-    display: block;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--charcoal);
-    margin-bottom: 6px;
-}
-
-input[type='email'],
-input[type='password'] {
-    width: 100%;
-    height: 42px;
-    padding: 0 12px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--white);
-    font: inherit;
-    font-size: 14px;
-    color: var(--charcoal);
-    outline: none;
-    box-sizing: border-box;
-}
-
-input[type='email']:focus,
-input[type='password']:focus {
-    border-color: var(--teal);
-    box-shadow: 0 0 0 3px rgba(31, 122, 116, 0.22);
-}
-
-.error {
-    margin: 6px 0 0;
-    font-size: 13px;
-    color: var(--danger);
-    line-height: 1.35;
-}
-
-.row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin: 4px 0 22px;
-    font-size: 13px;
-}
-
-.check {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--muted);
-    font-weight: 400;
-    cursor: pointer;
-}
-
-.check input {
-    width: 15px;
-    height: 15px;
-    accent-color: var(--teal);
-}
-
-a {
-    color: var(--blue);
-    text-decoration: none;
-    font-weight: 700;
-}
-
-a:hover {
-    text-decoration: underline;
-}
-
-button.primary {
-    width: 100%;
-    height: 42px;
-    border: none;
-    border-radius: 8px;
-    background: var(--teal);
-    color: white;
-    font: inherit;
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-}
-
-button.primary:hover:not(:disabled) {
-    background: var(--teal-hover);
-}
-
-button.primary:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
-}
-
-.foot {
-    margin-top: 20px;
-    text-align: center;
-    font-size: 12px;
-    color: var(--muted);
-}
-</style>
