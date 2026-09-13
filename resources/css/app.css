@@ -5,8 +5,11 @@
 @source '../../storage/framework/views/*.php';
 
 /*
- * Theme tokens mirror tailwind.config.js. Prefer named utilities (bg-brand,
- * text-charcoal, border-line, …) over raw hex in class strings.
+ * Theme tokens mirror tailwind.config.js. Prefer named utilities (bg-primary,
+ * bg-brand, text-charcoal, border-line, …) over raw hex in class strings.
+ *
+ * brand / accent remain aliases of primary / secondary so existing screens
+ * keep working while new UI kit components prefer primary / secondary.
  */
 @theme {
     --font-sans:
@@ -14,13 +17,28 @@
         'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
         'Noto Color Emoji';
 
+    --radius-lg: 0.5rem;
+    --radius: 0.5rem;
+
     --color-charcoal: #1a1a1a;
     --color-page: #f4f5f7;
     --color-muted: #6b7280;
     --color-line: #e5e7eb;
+
+    --color-ground: #ffffff;
+    --color-ground-dark: #1a1a1a;
+
+    --color-primary: #1f7a74;
+    --color-primary-hover: #196560;
+    --color-primary-soft: #e6f3f2;
+
+    --color-secondary: #3d6b8a;
+    --color-secondary-soft: #e8eef2;
+
     --color-brand: #1f7a74;
     --color-brand-hover: #196560;
     --color-accent: #3d6b8a;
+
     --color-danger: #b91c1c;
     --color-success: #65a30d;
     --color-warning: #ca8a04;
