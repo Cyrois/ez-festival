@@ -63,7 +63,7 @@
     "setup.ready.title": "You’re all set",
     "setup.ready.heading": "You’re all set",
     "setup.ready.lead": "Everything is configured and ready to use.",
-    "setup.ready.note": "You can change event details, locations, and type lists anytime under",
+    "setup.ready.note": "You can change event details, locations, and type lists anytime under Settings.",
     "setup.errors.generic": "Something went wrong. Please try again.",
     "setup.errors.dismiss": "Dismiss",
     "ui.demo.title": "UI kit",
@@ -229,6 +229,5 @@
     "setup.locations.delete_suggested_body": "Remove “:name” from suggestions. It will not be saved on Continue.",
     "setup.artist_types.suggested_label": "Suggested · not saved until Continue",
     "setup.artist_types.delete_suggested_body": "Remove “:name” from suggestions. It will not be saved on Continue.",
-    "setup.actions.next": "Next",
-    "setup.ready.settings": "Settings"
+    "setup.actions.next": "Next"
 }

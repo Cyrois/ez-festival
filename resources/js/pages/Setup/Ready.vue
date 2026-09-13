@@ -3,13 +3,30 @@ import SetupLayout from '../../layouts/SetupLayout.vue';
 import { Button } from '../../components/ui/button';
 import { Icon } from '../../components/ui/icon';
 import { router } from '@inertiajs/vue3';
+import { ref } from 'vue';
 
 defineProps({
     organization: { type: Object, required: true },
     currentStep: { type: Number, required: true },
 });
 
-const enterApp = () => router.post('/setup/ready');
+const enterBusy = ref(false);
+
+const enterApp = () => {
+    if (enterBusy.value) {
+        return;
+    }
+    enterBusy.value = true;
+    router.post(
+        '/setup/ready',
+        {},
+        {
+            onFinish: () => {
+                enterBusy.value = false;
+            },
+        },
+    );
+};
 </script>
 
 <template>
@@ -19,7 +36,7 @@ const enterApp = () => router.post('/setup/ready');
         :organization-name="organization.name"
     >
         <div
-            class="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-[#ECFCCB] text-success"
+            class="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-success-soft text-success"
             aria-hidden="true"
         >
             <Icon
@@ -38,8 +55,6 @@ const enterApp = () => router.post('/setup/ready');
         </p>
         <p class="mx-auto mb-7 max-w-[42ch] text-sm leading-snug text-charcoal">
             {{ $t('setup.ready.note') }}
-            <strong>{{ $t('setup.ready.settings') }}</strong
-            >.
         </p>
 
         <div class="flex justify-center">
@@ -48,6 +63,8 @@ const enterApp = () => router.post('/setup/ready');
                 variant="primary"
                 size="lg"
                 class="min-w-40"
+                :loading="enterBusy"
+                :disabled="enterBusy"
                 @click="enterApp"
             >
                 {{ $t('setup.actions.next') }}
