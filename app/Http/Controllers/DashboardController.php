@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -13,7 +14,7 @@ class DashboardController extends Controller
      */
     public function __invoke(Request $request): Response
     {
-        /** @var \App\Models\User $user */
+        /** @var User $user */
         $user = $request->user();
         $organization = $user->primaryOrganization() ?? $user->ensureOrganization();
         $event = $organization->activeEvent;
