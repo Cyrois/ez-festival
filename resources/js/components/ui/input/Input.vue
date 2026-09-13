@@ -27,9 +27,9 @@ const attrs = useAttrs();
 
 const classes = computed(() =>
     cn(
-        'box-border h-10 w-full rounded-lg border border-line bg-ground px-3 text-sm text-charcoal outline-none transition-shadow placeholder:text-muted focus:border-primary focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-primary)_22%,transparent)] disabled:cursor-not-allowed disabled:opacity-45',
+        'box-border h-10 w-full rounded-lg border border-line bg-ground px-3 text-sm text-charcoal outline-none transition-[box-shadow,border-color] placeholder:text-muted focus:border-primary focus:ring-[3px] focus:ring-primary/35 disabled:cursor-not-allowed disabled:opacity-45',
         props.invalid &&
-            'border-danger focus:border-danger focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-danger)_22%,transparent)]',
+            'border-danger focus:border-danger focus:ring-danger/35',
         props.class,
     ),
 );
