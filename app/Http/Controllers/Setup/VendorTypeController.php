@@ -16,9 +16,13 @@ class VendorTypeController extends Controller
 {
     use InteractsWithSetup;
 
-    public function show(Request $request): Response
+    public function show(Request $request): Response|RedirectResponse
     {
         $organization = $this->organization($request);
+
+        if ($organization->activeEvent === null) {
+            return redirect()->route('setup.event');
+        }
 
         return Inertia::render('Setup/VendorTypes', [
             'organization' => [

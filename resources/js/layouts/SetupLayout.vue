@@ -18,6 +18,8 @@ const orgName = computed(
     () => props.organizationName || page.props.organization?.name || '',
 );
 
+const hasActiveEvent = computed(() => Boolean(page.props.activeEvent?.id));
+
 const orgSetupLabel = computed(() => {
     if (!orgName.value) {
         return trans('nav.setup');
@@ -33,9 +35,17 @@ const steps = [
     { n: 4, key: 'artist_types', route: '/setup/artist-types' },
 ];
 
+const stepEnabled = (n) => n === 1 || hasActiveEvent.value;
+
 const stepClass = (n) => {
     if (n === props.currentStep) {
         return 'bg-primary text-white';
+    }
+    if (!stepEnabled(n)) {
+        return 'bg-line text-charcoal/40 pointer-events-none';
+    }
+    if (n < props.currentStep) {
+        return 'bg-primary/10 text-primary';
     }
 
     return 'bg-line text-charcoal/70';
@@ -44,6 +54,12 @@ const stepClass = (n) => {
 const stepNumberClass = (n) => {
     if (n === props.currentStep) {
         return 'bg-ground/25 text-white';
+    }
+    if (!stepEnabled(n)) {
+        return 'bg-charcoal/5 text-charcoal/40';
+    }
+    if (n < props.currentStep) {
+        return 'bg-primary/15 text-primary';
     }
 
     return 'bg-charcoal/10 text-charcoal/70';
@@ -98,13 +114,15 @@ onUnmounted(() => {
                 class="mb-7 flex flex-wrap gap-2"
                 :aria-label="$t('nav.setup')"
             >
-                <Link
+                <component
+                    :is="stepEnabled(step.n) ? Link : 'span'"
                     v-for="step in steps"
                     :key="step.n"
-                    :href="step.route"
+                    :href="stepEnabled(step.n) ? step.route : undefined"
                     class="inline-flex h-8 items-center gap-2 rounded-full px-3 text-xs font-bold no-underline"
                     :class="stepClass(step.n)"
                     :aria-current="step.n === currentStep ? 'step' : undefined"
+                    :aria-disabled="stepEnabled(step.n) ? undefined : 'true'"
                 >
                     <span
                         class="inline-flex h-[18px] w-[18px] items-center justify-center rounded-full text-[11px] font-bold"
@@ -114,7 +132,7 @@ onUnmounted(() => {
                         {{ step.n }}
                     </span>
                     {{ $t(`setup.steps.${step.key}`) }}
-                </Link>
+                </component>
             </nav>
 
             <slot />

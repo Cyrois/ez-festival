@@ -5,6 +5,7 @@ import { FormField } from '../../components/ui/form-field';
 import { Input } from '../../components/ui/input';
 import { Select } from '../../components/ui/select';
 import { useFlashToast } from '../../composables/useFlashToast';
+import { fieldError, toastFormErrors } from '../../lib/fieldError';
 import { useForm } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 
@@ -15,7 +16,7 @@ const props = defineProps({
     currentStep: { type: Number, required: true },
 });
 
-const { showError, showSuccess } = useFlashToast();
+const { showError, showSuccess, showFormError } = useFlashToast();
 
 const form = useForm({
     name: props.event?.name ?? '',
@@ -24,40 +25,11 @@ const form = useForm({
     timezone: props.event?.timezone ?? 'America/Vancouver',
 });
 
-const fieldError = (key) => {
-    const error = form.errors[key];
-    if (!error) {
-        return '';
-    }
-
-    const value = form[key];
-    if (value === '' || value === null || value === undefined) {
-        return trans('setup.errors.required');
-    }
-
-    return error;
-};
-
 const submit = () =>
     form.post('/setup/event', {
         onSuccess: () => showSuccess(trans('setup.toast.event_saved')),
-        onError: () => showError(trans('setup.errors.required_fields')),
-    });
-
-const skip = () =>
-    form.post('/setup/event/skip', {
-        onError: (errors) => {
-            const values = Object.values(errors ?? {});
-            let first = values[0];
-            if (Array.isArray(first)) {
-                first = first[0];
-            }
-            showError(
-                typeof first === 'string' && first
-                    ? first
-                    : trans('setup.errors.generic'),
-            );
-        },
+        onError: (errors) =>
+            toastFormErrors(form, errors, { showError, showFormError }),
     });
 </script>
 
@@ -80,7 +52,7 @@ const skip = () =>
             <div class="rounded-xl border border-line bg-ground px-6 py-6">
                 <FormField
                     :label="$t('setup.event.name')"
-                    :error="fieldError('name')"
+                    :error="fieldError(form, 'name')"
                     required
                     class="mb-4"
                 >
@@ -99,7 +71,7 @@ const skip = () =>
                 <div class="mb-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                     <FormField
                         :label="$t('setup.event.starts_on')"
-                        :error="fieldError('starts_on')"
+                        :error="fieldError(form, 'starts_on')"
                         required
                     >
                         <template #default="{ id, invalid }">
@@ -116,7 +88,7 @@ const skip = () =>
                     </FormField>
                     <FormField
                         :label="$t('setup.event.ends_on')"
-                        :error="fieldError('ends_on')"
+                        :error="fieldError(form, 'ends_on')"
                         required
                     >
                         <template #default="{ id, invalid }">
@@ -135,9 +107,8 @@ const skip = () =>
 
                 <FormField
                     :label="$t('setup.event.timezone')"
-                    :error="fieldError('timezone')"
+                    :error="fieldError(form, 'timezone')"
                     :hint="$t('setup.event.timezone_hint')"
-                    required
                 >
                     <template #default="{ id, invalid }">
                         <Select
@@ -158,15 +129,6 @@ const skip = () =>
             </div>
 
             <div class="mt-5 flex items-center justify-end gap-4">
-                <Button
-                    type="button"
-                    variant="ghost"
-                    class="text-secondary hover:bg-secondary-soft hover:text-secondary"
-                    :disabled="form.processing"
-                    @click="skip"
-                >
-                    {{ $t('setup.actions.skip') }}
-                </Button>
                 <Button
                     type="submit"
                     variant="primary"

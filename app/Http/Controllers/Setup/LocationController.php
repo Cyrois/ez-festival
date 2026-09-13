@@ -70,9 +70,42 @@ class LocationController extends Controller
         return redirect()->route('setup.locations');
     }
 
+    public function destroy(Request $request, Location $location): RedirectResponse
+    {
+        $organization = $this->organization($request);
+        $event = $organization->activeEvent;
+
+        abort_unless(
+            $event !== null && $location->event_id === $event->id,
+            404,
+        );
+
+        $location->delete();
+
+        return redirect()->route('setup.locations');
+    }
+
     public function continue(Request $request): RedirectResponse
     {
-        $this->organization($request);
+        $organization = $this->organization($request);
+        $event = $organization->activeEvent;
+
+        if ($event === null) {
+            return redirect()->route('setup.event');
+        }
+
+        $data = $request->validate([
+            'suggestions' => ['sometimes', 'array'],
+            'suggestions.*.name' => ['required', 'string', 'max:255'],
+            'suggestions.*.type' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        foreach ($data['suggestions'] ?? [] as $item) {
+            $event->locations()->create([
+                'name' => $item['name'],
+                'type' => $item['type'] ?? null,
+            ]);
+        }
 
         return redirect()->route('setup.vendor-types');
     }

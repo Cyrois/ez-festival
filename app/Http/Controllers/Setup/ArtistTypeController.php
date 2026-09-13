@@ -16,9 +16,13 @@ class ArtistTypeController extends Controller
 {
     use InteractsWithSetup;
 
-    public function show(Request $request): Response
+    public function show(Request $request): Response|RedirectResponse
     {
         $organization = $this->organization($request);
+
+        if ($organization->activeEvent === null) {
+            return redirect()->route('setup.event');
+        }
 
         return Inertia::render('Setup/ArtistTypes', [
             'organization' => [
@@ -55,9 +59,31 @@ class ArtistTypeController extends Controller
         return redirect()->route('setup.artist-types');
     }
 
+    public function destroy(Request $request, ArtistType $artistType): RedirectResponse
+    {
+        $organization = $this->organization($request);
+
+        abort_unless($artistType->organization_id === $organization->id, 404);
+
+        $artistType->delete();
+
+        return redirect()->route('setup.artist-types');
+    }
+
     public function continue(Request $request): RedirectResponse
     {
-        $this->organization($request);
+        $organization = $this->organization($request);
+
+        $data = $request->validate([
+            'suggestions' => ['sometimes', 'array'],
+            'suggestions.*.name' => ['required', 'string', 'max:255'],
+        ]);
+
+        foreach ($data['suggestions'] ?? [] as $item) {
+            $organization->artistTypes()->create([
+                'name' => $item['name'],
+            ]);
+        }
 
         return redirect()->route('setup.ready');
     }

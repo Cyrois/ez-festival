@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/button';
 import { FormField } from '../../components/ui/form-field';
 import { Input } from '../../components/ui/input';
 import { useFlashToast } from '../../composables/useFlashToast';
+import { fieldError, toastFormErrors } from '../../lib/fieldError';
 import { useForm, router } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import { ref } from 'vue';
@@ -23,20 +24,6 @@ const editingId = ref(null);
 const addForm = useForm({ name: '' });
 const editForm = useForm({ name: '' });
 
-const fieldError = (form, key) => {
-    const error = form.errors[key];
-    if (!error) {
-        return '';
-    }
-
-    const value = form[key];
-    if (value === '' || value === null || value === undefined) {
-        return trans('setup.errors.required');
-    }
-
-    return error;
-};
-
 const submitAdd = () => {
     addForm.post('/setup/vendor-types', {
         preserveScroll: true,
@@ -45,7 +32,8 @@ const submitAdd = () => {
             showAdd.value = false;
             showSuccess(trans('setup.toast.vendor_type_added'));
         },
-        onError: () => showError(trans('setup.errors.required_fields')),
+        onError: (errors) =>
+            toastFormErrors(addForm, errors, { showError, showFormError }),
     });
 };
 
@@ -62,7 +50,8 @@ const submitEdit = (type) => {
             editingId.value = null;
             showSuccess(trans('setup.toast.vendor_type_updated'));
         },
-        onError: () => showError(trans('setup.errors.required_fields')),
+        onError: (errors) =>
+            toastFormErrors(editForm, errors, { showError, showFormError }),
     });
 };
 
@@ -229,16 +218,14 @@ const skip = () =>
 
         <div class="mt-5 flex items-center justify-end gap-4">
             <Button
-                variant="ghost"
+                variant="secondary"
                 href="/setup/locations"
-                class="text-secondary hover:bg-secondary-soft hover:text-secondary"
             >
                 {{ $t('setup.actions.back') }}
             </Button>
             <Button
                 type="button"
-                variant="ghost"
-                class="text-secondary hover:bg-secondary-soft hover:text-secondary"
+                variant="secondary"
                 @click="skip"
             >
                 {{ $t('setup.actions.skip') }}
