@@ -5,7 +5,6 @@ import {
     faCircleExclamation,
     faCircleInfo,
     faEllipsis,
-    faEllipsisVertical,
     faMagnifyingGlass,
     faPen,
     faPlus,
@@ -13,7 +12,6 @@ import {
     faUser,
     faXmark,
 } from '@fortawesome/free-solid-svg-icons';
-import { faUser as farUser } from '@fortawesome/free-regular-svg-icons';
 
 /**
  * Curated Font Awesome Free icons for the UI kit.
@@ -25,23 +23,12 @@ export const kitIcons = [
     faCircleExclamation,
     faCircleInfo,
     faEllipsis,
-    faEllipsisVertical,
     faMagnifyingGlass,
     faPen,
     faPlus,
     faTrash,
     faUser,
     faXmark,
-    farUser,
 ];
 
 library.add(...kitIcons);
-
-/**
- * @param {string} name Icon name without prefix (e.g. "check")
- * @param {'fas' | 'far' | 'fab'} [prefix='fas']
- * @returns {[string, string]}
- */
-export function icon(name, prefix = 'fas') {
-    return [prefix, name];
-}

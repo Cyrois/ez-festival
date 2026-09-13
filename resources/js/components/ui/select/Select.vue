@@ -1,6 +1,7 @@
 <script setup>
 import { computed, useAttrs } from 'vue';
 import { cn } from '../../../lib/utils';
+import { Icon } from '../icon';
 
 defineOptions({
     inheritAttrs: false,
@@ -54,7 +55,10 @@ const onChange = (event) => {
             class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-muted"
             aria-hidden="true"
         >
-            ▾
+            <Icon
+                :name="['fas', 'chevron-down']"
+                size="sm"
+            />
         </span>
     </div>
 </template>

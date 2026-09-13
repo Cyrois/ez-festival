@@ -6,24 +6,23 @@ import { Icon } from '../icon';
 
 const { message, title, variant, visible, dismiss } = useFlashToast();
 
-const iconWrapClass = computed(() => {
+const toastMeta = computed(() => {
     if (variant.value === 'success') {
-        return 'bg-success';
+        return {
+            wrap: 'bg-success',
+            icon: ['fas', 'check'],
+        };
     }
     if (variant.value === 'error') {
-        return 'bg-danger';
+        return {
+            wrap: 'bg-danger',
+            icon: ['fas', 'circle-exclamation'],
+        };
     }
-    return 'bg-secondary';
-});
-
-const toastIcon = computed(() => {
-    if (variant.value === 'success') {
-        return ['fas', 'check'];
-    }
-    if (variant.value === 'error') {
-        return ['fas', 'xmark'];
-    }
-    return ['fas', 'circle-info'];
+    return {
+        wrap: 'bg-secondary',
+        icon: ['fas', 'circle-info'],
+    };
 });
 
 const role = computed(() => (variant.value === 'error' ? 'alert' : 'status'));
@@ -43,13 +42,13 @@ const role = computed(() => (variant.value === 'error' ? 'alert' : 'status'));
             :class="
                 cn(
                     'flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-white',
-                    iconWrapClass,
+                    toastMeta.wrap,
                 )
             "
             aria-hidden="true"
         >
             <Icon
-                :name="toastIcon"
+                :name="toastMeta.icon"
                 size="xs"
             />
         </div>
