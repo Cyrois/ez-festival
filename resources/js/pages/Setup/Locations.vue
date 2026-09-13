@@ -1,7 +1,10 @@
 <script setup>
 import SetupLayout from '../../layouts/SetupLayout.vue';
+import { Button } from '../../components/ui/button';
+import { FormField } from '../../components/ui/form-field';
+import { Input } from '../../components/ui/input';
 import { useFlashToast } from '../../composables/useFlashToast';
-import { Link, useForm, router } from '@inertiajs/vue3';
+import { useForm, router } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import { ref } from 'vue';
 
@@ -12,13 +15,27 @@ const props = defineProps({
     currentStep: { type: Number, required: true },
 });
 
-const { showFormError, showSuccess } = useFlashToast();
+const { showFormError, showSuccess, showError } = useFlashToast();
 
 const showAdd = ref(false);
 const editingId = ref(null);
 
 const addForm = useForm({ name: '', type: '' });
 const editForm = useForm({ name: '', type: '' });
+
+const fieldError = (form, key) => {
+    const error = form.errors[key];
+    if (!error) {
+        return '';
+    }
+
+    const value = form[key];
+    if (value === '' || value === null || value === undefined) {
+        return trans('setup.errors.required');
+    }
+
+    return error;
+};
 
 const submitAdd = () => {
     addForm.post('/setup/locations', {
@@ -28,7 +45,7 @@ const submitAdd = () => {
             showAdd.value = false;
             showSuccess(trans('setup.toast.location_added'));
         },
-        onError: (errors) => showFormError(errors),
+        onError: () => showError(trans('setup.errors.required_fields')),
     });
 };
 
@@ -36,6 +53,7 @@ const startEdit = (location) => {
     editingId.value = location.id;
     editForm.name = location.name;
     editForm.type = location.type ?? '';
+    editForm.clearErrors();
 };
 
 const submitEdit = (location) => {
@@ -45,7 +63,7 @@ const submitEdit = (location) => {
             editingId.value = null;
             showSuccess(trans('setup.toast.location_updated'));
         },
-        onError: (errors) => showFormError(errors),
+        onError: () => showError(trans('setup.errors.required_fields')),
     });
 };
 
@@ -70,114 +88,149 @@ const skip = () =>
 <template>
     <SetupLayout
         :title="$t('setup.locations.title')"
-        :crumb="$t('setup.crumbs.locations')"
         :current-step="currentStep"
         :organization-name="organization.name"
-        :event-name="event.name"
     >
-        <div class="mb-3 flex items-start justify-between gap-2.5">
+        <div class="mb-5 flex items-start justify-between gap-3">
             <div>
-                <h2 class="m-0 mb-1 text-base font-bold">
+                <h1 class="m-0 mb-1.5 text-[28px] font-bold tracking-tight">
                     {{ $t('setup.locations.heading') }}
-                </h2>
-                <p class="m-0 text-[11px] leading-snug text-muted">
+                </h1>
+                <p class="m-0 text-sm leading-snug text-muted">
                     {{ $t('setup.locations.lead') }}
                 </p>
             </div>
-            <button
+            <Button
                 type="button"
-                class="h-7 shrink-0 cursor-pointer rounded-md border-none bg-brand px-2.5 text-[11px] font-bold text-white hover:bg-brand-hover"
+                variant="primary"
+                size="sm"
+                class="shrink-0"
                 @click="showAdd = !showAdd"
             >
                 {{ $t('setup.locations.add') }}
-            </button>
+            </Button>
         </div>
 
         <form
             v-if="showAdd"
-            class="mb-2 rounded-lg border border-line bg-white p-2.5"
+            class="mb-4 rounded-xl border border-line bg-ground px-6 py-6"
             @submit.prevent="submitAdd"
         >
-            <label
-                class="mb-1 block text-[10px] font-bold"
-                for="loc-name"
-                >{{ $t('setup.locations.name') }}</label
-            >
-            <input
-                id="loc-name"
-                v-model="addForm.name"
-                type="text"
+            <FormField
+                :label="$t('setup.locations.name')"
+                :error="fieldError(addForm, 'name')"
                 required
-                class="mb-2 box-border h-[30px] w-full rounded-md border border-line bg-white px-2 text-[11px] outline-none focus:border-brand"
-            />
-            <label
-                class="mb-1 block text-[10px] font-bold"
-                for="loc-type"
-                >{{ $t('setup.locations.type') }}</label
+                class="mb-4"
             >
-            <input
-                id="loc-type"
-                v-model="addForm.type"
-                type="text"
-                class="mb-2 box-border h-[30px] w-full rounded-md border border-line bg-white px-2 text-[11px] outline-none focus:border-brand"
-            />
-            <div class="flex justify-end gap-1.5">
-                <button
+                <template #default="{ id, invalid }">
+                    <Input
+                        :id="id"
+                        v-model="addForm.name"
+                        type="text"
+                        :placeholder="$t('setup.locations.name_placeholder')"
+                        :invalid="invalid"
+                        autocomplete="off"
+                    />
+                </template>
+            </FormField>
+            <FormField
+                :label="$t('setup.locations.type')"
+                :error="fieldError(addForm, 'type')"
+                class="mb-4"
+            >
+                <template #default="{ id, invalid }">
+                    <Input
+                        :id="id"
+                        v-model="addForm.type"
+                        type="text"
+                        :placeholder="$t('setup.locations.type_placeholder')"
+                        :invalid="invalid"
+                        autocomplete="off"
+                    />
+                </template>
+            </FormField>
+            <div class="flex justify-end gap-3">
+                <Button
                     type="button"
-                    class="h-7 cursor-pointer rounded-md border border-line bg-white px-2.5 text-[11px] font-bold"
+                    variant="outline"
                     @click="showAdd = false"
                 >
                     {{ $t('setup.actions.cancel') }}
-                </button>
-                <button
+                </Button>
+                <Button
                     type="submit"
-                    class="h-7 cursor-pointer rounded-md border-none bg-brand px-2.5 text-[11px] font-bold text-white"
+                    variant="primary"
+                    :loading="addForm.processing"
                     :disabled="addForm.processing"
                 >
                     {{ $t('setup.actions.add') }}
-                </button>
+                </Button>
             </div>
         </form>
 
         <div
             v-if="locations.length"
-            class="mb-2 overflow-hidden rounded-lg border border-line"
+            class="mb-4 overflow-hidden rounded-xl border border-line bg-ground"
         >
             <div
                 v-for="location in locations"
                 :key="location.id"
-                class="flex items-center justify-between border-b border-line px-2.5 py-2 text-[11px] last:border-b-0"
+                class="flex items-center justify-between border-b border-line px-4 py-3 text-sm last:border-b-0"
             >
                 <template v-if="editingId === location.id">
                     <form
-                        class="flex w-full flex-col gap-1.5"
+                        class="flex w-full flex-col gap-3"
                         @submit.prevent="submitEdit(location)"
                     >
-                        <input
-                            v-model="editForm.name"
-                            type="text"
+                        <FormField
+                            :label="$t('setup.locations.name')"
+                            :error="fieldError(editForm, 'name')"
                             required
-                            class="box-border h-[30px] w-full rounded-md border border-line px-2 text-[11px]"
-                        />
-                        <input
-                            v-model="editForm.type"
-                            type="text"
-                            class="box-border h-[30px] w-full rounded-md border border-line px-2 text-[11px]"
-                        />
-                        <div class="flex justify-end gap-1.5">
-                            <button
+                        >
+                            <template #default="{ id, invalid }">
+                                <Input
+                                    :id="id"
+                                    v-model="editForm.name"
+                                    type="text"
+                                    :placeholder="
+                                        $t('setup.locations.name_placeholder')
+                                    "
+                                    :invalid="invalid"
+                                />
+                            </template>
+                        </FormField>
+                        <FormField
+                            :label="$t('setup.locations.type')"
+                            :error="fieldError(editForm, 'type')"
+                        >
+                            <template #default="{ id, invalid }">
+                                <Input
+                                    :id="id"
+                                    v-model="editForm.type"
+                                    type="text"
+                                    :placeholder="
+                                        $t('setup.locations.type_placeholder')
+                                    "
+                                    :invalid="invalid"
+                                />
+                            </template>
+                        </FormField>
+                        <div class="flex justify-end gap-3">
+                            <Button
                                 type="button"
-                                class="h-7 cursor-pointer rounded-md border border-line bg-white px-2 text-[11px] font-bold"
+                                variant="outline"
                                 @click="editingId = null"
                             >
                                 {{ $t('setup.actions.cancel') }}
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="submit"
-                                class="h-7 cursor-pointer rounded-md border-none bg-brand px-2 text-[11px] font-bold text-white"
+                                variant="primary"
+                                :loading="editForm.processing"
+                                :disabled="editForm.processing"
                             >
                                 {{ $t('setup.actions.save') }}
-                            </button>
+                            </Button>
                         </div>
                     </form>
                 </template>
@@ -186,53 +239,57 @@ const skip = () =>
                         <strong class="font-bold">{{ location.name }}</strong>
                         <div
                             v-if="location.type"
-                            class="text-[10px] text-muted"
+                            class="text-xs text-muted"
                         >
                             {{ location.type }}
                         </div>
                     </div>
-                    <button
+                    <Button
                         type="button"
-                        class="cursor-pointer border-none bg-transparent text-[10px] text-muted"
+                        variant="ghost"
+                        size="sm"
+                        class="text-muted"
                         @click="startEdit(location)"
                     >
                         {{ $t('setup.actions.edit') }}
-                    </button>
+                    </Button>
                 </template>
             </div>
         </div>
         <div
             v-else
-            class="mb-2 rounded-lg border border-dashed border-line px-3.5 py-3.5 text-center text-[11px] text-muted"
+            class="mb-4 rounded-xl border border-dashed border-line px-4 py-8 text-center text-sm text-muted"
         >
             {{ $t('setup.locations.empty') }}
         </div>
 
-        <p class="mb-2 text-[10px] leading-snug text-muted">
+        <p class="mb-4 text-xs leading-snug text-muted">
             {{ $t('setup.locations.note') }}
         </p>
 
-        <div class="mt-2 flex justify-end gap-1.5">
-            <Link
+        <div class="mt-5 flex items-center justify-end gap-4">
+            <Button
+                variant="ghost"
                 href="/setup/event"
-                class="inline-flex h-7 items-center rounded-md border-none bg-page px-2.5 text-[11px] font-bold text-charcoal no-underline"
+                class="text-secondary hover:bg-secondary-soft hover:text-secondary"
             >
                 {{ $t('setup.actions.back') }}
-            </Link>
-            <button
+            </Button>
+            <Button
                 type="button"
-                class="h-7 cursor-pointer rounded-md border-none bg-page px-2.5 text-[11px] font-bold text-charcoal"
+                variant="ghost"
+                class="text-secondary hover:bg-secondary-soft hover:text-secondary"
                 @click="skip"
             >
                 {{ $t('setup.actions.skip') }}
-            </button>
-            <button
+            </Button>
+            <Button
                 type="button"
-                class="h-7 cursor-pointer rounded-md border-none bg-brand px-2.5 text-[11px] font-bold text-white hover:bg-brand-hover"
+                variant="primary"
                 @click="continueSetup"
             >
                 {{ $t('setup.actions.save_continue') }}
-            </button>
+            </Button>
         </div>
     </SetupLayout>
 </template>
