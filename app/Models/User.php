@@ -33,7 +33,9 @@ class User extends Authenticatable
 
     public function organizations(): BelongsToMany
     {
-        return $this->belongsToMany(Organization::class)->withTimestamps();
+        return $this->belongsToMany(Organization::class)
+            ->withPivot('current_event_id')
+            ->withTimestamps();
     }
 
     public function primaryOrganization(): ?Organization
@@ -61,5 +63,44 @@ class User extends Authenticatable
         $this->organizations()->attach($organization);
 
         return $organization;
+    }
+
+    /**
+     * Resolve the effective event for this user in an organization:
+     * membership current_event_id (if still valid for the org), else org active_event_id.
+     */
+    public function effectiveEvent(?Organization $organization = null): ?Event
+    {
+        $organization ??= $this->primaryOrganization();
+
+        if ($organization === null) {
+            return null;
+        }
+
+        $membership = $this->organizations()
+            ->where('organizations.id', $organization->id)
+            ->first();
+
+        $overrideId = $membership?->pivot?->current_event_id;
+
+        if ($overrideId !== null) {
+            $override = $organization->events()->whereKey($overrideId)->first();
+
+            if ($override !== null) {
+                return $override;
+            }
+        }
+
+        return $organization->activeEvent;
+    }
+
+    /**
+     * Set this user's per-org current event override.
+     */
+    public function setCurrentEvent(Organization $organization, Event $event): void
+    {
+        $this->organizations()->updateExistingPivot($organization->id, [
+            'current_event_id' => $event->id,
+        ]);
     }
 }

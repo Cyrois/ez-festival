@@ -1,5 +1,6 @@
 <script setup>
 import SetupLayout from '../../layouts/SetupLayout.vue';
+import { useFlashToast } from '../../composables/useFlashToast';
 import { Link, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
@@ -9,6 +10,8 @@ const props = defineProps({
     locations: { type: Array, required: true },
     currentStep: { type: Number, required: true },
 });
+
+const { showFormError } = useFlashToast();
 
 const showAdd = ref(false);
 const editingId = ref(null);
@@ -23,6 +26,7 @@ const submitAdd = () => {
             addForm.reset();
             showAdd.value = false;
         },
+        onError: (errors) => showFormError(errors),
     });
 };
 
@@ -38,11 +42,26 @@ const submitEdit = (location) => {
         onSuccess: () => {
             editingId.value = null;
         },
+        onError: (errors) => showFormError(errors),
     });
 };
 
-const continueSetup = () => router.post('/setup/locations/continue');
-const skip = () => router.post('/setup/locations/skip');
+const continueSetup = () =>
+    router.post(
+        '/setup/locations/continue',
+        {},
+        {
+            onError: (errors) => showFormError(errors),
+        },
+    );
+const skip = () =>
+    router.post(
+        '/setup/locations/skip',
+        {},
+        {
+            onError: (errors) => showFormError(errors),
+        },
+    );
 </script>
 
 <template>

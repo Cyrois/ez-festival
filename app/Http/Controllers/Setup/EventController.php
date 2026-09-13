@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Setup\Concerns\InteractsWithSetup;
 use App\Http\Requests\Setup\StoreEventRequest;
 use App\Models\Event;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -54,6 +55,10 @@ class EventController extends Controller
         }
 
         $organization->forceFill(['active_event_id' => $event->id])->save();
+
+        /** @var User $user */
+        $user = $request->user();
+        $user->setCurrentEvent($organization, $event);
 
         return redirect()->route('setup.locations');
     }
