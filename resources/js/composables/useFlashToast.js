@@ -40,15 +40,15 @@ export function useFlashToast() {
     const showError = (text, heading = '') => {
         show({
             variant: 'error',
-            title: heading || trans('setup.toast.error_title'),
-            message: text || trans('setup.errors.generic'),
+            title: heading || trans('toast.error_title'),
+            message: text || trans('errors.generic'),
         });
     };
 
     const showSuccess = (text, heading = '') => {
         show({
             variant: 'success',
-            title: heading || trans('setup.toast.saved_title'),
+            title: heading || trans('toast.saved_title'),
             message: text,
         });
     };
@@ -70,7 +70,7 @@ export function useFlashToast() {
         showError(
             typeof first === 'string' && first
                 ? first
-                : trans('setup.errors.generic'),
+                : trans('errors.generic'),
         );
     };
 
