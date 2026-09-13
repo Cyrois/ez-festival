@@ -54,8 +54,12 @@ const skip = () => router.post('/setup/vendor-types/skip');
     >
         <div class="mb-3 flex items-start justify-between gap-2.5">
             <div>
-                <h2 class="m-0 mb-1 text-base font-bold">{{ $t('setup.vendor_types.heading') }}</h2>
-                <p class="m-0 text-[11px] leading-snug text-muted">{{ $t('setup.vendor_types.lead') }}</p>
+                <h2 class="m-0 mb-1 text-base font-bold">
+                    {{ $t('setup.vendor_types.heading') }}
+                </h2>
+                <p class="m-0 text-[11px] leading-snug text-muted">
+                    {{ $t('setup.vendor_types.lead') }}
+                </p>
             </div>
             <button
                 type="button"
@@ -71,7 +75,11 @@ const skip = () => router.post('/setup/vendor-types/skip');
             class="mb-2 rounded-lg border border-line bg-white p-2.5"
             @submit.prevent="submitAdd"
         >
-            <label class="mb-1 block text-[10px] font-bold" for="vt-name">{{ $t('setup.types.name') }}</label>
+            <label
+                class="mb-1 block text-[10px] font-bold"
+                for="vt-name"
+                >{{ $t('setup.types.name') }}</label
+            >
             <input
                 id="vt-name"
                 v-model="addForm.name"
@@ -97,14 +105,20 @@ const skip = () => router.post('/setup/vendor-types/skip');
             </div>
         </form>
 
-        <div v-if="types.length" class="mb-2 overflow-hidden rounded-lg border border-line">
+        <div
+            v-if="types.length"
+            class="mb-2 overflow-hidden rounded-lg border border-line"
+        >
             <div
                 v-for="type in types"
                 :key="type.id"
                 class="flex items-center justify-between border-b border-line px-2.5 py-2 text-[11px] last:border-b-0"
             >
                 <template v-if="editingId === type.id">
-                    <form class="flex w-full items-center gap-1.5" @submit.prevent="submitEdit(type)">
+                    <form
+                        class="flex w-full items-center gap-1.5"
+                        @submit.prevent="submitEdit(type)"
+                    >
                         <input
                             v-model="editForm.name"
                             type="text"
@@ -145,7 +159,9 @@ const skip = () => router.post('/setup/vendor-types/skip');
             {{ $t('setup.vendor_types.empty') }}
         </div>
 
-        <p class="mb-2 text-[10px] leading-snug text-muted">{{ $t('setup.vendor_types.note') }}</p>
+        <p class="mb-2 text-[10px] leading-snug text-muted">
+            {{ $t('setup.vendor_types.note') }}
+        </p>
 
         <div class="mt-2 flex justify-end gap-1.5">
             <Link
