@@ -18,11 +18,11 @@ const props = defineProps({
     },
     confirmLabel: {
         type: String,
-        default: 'Confirm',
+        default: '',
     },
     cancelLabel: {
         type: String,
-        default: 'Cancel',
+        default: '',
     },
     confirmVariant: {
         type: String,
@@ -133,7 +133,7 @@ onUnmounted(() => {
                         :disabled="busy"
                         @click="close"
                     >
-                        {{ cancelLabel }}
+                        {{ cancelLabel || $t('ui.dialog.cancel') }}
                     </Button>
                     <Button
                         type="button"
@@ -142,7 +142,7 @@ onUnmounted(() => {
                         :disabled="busy"
                         @click="confirm"
                     >
-                        {{ confirmLabel }}
+                        {{ confirmLabel || $t('ui.dialog.confirm') }}
                     </Button>
                 </div>
             </div>

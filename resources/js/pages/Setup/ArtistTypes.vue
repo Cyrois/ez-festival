@@ -26,6 +26,7 @@ const editingId = ref(null);
 const editingSuggestionKey = ref(null);
 const deleting = ref(null);
 const deleteBusy = ref(false);
+const finishBusy = ref(false);
 
 let suggestionSeq = 0;
 const makeSuggestions = () => [
@@ -134,7 +135,11 @@ const confirmDelete = () => {
     });
 };
 
-const finish = () =>
+const finish = () => {
+    if (finishBusy.value) {
+        return;
+    }
+    finishBusy.value = true;
     router.post(
         '/setup/artist-types/continue',
         {
@@ -144,8 +149,12 @@ const finish = () =>
         },
         {
             onError: (errors) => showFormError(errors),
+            onFinish: () => {
+                finishBusy.value = false;
+            },
         },
     );
+};
 
 const skip = () =>
     router.post(
@@ -311,9 +320,8 @@ const deleteBody = computed(() => {
                         </Button>
                         <Button
                             type="button"
-                            variant="ghost"
+                            variant="outline-danger"
                             size="icon"
-                            class="text-danger hover:bg-danger/5 hover:text-danger"
                             :aria-label="$t('setup.actions.delete')"
                             @click="
                                 askDelete({
@@ -400,9 +408,8 @@ const deleteBody = computed(() => {
                         </Button>
                         <Button
                             type="button"
-                            variant="ghost"
+                            variant="outline-danger"
                             size="icon"
-                            class="text-danger hover:bg-danger/5 hover:text-danger"
                             :aria-label="$t('setup.actions.delete')"
                             @click="
                                 askDelete({
@@ -451,6 +458,8 @@ const deleteBody = computed(() => {
             <Button
                 type="button"
                 variant="primary"
+                :loading="finishBusy"
+                :disabled="finishBusy"
                 @click="finish"
             >
                 {{ $t('setup.actions.finish') }}

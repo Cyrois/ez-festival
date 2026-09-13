@@ -26,6 +26,7 @@ const editingId = ref(null);
 const editingSuggestionKey = ref(null);
 const deleting = ref(null);
 const deleteBusy = ref(false);
+const continueBusy = ref(false);
 
 let suggestionSeq = 0;
 const makeSuggestions = () => [
@@ -139,7 +140,11 @@ const confirmDelete = () => {
     });
 };
 
-const continueSetup = () =>
+const continueSetup = () => {
+    if (continueBusy.value) {
+        return;
+    }
+    continueBusy.value = true;
     router.post(
         '/setup/locations/continue',
         {
@@ -150,8 +155,12 @@ const continueSetup = () =>
         },
         {
             onError: (errors) => showFormError(errors),
+            onFinish: () => {
+                continueBusy.value = false;
+            },
         },
     );
+};
 
 const skip = () =>
     router.post(
@@ -358,9 +367,8 @@ const deleteBody = computed(() => {
                         </Button>
                         <Button
                             type="button"
-                            variant="ghost"
+                            variant="outline-danger"
                             size="icon"
-                            class="text-danger hover:bg-danger/5 hover:text-danger"
                             :aria-label="$t('setup.actions.delete')"
                             @click="
                                 askDelete({
@@ -468,9 +476,8 @@ const deleteBody = computed(() => {
                         </Button>
                         <Button
                             type="button"
-                            variant="ghost"
+                            variant="outline-danger"
                             size="icon"
-                            class="text-danger hover:bg-danger/5 hover:text-danger"
                             :aria-label="$t('setup.actions.delete')"
                             @click="
                                 askDelete({
@@ -519,6 +526,8 @@ const deleteBody = computed(() => {
             <Button
                 type="button"
                 variant="primary"
+                :loading="continueBusy"
+                :disabled="continueBusy"
                 @click="continueSetup"
             >
                 {{ $t('setup.actions.save_continue') }}
