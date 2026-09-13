@@ -219,7 +219,7 @@
     "setup.locations.name_placeholder": "e.g. Main Stage",
     "setup.locations.type_placeholder": "e.g. Stage, tent, indoor",
     "setup.types.name_placeholder": "e.g. Food truck",
-    "setup.artist_types.name_placeholder": "e.g. Headliner",
+    "setup.artist_types.name_placeholder": "e.g. Folk",
     "setup.errors.required": "Required",
     "setup.errors.required_fields": "Fill in the required fields and try again."
 }
