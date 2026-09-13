@@ -1,6 +1,9 @@
 {
     "app.name": "Artist Tree",
     "app.mark": "AT",
+    "errors.generic": "Something went wrong. Please try again.",
+    "toast.error_title": "Couldn't save",
+    "toast.saved_title": "Saved",
     "auth.login.title": "Sign in",
     "auth.login.lead": "Office access for your festival organization.",
     "auth.login.email": "Email",

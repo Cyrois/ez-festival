@@ -1,10 +1,11 @@
 <script setup>
 import { Toast } from '../components/ui/toast';
 import { Icon } from '../components/ui/icon';
-import { useFlashToast } from '../composables/useFlashToast';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { trans } from 'laravel-vue-i18n';
-import { computed, onUnmounted, watch } from 'vue';
+import { Button, buttonVariants } from '../components/ui/button';
+import { useInertiaErrorToast } from '../composables/useInertiaErrorToast';
+import { cn } from '../lib/utils';
+import { Head, Link, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 
 const props = defineProps({
     title: {
@@ -18,7 +19,7 @@ const props = defineProps({
 });
 
 const page = usePage();
-const { showError } = useFlashToast();
+useInertiaErrorToast();
 
 const user = computed(() => page.props.auth?.user);
 const eventName = computed(() => page.props.activeEvent?.name ?? null);
@@ -87,24 +88,13 @@ const navItemClass = (item) => {
     return 'text-charcoal/80 hover:bg-page hover:text-charcoal';
 };
 
-watch(
-    () => page.props.flash?.error,
-    (error) => {
-        if (error) {
-            showError(error);
-        }
-    },
-    { immediate: true },
+const signOutClass = cn(
+    buttonVariants({
+        variant: 'outline',
+        size: 'sm',
+    }),
+    'w-full justify-start',
 );
-
-const removeInvalidListener = router.on('invalid', (event) => {
-    event.preventDefault();
-    showError(trans('setup.errors.generic'));
-});
-
-onUnmounted(() => {
-    removeInvalidListener();
-});
 </script>
 
 <template>
@@ -160,12 +150,14 @@ onUnmounted(() => {
             </nav>
 
             <div class="mt-auto space-y-2 border-t border-line px-3 py-3">
-                <Link
+                <Button
                     href="/setup/event"
-                    class="inline-flex w-full items-center rounded-lg px-2 py-1.5 text-[13px] font-semibold text-secondary no-underline hover:bg-page"
+                    variant="secondary"
+                    size="sm"
+                    class="w-full justify-start"
                 >
                     {{ $t('nav.setup') }}
-                </Link>
+                </Button>
                 <div class="min-w-0 px-2">
                     <p class="m-0 truncate text-xs font-semibold text-charcoal">
                         {{
@@ -183,7 +175,7 @@ onUnmounted(() => {
                     method="post"
                     href="/logout"
                     as="button"
-                    class="inline-flex w-full cursor-pointer items-center rounded-lg border border-line bg-ground px-3 py-2 text-left text-[13px] font-semibold text-charcoal"
+                    :class="signOutClass"
                 >
                     {{ $t('dashboard.sign_out') }}
                 </Link>

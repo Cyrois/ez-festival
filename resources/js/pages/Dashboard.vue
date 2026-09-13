@@ -2,13 +2,8 @@
 import AppLayout from '../layouts/AppLayout.vue';
 import { usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import { trans } from 'laravel-vue-i18n';
 
 const props = defineProps({
-    organization: {
-        type: Object,
-        default: null,
-    },
     event: {
         type: Object,
         default: null,
@@ -20,19 +15,10 @@ const user = computed(() => page.props.auth?.user);
 const eventName = computed(
     () => props.event?.name ?? page.props.activeEvent?.name ?? null,
 );
-
-const breadcrumbs = computed(() => [
-    {
-        label: trans('dashboard.title'),
-    },
-]);
 </script>
 
 <template>
-    <AppLayout
-        :title="$t('dashboard.title')"
-        :breadcrumbs="breadcrumbs"
-    >
+    <AppLayout :title="$t('dashboard.title')">
         <h1 class="mb-2 text-2xl font-bold tracking-tight">
             {{ $t('dashboard.title') }}
         </h1>

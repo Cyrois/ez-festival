@@ -1,9 +1,9 @@
 <script setup>
 import { Toast } from '../components/ui/toast';
-import { useFlashToast } from '../composables/useFlashToast';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { useInertiaErrorToast } from '../composables/useInertiaErrorToast';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
-import { computed, onUnmounted, watch } from 'vue';
+import { computed } from 'vue';
 
 const props = defineProps({
     title: { type: String, required: true },
@@ -12,7 +12,7 @@ const props = defineProps({
 });
 
 const page = usePage();
-const { showError } = useFlashToast();
+useInertiaErrorToast();
 
 const orgName = computed(
     () => props.organizationName || page.props.organization?.name || '',
@@ -66,25 +66,6 @@ const stepNumberClass = (n) => {
 
     return 'bg-charcoal/10 text-charcoal/70';
 };
-
-watch(
-    () => page.props.flash?.error,
-    (error) => {
-        if (error) {
-            showError(error);
-        }
-    },
-    { immediate: true },
-);
-
-const removeInvalidListener = router.on('invalid', (event) => {
-    event.preventDefault();
-    showError(trans('setup.errors.generic'));
-});
-
-onUnmounted(() => {
-    removeInvalidListener();
-});
 </script>
 
 <template>

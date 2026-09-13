@@ -20,10 +20,6 @@ class DashboardController extends Controller
         $event = $user->effectiveEvent($organization);
 
         return Inertia::render('Dashboard', [
-            'organization' => [
-                'id' => $organization->id,
-                'name' => $organization->name,
-            ],
             'event' => $event
                 ? [
                     'id' => $event->id,
