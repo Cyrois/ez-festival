@@ -12,21 +12,6 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('organization_user', function (Blueprint $table) {
-            $table->dropForeign(['organization_id']);
-            $table->dropForeign(['user_id']);
-        });
-
-        Schema::table('organization_user', function (Blueprint $table) {
-            $table->foreign('organization_id')
-                ->references('id')
-                ->on('organizations')
-                ->restrictOnDelete();
-
-            $table->foreign('user_id')
-                ->references('id')
-                ->on('users')
-                ->restrictOnDelete();
-
             $table->foreignId('current_event_id')
                 ->nullable()
                 ->after('user_id')
@@ -43,21 +28,6 @@ return new class extends Migration
         Schema::table('organization_user', function (Blueprint $table) {
             $table->dropForeign(['current_event_id']);
             $table->dropColumn('current_event_id');
-
-            $table->dropForeign(['organization_id']);
-            $table->dropForeign(['user_id']);
-        });
-
-        Schema::table('organization_user', function (Blueprint $table) {
-            $table->foreign('organization_id')
-                ->references('id')
-                ->on('organizations')
-                ->cascadeOnDelete();
-
-            $table->foreign('user_id')
-                ->references('id')
-                ->on('users')
-                ->cascadeOnDelete();
         });
     }
 };
