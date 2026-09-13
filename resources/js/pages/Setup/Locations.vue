@@ -1,9 +1,16 @@
 <script setup>
 import SetupLayout from '../../layouts/SetupLayout.vue';
+import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/card';
+import { Dialog } from '../../components/ui/dialog';
+import { FormField } from '../../components/ui/form-field';
+import { Icon } from '../../components/ui/icon';
+import { Input } from '../../components/ui/input';
 import { useFlashToast } from '../../composables/useFlashToast';
-import { Link, useForm, router } from '@inertiajs/vue3';
+import { fieldError, toastFormErrors } from '../../lib/fieldError';
+import { useForm, router } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 const props = defineProps({
     organization: { type: Object, required: true },
@@ -12,13 +19,38 @@ const props = defineProps({
     currentStep: { type: Number, required: true },
 });
 
-const { showFormError, showSuccess } = useFlashToast();
+const { showFormError, showSuccess, showError } = useFlashToast();
 
 const showAdd = ref(false);
 const editingId = ref(null);
+const editingSuggestionKey = ref(null);
+const deleting = ref(null);
+const deleteBusy = ref(false);
+const continueBusy = ref(false);
+
+let suggestionSeq = 0;
+const makeSuggestions = () => [
+    {
+        key: `s-${++suggestionSeq}`,
+        name: trans('setup.locations.defaults.main_stage'),
+        type: '',
+    },
+    {
+        key: `s-${++suggestionSeq}`,
+        name: trans('setup.locations.defaults.headquarters'),
+        type: '',
+    },
+];
+
+const suggestions = ref(props.locations.length === 0 ? makeSuggestions() : []);
 
 const addForm = useForm({ name: '', type: '' });
 const editForm = useForm({ name: '', type: '' });
+const suggestionForm = useForm({ name: '', type: '' });
+
+const hasCards = computed(
+    () => props.locations.length > 0 || suggestions.value.length > 0,
+);
 
 const submitAdd = () => {
     addForm.post('/setup/locations', {
@@ -26,16 +58,28 @@ const submitAdd = () => {
         onSuccess: () => {
             addForm.reset();
             showAdd.value = false;
+            suggestions.value = [];
             showSuccess(trans('setup.toast.location_added'));
         },
-        onError: (errors) => showFormError(errors),
+        onError: (errors) =>
+            toastFormErrors(addForm, errors, { showError, showFormError }),
     });
 };
 
 const startEdit = (location) => {
+    editingSuggestionKey.value = null;
     editingId.value = location.id;
     editForm.name = location.name;
     editForm.type = location.type ?? '';
+    editForm.clearErrors();
+};
+
+const startEditSuggestion = (item) => {
+    editingId.value = null;
+    editingSuggestionKey.value = item.key;
+    suggestionForm.name = item.name;
+    suggestionForm.type = item.type ?? '';
+    suggestionForm.clearErrors();
 };
 
 const submitEdit = (location) => {
@@ -45,18 +89,79 @@ const submitEdit = (location) => {
             editingId.value = null;
             showSuccess(trans('setup.toast.location_updated'));
         },
-        onError: (errors) => showFormError(errors),
+        onError: (errors) =>
+            toastFormErrors(editForm, errors, { showError, showFormError }),
     });
 };
 
-const continueSetup = () =>
+const submitSuggestionEdit = (item) => {
+    const name = suggestionForm.name.trim();
+    if (!name) {
+        suggestionForm.setError('name', trans('setup.errors.required'));
+        return;
+    }
+    item.name = name;
+    item.type = suggestionForm.type.trim();
+    editingSuggestionKey.value = null;
+};
+
+const askDelete = (target) => {
+    deleting.value = target;
+};
+
+const confirmDelete = () => {
+    const target = deleting.value;
+    if (!target) {
+        return;
+    }
+
+    if (target.kind === 'suggestion') {
+        suggestions.value = suggestions.value.filter(
+            (item) => item.key !== target.key,
+        );
+        if (editingSuggestionKey.value === target.key) {
+            editingSuggestionKey.value = null;
+        }
+        deleting.value = null;
+        return;
+    }
+
+    deleteBusy.value = true;
+    router.delete(`/setup/locations/${target.id}`, {
+        preserveScroll: true,
+        onSuccess: () => {
+            showSuccess(trans('setup.toast.location_deleted'));
+            deleting.value = null;
+        },
+        onError: (errors) => showFormError(errors),
+        onFinish: () => {
+            deleteBusy.value = false;
+        },
+    });
+};
+
+const continueSetup = () => {
+    if (continueBusy.value) {
+        return;
+    }
+    continueBusy.value = true;
     router.post(
         '/setup/locations/continue',
-        {},
+        {
+            suggestions: suggestions.value.map((item) => ({
+                name: item.name,
+                type: item.type || null,
+            })),
+        },
         {
             onError: (errors) => showFormError(errors),
+            onFinish: () => {
+                continueBusy.value = false;
+            },
         },
     );
+};
+
 const skip = () =>
     router.post(
         '/setup/locations/skip',
@@ -65,174 +170,381 @@ const skip = () =>
             onError: (errors) => showFormError(errors),
         },
     );
+
+const deleteTitle = computed(() => trans('setup.locations.delete_title'));
+const deleteBody = computed(() => {
+    if (!deleting.value) {
+        return '';
+    }
+    if (deleting.value.kind === 'suggestion') {
+        return trans('setup.locations.delete_suggested_body', {
+            name: deleting.value.name,
+        });
+    }
+    return trans('setup.locations.delete_body', { name: deleting.value.name });
+});
 </script>
 
 <template>
     <SetupLayout
         :title="$t('setup.locations.title')"
-        :crumb="$t('setup.crumbs.locations')"
         :current-step="currentStep"
         :organization-name="organization.name"
-        :event-name="event.name"
     >
-        <div class="mb-3 flex items-start justify-between gap-2.5">
+        <div class="mb-5 flex items-start justify-between gap-3">
             <div>
-                <h2 class="m-0 mb-1 text-base font-bold">
+                <h1 class="m-0 mb-1.5 text-[28px] font-bold tracking-tight">
                     {{ $t('setup.locations.heading') }}
-                </h2>
-                <p class="m-0 text-[11px] leading-snug text-muted">
+                </h1>
+                <p class="m-0 text-sm leading-snug text-muted">
                     {{ $t('setup.locations.lead') }}
                 </p>
             </div>
-            <button
+            <Button
                 type="button"
-                class="h-7 shrink-0 cursor-pointer rounded-md border-none bg-brand px-2.5 text-[11px] font-bold text-white hover:bg-brand-hover"
+                variant="primary"
+                size="sm"
+                class="shrink-0"
                 @click="showAdd = !showAdd"
             >
                 {{ $t('setup.locations.add') }}
-            </button>
+            </Button>
         </div>
 
-        <form
+        <Card
             v-if="showAdd"
-            class="mb-2 rounded-lg border border-line bg-white p-2.5"
-            @submit.prevent="submitAdd"
+            class="mb-4"
         >
-            <label
-                class="mb-1 block text-[10px] font-bold"
-                for="loc-name"
-                >{{ $t('setup.locations.name') }}</label
-            >
-            <input
-                id="loc-name"
-                v-model="addForm.name"
-                type="text"
-                required
-                class="mb-2 box-border h-[30px] w-full rounded-md border border-line bg-white px-2 text-[11px] outline-none focus:border-brand"
-            />
-            <label
-                class="mb-1 block text-[10px] font-bold"
-                for="loc-type"
-                >{{ $t('setup.locations.type') }}</label
-            >
-            <input
-                id="loc-type"
-                v-model="addForm.type"
-                type="text"
-                class="mb-2 box-border h-[30px] w-full rounded-md border border-line bg-white px-2 text-[11px] outline-none focus:border-brand"
-            />
-            <div class="flex justify-end gap-1.5">
-                <button
-                    type="button"
-                    class="h-7 cursor-pointer rounded-md border border-line bg-white px-2.5 text-[11px] font-bold"
-                    @click="showAdd = false"
+            <form @submit.prevent="submitAdd">
+                <FormField
+                    :label="$t('setup.locations.name')"
+                    :error="fieldError(addForm, 'name')"
+                    required
+                    class="mb-4"
                 >
-                    {{ $t('setup.actions.cancel') }}
-                </button>
-                <button
-                    type="submit"
-                    class="h-7 cursor-pointer rounded-md border-none bg-brand px-2.5 text-[11px] font-bold text-white"
-                    :disabled="addForm.processing"
+                    <template #default="{ id, invalid }">
+                        <Input
+                            :id="id"
+                            v-model="addForm.name"
+                            type="text"
+                            :placeholder="
+                                $t('setup.locations.name_placeholder')
+                            "
+                            :invalid="invalid"
+                            autocomplete="off"
+                        />
+                    </template>
+                </FormField>
+                <FormField
+                    :label="$t('setup.locations.type')"
+                    :error="fieldError(addForm, 'type')"
+                    class="mb-4"
                 >
-                    {{ $t('setup.actions.add') }}
-                </button>
-            </div>
-        </form>
+                    <template #default="{ id, invalid }">
+                        <Input
+                            :id="id"
+                            v-model="addForm.type"
+                            type="text"
+                            :placeholder="
+                                $t('setup.locations.type_placeholder')
+                            "
+                            :invalid="invalid"
+                            autocomplete="off"
+                        />
+                    </template>
+                </FormField>
+                <div class="flex justify-end gap-3">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        @click="showAdd = false"
+                    >
+                        {{ $t('setup.actions.cancel') }}
+                    </Button>
+                    <Button
+                        type="submit"
+                        variant="primary"
+                        :loading="addForm.processing"
+                        :disabled="addForm.processing"
+                    >
+                        {{ $t('setup.actions.add') }}
+                    </Button>
+                </div>
+            </form>
+        </Card>
 
         <div
-            v-if="locations.length"
-            class="mb-2 overflow-hidden rounded-lg border border-line"
+            v-if="hasCards"
+            class="mb-4 flex flex-col gap-3"
         >
-            <div
+            <Card
                 v-for="location in locations"
-                :key="location.id"
-                class="flex items-center justify-between border-b border-line px-2.5 py-2 text-[11px] last:border-b-0"
+                :key="`loc-${location.id}`"
             >
-                <template v-if="editingId === location.id">
-                    <form
-                        class="flex w-full flex-col gap-1.5"
-                        @submit.prevent="submitEdit(location)"
+                <form
+                    v-if="editingId === location.id"
+                    class="flex w-full flex-col gap-3"
+                    @submit.prevent="submitEdit(location)"
+                >
+                    <FormField
+                        :label="$t('setup.locations.name')"
+                        :error="fieldError(editForm, 'name')"
+                        required
                     >
-                        <input
-                            v-model="editForm.name"
-                            type="text"
-                            required
-                            class="box-border h-[30px] w-full rounded-md border border-line px-2 text-[11px]"
-                        />
-                        <input
-                            v-model="editForm.type"
-                            type="text"
-                            class="box-border h-[30px] w-full rounded-md border border-line px-2 text-[11px]"
-                        />
-                        <div class="flex justify-end gap-1.5">
-                            <button
-                                type="button"
-                                class="h-7 cursor-pointer rounded-md border border-line bg-white px-2 text-[11px] font-bold"
-                                @click="editingId = null"
-                            >
-                                {{ $t('setup.actions.cancel') }}
-                            </button>
-                            <button
-                                type="submit"
-                                class="h-7 cursor-pointer rounded-md border-none bg-brand px-2 text-[11px] font-bold text-white"
-                            >
-                                {{ $t('setup.actions.save') }}
-                            </button>
-                        </div>
-                    </form>
-                </template>
-                <template v-else>
-                    <div>
-                        <strong class="font-bold">{{ location.name }}</strong>
+                        <template #default="{ id, invalid }">
+                            <Input
+                                :id="id"
+                                v-model="editForm.name"
+                                type="text"
+                                :placeholder="
+                                    $t('setup.locations.name_placeholder')
+                                "
+                                :invalid="invalid"
+                            />
+                        </template>
+                    </FormField>
+                    <FormField
+                        :label="$t('setup.locations.type')"
+                        :error="fieldError(editForm, 'type')"
+                    >
+                        <template #default="{ id, invalid }">
+                            <Input
+                                :id="id"
+                                v-model="editForm.type"
+                                type="text"
+                                :placeholder="
+                                    $t('setup.locations.type_placeholder')
+                                "
+                                :invalid="invalid"
+                            />
+                        </template>
+                    </FormField>
+                    <div class="flex justify-end gap-3">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            @click="editingId = null"
+                        >
+                            {{ $t('setup.actions.cancel') }}
+                        </Button>
+                        <Button
+                            type="submit"
+                            variant="primary"
+                            :loading="editForm.processing"
+                            :disabled="editForm.processing"
+                        >
+                            {{ $t('setup.actions.save') }}
+                        </Button>
+                    </div>
+                </form>
+                <div
+                    v-else
+                    class="flex items-start justify-between gap-3"
+                >
+                    <div class="min-w-0">
+                        <strong class="block font-bold">{{
+                            location.name
+                        }}</strong>
                         <div
                             v-if="location.type"
-                            class="text-[10px] text-muted"
+                            class="mt-0.5 text-xs text-muted"
                         >
                             {{ location.type }}
                         </div>
                     </div>
-                    <button
-                        type="button"
-                        class="cursor-pointer border-none bg-transparent text-[10px] text-muted"
-                        @click="startEdit(location)"
+                    <div class="flex shrink-0 items-center gap-1">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            :aria-label="$t('setup.actions.edit')"
+                            @click="startEdit(location)"
+                        >
+                            <Icon
+                                :name="['fas', 'pencil']"
+                                size="sm"
+                            />
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline-danger"
+                            size="icon"
+                            :aria-label="$t('setup.actions.delete')"
+                            @click="
+                                askDelete({
+                                    kind: 'saved',
+                                    id: location.id,
+                                    name: location.name,
+                                })
+                            "
+                        >
+                            <Icon
+                                :name="['fas', 'trash-can']"
+                                size="sm"
+                            />
+                        </Button>
+                    </div>
+                </div>
+            </Card>
+
+            <Card
+                v-for="item in suggestions"
+                :key="item.key"
+            >
+                <form
+                    v-if="editingSuggestionKey === item.key"
+                    class="flex w-full flex-col gap-3"
+                    @submit.prevent="submitSuggestionEdit(item)"
+                >
+                    <FormField
+                        :label="$t('setup.locations.name')"
+                        :error="fieldError(suggestionForm, 'name')"
+                        required
                     >
-                        {{ $t('setup.actions.edit') }}
-                    </button>
-                </template>
-            </div>
+                        <template #default="{ id, invalid }">
+                            <Input
+                                :id="id"
+                                v-model="suggestionForm.name"
+                                type="text"
+                                :placeholder="
+                                    $t('setup.locations.name_placeholder')
+                                "
+                                :invalid="invalid"
+                            />
+                        </template>
+                    </FormField>
+                    <FormField
+                        :label="$t('setup.locations.type')"
+                        :error="fieldError(suggestionForm, 'type')"
+                    >
+                        <template #default="{ id, invalid }">
+                            <Input
+                                :id="id"
+                                v-model="suggestionForm.type"
+                                type="text"
+                                :placeholder="
+                                    $t('setup.locations.type_placeholder')
+                                "
+                                :invalid="invalid"
+                            />
+                        </template>
+                    </FormField>
+                    <div class="flex justify-end gap-3">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            @click="editingSuggestionKey = null"
+                        >
+                            {{ $t('setup.actions.cancel') }}
+                        </Button>
+                        <Button
+                            type="submit"
+                            variant="primary"
+                        >
+                            {{ $t('setup.actions.save') }}
+                        </Button>
+                    </div>
+                </form>
+                <div
+                    v-else
+                    class="flex items-start justify-between gap-3"
+                >
+                    <div class="min-w-0">
+                        <strong class="block font-bold">{{ item.name }}</strong>
+                        <div
+                            v-if="item.type"
+                            class="mt-0.5 text-xs text-muted"
+                        >
+                            {{ item.type }}
+                        </div>
+                        <div class="mt-1 text-xs font-medium text-secondary">
+                            {{ $t('setup.locations.suggested_label') }}
+                        </div>
+                    </div>
+                    <div class="flex shrink-0 items-center gap-1">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            :aria-label="$t('setup.actions.edit')"
+                            @click="startEditSuggestion(item)"
+                        >
+                            <Icon
+                                :name="['fas', 'pencil']"
+                                size="sm"
+                            />
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline-danger"
+                            size="icon"
+                            :aria-label="$t('setup.actions.delete')"
+                            @click="
+                                askDelete({
+                                    kind: 'suggestion',
+                                    key: item.key,
+                                    name: item.name,
+                                })
+                            "
+                        >
+                            <Icon
+                                :name="['fas', 'trash-can']"
+                                size="sm"
+                            />
+                        </Button>
+                    </div>
+                </div>
+            </Card>
         </div>
         <div
             v-else
-            class="mb-2 rounded-lg border border-dashed border-line px-3.5 py-3.5 text-center text-[11px] text-muted"
+            class="mb-4 rounded-xl border border-dashed border-line px-4 py-8 text-center text-sm text-muted"
         >
             {{ $t('setup.locations.empty') }}
         </div>
 
-        <p class="mb-2 text-[10px] leading-snug text-muted">
+        <p class="mb-4 text-xs leading-snug text-muted">
             {{ $t('setup.locations.note') }}
         </p>
 
-        <div class="mt-2 flex justify-end gap-1.5">
-            <Link
-                href="/setup/event"
-                class="inline-flex h-7 items-center rounded-md border-none bg-page px-2.5 text-[11px] font-bold text-charcoal no-underline"
-            >
-                {{ $t('setup.actions.back') }}
-            </Link>
-            <button
+        <div class="mt-5 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <Button
+                    variant="secondary"
+                    href="/setup/event"
+                >
+                    {{ $t('setup.actions.back') }}
+                </Button>
+                <Button
+                    type="button"
+                    variant="secondary"
+                    @click="skip"
+                >
+                    {{ $t('setup.actions.skip') }}
+                </Button>
+            </div>
+            <Button
                 type="button"
-                class="h-7 cursor-pointer rounded-md border-none bg-page px-2.5 text-[11px] font-bold text-charcoal"
-                @click="skip"
-            >
-                {{ $t('setup.actions.skip') }}
-            </button>
-            <button
-                type="button"
-                class="h-7 cursor-pointer rounded-md border-none bg-brand px-2.5 text-[11px] font-bold text-white hover:bg-brand-hover"
+                variant="primary"
+                :loading="continueBusy"
+                :disabled="continueBusy"
                 @click="continueSetup"
             >
                 {{ $t('setup.actions.save_continue') }}
-            </button>
+            </Button>
         </div>
+
+        <Dialog
+            :open="Boolean(deleting)"
+            :title="deleteTitle"
+            :description="deleteBody"
+            :confirm-label="$t('setup.actions.delete')"
+            :cancel-label="$t('setup.actions.cancel')"
+            confirm-variant="danger"
+            :busy="deleteBusy"
+            @update:open="(open) => !open && (deleting = null)"
+            @confirm="confirmDelete"
+            @cancel="deleting = null"
+        />
     </SetupLayout>
 </template>

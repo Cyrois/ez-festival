@@ -8,8 +8,10 @@ import {
     faInbox,
     faMagnifyingGlass,
     faPen,
+    faPencil,
     faPlus,
     faTrash,
+    faTrashCan,
     faUser,
     faXmark,
 } from '@fortawesome/free-solid-svg-icons';
@@ -27,8 +29,10 @@ export const kitIcons = [
     faInbox,
     faMagnifyingGlass,
     faPen,
+    faPencil,
     faPlus,
     faTrash,
+    faTrashCan,
     faUser,
     faXmark,
 ];

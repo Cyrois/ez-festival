@@ -37,7 +37,10 @@ export default {
                 },
                 accent: '#3D6B8A',
                 danger: '#B91C1C',
-                success: '#65A30D',
+                success: {
+                    DEFAULT: '#65A30D',
+                    soft: '#ECFCCB',
+                },
                 warning: '#CA8A04',
             },
             borderRadius: {

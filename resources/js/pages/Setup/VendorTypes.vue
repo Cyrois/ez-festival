@@ -1,7 +1,11 @@
 <script setup>
 import SetupLayout from '../../layouts/SetupLayout.vue';
+import { Button } from '../../components/ui/button';
+import { FormField } from '../../components/ui/form-field';
+import { Input } from '../../components/ui/input';
 import { useFlashToast } from '../../composables/useFlashToast';
-import { Link, useForm, router } from '@inertiajs/vue3';
+import { fieldError, toastFormErrors } from '../../lib/fieldError';
+import { useForm, router } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import { ref } from 'vue';
 
@@ -12,7 +16,7 @@ const props = defineProps({
     currentStep: { type: Number, required: true },
 });
 
-const { showFormError, showSuccess } = useFlashToast();
+const { showFormError, showSuccess, showError } = useFlashToast();
 
 const showAdd = ref(false);
 const editingId = ref(null);
@@ -28,13 +32,15 @@ const submitAdd = () => {
             showAdd.value = false;
             showSuccess(trans('setup.toast.vendor_type_added'));
         },
-        onError: (errors) => showFormError(errors),
+        onError: (errors) =>
+            toastFormErrors(addForm, errors, { showError, showFormError }),
     });
 };
 
 const startEdit = (type) => {
     editingId.value = type.id;
     editForm.name = type.name;
+    editForm.clearErrors();
 };
 
 const submitEdit = (type) => {
@@ -44,7 +50,8 @@ const submitEdit = (type) => {
             editingId.value = null;
             showSuccess(trans('setup.toast.vendor_type_updated'));
         },
-        onError: (errors) => showFormError(errors),
+        onError: (errors) =>
+            toastFormErrors(editForm, errors, { showError, showFormError }),
     });
 };
 
@@ -69,143 +76,169 @@ const skip = () =>
 <template>
     <SetupLayout
         :title="$t('setup.vendor_types.title')"
-        :crumb="$t('setup.crumbs.vendor_types')"
         :current-step="currentStep"
         :organization-name="organization.name"
-        :event-name="event?.name"
     >
-        <div class="mb-3 flex items-start justify-between gap-2.5">
+        <div class="mb-5 flex items-start justify-between gap-3">
             <div>
-                <h2 class="m-0 mb-1 text-base font-bold">
+                <h1 class="m-0 mb-1.5 text-[28px] font-bold tracking-tight">
                     {{ $t('setup.vendor_types.heading') }}
-                </h2>
-                <p class="m-0 text-[11px] leading-snug text-muted">
+                </h1>
+                <p class="m-0 text-sm leading-snug text-muted">
                     {{ $t('setup.vendor_types.lead') }}
                 </p>
             </div>
-            <button
+            <Button
                 type="button"
-                class="h-7 shrink-0 cursor-pointer rounded-md border-none bg-brand px-2.5 text-[11px] font-bold text-white hover:bg-brand-hover"
+                variant="primary"
+                size="sm"
+                class="shrink-0"
                 @click="showAdd = !showAdd"
             >
                 {{ $t('setup.vendor_types.add') }}
-            </button>
+            </Button>
         </div>
 
         <form
             v-if="showAdd"
-            class="mb-2 rounded-lg border border-line bg-white p-2.5"
+            class="mb-4 rounded-xl border border-line bg-ground px-6 py-6"
             @submit.prevent="submitAdd"
         >
-            <label
-                class="mb-1 block text-[10px] font-bold"
-                for="vt-name"
-                >{{ $t('setup.types.name') }}</label
-            >
-            <input
-                id="vt-name"
-                v-model="addForm.name"
-                type="text"
+            <FormField
+                :label="$t('setup.types.name')"
+                :error="fieldError(addForm, 'name')"
                 required
-                class="mb-2 box-border h-[30px] w-full rounded-md border border-line bg-white px-2 text-[11px] outline-none focus:border-brand"
-            />
-            <div class="flex justify-end gap-1.5">
-                <button
+                class="mb-4"
+            >
+                <template #default="{ id, invalid }">
+                    <Input
+                        :id="id"
+                        v-model="addForm.name"
+                        type="text"
+                        :placeholder="$t('setup.types.name_placeholder')"
+                        :invalid="invalid"
+                        autocomplete="off"
+                    />
+                </template>
+            </FormField>
+            <div class="flex justify-end gap-3">
+                <Button
                     type="button"
-                    class="h-7 cursor-pointer rounded-md border border-line bg-white px-2.5 text-[11px] font-bold"
+                    variant="outline"
                     @click="showAdd = false"
                 >
                     {{ $t('setup.actions.cancel') }}
-                </button>
-                <button
+                </Button>
+                <Button
                     type="submit"
-                    class="h-7 cursor-pointer rounded-md border-none bg-brand px-2.5 text-[11px] font-bold text-white"
+                    variant="primary"
+                    :loading="addForm.processing"
                     :disabled="addForm.processing"
                 >
                     {{ $t('setup.actions.add') }}
-                </button>
+                </Button>
             </div>
         </form>
 
         <div
             v-if="types.length"
-            class="mb-2 overflow-hidden rounded-lg border border-line"
+            class="mb-4 overflow-hidden rounded-xl border border-line bg-ground"
         >
             <div
                 v-for="type in types"
                 :key="type.id"
-                class="flex items-center justify-between border-b border-line px-2.5 py-2 text-[11px] last:border-b-0"
+                class="flex items-center justify-between border-b border-line px-4 py-3 text-sm last:border-b-0"
             >
                 <template v-if="editingId === type.id">
                     <form
-                        class="flex w-full items-center gap-1.5"
+                        class="flex w-full flex-col gap-3 sm:flex-row sm:items-end"
                         @submit.prevent="submitEdit(type)"
                     >
-                        <input
-                            v-model="editForm.name"
-                            type="text"
+                        <FormField
+                            :label="$t('setup.types.name')"
+                            :error="fieldError(editForm, 'name')"
                             required
-                            class="box-border h-[30px] flex-1 rounded-md border border-line px-2 text-[11px]"
-                        />
-                        <button
-                            type="button"
-                            class="h-7 cursor-pointer rounded-md border border-line bg-white px-2 text-[11px] font-bold"
-                            @click="editingId = null"
+                            class="min-w-0 flex-1"
                         >
-                            {{ $t('setup.actions.cancel') }}
-                        </button>
-                        <button
-                            type="submit"
-                            class="h-7 cursor-pointer rounded-md border-none bg-brand px-2 text-[11px] font-bold text-white"
-                        >
-                            {{ $t('setup.actions.save') }}
-                        </button>
+                            <template #default="{ id, invalid }">
+                                <Input
+                                    :id="id"
+                                    v-model="editForm.name"
+                                    type="text"
+                                    :placeholder="
+                                        $t('setup.types.name_placeholder')
+                                    "
+                                    :invalid="invalid"
+                                />
+                            </template>
+                        </FormField>
+                        <div class="flex justify-end gap-3">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                @click="editingId = null"
+                            >
+                                {{ $t('setup.actions.cancel') }}
+                            </Button>
+                            <Button
+                                type="submit"
+                                variant="primary"
+                                :loading="editForm.processing"
+                                :disabled="editForm.processing"
+                            >
+                                {{ $t('setup.actions.save') }}
+                            </Button>
+                        </div>
                     </form>
                 </template>
                 <template v-else>
                     <strong class="font-bold">{{ type.name }}</strong>
-                    <button
+                    <Button
                         type="button"
-                        class="cursor-pointer border-none bg-transparent text-[10px] text-muted"
+                        variant="ghost"
+                        size="sm"
+                        class="text-muted"
                         @click="startEdit(type)"
                     >
                         {{ $t('setup.actions.edit') }}
-                    </button>
+                    </Button>
                 </template>
             </div>
         </div>
         <div
             v-else
-            class="mb-2 rounded-lg border border-dashed border-line px-3.5 py-3.5 text-center text-[11px] text-muted"
+            class="mb-4 rounded-xl border border-dashed border-line px-4 py-8 text-center text-sm text-muted"
         >
             {{ $t('setup.vendor_types.empty') }}
         </div>
 
-        <p class="mb-2 text-[10px] leading-snug text-muted">
+        <p class="mb-4 text-xs leading-snug text-muted">
             {{ $t('setup.vendor_types.note') }}
         </p>
 
-        <div class="mt-2 flex justify-end gap-1.5">
-            <Link
-                href="/setup/locations"
-                class="inline-flex h-7 items-center rounded-md border-none bg-page px-2.5 text-[11px] font-bold text-charcoal no-underline"
-            >
-                {{ $t('setup.actions.back') }}
-            </Link>
-            <button
+        <div class="mt-5 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <Button
+                    variant="secondary"
+                    href="/setup/locations"
+                >
+                    {{ $t('setup.actions.back') }}
+                </Button>
+                <Button
+                    type="button"
+                    variant="secondary"
+                    @click="skip"
+                >
+                    {{ $t('setup.actions.skip') }}
+                </Button>
+            </div>
+            <Button
                 type="button"
-                class="h-7 cursor-pointer rounded-md border-none bg-page px-2.5 text-[11px] font-bold text-charcoal"
-                @click="skip"
-            >
-                {{ $t('setup.actions.skip') }}
-            </button>
-            <button
-                type="button"
-                class="h-7 cursor-pointer rounded-md border-none bg-brand px-2.5 text-[11px] font-bold text-white hover:bg-brand-hover"
+                variant="primary"
                 @click="continueSetup"
             >
                 {{ $t('setup.actions.save_continue') }}
-            </button>
+            </Button>
         </div>
     </SetupLayout>
 </template>

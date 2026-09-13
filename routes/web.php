@@ -41,11 +41,11 @@ Route::middleware('auth')->group(function () {
     Route::middleware('organization')->prefix('setup')->name('setup.')->group(function () {
         Route::get('event', [EventController::class, 'show'])->name('event');
         Route::post('event', [EventController::class, 'store']);
-        Route::post('event/skip', [EventController::class, 'skip'])->name('event.skip');
 
         Route::get('locations', [LocationController::class, 'show'])->name('locations');
         Route::post('locations', [LocationController::class, 'store']);
         Route::put('locations/{location}', [LocationController::class, 'update'])->name('locations.update');
+        Route::delete('locations/{location}', [LocationController::class, 'destroy'])->name('locations.destroy');
         Route::post('locations/continue', [LocationController::class, 'continue'])->name('locations.continue');
         Route::post('locations/skip', [LocationController::class, 'skip'])->name('locations.skip');
 
@@ -58,6 +58,7 @@ Route::middleware('auth')->group(function () {
         Route::get('artist-types', [ArtistTypeController::class, 'show'])->name('artist-types');
         Route::post('artist-types', [ArtistTypeController::class, 'store']);
         Route::put('artist-types/{artistType}', [ArtistTypeController::class, 'update'])->name('artist-types.update');
+        Route::delete('artist-types/{artistType}', [ArtistTypeController::class, 'destroy'])->name('artist-types.destroy');
         Route::post('artist-types/continue', [ArtistTypeController::class, 'continue'])->name('artist-types.continue');
         Route::post('artist-types/skip', [ArtistTypeController::class, 'skip'])->name('artist-types.skip');
 

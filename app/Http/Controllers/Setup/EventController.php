@@ -62,11 +62,4 @@ class EventController extends Controller
 
         return redirect()->route('setup.locations');
     }
-
-    public function skip(Request $request): RedirectResponse
-    {
-        $this->organization($request);
-
-        return redirect()->route('setup.locations');
-    }
 }

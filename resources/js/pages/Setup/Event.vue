@@ -1,6 +1,11 @@
 <script setup>
 import SetupLayout from '../../layouts/SetupLayout.vue';
+import { Button } from '../../components/ui/button';
+import { FormField } from '../../components/ui/form-field';
+import { Input } from '../../components/ui/input';
+import { Select } from '../../components/ui/select';
 import { useFlashToast } from '../../composables/useFlashToast';
+import { fieldError, toastFormErrors } from '../../lib/fieldError';
 import { useForm } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 
@@ -11,7 +16,7 @@ const props = defineProps({
     currentStep: { type: Number, required: true },
 });
 
-const { showFormError, showSuccess } = useFlashToast();
+const { showError, showSuccess, showFormError } = useFlashToast();
 
 const form = useForm({
     name: props.event?.name ?? '',
@@ -23,136 +28,115 @@ const form = useForm({
 const submit = () =>
     form.post('/setup/event', {
         onSuccess: () => showSuccess(trans('setup.toast.event_saved')),
-        onError: (errors) => showFormError(errors),
-    });
-const skip = () =>
-    form.post('/setup/event/skip', {
-        onError: (errors) => showFormError(errors),
+        onError: (errors) =>
+            toastFormErrors(form, errors, { showError, showFormError }),
     });
 </script>
 
 <template>
     <SetupLayout
         :title="$t('setup.event.title')"
-        :crumb="$t('setup.crumbs.event')"
         :current-step="currentStep"
         :organization-name="organization.name"
-        :event-name="event?.name"
     >
-        <div class="mb-3">
-            <h2 class="m-0 mb-1 text-base font-bold">
+        <div class="mb-5">
+            <h1 class="m-0 mb-1.5 text-[28px] font-bold tracking-tight">
                 {{ $t('setup.event.heading') }}
-            </h2>
-            <p class="m-0 text-[11px] leading-snug text-muted">
+            </h1>
+            <p class="m-0 text-sm leading-snug text-muted">
                 {{ $t('setup.event.lead') }}
             </p>
         </div>
 
         <form @submit.prevent="submit">
-            <label
-                class="mb-1 block text-[10px] font-bold"
-                for="name"
-                >{{ $t('setup.event.name') }}</label
-            >
-            <input
-                id="name"
-                v-model="form.name"
-                type="text"
-                required
-                class="mb-2 box-border h-[30px] w-full rounded-md border border-line bg-white px-2 text-[11px] text-charcoal outline-none focus:border-brand"
-            />
-            <p
-                v-if="form.errors.name"
-                class="mb-2 text-[11px] text-danger"
-            >
-                {{ form.errors.name }}
-            </p>
+            <div class="rounded-xl border border-line bg-ground px-6 py-6">
+                <FormField
+                    :label="$t('setup.event.name')"
+                    :error="fieldError(form, 'name')"
+                    required
+                    class="mb-4"
+                >
+                    <template #default="{ id, invalid }">
+                        <Input
+                            :id="id"
+                            v-model="form.name"
+                            type="text"
+                            :placeholder="$t('setup.event.name_placeholder')"
+                            :invalid="invalid"
+                            autocomplete="off"
+                        />
+                    </template>
+                </FormField>
 
-            <div class="mb-2 grid grid-cols-2 gap-2">
-                <div>
-                    <label
-                        class="mb-1 block text-[10px] font-bold"
-                        for="starts_on"
-                        >{{ $t('setup.event.starts_on') }}</label
-                    >
-                    <input
-                        id="starts_on"
-                        v-model="form.starts_on"
-                        type="date"
+                <div class="mb-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                    <FormField
+                        :label="$t('setup.event.starts_on')"
+                        :error="fieldError(form, 'starts_on')"
                         required
-                        class="box-border h-[30px] w-full rounded-md border border-line bg-white px-2 text-[11px] text-charcoal outline-none focus:border-brand"
-                    />
-                    <p
-                        v-if="form.errors.starts_on"
-                        class="mt-1 text-[11px] text-danger"
                     >
-                        {{ form.errors.starts_on }}
-                    </p>
-                </div>
-                <div>
-                    <label
-                        class="mb-1 block text-[10px] font-bold"
-                        for="ends_on"
-                        >{{ $t('setup.event.ends_on') }}</label
-                    >
-                    <input
-                        id="ends_on"
-                        v-model="form.ends_on"
-                        type="date"
+                        <template #default="{ id, invalid }">
+                            <Input
+                                :id="id"
+                                v-model="form.starts_on"
+                                type="date"
+                                :placeholder="
+                                    $t('setup.event.starts_on_placeholder')
+                                "
+                                :invalid="invalid"
+                            />
+                        </template>
+                    </FormField>
+                    <FormField
+                        :label="$t('setup.event.ends_on')"
+                        :error="fieldError(form, 'ends_on')"
                         required
-                        class="box-border h-[30px] w-full rounded-md border border-line bg-white px-2 text-[11px] text-charcoal outline-none focus:border-brand"
-                    />
-                    <p
-                        v-if="form.errors.ends_on"
-                        class="mt-1 text-[11px] text-danger"
                     >
-                        {{ form.errors.ends_on }}
-                    </p>
+                        <template #default="{ id, invalid }">
+                            <Input
+                                :id="id"
+                                v-model="form.ends_on"
+                                type="date"
+                                :placeholder="
+                                    $t('setup.event.ends_on_placeholder')
+                                "
+                                :invalid="invalid"
+                            />
+                        </template>
+                    </FormField>
                 </div>
+
+                <FormField
+                    :label="$t('setup.event.timezone')"
+                    :error="fieldError(form, 'timezone')"
+                    :hint="$t('setup.event.timezone_hint')"
+                >
+                    <template #default="{ id, invalid }">
+                        <Select
+                            :id="id"
+                            v-model="form.timezone"
+                            :invalid="invalid"
+                        >
+                            <option
+                                v-for="tz in timezones"
+                                :key="tz"
+                                :value="tz"
+                            >
+                                {{ tz }}
+                            </option>
+                        </Select>
+                    </template>
+                </FormField>
             </div>
 
-            <label
-                class="mb-1 block text-[10px] font-bold"
-                for="timezone"
-                >{{ $t('setup.event.timezone') }}</label
-            >
-            <select
-                id="timezone"
-                v-model="form.timezone"
-                required
-                class="mb-2 box-border h-[30px] w-full rounded-md border border-line bg-white px-2 text-[11px] text-charcoal outline-none focus:border-brand"
-            >
-                <option
-                    v-for="tz in timezones"
-                    :key="tz"
-                    :value="tz"
-                >
-                    {{ tz }}
-                </option>
-            </select>
-            <p
-                v-if="form.errors.timezone"
-                class="mb-2 text-[11px] text-danger"
-            >
-                {{ form.errors.timezone }}
-            </p>
-
-            <div class="mt-2 flex justify-end gap-1.5">
-                <button
-                    type="button"
-                    class="h-7 cursor-pointer rounded-md border-none bg-page px-2.5 text-[11px] font-bold text-charcoal"
-                    :disabled="form.processing"
-                    @click="skip"
-                >
-                    {{ $t('setup.actions.skip') }}
-                </button>
-                <button
+            <div class="mt-5 flex items-center justify-end gap-4">
+                <Button
                     type="submit"
-                    class="h-7 cursor-pointer rounded-md border-none bg-brand px-2.5 text-[11px] font-bold text-white hover:bg-brand-hover disabled:opacity-70"
+                    variant="primary"
+                    :loading="form.processing"
                     :disabled="form.processing"
                 >
                     {{ $t('setup.actions.save_continue') }}
-                </button>
+                </Button>
             </div>
         </form>
     </SetupLayout>

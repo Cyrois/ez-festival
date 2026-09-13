@@ -19,6 +19,10 @@ const props = defineProps({
         type: String,
         default: '',
     },
+    required: {
+        type: Boolean,
+        default: false,
+    },
     class: {
         type: [String, Object, Array],
         default: '',
@@ -37,7 +41,13 @@ const hasError = computed(() => Boolean(props.error));
             :for="controlId"
             class="text-xs font-bold text-charcoal"
         >
-            {{ label }}
+            {{ label
+            }}<span
+                v-if="required"
+                class="ml-0.5 text-danger"
+                aria-hidden="true"
+                >*</span
+            >
         </label>
         <slot
             :id="controlId"

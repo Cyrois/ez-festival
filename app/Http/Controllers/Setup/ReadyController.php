@@ -22,15 +22,6 @@ class ReadyController extends Controller
                 'id' => $organization->id,
                 'name' => $organization->name,
             ],
-            'event' => $organization->activeEvent
-                ? ['id' => $organization->activeEvent->id, 'name' => $organization->activeEvent->name]
-                : null,
-            'vendorTypes' => $organization->vendorTypes()
-                ->orderBy('id')
-                ->pluck('name'),
-            'artistTypes' => $organization->artistTypes()
-                ->orderBy('id')
-                ->pluck('name'),
             'currentStep' => 5,
         ]);
     }
