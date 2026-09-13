@@ -1,7 +1,7 @@
 <script setup>
 import { Toast } from '../components/ui/toast';
 import { Icon } from '../components/ui/icon';
-import { Button, buttonVariants } from '../components/ui/button';
+import { buttonVariants } from '../components/ui/button';
 import { useInertiaErrorToast } from '../composables/useInertiaErrorToast';
 import { cn } from '../lib/utils';
 import { Head, Link, usePage } from '@inertiajs/vue3';
@@ -150,14 +150,6 @@ const signOutClass = cn(
             </nav>
 
             <div class="mt-auto space-y-2 border-t border-line px-3 py-3">
-                <Button
-                    href="/setup/event"
-                    variant="secondary"
-                    size="sm"
-                    class="w-full justify-start"
-                >
-                    {{ $t('nav.setup') }}
-                </Button>
                 <div class="min-w-0 px-2">
                     <p class="m-0 truncate text-xs font-semibold text-charcoal">
                         {{
