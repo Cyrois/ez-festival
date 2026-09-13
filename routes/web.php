@@ -8,6 +8,7 @@ use App\Http\Controllers\Setup\EventController;
 use App\Http\Controllers\Setup\LocationController;
 use App\Http\Controllers\Setup\ReadyController;
 use App\Http\Controllers\Setup\VendorTypeController;
+use App\Http\Controllers\UiKitController;
 use App\Support\PostLoginRedirect;
 use Illuminate\Support\Facades\Route;
 
@@ -28,6 +29,8 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
+
+    Route::get('ui', UiKitController::class)->name('ui');
 
     Route::middleware(['organization', 'setup.complete'])->group(function () {
         Route::get('dashboard', DashboardController::class)->name('dashboard');
