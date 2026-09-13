@@ -432,20 +432,22 @@ const deleteBody = computed(() => {
             {{ $t('setup.artist_types.note') }}
         </p>
 
-        <div class="mt-5 flex items-center justify-end gap-4">
-            <Button
-                variant="secondary"
-                href="/setup/vendor-types"
-            >
-                {{ $t('setup.actions.back') }}
-            </Button>
-            <Button
-                type="button"
-                variant="secondary"
-                @click="skip"
-            >
-                {{ $t('setup.actions.skip') }}
-            </Button>
+        <div class="mt-5 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <Button
+                    variant="secondary"
+                    href="/setup/vendor-types"
+                >
+                    {{ $t('setup.actions.back') }}
+                </Button>
+                <Button
+                    type="button"
+                    variant="secondary"
+                    @click="skip"
+                >
+                    {{ $t('setup.actions.skip') }}
+                </Button>
+            </div>
             <Button
                 type="button"
                 variant="primary"
