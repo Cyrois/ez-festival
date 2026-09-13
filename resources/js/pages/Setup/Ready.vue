@@ -36,29 +36,46 @@ const enterApp = () => router.post('/setup/ready');
         </div>
 
         <div class="mb-3">
-            <h2 class="m-0 mb-1 text-base font-bold">{{ $t('setup.ready.heading') }}</h2>
-            <p class="m-0 text-[11px] leading-snug text-muted">{{ $t('setup.ready.lead') }}</p>
-            <p v-if="event" class="mt-2 text-[12px] font-bold text-charcoal">
+            <h2 class="m-0 mb-1 text-base font-bold">
+                {{ $t('setup.ready.heading') }}
+            </h2>
+            <p class="m-0 text-[11px] leading-snug text-muted">
+                {{ $t('setup.ready.lead') }}
+            </p>
+            <p
+                v-if="event"
+                class="mt-2 text-[12px] font-bold text-charcoal"
+            >
                 {{ $t('setup.ready.event_label', { name: event.name }) }}
             </p>
         </div>
 
         <div class="mt-2 grid grid-cols-2 gap-2">
             <div class="overflow-hidden rounded-lg border border-line">
-                <div class="border-b border-line bg-page px-2.5 py-2 text-[11px] font-bold">
+                <div
+                    class="border-b border-line bg-page px-2.5 py-2 text-[11px] font-bold"
+                >
                     {{ $t('setup.ready.vendor_types_label') }}
                 </div>
-                <div class="px-2.5 py-2 text-[11px]">{{ vendorSummary }}</div>
+                <div class="px-2.5 py-2 text-[11px]">
+                    {{ vendorSummary }}
+                </div>
             </div>
             <div class="overflow-hidden rounded-lg border border-line">
-                <div class="border-b border-line bg-page px-2.5 py-2 text-[11px] font-bold">
+                <div
+                    class="border-b border-line bg-page px-2.5 py-2 text-[11px] font-bold"
+                >
                     {{ $t('setup.ready.artist_types_label') }}
                 </div>
-                <div class="px-2.5 py-2 text-[11px]">{{ artistSummary }}</div>
+                <div class="px-2.5 py-2 text-[11px]">
+                    {{ artistSummary }}
+                </div>
             </div>
         </div>
 
-        <p class="mt-2 text-[10px] leading-snug text-muted">{{ $t('setup.ready.note') }}</p>
+        <p class="mt-2 text-[10px] leading-snug text-muted">
+            {{ $t('setup.ready.note') }}
+        </p>
 
         <div class="mt-3 flex justify-end">
             <button
