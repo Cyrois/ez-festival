@@ -46,12 +46,30 @@ php artisan boost:install
 Boost replaces these bootstrap instructions with guidelines tailored to the application. After installation, read `AGENTS.md` again and continue with the user's original request using the generated guidelines.
 </laravel-boost-guidelines>
 
+## Code style
+
+### PHP
+
+- PHP follows Laravel Pint with the `laravel` preset (`pint.json`).
+- Indent with 4 spaces.
+- Run `./vendor/bin/pint` (or `php vendor/bin/pint`) before opening a PR.
+- Check without writing: `./vendor/bin/pint --test`.
+
+### Vue / JavaScript
+
+- Vue and JS under `resources/` use Prettier (`.prettierrc.json`).
+- Critical: `singleAttributePerLine: true` — every Vue attribute/prop/param on its own line. Never put multiple attributes on one line.
+- ESLint (`eslint.config.js`) enforces `vue/max-attributes-per-line` (max 1 on single-line and multi-line).
+- Before a PR: `npm run format` then `npm run lint`.
+- Check without writing: `npm run format:check`.
+
 ## Artist Tree frontend rules
 
 - Do not hardcode user-facing strings in Vue components. Put copy in `lang/*.json` and use `laravel-vue-i18n` (`$t` / `t()`).
 - Style with Tailwind utility classes only. No scoped CSS, no large inline style blocks for layout/branding.
 - Define brand colors in `tailwind.config.js` and mirror them in `@theme` in `resources/css/app.css`. Use named utilities (`bg-brand`, `bg-brand-hover`, `text-accent`, `text-charcoal`, `bg-page`, `text-muted`, `border-line`, `text-danger`, `text-success`, `text-warning`, `accent-brand`). Do not sprinkle raw hex in class strings.
 - Auth screens: small centered form, teal primary (`brand` / `#1F7A74`), soft blue links (`accent` / `#3D6B8A`), page ground (`page` / `#F4F5F7`), charcoal text (`charcoal` / `#1A1A1A`). Gray borders use `line` (`#E5E7EB`) so Tailwind’s default `border` color is not clobbered.
+- Setup wizard screens (`resources/js/pages/Setup/*`, `resources/js/layouts/SetupLayout.vue`): same Tailwind + i18n rules; match Designer admin-setup mock (sidebar with Setup active, step pills, Skip + Save and continue).
 - Match Designer mocks when implementing screens.
 - No `.claude/` / CLAUDE.md.
 

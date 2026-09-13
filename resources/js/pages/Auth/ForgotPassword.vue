@@ -16,15 +16,22 @@ import { Head, Link } from '@inertiajs/vue3';
                 >
                     {{ $t('app.mark') }}
                 </div>
-                <h1 class="m-0 text-xl font-bold tracking-tight">{{ $t('app.name') }}</h1>
+                <h1 class="m-0 text-xl font-bold tracking-tight">
+                    {{ $t('app.name') }}
+                </h1>
             </div>
 
-            <div class="rounded-xl border border-line bg-white px-7 pb-7 pt-8">
-                <h2 class="mb-1.5 text-[22px] font-bold tracking-tight">{{ $t('auth.forgot.title') }}</h2>
+            <div class="rounded-xl border border-line bg-white px-7 pt-8 pb-7">
+                <h2 class="mb-1.5 text-[22px] font-bold tracking-tight">
+                    {{ $t('auth.forgot.title') }}
+                </h2>
                 <p class="mb-6 text-sm leading-snug text-muted">
                     {{ $t('auth.forgot.body') }}
                 </p>
-                <Link href="/login" class="text-sm font-bold text-accent no-underline hover:underline">
+                <Link
+                    href="/login"
+                    class="text-sm font-bold text-accent no-underline hover:underline"
+                >
                     {{ $t('auth.forgot.back') }}
                 </Link>
             </div>
