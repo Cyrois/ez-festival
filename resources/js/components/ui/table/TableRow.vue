@@ -3,6 +3,10 @@ import { computed } from 'vue';
 import { cn } from '../../../lib/utils';
 
 const props = defineProps({
+    variant: {
+        type: String,
+        default: 'body',
+    },
     selected: {
         type: Boolean,
         default: false,
@@ -15,8 +19,12 @@ const props = defineProps({
 
 const classes = computed(() =>
     cn(
-        'border-b border-line last:border-b-0 transition-colors hover:bg-page',
-        props.selected && 'bg-secondary-soft hover:bg-secondary-soft',
+        props.variant === 'header'
+            ? 'border-b border-line'
+            : 'border-b border-line last:border-b-0 transition-colors hover:bg-page',
+        props.variant !== 'header' &&
+            props.selected &&
+            'bg-secondary-soft hover:bg-secondary-soft',
         props.class,
     ),
 );

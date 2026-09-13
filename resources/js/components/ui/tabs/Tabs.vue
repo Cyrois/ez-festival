@@ -1,5 +1,5 @@
 <script setup>
-import { computed, provide } from 'vue';
+import { computed, provide, useId } from 'vue';
 import { cn } from '../../../lib/utils';
 import { TABS_KEY } from './tabsContext';
 
@@ -16,6 +16,8 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue']);
 
+const instanceId = useId();
+
 const setValue = (value) => {
     emit('update:modelValue', value);
 };
@@ -25,6 +27,7 @@ provide(
     computed(() => ({
         value: props.modelValue,
         setValue,
+        instanceId,
     })),
 );
 

@@ -8,6 +8,7 @@ import { Tabs, TabList, Tab, TabPanel } from '../../components/ui/tabs';
 import { SegmentedControl } from '../../components/ui/segmented-control';
 import { Card } from '../../components/ui/card';
 import { EmptyState } from '../../components/ui/empty-state';
+import { Icon } from '../../components/ui/icon';
 import {
     Table,
     TableHeader,
@@ -121,6 +122,7 @@ const viewOptions = [
         <SegmentedControl
             v-model="viewMode"
             :options="viewOptions"
+            :aria-label="$t('ui.demo.segmented.aria')"
         />
     </section>
 
@@ -158,12 +160,14 @@ const viewOptions = [
             :description="$t('ui.demo.empty.description')"
         >
             <template #icon>
-                <!-- FA not on this branch; unicode placeholder until Font Awesome PR -->
                 <span
-                    class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-page text-lg font-bold text-muted"
+                    class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-page text-muted"
                     aria-hidden="true"
                 >
-                    ∅
+                    <Icon
+                        :name="['fas', 'inbox']"
+                        size="lg"
+                    />
                 </span>
             </template>
             <Button
@@ -184,8 +188,11 @@ const viewOptions = [
         </p>
         <Table>
             <TableHeader>
-                <TableRow>
-                    <TableHead>
+                <TableRow variant="header">
+                    <TableHead
+                        sortable
+                        sort-direction="none"
+                    >
                         {{ $t('ui.demo.table.artist') }}
                     </TableHead>
                     <TableHead>

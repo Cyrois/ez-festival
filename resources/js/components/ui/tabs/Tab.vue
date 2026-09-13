@@ -22,6 +22,14 @@ const tabs = inject(TABS_KEY, null);
 
 const isActive = computed(() => tabs?.value?.value === props.value);
 
+const tabId = computed(
+    () => `tab-${tabs?.value?.instanceId ?? 'tabs'}-${props.value}`,
+);
+
+const panelId = computed(
+    () => `tabpanel-${tabs?.value?.instanceId ?? 'tabs'}-${props.value}`,
+);
+
 const classes = computed(() =>
     cn(
         '-mb-px inline-flex items-center justify-center border-b-2 px-3 py-2 text-sm font-bold transition-colors',
@@ -45,11 +53,11 @@ const onSelect = () => {
 
 <template>
     <button
-        :id="`tab-${value}`"
+        :id="tabId"
         type="button"
         role="tab"
         :aria-selected="isActive ? 'true' : 'false'"
-        :aria-controls="`tabpanel-${value}`"
+        :aria-controls="panelId"
         :tabindex="isActive ? 0 : -1"
         :disabled="disabled"
         :class="classes"

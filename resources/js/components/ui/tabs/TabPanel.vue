@@ -18,16 +18,24 @@ const tabs = inject(TABS_KEY, null);
 
 const isActive = computed(() => tabs?.value?.value === props.value);
 
+const panelId = computed(
+    () => `tabpanel-${tabs?.value?.instanceId ?? 'tabs'}-${props.value}`,
+);
+
+const tabId = computed(
+    () => `tab-${tabs?.value?.instanceId ?? 'tabs'}-${props.value}`,
+);
+
 const classes = computed(() => cn('pt-4 text-sm text-charcoal', props.class));
 </script>
 
 <template>
     <div
-        v-show="isActive"
-        :id="`tabpanel-${value}`"
+        :id="panelId"
         role="tabpanel"
-        :aria-labelledby="`tab-${value}`"
+        :aria-labelledby="tabId"
         :hidden="!isActive"
+        :tabindex="isActive ? 0 : undefined"
         :class="classes"
     >
         <slot />

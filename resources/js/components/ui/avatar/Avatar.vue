@@ -97,8 +97,8 @@ const onError = () => {
 <template>
     <span
         :class="classes"
-        role="img"
-        :aria-label="imageAlt || undefined"
+        :role="showImage ? undefined : 'img'"
+        :aria-label="showImage ? undefined : imageAlt || undefined"
     >
         <img
             v-if="showImage"
