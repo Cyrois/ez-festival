@@ -28,16 +28,25 @@ const submit = () => {
                 >
                     {{ $t('app.mark') }}
                 </div>
-                <h1 class="m-0 text-xl font-bold tracking-tight">{{ $t('app.name') }}</h1>
+                <h1 class="m-0 text-xl font-bold tracking-tight">
+                    {{ $t('app.name') }}
+                </h1>
             </div>
 
-            <div class="rounded-xl border border-line bg-white px-7 pb-7 pt-8">
-                <h2 class="mb-1.5 text-[22px] font-bold tracking-tight">{{ $t('auth.login.title') }}</h2>
-                <p class="mb-6 text-sm leading-snug text-muted">{{ $t('auth.login.lead') }}</p>
+            <div class="rounded-xl border border-line bg-white px-7 pt-8 pb-7">
+                <h2 class="mb-1.5 text-[22px] font-bold tracking-tight">
+                    {{ $t('auth.login.title') }}
+                </h2>
+                <p class="mb-6 text-sm leading-snug text-muted">
+                    {{ $t('auth.login.lead') }}
+                </p>
 
                 <form @submit.prevent="submit">
                     <div class="mb-4">
-                        <label class="mb-1.5 block text-[13px] font-bold text-charcoal" for="email">
+                        <label
+                            class="mb-1.5 block text-[13px] font-bold text-charcoal"
+                            for="email"
+                        >
                             {{ $t('auth.login.email') }}
                         </label>
                         <input
@@ -50,13 +59,19 @@ const submit = () => {
                             autofocus
                             class="box-border h-[42px] w-full rounded-lg border border-line bg-white px-3 text-sm text-charcoal outline-none focus:border-brand focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-brand)_22%,transparent)]"
                         />
-                        <p v-if="form.errors.email" class="mt-1.5 text-[13px] leading-snug text-danger">
+                        <p
+                            v-if="form.errors.email"
+                            class="mt-1.5 text-[13px] leading-snug text-danger"
+                        >
                             {{ form.errors.email }}
                         </p>
                     </div>
 
                     <div class="mb-4">
-                        <label class="mb-1.5 block text-[13px] font-bold text-charcoal" for="password">
+                        <label
+                            class="mb-1.5 block text-[13px] font-bold text-charcoal"
+                            for="password"
+                        >
                             {{ $t('auth.login.password') }}
                         </label>
                         <input
@@ -68,13 +83,20 @@ const submit = () => {
                             required
                             class="box-border h-[42px] w-full rounded-lg border border-line bg-white px-3 text-sm text-charcoal outline-none focus:border-brand focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-brand)_22%,transparent)]"
                         />
-                        <p v-if="form.errors.password" class="mt-1.5 text-[13px] leading-snug text-danger">
+                        <p
+                            v-if="form.errors.password"
+                            class="mt-1.5 text-[13px] leading-snug text-danger"
+                        >
                             {{ form.errors.password }}
                         </p>
                     </div>
 
-                    <div class="mb-[22px] mt-1 flex items-center justify-between text-[13px]">
-                        <label class="flex cursor-pointer items-center gap-2 font-normal text-muted">
+                    <div
+                        class="mt-1 mb-[22px] flex items-center justify-between text-[13px]"
+                    >
+                        <label
+                            class="flex cursor-pointer items-center gap-2 font-normal text-muted"
+                        >
                             <input
                                 v-model="form.remember"
                                 type="checkbox"
@@ -83,7 +105,10 @@ const submit = () => {
                             />
                             {{ $t('auth.login.remember') }}
                         </label>
-                        <Link href="/forgot-password" class="font-bold text-accent no-underline hover:underline">
+                        <Link
+                            href="/forgot-password"
+                            class="font-bold text-accent no-underline hover:underline"
+                        >
                             {{ $t('auth.login.forgot') }}
                         </Link>
                     </div>
@@ -97,7 +122,9 @@ const submit = () => {
                     </button>
                 </form>
 
-                <p class="mt-5 text-center text-xs text-muted">{{ $t('auth.login.foot') }}</p>
+                <p class="mt-5 text-center text-xs text-muted">
+                    {{ $t('auth.login.foot') }}
+                </p>
             </div>
         </div>
     </div>
