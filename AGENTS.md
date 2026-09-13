@@ -54,6 +54,8 @@ Boost replaces these bootstrap instructions with guidelines tailored to the appl
 - Indent with 4 spaces.
 - Run `./vendor/bin/pint` (or `php vendor/bin/pint`) before opening a PR.
 - Check without writing: `./vendor/bin/pint --test`.
+- **Never inline `$request->validate([...])` in controllers.** Always use Laravel Form Request classes for incoming validation (e.g. `App\Http\Requests\Setup\StoreEventRequest`, `ContinueLocationsRequest` with `suggestions.*` rules). Controllers call `$request->validated()` only.
+- **Response contracts:** JSON endpoints return API Resources (`JsonResource`) or dedicated response classes — do not hand-build ad-hoc JSON arrays in controllers. Inertia redirects may keep `RedirectResponse`, but validation still goes through a Form Request.
 
 ### Vue / JavaScript
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Setup;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Setup\Concerns\InteractsWithSetup;
+use App\Http\Requests\Setup\ContinueArtistTypesRequest;
 use App\Http\Requests\Setup\StoreTypeRequest;
 use App\Http\Requests\Setup\UpdateTypeRequest;
 use App\Models\ArtistType;
@@ -70,14 +71,11 @@ class ArtistTypeController extends Controller
         return redirect()->route('setup.artist-types');
     }
 
-    public function continue(Request $request): RedirectResponse
+    public function continue(ContinueArtistTypesRequest $request): RedirectResponse
     {
         $organization = $this->organization($request);
 
-        $data = $request->validate([
-            'suggestions' => ['sometimes', 'array'],
-            'suggestions.*.name' => ['required', 'string', 'max:255'],
-        ]);
+        $data = $request->validated();
 
         foreach ($data['suggestions'] ?? [] as $item) {
             $organization->artistTypes()->create([

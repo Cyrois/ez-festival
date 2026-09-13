@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Setup;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Setup\Concerns\InteractsWithSetup;
+use App\Http\Requests\Setup\ContinueLocationsRequest;
 use App\Http\Requests\Setup\StoreLocationRequest;
 use App\Http\Requests\Setup\UpdateLocationRequest;
 use App\Models\Location;
@@ -85,7 +86,7 @@ class LocationController extends Controller
         return redirect()->route('setup.locations');
     }
 
-    public function continue(Request $request): RedirectResponse
+    public function continue(ContinueLocationsRequest $request): RedirectResponse
     {
         $organization = $this->organization($request);
         $event = $organization->activeEvent;
@@ -94,11 +95,7 @@ class LocationController extends Controller
             return redirect()->route('setup.event');
         }
 
-        $data = $request->validate([
-            'suggestions' => ['sometimes', 'array'],
-            'suggestions.*.name' => ['required', 'string', 'max:255'],
-            'suggestions.*.type' => ['nullable', 'string', 'max:255'],
-        ]);
+        $data = $request->validated();
 
         foreach ($data['suggestions'] ?? [] as $item) {
             $event->locations()->create([
