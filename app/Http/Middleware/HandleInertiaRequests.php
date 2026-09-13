@@ -37,6 +37,9 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
         $organization = $user?->primaryOrganization();
+        $event = $user && $organization
+            ? $user->effectiveEvent($organization)
+            : null;
 
         return [
             ...parent::share($request),
@@ -52,10 +55,10 @@ class HandleInertiaRequests extends Middleware
                     'setup_completed' => $organization->setupIsComplete(),
                 ]
                 : null,
-            'activeEvent' => $organization?->activeEvent
+            'activeEvent' => $event
                 ? [
-                    'id' => $organization->activeEvent->id,
-                    'name' => $organization->activeEvent->name,
+                    'id' => $event->id,
+                    'name' => $event->name,
                 ]
                 : null,
         ];

@@ -73,5 +73,7 @@
     "setup.ready.event_label": "Active event: :name",
     "setup.ready.vendor_types_label": "Vendor Type dropdown uses",
     "setup.ready.artist_types_label": "Artist Type dropdown uses",
-    "setup.ready.note": "If Type lists are empty, Add vendor / Add artist Type field shows empty with a link: Manage types in Setup."
+    "setup.ready.note": "If Type lists are empty, Add vendor / Add artist Type field shows empty with a link: Manage types in Setup.",
+    "setup.errors.generic": "Something went wrong. Please try again.",
+    "setup.errors.dismiss": "Dismiss"
 }
