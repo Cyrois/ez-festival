@@ -1,6 +1,9 @@
 <script setup>
-import { Head, Link, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import DangerToast from '../components/DangerToast.vue';
+import { useFlashToast } from '../composables/useFlashToast';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { trans } from 'laravel-vue-i18n';
+import { computed, onUnmounted, watch } from 'vue';
 
 const props = defineProps({
     title: { type: String, required: true },
@@ -11,6 +14,8 @@ const props = defineProps({
 });
 
 const page = usePage();
+const { showDanger } = useFlashToast();
+
 const subtitle = computed(
     () =>
         props.eventName ||
@@ -35,6 +40,25 @@ const stepClass = (n) => {
     }
     return 'bg-white text-muted border-line';
 };
+
+watch(
+    () => page.props.flash?.error,
+    (error) => {
+        if (error) {
+            showDanger(error);
+        }
+    },
+    { immediate: true },
+);
+
+const removeInvalidListener = router.on('invalid', (event) => {
+    event.preventDefault();
+    showDanger(trans('setup.errors.generic'));
+});
+
+onUnmounted(() => {
+    removeInvalidListener();
+});
 </script>
 
 <template>
@@ -105,5 +129,7 @@ const stepClass = (n) => {
                 <slot />
             </main>
         </div>
+
+        <DangerToast />
     </div>
 </template>
