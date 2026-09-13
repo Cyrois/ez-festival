@@ -55,8 +55,12 @@ const skip = () => router.post('/setup/locations/skip');
     >
         <div class="mb-3 flex items-start justify-between gap-2.5">
             <div>
-                <h2 class="m-0 mb-1 text-base font-bold">{{ $t('setup.locations.heading') }}</h2>
-                <p class="m-0 text-[11px] leading-snug text-muted">{{ $t('setup.locations.lead') }}</p>
+                <h2 class="m-0 mb-1 text-base font-bold">
+                    {{ $t('setup.locations.heading') }}
+                </h2>
+                <p class="m-0 text-[11px] leading-snug text-muted">
+                    {{ $t('setup.locations.lead') }}
+                </p>
             </div>
             <button
                 type="button"
@@ -72,7 +76,11 @@ const skip = () => router.post('/setup/locations/skip');
             class="mb-2 rounded-lg border border-line bg-white p-2.5"
             @submit.prevent="submitAdd"
         >
-            <label class="mb-1 block text-[10px] font-bold" for="loc-name">{{ $t('setup.locations.name') }}</label>
+            <label
+                class="mb-1 block text-[10px] font-bold"
+                for="loc-name"
+                >{{ $t('setup.locations.name') }}</label
+            >
             <input
                 id="loc-name"
                 v-model="addForm.name"
@@ -80,7 +88,11 @@ const skip = () => router.post('/setup/locations/skip');
                 required
                 class="mb-2 box-border h-[30px] w-full rounded-md border border-line bg-white px-2 text-[11px] outline-none focus:border-brand"
             />
-            <label class="mb-1 block text-[10px] font-bold" for="loc-type">{{ $t('setup.locations.type') }}</label>
+            <label
+                class="mb-1 block text-[10px] font-bold"
+                for="loc-type"
+                >{{ $t('setup.locations.type') }}</label
+            >
             <input
                 id="loc-type"
                 v-model="addForm.type"
@@ -105,14 +117,20 @@ const skip = () => router.post('/setup/locations/skip');
             </div>
         </form>
 
-        <div v-if="locations.length" class="mb-2 overflow-hidden rounded-lg border border-line">
+        <div
+            v-if="locations.length"
+            class="mb-2 overflow-hidden rounded-lg border border-line"
+        >
             <div
                 v-for="location in locations"
                 :key="location.id"
                 class="flex items-center justify-between border-b border-line px-2.5 py-2 text-[11px] last:border-b-0"
             >
                 <template v-if="editingId === location.id">
-                    <form class="flex w-full flex-col gap-1.5" @submit.prevent="submitEdit(location)">
+                    <form
+                        class="flex w-full flex-col gap-1.5"
+                        @submit.prevent="submitEdit(location)"
+                    >
                         <input
                             v-model="editForm.name"
                             type="text"
@@ -144,7 +162,12 @@ const skip = () => router.post('/setup/locations/skip');
                 <template v-else>
                     <div>
                         <strong class="font-bold">{{ location.name }}</strong>
-                        <div v-if="location.type" class="text-[10px] text-muted">{{ location.type }}</div>
+                        <div
+                            v-if="location.type"
+                            class="text-[10px] text-muted"
+                        >
+                            {{ location.type }}
+                        </div>
                     </div>
                     <button
                         type="button"
@@ -163,7 +186,9 @@ const skip = () => router.post('/setup/locations/skip');
             {{ $t('setup.locations.empty') }}
         </div>
 
-        <p class="mb-2 text-[10px] leading-snug text-muted">{{ $t('setup.locations.note') }}</p>
+        <p class="mb-2 text-[10px] leading-snug text-muted">
+            {{ $t('setup.locations.note') }}
+        </p>
 
         <div class="mt-2 flex justify-end gap-1.5">
             <Link
