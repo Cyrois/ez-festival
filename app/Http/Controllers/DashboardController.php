@@ -10,14 +10,14 @@ use Inertia\Response;
 class DashboardController extends Controller
 {
     /**
-     * Display the authenticated dashboard scoped to the active event.
+     * Display the authenticated dashboard scoped to the effective event.
      */
     public function __invoke(Request $request): Response
     {
         /** @var User $user */
         $user = $request->user();
         $organization = $user->primaryOrganization() ?? $user->ensureOrganization();
-        $event = $organization->activeEvent;
+        $event = $user->effectiveEvent($organization);
 
         return Inertia::render('Dashboard', [
             'organization' => [
