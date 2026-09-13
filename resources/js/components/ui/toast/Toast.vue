@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { useFlashToast } from '../../../composables/useFlashToast';
 import { cn } from '../../../lib/utils';
+import { Icon } from '../icon';
 
 const { message, title, variant, visible, dismiss } = useFlashToast();
 
@@ -15,14 +16,14 @@ const iconWrapClass = computed(() => {
     return 'bg-secondary';
 });
 
-const iconGlyph = computed(() => {
+const toastIcon = computed(() => {
     if (variant.value === 'success') {
-        return '✓';
+        return ['fas', 'check'];
     }
     if (variant.value === 'error') {
-        return '×';
+        return ['fas', 'xmark'];
     }
-    return 'i';
+    return ['fas', 'circle-info'];
 });
 
 const role = computed(() => (variant.value === 'error' ? 'alert' : 'status'));
@@ -41,14 +42,16 @@ const role = computed(() => (variant.value === 'error' ? 'alert' : 'status'));
         <div
             :class="
                 cn(
-                    'flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white',
+                    'flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-white',
                     iconWrapClass,
                 )
             "
             aria-hidden="true"
         >
-            <!-- TODO: replace text glyphs with Font Awesome when FA PR lands -->
-            {{ iconGlyph }}
+            <Icon
+                :name="toastIcon"
+                size="xs"
+            />
         </div>
         <div class="min-w-0 flex-1">
             <strong
@@ -69,11 +72,14 @@ const role = computed(() => (variant.value === 'error' ? 'alert' : 'status'));
         </div>
         <button
             type="button"
-            class="shrink-0 cursor-pointer border-none bg-transparent p-0 text-base leading-none text-muted hover:text-charcoal"
+            class="shrink-0 cursor-pointer border-none bg-transparent p-0 text-muted hover:text-charcoal"
             :aria-label="$t('ui.toast.dismiss')"
             @click="dismiss"
         >
-            ×
+            <Icon
+                :name="['fas', 'xmark']"
+                size="sm"
+            />
         </button>
     </div>
 </template>

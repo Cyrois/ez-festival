@@ -157,5 +157,15 @@
     "ui.demo.tag.soundcheck": "Soundcheck",
     "ui.demo.tag.custom": "Green room",
     "ui.demo.variant.outline": "Outline",
-    "ui.demo.loading": "Loading"
+    "ui.demo.loading": "Loading",
+    "ui.demo.icons": "Icon",
+    "ui.demo.icons_lead": "Font Awesome Free via the Icon wrapper. Register icons in resources/js/icons.js (tree-shakeable).",
+    "ui.demo.icon.check": "Check",
+    "ui.demo.icon.xmark": "Close",
+    "ui.demo.icon.info": "Info",
+    "ui.demo.icon.search": "Search",
+    "ui.demo.icon.user": "User",
+    "ui.demo.icon.trash": "Trash",
+    "ui.demo.icon.pen": "Edit",
+    "ui.demo.icon.chevron": "Chevron"
 }
