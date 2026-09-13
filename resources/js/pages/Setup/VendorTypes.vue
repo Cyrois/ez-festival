@@ -198,7 +198,7 @@ const skip = () =>
             </button>
             <button
                 type="button"
-                class="h-7 cursor-pointer rounded-md border-none bg-brand px-2.5 text-[11px] font-bold text-white"
+                class="h-7 cursor-pointer rounded-md border-none bg-brand px-2.5 text-[11px] font-bold text-white hover:bg-brand-hover"
                 @click="continueSetup"
             >
                 {{ $t('setup.actions.save_continue') }}
