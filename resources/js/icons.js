@@ -1,18 +1,23 @@
 import { library } from '@fortawesome/fontawesome-svg-core';
 import {
+    faAddressBook,
     faCheck,
     faChevronDown,
     faCircleExclamation,
     faCircleInfo,
     faEllipsis,
+    faHouse,
     faInbox,
     faMagnifyingGlass,
+    faMusic,
     faPen,
     faPencil,
     faPlus,
+    faStore,
     faTrash,
     faTrashCan,
     faUser,
+    faUsers,
     faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 
@@ -21,19 +26,24 @@ import {
  * Add icons here as needed — do not import entire fas/far/fab packs.
  */
 export const kitIcons = [
+    faAddressBook,
     faCheck,
     faChevronDown,
     faCircleExclamation,
     faCircleInfo,
     faEllipsis,
+    faHouse,
     faInbox,
     faMagnifyingGlass,
+    faMusic,
     faPen,
     faPencil,
     faPlus,
+    faStore,
     faTrash,
     faTrashCan,
     faUser,
+    faUsers,
     faXmark,
 ];
 
