@@ -67,9 +67,11 @@ Boost replaces these bootstrap instructions with guidelines tailored to the appl
 
 - Do not hardcode user-facing strings in Vue components. Put copy in `lang/*.json` and use `laravel-vue-i18n` (`$t` / `t()`).
 - Style with Tailwind utility classes only. No scoped CSS, no large inline style blocks for layout/branding.
-- Define brand colors in `tailwind.config.js` and mirror them in `@theme` in `resources/css/app.css`. Use named utilities (`bg-brand`, `bg-brand-hover`, `text-accent`, `text-charcoal`, `bg-page`, `text-muted`, `border-line`, `text-danger`, `text-success`, `text-warning`, `accent-brand`). Do not sprinkle raw hex in class strings.
-- Auth screens: small centered form, teal primary (`brand` / `#1F7A74`), soft blue links (`accent` / `#3D6B8A`), page ground (`page` / `#F4F5F7`), charcoal text (`charcoal` / `#1A1A1A`). Gray borders use `line` (`#E5E7EB`) so Tailwind’s default `border` color is not clobbered.
-- Setup wizard screens (`resources/js/pages/Setup/*`, `resources/js/layouts/SetupLayout.vue`): same Tailwind + i18n rules; match Designer admin-setup mock (sidebar with Setup active, step pills, Skip + Save and continue).
+- Define design tokens in `tailwind.config.js` and mirror them in `@theme` in `resources/css/app.css`. Prefer `primary` / `secondary` for new work; `brand` / `accent` remain aliases of those same hex values so existing `bg-brand` / `text-accent` classes keep working. Also: `text-charcoal`, `bg-page`, `bg-ground`, `text-muted`, `border-line`, `text-danger`, `text-success`, `text-warning`, radius `0.5rem` (`rounded-lg` / `--radius`). Do not sprinkle raw hex in class strings.
+- Compose screens from `resources/js/components/ui` (Button, Input, FormField, Toast, …). Do not one-off restyle controls per page. Extend the kit in a PR when something is missing.
+- Tiny visual gallery: authenticated `/ui` (`resources/js/pages/Ui/Index.vue`) for Designer pass on the current slice.
+- Auth screens: small centered form, teal primary (`primary` / `brand` / `#1F7A74`), soft blue links (`secondary` / `accent` / `#3D6B8A`), page ground (`page` / `#F4F5F7`), charcoal text (`charcoal` / `#1A1A1A`). Gray borders use `line` (`#E5E7EB`) so Tailwind’s default `border` color is not clobbered.
+- Setup wizard screens (`resources/js/pages/Setup/*`, `resources/js/layouts/SetupLayout.vue`): same Tailwind + i18n rules; match Designer admin-setup mock (sidebar with Setup active, step pills, Skip + Save and continue). Shared Toast covers setup form errors.
 - Match Designer mocks when implementing screens.
 - No `.claude/` / CLAUDE.md.
 
