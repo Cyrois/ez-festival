@@ -3,6 +3,8 @@ import { createApp, h } from 'vue';
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { i18nVue } from 'laravel-vue-i18n';
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import './icons';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -23,6 +25,7 @@ createInertiaApp({
                     return await langs[`../../lang/${lang}.json`]();
                 },
             })
+            .component('FontAwesomeIcon', FontAwesomeIcon)
             .mount(el);
     },
     progress: { color: '#1F7A74' },

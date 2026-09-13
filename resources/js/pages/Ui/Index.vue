@@ -15,6 +15,7 @@ import { Label } from '../../components/ui/label';
 import { Tag } from '../../components/ui/tag';
 import LayoutDataDemo from './LayoutDataDemo.vue';
 import { Toast } from '../../components/ui/toast';
+import { Icon } from '../../components/ui/icon';
 import { useFlashToast } from '../../composables/useFlashToast';
 
 const sample = ref('Default');
@@ -105,7 +106,10 @@ const triggerInfo = () =>
                         size="icon"
                         :aria-label="$t('ui.demo.icon')"
                     >
-                        ⋯
+                        <Icon
+                            :name="['fas', 'ellipsis']"
+                            size="md"
+                        />
                     </Button>
                 </div>
                 <div class="flex flex-wrap items-center gap-2.5">
@@ -128,7 +132,10 @@ const triggerInfo = () =>
                         {{ $t('ui.demo.size.lg') }}
                     </Button>
                     <Button variant="primary">
-                        <span aria-hidden="true">+</span>
+                        <Icon
+                            :name="['fas', 'plus']"
+                            size="sm"
+                        />
                         {{ $t('ui.demo.with_icon') }}
                     </Button>
                 </div>
@@ -384,6 +391,94 @@ const triggerInfo = () =>
             </section>
 
             <LayoutDataDemo />
+
+            <section
+                class="mb-4 rounded-xl border border-line bg-ground px-5 py-5"
+            >
+                <h2 class="m-0 mb-1 text-base font-bold">
+                    {{ $t('ui.demo.icons') }}
+                </h2>
+                <p class="m-0 mb-4 text-xs text-muted">
+                    {{ $t('ui.demo.icons_lead') }}
+                </p>
+                <div class="flex flex-wrap items-center gap-4 text-charcoal">
+                    <div class="flex items-center gap-2">
+                        <Icon
+                            :name="['fas', 'check']"
+                            size="md"
+                            class="text-success"
+                        />
+                        <span class="text-xs text-muted">
+                            {{ $t('ui.demo.icon.check') }}
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <Icon
+                            :name="['fas', 'xmark']"
+                            size="md"
+                            class="text-danger"
+                        />
+                        <span class="text-xs text-muted">
+                            {{ $t('ui.demo.icon.xmark') }}
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <Icon
+                            :name="['fas', 'circle-info']"
+                            size="md"
+                            class="text-secondary"
+                        />
+                        <span class="text-xs text-muted">
+                            {{ $t('ui.demo.icon.info') }}
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <Icon
+                            :name="['fas', 'magnifying-glass']"
+                            size="md"
+                        />
+                        <span class="text-xs text-muted">
+                            {{ $t('ui.demo.icon.search') }}
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <Icon
+                            :name="['fas', 'user']"
+                            size="md"
+                        />
+                        <span class="text-xs text-muted">
+                            {{ $t('ui.demo.icon.user') }}
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <Icon
+                            :name="['fas', 'trash']"
+                            size="md"
+                        />
+                        <span class="text-xs text-muted">
+                            {{ $t('ui.demo.icon.trash') }}
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <Icon
+                            :name="['fas', 'pen']"
+                            size="md"
+                        />
+                        <span class="text-xs text-muted">
+                            {{ $t('ui.demo.icon.pen') }}
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <Icon
+                            :name="['fas', 'chevron-down']"
+                            size="md"
+                        />
+                        <span class="text-xs text-muted">
+                            {{ $t('ui.demo.icon.chevron') }}
+                        </span>
+                    </div>
+                </div>
+            </section>
 
             <section
                 class="mb-4 rounded-xl border border-line bg-ground px-5 py-5"

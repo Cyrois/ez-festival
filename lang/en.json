@@ -199,5 +199,15 @@
     "ui.demo.loading": "Loading",
     "ui.demo.avatar.primary": "Primary",
     "ui.demo.avatar.neutral": "Neutral",
-    "ui.demo.avatar.fallback": "Broken src → initials"
+    "ui.demo.avatar.fallback": "Broken src → initials",
+    "ui.demo.icons": "Icon",
+    "ui.demo.icons_lead": "Font Awesome Free via the Icon wrapper. Register icons in resources/js/icons.js (tree-shakeable).",
+    "ui.demo.icon.check": "Check",
+    "ui.demo.icon.xmark": "Close",
+    "ui.demo.icon.info": "Info",
+    "ui.demo.icon.search": "Search",
+    "ui.demo.icon.user": "User",
+    "ui.demo.icon.trash": "Trash",
+    "ui.demo.icon.pen": "Edit",
+    "ui.demo.icon.chevron": "Chevron"
 }
