@@ -5,11 +5,25 @@ import { ref } from 'vue';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { FormField } from '../../components/ui/form-field';
+import { Textarea } from '../../components/ui/textarea';
+import { Select } from '../../components/ui/select';
+import { Checkbox } from '../../components/ui/checkbox';
+import { Radio } from '../../components/ui/radio';
+import { Switch } from '../../components/ui/switch';
+import { Badge } from '../../components/ui/badge';
+import { Label } from '../../components/ui/label';
+import { Tag } from '../../components/ui/tag';
 import { Toast } from '../../components/ui/toast';
 import { useFlashToast } from '../../composables/useFlashToast';
 
 const sample = ref('Default');
 const sampleError = ref('Bad value');
+const notes = ref('');
+const locationType = ref('');
+const locationTypeInvalid = ref('');
+const requiresPower = ref(true);
+const siteType = ref('stage');
+const published = ref(false);
 const { showSuccess, showError, showInfo } = useFlashToast();
 
 const triggerSuccess = () =>
@@ -149,6 +163,216 @@ const triggerInfo = () =>
                             />
                         </template>
                     </FormField>
+                </div>
+            </section>
+
+            <section
+                class="mb-4 rounded-xl border border-line bg-ground px-5 py-5"
+            >
+                <h2 class="m-0 mb-1 text-base font-bold">
+                    {{ $t('ui.demo.textarea') }}
+                </h2>
+                <p class="m-0 mb-4 text-xs text-muted">
+                    {{ $t('ui.demo.textarea_lead') }}
+                </p>
+                <FormField
+                    :label="$t('ui.demo.textarea_label')"
+                    :hint="$t('ui.demo.textarea_hint')"
+                    class="max-w-md"
+                >
+                    <template #default="{ id, invalid }">
+                        <Textarea
+                            :id="id"
+                            v-model="notes"
+                            :invalid="invalid"
+                            :placeholder="$t('ui.demo.textarea_placeholder')"
+                            rows="4"
+                        />
+                    </template>
+                </FormField>
+            </section>
+
+            <section
+                class="mb-4 rounded-xl border border-line bg-ground px-5 py-5"
+            >
+                <h2 class="m-0 mb-1 text-base font-bold">
+                    {{ $t('ui.demo.select') }}
+                </h2>
+                <p class="m-0 mb-4 text-xs text-muted">
+                    {{ $t('ui.demo.select_lead') }}
+                </p>
+                <div class="flex flex-wrap gap-4">
+                    <FormField
+                        :label="$t('ui.demo.select_label')"
+                        class="min-w-[200px]"
+                    >
+                        <template #default="{ id, invalid }">
+                            <Select
+                                :id="id"
+                                v-model="locationType"
+                                :invalid="invalid"
+                            >
+                                <option value="">
+                                    {{ $t('ui.demo.select_placeholder') }}
+                                </option>
+                                <option value="stage">
+                                    {{ $t('ui.demo.select.stage') }}
+                                </option>
+                                <option value="tent">
+                                    {{ $t('ui.demo.select.tent') }}
+                                </option>
+                                <option value="indoor">
+                                    {{ $t('ui.demo.select.indoor') }}
+                                </option>
+                            </Select>
+                        </template>
+                    </FormField>
+                    <FormField
+                        :label="$t('ui.demo.select_label')"
+                        :error="$t('ui.demo.select_error')"
+                        class="min-w-[200px]"
+                    >
+                        <template #default="{ id, invalid }">
+                            <Select
+                                :id="id"
+                                v-model="locationTypeInvalid"
+                                :invalid="invalid"
+                            >
+                                <option value="">
+                                    {{ $t('ui.demo.select_placeholder') }}
+                                </option>
+                                <option value="stage">
+                                    {{ $t('ui.demo.select.stage') }}
+                                </option>
+                                <option value="tent">
+                                    {{ $t('ui.demo.select.tent') }}
+                                </option>
+                            </Select>
+                        </template>
+                    </FormField>
+                </div>
+            </section>
+
+            <section
+                class="mb-4 rounded-xl border border-line bg-ground px-5 py-5"
+            >
+                <h2 class="m-0 mb-1 text-base font-bold">
+                    {{ $t('ui.demo.controls') }}
+                </h2>
+                <p class="m-0 mb-4 text-xs text-muted">
+                    {{ $t('ui.demo.controls_lead') }}
+                </p>
+                <div class="flex flex-col gap-4">
+                    <div class="flex flex-wrap items-center gap-4">
+                        <Checkbox
+                            v-model="requiresPower"
+                            :label="$t('ui.demo.checkbox_label')"
+                        />
+                        <Checkbox
+                            :model-value="true"
+                            disabled
+                            :label="$t('ui.demo.checkbox_disabled')"
+                        />
+                        <Switch
+                            v-model="published"
+                            :label="$t('ui.demo.switch_label')"
+                        />
+                    </div>
+                    <div>
+                        <Label class="mb-2 block">
+                            {{ $t('ui.demo.radio_legend') }}
+                        </Label>
+                        <div class="flex flex-wrap items-center gap-4">
+                            <Radio
+                                v-model="siteType"
+                                value="stage"
+                                name="site-type"
+                                :label="$t('ui.demo.radio.stage')"
+                            />
+                            <Radio
+                                v-model="siteType"
+                                value="tent"
+                                name="site-type"
+                                :label="$t('ui.demo.radio.tent')"
+                            />
+                            <Radio
+                                v-model="siteType"
+                                value="indoor"
+                                name="site-type"
+                                :label="$t('ui.demo.radio.indoor')"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section
+                class="mb-4 rounded-xl border border-line bg-ground px-5 py-5"
+            >
+                <h2 class="m-0 mb-1 text-base font-bold">
+                    {{ $t('ui.demo.badges') }}
+                </h2>
+                <p class="m-0 mb-4 text-xs text-muted">
+                    {{ $t('ui.demo.badges_lead') }}
+                </p>
+                <div class="flex flex-wrap items-center gap-2">
+                    <Badge variant="neutral">
+                        {{ $t('ui.demo.badge.neutral') }}
+                    </Badge>
+                    <Badge variant="primary">
+                        {{ $t('ui.demo.badge.primary') }}
+                    </Badge>
+                    <Badge variant="success">
+                        {{ $t('ui.demo.badge.success') }}
+                    </Badge>
+                    <Badge variant="warning">
+                        {{ $t('ui.demo.badge.warning') }}
+                    </Badge>
+                    <Badge variant="danger">
+                        {{ $t('ui.demo.badge.danger') }}
+                    </Badge>
+                    <Badge variant="outline">
+                        {{ $t('ui.demo.badge.outline') }}
+                    </Badge>
+                    <Badge
+                        variant="primary"
+                        pill
+                    >
+                        {{ $t('ui.demo.badge.pill') }}
+                    </Badge>
+                </div>
+            </section>
+
+            <section
+                class="mb-4 rounded-xl border border-line bg-ground px-5 py-5"
+            >
+                <h2 class="m-0 mb-1 text-base font-bold">
+                    {{ $t('ui.demo.tags') }}
+                </h2>
+                <p class="m-0 mb-4 text-xs text-muted">
+                    {{ $t('ui.demo.tags_lead') }}
+                </p>
+                <div class="flex flex-wrap items-center gap-2">
+                    <Tag
+                        :name="$t('ui.demo.tag.headliner')"
+                        color="primary"
+                    />
+                    <Tag
+                        :name="$t('ui.demo.tag.local')"
+                        color="secondary"
+                    />
+                    <Tag
+                        :name="$t('ui.demo.tag.vip')"
+                        color="warning"
+                    />
+                    <Tag
+                        :name="$t('ui.demo.tag.soundcheck')"
+                        color="success"
+                    />
+                    <Tag
+                        :name="$t('ui.demo.tag.custom')"
+                        color="#3D6B8A"
+                    />
                 </div>
             </section>
 
