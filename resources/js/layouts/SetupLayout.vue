@@ -20,6 +20,8 @@ const orgName = computed(
 
 const hasActiveEvent = computed(() => Boolean(page.props.activeEvent?.id));
 
+const isComplete = computed(() => props.currentStep > 4);
+
 const orgSetupLabel = computed(() => {
     if (!orgName.value) {
         return trans('nav.setup');
@@ -89,10 +91,17 @@ onUnmounted(() => {
     <Head :title="title" />
 
     <div
-        class="min-h-screen bg-page px-6 pt-10 pb-16 text-charcoal antialiased"
+        class="min-h-screen bg-page px-6 text-charcoal antialiased"
+        :class="isComplete ? 'flex items-center py-10 pb-16' : 'pt-10 pb-16'"
     >
-        <div class="mx-auto w-full max-w-[720px]">
-            <div class="mb-7 flex items-center gap-2.5">
+        <div
+            class="mx-auto w-full"
+            :class="isComplete ? 'max-w-[560px] text-center' : 'max-w-[720px]'"
+        >
+            <div
+                class="mb-7 flex items-center gap-2.5"
+                :class="isComplete ? 'justify-center' : ''"
+            >
                 <div
                     class="inline-flex h-9 w-9 items-center justify-center rounded-[9px] bg-primary text-[13px] font-bold text-white"
                     aria-hidden="true"
@@ -100,17 +109,21 @@ onUnmounted(() => {
                     {{ $t('app.mark') }}
                 </div>
                 <div class="min-w-0">
-                    <strong class="block truncate text-[15px] font-bold">{{
-                        $t('app.name')
-                    }}</strong>
-                    <span class="mt-0.5 block truncate text-xs text-muted">{{
-                        orgSetupLabel
-                    }}</span>
+                    <strong
+                        class="block text-[15px] font-bold"
+                        :class="isComplete ? '' : 'truncate'"
+                        >{{ $t('app.name') }}</strong
+                    >
+                    <span
+                        v-if="!isComplete"
+                        class="mt-0.5 block truncate text-xs text-muted"
+                        >{{ orgSetupLabel }}</span
+                    >
                 </div>
             </div>
 
             <nav
-                v-if="currentStep <= 4"
+                v-if="!isComplete"
                 class="mb-7 flex flex-wrap gap-2"
                 :aria-label="$t('nav.setup')"
             >
