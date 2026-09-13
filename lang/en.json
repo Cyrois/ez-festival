@@ -82,7 +82,6 @@
     "ui.demo.buttons_lead": "Primary · secondary · soft · ghost · danger · outline-danger. Sizes sm / md / lg. Disabled at 45% opacity.",
     "ui.demo.variant.primary": "Primary",
     "ui.demo.variant.secondary": "Secondary",
-    "ui.demo.variant.soft": "Soft",
     "ui.demo.variant.ghost": "Ghost",
     "ui.demo.variant.danger": "Danger",
     "ui.demo.variant.outline_danger": "Danger outline",
@@ -156,5 +155,7 @@
     "ui.demo.tag.local": "Local",
     "ui.demo.tag.vip": "VIP",
     "ui.demo.tag.soundcheck": "Soundcheck",
-    "ui.demo.tag.custom": "Green room"
+    "ui.demo.tag.custom": "Green room",
+    "ui.demo.variant.outline": "Outline",
+    "ui.demo.loading": "Loading"
 }

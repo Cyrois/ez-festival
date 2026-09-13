@@ -1,7 +1,8 @@
 <script setup>
 import { computed } from 'vue';
-import { cva } from 'class-variance-authority';
+import { Link } from '@inertiajs/vue3';
 import { cn } from '../../../lib/utils';
+import { buttonVariants } from './buttonVariants';
 
 const props = defineProps({
     variant: {
@@ -20,39 +21,39 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    loading: {
+        type: Boolean,
+        default: false,
+    },
+    href: {
+        type: String,
+        default: '',
+    },
+    as: {
+        type: [String, Object],
+        default: null,
+    },
     class: {
         type: [String, Object, Array],
         default: '',
     },
 });
 
-const buttonVariants = cva(
-    'inline-flex items-center justify-center gap-2 rounded-lg border border-transparent font-sans font-bold whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/35 disabled:pointer-events-none disabled:opacity-45 cursor-pointer',
-    {
-        variants: {
-            variant: {
-                primary: 'bg-primary text-white hover:bg-primary-hover',
-                secondary:
-                    'border-line bg-transparent text-charcoal hover:bg-page',
-                soft: 'bg-secondary-soft text-secondary hover:bg-secondary-soft/80',
-                ghost: 'bg-transparent text-primary hover:bg-primary-soft',
-                danger: 'bg-danger text-white hover:bg-danger/90',
-                'outline-danger':
-                    'border-danger/30 bg-transparent text-danger hover:bg-danger/5',
-            },
-            size: {
-                sm: 'h-8 px-3 text-[13px]',
-                md: 'h-10 px-4 text-sm',
-                lg: 'h-12 px-5 text-[15px]',
-                icon: 'h-10 w-10 p-0',
-            },
-        },
-        defaultVariants: {
-            variant: 'primary',
-            size: 'md',
-        },
-    },
-);
+const isDisabled = computed(() => props.disabled || props.loading);
+
+const tag = computed(() => {
+    if (props.as) {
+        return props.as;
+    }
+
+    if (props.href) {
+        return Link;
+    }
+
+    return 'button';
+});
+
+const isNativeButton = computed(() => tag.value === 'button');
 
 const classes = computed(() =>
     cn(
@@ -60,17 +61,31 @@ const classes = computed(() =>
             variant: props.variant,
             size: props.size,
         }),
+        isDisabled.value &&
+            !isNativeButton.value &&
+            'pointer-events-none opacity-45',
         props.class,
     ),
 );
+
+const onClick = (event) => {
+    if (isDisabled.value && !isNativeButton.value) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+};
 </script>
 
 <template>
-    <button
-        :type="type"
-        :disabled="disabled"
+    <component
+        :is="tag"
+        :href="href || undefined"
+        :type="isNativeButton ? type : undefined"
+        :disabled="isNativeButton ? isDisabled : undefined"
+        :aria-busy="loading ? 'true' : undefined"
         :class="classes"
+        @click="onClick"
     >
         <slot />
-    </button>
+    </component>
 </template>
