@@ -27,11 +27,13 @@ export default {
                 },
                 secondary: {
                     DEFAULT: '#3D6B8A',
+                    hover: '#345A75',
                     soft: '#E8EEF2',
                 },
                 brand: {
                     DEFAULT: '#1F7A74',
                     hover: '#196560',
+                    soft: '#E6F3F2',
                 },
                 accent: '#3D6B8A',
                 danger: '#B91C1C',
@@ -40,6 +42,9 @@ export default {
             },
             borderRadius: {
                 lg: '0.5rem',
+            },
+            boxShadow: {
+                toast: '0 4px 16px rgb(0 0 0 / 0.08)',
             },
         },
     },
