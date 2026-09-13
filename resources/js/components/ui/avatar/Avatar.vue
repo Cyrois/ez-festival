@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { cva } from 'class-variance-authority';
 import { cn } from '../../../lib/utils';
 
@@ -22,13 +22,22 @@ const props = defineProps({
     },
     tone: {
         type: String,
-        default: 'teal',
+        default: 'primary',
     },
     class: {
         type: [String, Object, Array],
         default: '',
     },
 });
+
+const failed = ref(false);
+
+watch(
+    () => props.src,
+    () => {
+        failed.value = false;
+    },
+);
 
 const avatarVariants = cva(
     'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-sans font-bold select-none',
@@ -40,13 +49,13 @@ const avatarVariants = cva(
                 lg: 'h-12 w-12 text-base',
             },
             tone: {
-                teal: 'bg-primary-soft text-primary',
-                charcoal: 'bg-page text-charcoal',
+                primary: 'bg-primary-soft text-primary',
+                neutral: 'bg-page text-charcoal',
             },
         },
         defaultVariants: {
             size: 'md',
-            tone: 'teal',
+            tone: 'primary',
         },
     },
 );
@@ -78,6 +87,11 @@ const classes = computed(() =>
 );
 
 const imageAlt = computed(() => props.alt || props.name || '');
+const showImage = computed(() => Boolean(props.src) && !failed.value);
+
+const onError = () => {
+    failed.value = true;
+};
 </script>
 
 <template>
@@ -87,10 +101,11 @@ const imageAlt = computed(() => props.alt || props.name || '');
         :aria-label="imageAlt || undefined"
     >
         <img
-            v-if="src"
+            v-if="showImage"
             :src="src"
             :alt="imageAlt"
             class="h-full w-full object-cover"
+            @error="onError"
         />
         <span
             v-else

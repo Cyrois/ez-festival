@@ -36,26 +36,47 @@ const viewOptions = [
             {{ $t('ui.demo.avatars_lead') }}
         </p>
         <div class="flex flex-wrap items-center gap-3">
-            <Avatar
-                :name="$t('ui.demo.avatar.person_a')"
-                tone="teal"
-                size="sm"
-            />
-            <Avatar
-                :name="$t('ui.demo.avatar.person_b')"
-                tone="teal"
-                size="md"
-            />
-            <Avatar
-                :name="$t('ui.demo.avatar.person_c')"
-                tone="charcoal"
-                size="lg"
-            />
-            <Avatar
-                :name="$t('ui.demo.avatar.person_a')"
-                tone="charcoal"
-                size="md"
-            />
+            <div class="flex flex-col items-center gap-1">
+                <Avatar
+                    :name="$t('ui.demo.avatar.person_a')"
+                    tone="primary"
+                    size="sm"
+                />
+                <span class="text-[11px] text-muted">
+                    {{ $t('ui.demo.avatar.primary') }}
+                </span>
+            </div>
+            <div class="flex flex-col items-center gap-1">
+                <Avatar
+                    :name="$t('ui.demo.avatar.person_b')"
+                    tone="primary"
+                    size="md"
+                />
+                <span class="text-[11px] text-muted">
+                    {{ $t('ui.demo.avatar.primary') }}
+                </span>
+            </div>
+            <div class="flex flex-col items-center gap-1">
+                <Avatar
+                    :name="$t('ui.demo.avatar.person_c')"
+                    tone="neutral"
+                    size="lg"
+                />
+                <span class="text-[11px] text-muted">
+                    {{ $t('ui.demo.avatar.neutral') }}
+                </span>
+            </div>
+            <div class="flex flex-col items-center gap-1">
+                <Avatar
+                    :name="$t('ui.demo.avatar.person_a')"
+                    src="/ui-demo-missing-avatar.png"
+                    tone="neutral"
+                    size="md"
+                />
+                <span class="text-[11px] text-muted">
+                    {{ $t('ui.demo.avatar.fallback') }}
+                </span>
+            </div>
         </div>
     </section>
 
@@ -137,6 +158,7 @@ const viewOptions = [
             :description="$t('ui.demo.empty.description')"
         >
             <template #icon>
+                <!-- FA not on this branch; unicode placeholder until Font Awesome PR -->
                 <span
                     class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-page text-lg font-bold text-muted"
                     aria-hidden="true"
@@ -175,13 +197,13 @@ const viewOptions = [
                 </TableRow>
             </TableHeader>
             <TableBody>
-                <TableRow>
+                <TableRow selected>
                     <TableCell>
                         <div class="flex items-center gap-2">
                             <Avatar
                                 :name="$t('ui.demo.table.row1_artist')"
                                 size="sm"
-                                tone="teal"
+                                tone="primary"
                             />
                             <span>
                                 {{ $t('ui.demo.table.row1_artist') }}
@@ -206,7 +228,7 @@ const viewOptions = [
                             <Avatar
                                 :name="$t('ui.demo.table.row2_artist')"
                                 size="sm"
-                                tone="charcoal"
+                                tone="neutral"
                             />
                             <span>
                                 {{ $t('ui.demo.table.row2_artist') }}
@@ -231,7 +253,7 @@ const viewOptions = [
                             <Avatar
                                 :name="$t('ui.demo.table.row3_artist')"
                                 size="sm"
-                                tone="teal"
+                                tone="primary"
                             />
                             <span>
                                 {{ $t('ui.demo.table.row3_artist') }}

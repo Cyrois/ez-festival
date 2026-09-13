@@ -3,6 +3,10 @@ import { computed } from 'vue';
 import { cn } from '../../../lib/utils';
 
 const props = defineProps({
+    selected: {
+        type: Boolean,
+        default: false,
+    },
     class: {
         type: [String, Object, Array],
         default: '',
@@ -10,7 +14,11 @@ const props = defineProps({
 });
 
 const classes = computed(() =>
-    cn('border-b border-line last:border-b-0', props.class),
+    cn(
+        'border-b border-line last:border-b-0 transition-colors hover:bg-page',
+        props.selected && 'bg-secondary-soft hover:bg-secondary-soft',
+        props.class,
+    ),
 );
 </script>
 

@@ -30,7 +30,7 @@ const classes = computed(() =>
             <slot name="header">
                 <h3
                     v-if="title"
-                    class="m-0 text-base font-bold"
+                    class="m-0 text-base font-semibold"
                 >
                     {{ title }}
                 </h3>

@@ -36,7 +36,7 @@ const optionClass = (optionValue) =>
         'inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-bold transition-colors',
         'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/35',
         props.modelValue === optionValue
-            ? 'bg-ground text-primary shadow-sm'
+            ? 'bg-ground text-primary ring-1 ring-line'
             : 'bg-transparent text-muted hover:text-charcoal',
     );
 
