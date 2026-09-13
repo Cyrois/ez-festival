@@ -13,6 +13,7 @@ import { Switch } from '../../components/ui/switch';
 import { Badge } from '../../components/ui/badge';
 import { Label } from '../../components/ui/label';
 import { Tag } from '../../components/ui/tag';
+import LayoutDataDemo from './LayoutDataDemo.vue';
 import { Toast } from '../../components/ui/toast';
 import { useFlashToast } from '../../composables/useFlashToast';
 
@@ -375,6 +376,8 @@ const triggerInfo = () =>
                     />
                 </div>
             </section>
+
+            <LayoutDataDemo />
 
             <section
                 class="mb-4 rounded-xl border border-line bg-ground px-5 py-5"
