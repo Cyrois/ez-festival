@@ -1,6 +1,8 @@
 <script setup>
 import SetupLayout from '../../layouts/SetupLayout.vue';
+import { useFlashToast } from '../../composables/useFlashToast';
 import { useForm } from '@inertiajs/vue3';
+import { trans } from 'laravel-vue-i18n';
 
 const props = defineProps({
     organization: { type: Object, required: true },
@@ -9,6 +11,8 @@ const props = defineProps({
     currentStep: { type: Number, required: true },
 });
 
+const { showFormError, showSuccess } = useFlashToast();
+
 const form = useForm({
     name: props.event?.name ?? '',
     starts_on: props.event?.starts_on ?? '',
@@ -16,8 +20,15 @@ const form = useForm({
     timezone: props.event?.timezone ?? 'America/Vancouver',
 });
 
-const submit = () => form.post('/setup/event');
-const skip = () => form.post('/setup/event/skip');
+const submit = () =>
+    form.post('/setup/event', {
+        onSuccess: () => showSuccess(trans('setup.toast.event_saved')),
+        onError: (errors) => showFormError(errors),
+    });
+const skip = () =>
+    form.post('/setup/event/skip', {
+        onError: (errors) => showFormError(errors),
+    });
 </script>
 
 <template>

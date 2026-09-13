@@ -2,6 +2,7 @@
 import SetupLayout from '../../layouts/SetupLayout.vue';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { Link, useForm, router } from '@inertiajs/vue3';
+import { trans } from 'laravel-vue-i18n';
 import { ref } from 'vue';
 
 const props = defineProps({
@@ -11,7 +12,7 @@ const props = defineProps({
     currentStep: { type: Number, required: true },
 });
 
-const { showFormError } = useFlashToast();
+const { showFormError, showSuccess } = useFlashToast();
 
 const showAdd = ref(false);
 const editingId = ref(null);
@@ -25,6 +26,7 @@ const submitAdd = () => {
         onSuccess: () => {
             addForm.reset();
             showAdd.value = false;
+            showSuccess(trans('setup.toast.artist_type_added'));
         },
         onError: (errors) => showFormError(errors),
     });
@@ -40,6 +42,7 @@ const submitEdit = (type) => {
         preserveScroll: true,
         onSuccess: () => {
             editingId.value = null;
+            showSuccess(trans('setup.toast.artist_type_updated'));
         },
         onError: (errors) => showFormError(errors),
     });

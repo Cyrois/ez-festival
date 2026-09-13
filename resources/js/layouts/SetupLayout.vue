@@ -1,5 +1,5 @@
 <script setup>
-import DangerToast from '../components/DangerToast.vue';
+import { Toast } from '../components/ui/toast';
 import { useFlashToast } from '../composables/useFlashToast';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
@@ -14,7 +14,7 @@ const props = defineProps({
 });
 
 const page = usePage();
-const { showDanger } = useFlashToast();
+const { showError } = useFlashToast();
 
 const subtitle = computed(
     () =>
@@ -45,7 +45,7 @@ watch(
     () => page.props.flash?.error,
     (error) => {
         if (error) {
-            showDanger(error);
+            showError(error);
         }
     },
     { immediate: true },
@@ -53,7 +53,7 @@ watch(
 
 const removeInvalidListener = router.on('invalid', (event) => {
     event.preventDefault();
-    showDanger(trans('setup.errors.generic'));
+    showError(trans('setup.errors.generic'));
 });
 
 onUnmounted(() => {
@@ -130,6 +130,6 @@ onUnmounted(() => {
             </main>
         </div>
 
-        <DangerToast />
+        <Toast />
     </div>
 </template>
