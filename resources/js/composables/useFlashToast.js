@@ -3,7 +3,7 @@ import { trans } from 'laravel-vue-i18n';
 
 const message = ref('');
 const title = ref('');
-const variant = ref('error');
+const variant = ref('info');
 const visible = ref(false);
 let dismissTimer = null;
 
@@ -37,14 +37,6 @@ export function useFlashToast() {
         }
     };
 
-    const showDanger = (text) => {
-        show({
-            variant: 'error',
-            title: trans('setup.toast.error_title'),
-            message: text || trans('setup.errors.generic'),
-        });
-    };
-
     const showError = (text, heading = '') => {
         show({
             variant: 'error',
@@ -75,7 +67,7 @@ export function useFlashToast() {
         if (Array.isArray(first)) {
             first = first[0];
         }
-        showDanger(
+        showError(
             typeof first === 'string' && first
                 ? first
                 : trans('setup.errors.generic'),
@@ -88,7 +80,6 @@ export function useFlashToast() {
         variant,
         visible,
         show,
-        showDanger,
         showError,
         showSuccess,
         showInfo,

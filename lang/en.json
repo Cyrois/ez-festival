@@ -79,10 +79,9 @@
     "ui.demo.title": "UI kit",
     "ui.demo.lead": "Artist Tree primitives. Compose screens from these — do not one-off restyle.",
     "ui.demo.buttons": "Button",
-    "ui.demo.buttons_lead": "Primary · secondary · soft · ghost · danger · outline-danger. Sizes sm / md / lg. Disabled at 45% opacity.",
+    "ui.demo.buttons_lead": "Primary · secondary · outline · ghost · danger · outline-danger. Sizes sm / md / lg. Disabled at 45% opacity.",
     "ui.demo.variant.primary": "Primary",
     "ui.demo.variant.secondary": "Secondary",
-    "ui.demo.variant.soft": "Soft",
     "ui.demo.variant.ghost": "Ghost",
     "ui.demo.variant.danger": "Danger",
     "ui.demo.variant.outline_danger": "Danger outline",
@@ -197,5 +196,7 @@
     "ui.demo.table.row2_artist": "River Kin",
     "ui.demo.table.row2_stage": "Tent B",
     "ui.demo.table.row3_artist": "Lane 9",
-    "ui.demo.table.row3_stage": "Indoor"
+    "ui.demo.table.row3_stage": "Indoor",
+    "ui.demo.variant.outline": "Outline",
+    "ui.demo.loading": "Loading"
 }

@@ -30,7 +30,9 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 
-    Route::get('ui', UiKitController::class)->name('ui');
+    if (app()->environment('local') || config('app.debug')) {
+        Route::get('ui', UiKitController::class)->name('ui');
+    }
 
     Route::middleware(['organization', 'setup.complete'])->group(function () {
         Route::get('dashboard', DashboardController::class)->name('dashboard');

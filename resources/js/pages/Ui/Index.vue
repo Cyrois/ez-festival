@@ -76,8 +76,8 @@ const triggerInfo = () =>
                     <Button variant="secondary">
                         {{ $t('ui.demo.variant.secondary') }}
                     </Button>
-                    <Button variant="soft">
-                        {{ $t('ui.demo.variant.soft') }}
+                    <Button variant="outline">
+                        {{ $t('ui.demo.variant.outline') }}
                     </Button>
                     <Button variant="ghost">
                         {{ $t('ui.demo.variant.ghost') }}
@@ -95,7 +95,13 @@ const triggerInfo = () =>
                         {{ $t('ui.demo.disabled') }}
                     </Button>
                     <Button
-                        variant="secondary"
+                        variant="primary"
+                        loading
+                    >
+                        {{ $t('ui.demo.loading') }}
+                    </Button>
+                    <Button
+                        variant="outline"
                         size="icon"
                         :aria-label="$t('ui.demo.icon')"
                     >
@@ -390,21 +396,21 @@ const triggerInfo = () =>
                 </p>
                 <div class="flex flex-wrap gap-2.5">
                     <Button
-                        variant="secondary"
+                        variant="outline"
                         size="sm"
                         @click="triggerSuccess"
                     >
                         {{ $t('ui.demo.toast.trigger_success') }}
                     </Button>
                     <Button
-                        variant="secondary"
+                        variant="outline"
                         size="sm"
                         @click="triggerError"
                     >
                         {{ $t('ui.demo.toast.trigger_error') }}
                     </Button>
                     <Button
-                        variant="secondary"
+                        variant="outline"
                         size="sm"
                         @click="triggerInfo"
                     >
