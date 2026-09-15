@@ -13,10 +13,6 @@ defineProps({
         type: Array,
         default: () => [],
     },
-    hideSubnav: {
-        type: Boolean,
-        default: false,
-    },
 });
 
 const page = usePage();
@@ -89,12 +85,9 @@ const itemClass = (active, enabled) => {
     <AppLayout
         :title="title"
         :breadcrumbs="breadcrumbs"
-        :settings-nav="!hideSubnav"
+        settings-nav
     >
-        <template
-            v-if="!hideSubnav"
-            #settings-nav
-        >
+        <template #settings-nav>
             <div class="flex flex-1 flex-col gap-5 px-3 py-4">
                 <Link
                     href="/dashboard"
