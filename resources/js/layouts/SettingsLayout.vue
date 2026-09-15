@@ -4,7 +4,7 @@ import { Icon } from '../components/ui/icon';
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
-const props = defineProps({
+defineProps({
     title: {
         type: String,
         required: true,
@@ -31,13 +31,46 @@ const organizationItems = [
     { key: 'labels', enabled: false },
 ];
 
-const eventsHref = '/settings/events';
+const eventNavItems = [
+    { key: 'events', href: '/settings/events', match: 'events' },
+    { key: 'locations', href: '/settings/locations', match: 'locations' },
+    { key: 'roles', href: '/settings/roles', match: 'roles' },
+    { key: 'users', href: '/settings/users', match: 'users' },
+];
 
-const eventsActive = computed(
-    () =>
-        currentPath.value === eventsHref ||
-        currentPath.value.startsWith(`${eventsHref}/`),
-);
+const isEventNavActive = (match) => {
+    const path = currentPath.value;
+
+    if (match === 'events') {
+        return (
+            path === '/settings/events' ||
+            /^\/settings\/events\/\d+\/edit$/.test(path)
+        );
+    }
+
+    if (match === 'locations') {
+        return (
+            path === '/settings/locations' ||
+            /^\/settings\/events\/\d+\/locations$/.test(path)
+        );
+    }
+
+    if (match === 'roles') {
+        return (
+            path === '/settings/roles' ||
+            /^\/settings\/events\/\d+\/roles$/.test(path)
+        );
+    }
+
+    if (match === 'users') {
+        return (
+            path === '/settings/users' ||
+            /^\/settings\/events\/\d+\/users$/.test(path)
+        );
+    }
+
+    return false;
+};
 
 const itemClass = (active, enabled) => {
     if (!enabled) {
@@ -101,12 +134,20 @@ const itemClass = (active, enabled) => {
                     </p>
                     <nav class="flex flex-col gap-0.5">
                         <Link
-                            :href="eventsHref"
+                            v-for="item in eventNavItems"
+                            :key="item.key"
+                            :href="item.href"
                             class="rounded-lg px-2 py-1.5 text-[13px] font-semibold no-underline"
-                            :class="itemClass(eventsActive, true)"
-                            :aria-current="eventsActive ? 'page' : undefined"
+                            :class="
+                                itemClass(isEventNavActive(item.match), true)
+                            "
+                            :aria-current="
+                                isEventNavActive(item.match)
+                                    ? 'page'
+                                    : undefined
+                            "
                         >
-                            {{ $t('settings.nav.items.events') }}
+                            {{ $t(`settings.nav.items.${item.key}`) }}
                         </Link>
                     </nav>
                 </div>

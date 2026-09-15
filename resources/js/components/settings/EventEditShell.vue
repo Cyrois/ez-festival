@@ -3,7 +3,7 @@ import SettingsLayout from '../../layouts/SettingsLayout.vue';
 import { Button } from '../ui/button';
 import { Icon } from '../ui/icon';
 import { Tabs, TabList, Tab } from '../ui/tabs';
-import { router } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
@@ -16,7 +16,15 @@ const props = defineProps({
         type: String,
         required: true,
     },
+    forPrimary: {
+        type: Boolean,
+        default: false,
+    },
 });
+
+const showPrimaryBanner = computed(
+    () => props.forPrimary || props.event.is_active,
+);
 
 const breadcrumbs = computed(() => [
     {
@@ -38,9 +46,15 @@ const breadcrumbs = computed(() => [
 
 const tabRoutes = computed(() => ({
     details: `/settings/events/${props.event.id}/edit`,
-    locations: `/settings/events/${props.event.id}/locations`,
-    roles: `/settings/events/${props.event.id}/roles`,
-    users: `/settings/events/${props.event.id}/users`,
+    locations: props.forPrimary
+        ? '/settings/locations'
+        : `/settings/events/${props.event.id}/locations`,
+    roles: props.forPrimary
+        ? '/settings/roles'
+        : `/settings/events/${props.event.id}/roles`,
+    users: props.forPrimary
+        ? '/settings/users'
+        : `/settings/events/${props.event.id}/users`,
 }));
 
 const onTabChange = (value) => {
@@ -56,7 +70,6 @@ const onTabChange = (value) => {
     <SettingsLayout
         :title="event.name"
         :breadcrumbs="breadcrumbs"
-        hide-subnav
     >
         <div class="mb-2">
             <Button
@@ -77,6 +90,28 @@ const onTabChange = (value) => {
             </h1>
             <p class="mt-1 mb-0 text-sm text-muted">
                 {{ $t('settings.events.edit_lead') }}
+            </p>
+        </div>
+
+        <div
+            v-if="showPrimaryBanner"
+            class="mb-4 rounded-lg border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-charcoal"
+        >
+            <p class="m-0 font-semibold">
+                {{
+                    $t('settings.events.primary_banner', {
+                        name: event.name,
+                    })
+                }}
+            </p>
+            <p class="mt-1 mb-0 text-muted">
+                {{ $t('settings.events.primary_banner_note') }}
+                <Link
+                    href="/settings/events"
+                    class="font-semibold text-primary no-underline hover:underline"
+                >
+                    {{ $t('settings.nav.items.events') }}
+                </Link>
             </p>
         </div>
 

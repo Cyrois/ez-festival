@@ -6,6 +6,10 @@ defineProps({
         type: Object,
         required: true,
     },
+    forPrimary: {
+        type: Boolean,
+        default: false,
+    },
     tab: {
         type: String,
         default: 'roles',
@@ -17,5 +21,6 @@ defineProps({
     <EventEditShell
         :event="event"
         :tab="tab"
+        :for-primary="forPrimary"
     />
 </template>

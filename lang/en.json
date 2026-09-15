@@ -307,5 +307,11 @@
     "settings.nav.back": "Back to Dashboard",
     "settings.events.actions.set_primary": "Set as Primary",
     "settings.events.toast.set_primary": ":name is now your primary event.",
-    "settings.events.toast.set_primary_title": "Primary event updated"
+    "settings.events.toast.set_primary_title": "Primary event updated",
+    "settings.nav.items.locations": "Locations",
+    "settings.nav.items.roles": "Roles",
+    "settings.nav.items.users": "Users",
+    "settings.events.primary_banner": "You are editing :name — your primary event.",
+    "settings.events.primary_banner_note": "To work on a different event, set it as primary on Events.",
+    "settings.events.primary_missing": "Set a primary event on Events before opening Locations, Roles, or Users."
 }

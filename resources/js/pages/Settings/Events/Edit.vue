@@ -20,6 +20,10 @@ const props = defineProps({
         type: Array,
         required: true,
     },
+    forPrimary: {
+        type: Boolean,
+        default: false,
+    },
     tab: {
         type: String,
         default: 'details',
@@ -54,6 +58,7 @@ const submit = () => {
     <EventEditShell
         :event="event"
         :tab="tab"
+        :for-primary="forPrimary"
     >
         <Card class="p-6">
             <form @submit.prevent="submit">

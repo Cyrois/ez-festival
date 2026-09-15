@@ -21,6 +21,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    forPrimary: {
+        type: Boolean,
+        default: false,
+    },
     tab: {
         type: String,
         default: 'locations',
@@ -123,6 +127,7 @@ const deleteBody = computed(() => {
     <EventEditShell
         :event="event"
         :tab="tab"
+        :for-primary="forPrimary"
     >
         <div
             v-if="canWrite"

@@ -6,6 +6,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\Settings\EventController as SettingsEventController;
 use App\Http\Controllers\Settings\EventLocationController;
+use App\Http\Controllers\Settings\PrimaryEventSettingsController;
 use App\Http\Controllers\Setup\ArtistTypeController;
 use App\Http\Controllers\Setup\EventController as SetupEventController;
 use App\Http\Controllers\Setup\LocationController;
@@ -47,6 +48,9 @@ Route::middleware('auth')->group(function () {
 
         Route::prefix('settings')->name('settings.')->group(function () {
             Route::get('events', [SettingsEventController::class, 'index'])->name('events.index');
+            Route::get('locations', [PrimaryEventSettingsController::class, 'locations'])->name('locations');
+            Route::get('roles', [PrimaryEventSettingsController::class, 'roles'])->name('roles');
+            Route::get('users', [PrimaryEventSettingsController::class, 'users'])->name('users');
             Route::get('events/{event}/edit', [SettingsEventController::class, 'edit'])->name('events.edit');
             Route::post('events/{event}/set-primary', [SettingsEventController::class, 'setPrimary'])->name('events.set-primary');
             Route::get('events/{event}/roles', [SettingsEventController::class, 'roles'])->name('events.roles');
