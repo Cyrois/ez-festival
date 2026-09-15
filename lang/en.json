@@ -41,7 +41,7 @@
     "events.status.active": "Active",
     "events.status.locked": "Locked",
     "events.status.open": "Open",
-    "events.actions.view": "View",
+    "events.actions.view": "Open",
     "events.actions.lock": "Lock",
     "events.lock.title": "Lock this event?",
     "events.lock.body": "Locked events stay readable for history and audit. Day-to-day work stays on the active event. Unlock is not available yet.",
@@ -274,5 +274,8 @@
     "events.unlock.cancel": "Cancel",
     "events.toast.unlocked": "Event unlocked.",
     "events.read_only_inactive": "This is not the active event. It is read-only. Day-to-day work stays on the org active event.",
-    "events.read_only_locked": "This event is locked. It is read-only for history and audit."
+    "events.read_only_locked": "This event is locked. It is read-only for history and audit.",
+    "events.toast.locked_title": "Event locked",
+    "events.toast.unlocked_title": "Event unlocked",
+    "events.lead": "Open past or locked events read-only. Day-to-day work stays on the active event. Set active is parked for later."
 }

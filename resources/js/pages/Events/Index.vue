@@ -13,9 +13,7 @@ import {
     TableHeader,
     TableRow,
 } from '../../components/ui/table';
-import { router } from '@inertiajs/vue3';
-import { trans } from 'laravel-vue-i18n';
-import { ref } from 'vue';
+import { useEventLockActions } from '../../composables/useEventLockActions';
 
 defineProps({
     events: {
@@ -24,60 +22,15 @@ defineProps({
     },
 });
 
-const lockOpen = ref(false);
-const unlockOpen = ref(false);
-const actionBusy = ref(false);
-const targetEvent = ref(null);
-
-const openLock = (event) => {
-    targetEvent.value = event;
-    lockOpen.value = true;
-};
-
-const openUnlock = (event) => {
-    targetEvent.value = event;
-    unlockOpen.value = true;
-};
-
-const confirmLock = () => {
-    if (!targetEvent.value || actionBusy.value) {
-        return;
-    }
-
-    actionBusy.value = true;
-    router.post(
-        `/events/${targetEvent.value.id}/lock`,
-        {},
-        {
-            preserveScroll: true,
-            onFinish: () => {
-                actionBusy.value = false;
-                lockOpen.value = false;
-                targetEvent.value = null;
-            },
-        },
-    );
-};
-
-const confirmUnlock = () => {
-    if (!targetEvent.value || actionBusy.value) {
-        return;
-    }
-
-    actionBusy.value = true;
-    router.post(
-        `/events/${targetEvent.value.id}/unlock`,
-        {},
-        {
-            preserveScroll: true,
-            onFinish: () => {
-                actionBusy.value = false;
-                unlockOpen.value = false;
-                targetEvent.value = null;
-            },
-        },
-    );
-};
+const {
+    lockOpen,
+    unlockOpen,
+    actionBusy,
+    openLock,
+    openUnlock,
+    confirmLock,
+    confirmUnlock,
+} = useEventLockActions();
 
 const formatDates = (event) => `${event.starts_on} – ${event.ends_on}`;
 </script>
@@ -88,6 +41,9 @@ const formatDates = (event) => `${event.starts_on} – ${event.ends_on}`;
             <h1 class="m-0 text-2xl font-bold tracking-tight">
                 {{ $t('events.title') }}
             </h1>
+            <p class="mt-1 mb-0 text-sm text-muted">
+                {{ $t('events.lead') }}
+            </p>
         </div>
 
         <EmptyState
@@ -204,7 +160,7 @@ const formatDates = (event) => `${event.starts_on} – ${event.ends_on}`;
             :description="$t('events.lock.body')"
             :confirm-label="$t('events.lock.confirm')"
             :cancel-label="$t('events.lock.cancel')"
-            confirm-variant="danger"
+            confirm-variant="secondary"
             :busy="actionBusy"
             @confirm="confirmLock"
         />
@@ -215,7 +171,7 @@ const formatDates = (event) => `${event.starts_on} – ${event.ends_on}`;
             :description="$t('events.unlock.body')"
             :confirm-label="$t('events.unlock.confirm')"
             :cancel-label="$t('events.unlock.cancel')"
-            confirm-variant="primary"
+            confirm-variant="secondary"
             :busy="actionBusy"
             @confirm="confirmUnlock"
         />

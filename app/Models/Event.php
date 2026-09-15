@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
-#[Fillable(['organization_id', 'name', 'starts_on', 'ends_on', 'timezone', 'locked'])]
+#[Fillable(['organization_id', 'name', 'starts_on', 'ends_on', 'timezone'])]
 class Event extends Model
 {
     /**

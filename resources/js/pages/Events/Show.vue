@@ -4,8 +4,8 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Dialog } from '../../components/ui/dialog';
-import { router } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { useEventLockActions } from '../../composables/useEventLockActions';
+import { computed, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
 const props = defineProps({
@@ -15,9 +15,24 @@ const props = defineProps({
     },
 });
 
-const lockOpen = ref(false);
-const unlockOpen = ref(false);
-const actionBusy = ref(false);
+const {
+    lockOpen,
+    unlockOpen,
+    actionBusy,
+    targetEvent,
+    openLock,
+    openUnlock,
+    confirmLock,
+    confirmUnlock,
+} = useEventLockActions();
+
+watch(
+    () => props.event,
+    (event) => {
+        targetEvent.value = event;
+    },
+    { immediate: true },
+);
 
 const breadcrumbs = computed(() => [
     {
@@ -40,44 +55,6 @@ const readOnlyMessage = computed(() => {
 
     return '';
 });
-
-const confirmLock = () => {
-    if (actionBusy.value) {
-        return;
-    }
-
-    actionBusy.value = true;
-    router.post(
-        `/events/${props.event.id}/lock`,
-        {},
-        {
-            preserveScroll: true,
-            onFinish: () => {
-                actionBusy.value = false;
-                lockOpen.value = false;
-            },
-        },
-    );
-};
-
-const confirmUnlock = () => {
-    if (actionBusy.value) {
-        return;
-    }
-
-    actionBusy.value = true;
-    router.post(
-        `/events/${props.event.id}/unlock`,
-        {},
-        {
-            preserveScroll: true,
-            onFinish: () => {
-                actionBusy.value = false;
-                unlockOpen.value = false;
-            },
-        },
-    );
-};
 </script>
 
 <template>
@@ -133,7 +110,7 @@ const confirmUnlock = () => {
                 v-if="!event.is_locked"
                 variant="secondary"
                 size="sm"
-                @click="lockOpen = true"
+                @click="openLock(event)"
             >
                 {{ $t('events.actions.lock') }}
             </Button>
@@ -141,7 +118,7 @@ const confirmUnlock = () => {
                 v-else
                 variant="secondary"
                 size="sm"
-                @click="unlockOpen = true"
+                @click="openUnlock(event)"
             >
                 {{ $t('events.actions.unlock') }}
             </Button>
@@ -198,7 +175,7 @@ const confirmUnlock = () => {
             :description="$t('events.lock.body')"
             :confirm-label="$t('events.lock.confirm')"
             :cancel-label="$t('events.lock.cancel')"
-            confirm-variant="danger"
+            confirm-variant="secondary"
             :busy="actionBusy"
             @confirm="confirmLock"
         />
@@ -209,7 +186,7 @@ const confirmUnlock = () => {
             :description="$t('events.unlock.body')"
             :confirm-label="$t('events.unlock.confirm')"
             :cancel-label="$t('events.unlock.cancel')"
-            confirm-variant="primary"
+            confirm-variant="secondary"
             :busy="actionBusy"
             @confirm="confirmUnlock"
         />

@@ -24,7 +24,7 @@ export function useInertiaErrorToast() {
         () => page.props.flash?.success,
         (success) => {
             if (success) {
-                showSuccess(success);
+                showSuccess(success, page.props.flash?.success_title || '');
             }
         },
         { immediate: true },
