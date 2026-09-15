@@ -37,7 +37,7 @@ watch(
 const breadcrumbs = computed(() => [
     {
         label: trans('events.title'),
-        href: '/events',
+        href: '/settings/events',
     },
     {
         label: props.event.name,
@@ -98,7 +98,7 @@ const readOnlyMessage = computed(() => {
                     </Badge>
                 </div>
                 <Button
-                    href="/events"
+                    href="/settings/events"
                     variant="ghost"
                     size="sm"
                     class="px-0"

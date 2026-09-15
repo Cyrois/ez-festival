@@ -16,6 +16,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    settingsNav: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 const page = usePage();
@@ -23,6 +27,7 @@ useInertiaErrorToast();
 
 const user = computed(() => page.props.auth?.user);
 const eventName = computed(() => page.props.activeEvent?.name ?? null);
+const orgName = computed(() => page.props.organization?.name ?? null);
 const currentPath = computed(() => page.url.split('?')[0]);
 
 const navItems = [
@@ -30,12 +35,6 @@ const navItems = [
         key: 'home',
         href: '/dashboard',
         icon: ['fas', 'house'],
-        enabled: true,
-    },
-    {
-        key: 'events',
-        href: '/events',
-        icon: ['fas', 'calendar-days'],
         enabled: true,
     },
     {
@@ -63,6 +62,12 @@ const navItems = [
         enabled: false,
     },
 ];
+
+const settingsActive = computed(
+    () =>
+        currentPath.value === '/settings' ||
+        currentPath.value.startsWith('/settings/'),
+);
 
 const crumbItems = computed(() => {
     if (props.breadcrumbs.length > 0) {
@@ -94,6 +99,14 @@ const navItemClass = (item) => {
     return 'text-charcoal/80 hover:bg-page hover:text-charcoal';
 };
 
+const settingsClass = computed(() => {
+    if (settingsActive.value) {
+        return 'bg-primary/10 text-primary';
+    }
+
+    return 'text-charcoal/80 hover:bg-page hover:text-charcoal';
+});
+
 const signOutClass = cn(
     buttonVariants({
         variant: 'outline',
@@ -108,6 +121,7 @@ const signOutClass = cn(
 
     <div class="flex min-h-screen bg-page text-charcoal antialiased">
         <aside
+            v-if="!settingsNav"
             class="flex w-56 shrink-0 flex-col border-r border-line bg-ground"
             :aria-label="$t('nav.sidebar')"
         >
@@ -128,6 +142,12 @@ const signOutClass = cn(
                             class="mt-0.5 block truncate text-xs text-muted"
                         >
                             {{ eventName }}
+                        </span>
+                        <span
+                            v-else-if="orgName"
+                            class="mt-0.5 block truncate text-xs text-muted"
+                        >
+                            {{ orgName }}
                         </span>
                     </div>
                 </div>
@@ -155,6 +175,50 @@ const signOutClass = cn(
                 </component>
             </nav>
 
+            <div class="mt-auto space-y-2 border-t border-line px-3 py-3">
+                <Link
+                    href="/settings/events"
+                    class="inline-flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-semibold no-underline"
+                    :class="settingsClass"
+                    :aria-current="settingsActive ? 'page' : undefined"
+                >
+                    <Icon
+                        :name="['fas', 'gear']"
+                        size="sm"
+                        fixed-width
+                    />
+                    {{ $t('nav.settings') }}
+                </Link>
+                <div class="min-w-0 px-2">
+                    <p class="m-0 truncate text-xs font-semibold text-charcoal">
+                        {{
+                            user?.name || user?.email || $t('dashboard.unknown')
+                        }}
+                    </p>
+                    <p
+                        v-if="user?.email && user?.name"
+                        class="m-0 truncate text-[11px] text-muted"
+                    >
+                        {{ user.email }}
+                    </p>
+                </div>
+                <Link
+                    method="post"
+                    href="/logout"
+                    as="button"
+                    :class="signOutClass"
+                >
+                    {{ $t('dashboard.sign_out') }}
+                </Link>
+            </div>
+        </aside>
+
+        <aside
+            v-if="settingsNav"
+            class="flex w-56 shrink-0 flex-col border-r border-line bg-ground"
+            :aria-label="$t('settings.nav.label')"
+        >
+            <slot name="settings-nav" />
             <div class="mt-auto space-y-2 border-t border-line px-3 py-3">
                 <div class="min-w-0 px-2">
                     <p class="m-0 truncate text-xs font-semibold text-charcoal">

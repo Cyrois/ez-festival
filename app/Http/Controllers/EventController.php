@@ -14,21 +14,9 @@ use Inertia\Response;
 
 class EventController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(): RedirectResponse
     {
-        /** @var User $user */
-        $user = $request->user();
-        $organization = $user->primaryOrganization() ?? $user->ensureOrganization();
-
-        $events = $organization->events()
-            ->orderByDesc('starts_on')
-            ->orderByDesc('id')
-            ->get()
-            ->map(fn (Event $event) => EventResource::toArray($event, $organization->active_event_id));
-
-        return Inertia::render('Events/Index', [
-            'events' => $events,
-        ]);
+        return redirect()->route('settings.events.index');
     }
 
     public function show(Request $request, Event $event): Response
@@ -49,7 +37,7 @@ class EventController extends Controller
         $event->lock();
 
         return redirect()
-            ->route('events.show', $event)
+            ->route('settings.events.index')
             ->with('success', __('events.toast.locked'))
             ->with('success_title', __('events.toast.locked_title'));
     }
@@ -59,7 +47,7 @@ class EventController extends Controller
         $event->unlock();
 
         return redirect()
-            ->route('events.show', $event)
+            ->route('settings.events.index')
             ->with('success', __('events.toast.unlocked'))
             ->with('success_title', __('events.toast.unlocked_title'));
     }

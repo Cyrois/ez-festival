@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Setup\Concerns;
 
 use App\Models\Organization;
 use App\Models\User;
+use App\Support\Timezones;
 use Illuminate\Http\Request;
 
 trait InteractsWithSetup
@@ -21,18 +22,6 @@ trait InteractsWithSetup
      */
     protected function timezones(): array
     {
-        return [
-            'America/Vancouver',
-            'America/Edmonton',
-            'America/Winnipeg',
-            'America/Toronto',
-            'America/Halifax',
-            'America/St_Johns',
-            'America/New_York',
-            'America/Chicago',
-            'America/Denver',
-            'America/Los_Angeles',
-            'UTC',
-        ];
+        return Timezones::common();
     }
 }

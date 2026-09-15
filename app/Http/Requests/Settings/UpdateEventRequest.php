@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Http\Requests\Setup;
+namespace App\Http\Requests\Settings;
 
 use App\Support\Timezones;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class StoreEventRequest extends FormRequest
+class UpdateEventRequest extends FormRequest
 {
     public function authorize(): bool
     {

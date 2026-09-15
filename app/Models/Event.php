@@ -60,7 +60,8 @@ class Event extends Model
     }
 
     /**
-     * Abort if this event is locked or is not the organization's active event.
+     * Abort if this event is locked or not in the organization.
+     * Primary is only the user's default open event — it does not gate writes.
      * Lock/unlock actions must not call this.
      */
     public function ensureWritable(Organization $organization): void
@@ -71,10 +72,6 @@ class Event extends Model
 
         if ($this->isLocked()) {
             abort(403, 'This event is locked and read-only.');
-        }
-
-        if ((int) $organization->active_event_id !== (int) $this->id) {
-            abort(403, 'Only the active event can be edited.');
         }
     }
 }
