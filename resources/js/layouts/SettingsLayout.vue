@@ -163,14 +163,15 @@ const chipClass = (active, enabled) => {
             </div>
         </template>
 
-        <!-- Phone/tablet: horizontal section chips (no persistent Settings rail) -->
+        <slot name="heading" />
+
         <div
             v-if="!hideSectionNav"
-            class="-mx-4 mb-4 border-b border-line px-4 pb-3 lg:hidden"
+            class="mb-4 lg:hidden"
             role="navigation"
             :aria-label="$t('settings.nav.label')"
         >
-            <div class="flex gap-2 overflow-x-auto pb-1">
+            <div class="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
                 <span
                     v-for="item in organizationItems"
                     :key="`chip-org-${item.key}`"

@@ -80,7 +80,7 @@ const submit = () => {
                     </template>
                 </FormField>
 
-                <div class="mb-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                <div class="mb-4 grid grid-cols-1 gap-3.5">
                     <FormField
                         :label="$t('settings.events.fields.starts_on')"
                         :error="fieldError(form, 'starts_on')"
@@ -137,22 +137,26 @@ const submit = () => {
                     </template>
                 </FormField>
 
-                <div class="flex justify-end gap-3">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        href="/settings/events"
-                    >
-                        {{ $t('settings.events.actions.cancel') }}
-                    </Button>
+                <div
+                    class="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3"
+                >
                     <Button
                         v-if="canWrite"
                         type="submit"
                         variant="primary"
+                        class="min-h-11 w-full sm:w-auto"
                         :loading="form.processing"
                         :disabled="form.processing"
                     >
                         {{ $t('settings.events.actions.save') }}
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        class="min-h-11 w-full sm:w-auto"
+                        href="/settings/events"
+                    >
+                        {{ $t('settings.events.actions.cancel') }}
                     </Button>
                 </div>
             </form>

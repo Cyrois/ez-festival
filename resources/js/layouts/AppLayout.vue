@@ -1,9 +1,7 @@
 <script setup>
 import { Toast } from '../components/ui/toast';
 import { Icon } from '../components/ui/icon';
-import { buttonVariants } from '../components/ui/button';
 import { useInertiaErrorToast } from '../composables/useInertiaErrorToast';
-import { cn } from '../lib/utils';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 
@@ -116,13 +114,8 @@ const settingsClass = computed(() => {
     return 'text-charcoal/80 hover:bg-page hover:text-charcoal';
 });
 
-const signOutClass = cn(
-    buttonVariants({
-        variant: 'outline',
-        size: 'sm',
-    }),
-    'min-h-11 w-full justify-start',
-);
+const signOutClass =
+    'inline-flex min-h-11 w-full items-center justify-start px-2 text-[13px] font-semibold text-primary no-underline hover:underline';
 
 const openNav = () => {
     navOpen.value = true;
@@ -277,9 +270,7 @@ const closeNav = () => {
             <aside
                 class="fixed inset-y-0 left-0 z-50 flex w-[min(18rem,85vw)] flex-col border-r border-line bg-ground shadow-lg transition-transform duration-200"
                 :class="navOpen ? 'translate-x-0' : '-translate-x-full'"
-                :aria-label="
-                    settingsNav ? $t('settings.nav.label') : $t('nav.sidebar')
-                "
+                :aria-label="$t('nav.sidebar')"
                 :aria-hidden="navOpen ? undefined : 'true'"
             >
                 <div
@@ -287,14 +278,22 @@ const closeNav = () => {
                 >
                     <div class="flex min-w-0 items-center gap-2.5">
                         <div
-                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-xs font-bold text-white"
+                            class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-white"
                             aria-hidden="true"
                         >
                             {{ $t('app.mark') }}
                         </div>
-                        <span class="truncate text-[15px] font-bold">
-                            {{ $t('app.name') }}
-                        </span>
+                        <div class="min-w-0">
+                            <span class="block truncate text-[15px] font-bold">
+                                {{ $t('app.name') }}
+                            </span>
+                            <span
+                                v-if="eventName"
+                                class="mt-0.5 block truncate text-xs text-muted"
+                            >
+                                {{ eventName }}
+                            </span>
+                        </div>
                     </div>
                     <button
                         type="button"
@@ -309,35 +308,33 @@ const closeNav = () => {
                     </button>
                 </div>
 
-                <template v-if="!settingsNav">
-                    <nav
-                        class="flex flex-1 flex-col gap-1 overflow-y-auto px-2 py-3"
+                <nav
+                    class="flex flex-1 flex-col gap-1 overflow-y-auto px-2 py-3"
+                >
+                    <component
+                        :is="item.enabled ? Link : 'span'"
+                        v-for="item in navItems"
+                        :key="`m-${item.key}`"
+                        :href="item.enabled ? item.href : undefined"
+                        class="inline-flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-semibold no-underline"
+                        :class="navItemClass(item)"
+                        :aria-current="
+                            item.enabled && isActive(item.href)
+                                ? 'page'
+                                : undefined
+                        "
+                        :aria-disabled="item.enabled ? undefined : 'true'"
                     >
-                        <component
-                            :is="item.enabled ? Link : 'span'"
-                            v-for="item in navItems"
-                            :key="`m-${item.key}`"
-                            :href="item.enabled ? item.href : undefined"
-                            class="inline-flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-semibold no-underline"
-                            :class="navItemClass(item)"
-                            :aria-current="
-                                item.enabled && isActive(item.href)
-                                    ? 'page'
-                                    : undefined
-                            "
-                            :aria-disabled="item.enabled ? undefined : 'true'"
-                        >
-                            <Icon
-                                :name="item.icon"
-                                size="sm"
-                                fixed-width
-                            />
-                            {{ $t(`nav.${item.key}`) }}
-                        </component>
-                    </nav>
-                    <div
-                        class="mt-auto space-y-2 border-t border-line px-3 py-3"
-                    >
+                        <Icon
+                            :name="item.icon"
+                            size="sm"
+                            fixed-width
+                        />
+                        {{ $t(`nav.${item.key}`) }}
+                    </component>
+                </nav>
+                <div class="mt-auto">
+                    <div class="border-t border-line px-2 py-2">
                         <Link
                             href="/settings/events"
                             class="inline-flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-semibold no-underline"
@@ -351,6 +348,8 @@ const closeNav = () => {
                             />
                             {{ $t('nav.settings') }}
                         </Link>
+                    </div>
+                    <div class="space-y-1 border-t border-line px-3 py-3">
                         <div class="min-w-0 px-2">
                             <p
                                 class="m-0 truncate text-xs font-semibold text-charcoal"
@@ -377,42 +376,7 @@ const closeNav = () => {
                             {{ $t('dashboard.sign_out') }}
                         </Link>
                     </div>
-                </template>
-
-                <template v-else>
-                    <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
-                        <slot name="settings-nav" />
-                    </div>
-                    <div
-                        class="mt-auto space-y-2 border-t border-line px-3 py-3"
-                    >
-                        <div class="min-w-0 px-2">
-                            <p
-                                class="m-0 truncate text-xs font-semibold text-charcoal"
-                            >
-                                {{
-                                    user?.name ||
-                                    user?.email ||
-                                    $t('dashboard.unknown')
-                                }}
-                            </p>
-                            <p
-                                v-if="user?.email && user?.name"
-                                class="m-0 truncate text-[11px] text-muted"
-                            >
-                                {{ user.email }}
-                            </p>
-                        </div>
-                        <Link
-                            method="post"
-                            href="/logout"
-                            as="button"
-                            :class="signOutClass"
-                        >
-                            {{ $t('dashboard.sign_out') }}
-                        </Link>
-                    </div>
-                </template>
+                </div>
             </aside>
         </div>
 
@@ -432,24 +396,18 @@ const closeNav = () => {
                         size="sm"
                     />
                 </button>
-                <div class="flex min-w-0 flex-1 items-center gap-2.5 lg:hidden">
-                    <div
-                        class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-white"
-                        aria-hidden="true"
+                <div
+                    class="flex min-w-0 flex-1 items-center justify-between gap-3 lg:hidden"
+                >
+                    <span class="truncate text-[15px] font-bold">
+                        {{ $t('app.name') }}
+                    </span>
+                    <span
+                        v-if="eventName"
+                        class="max-w-[45%] shrink-0 truncate text-sm text-muted"
                     >
-                        {{ $t('app.mark') }}
-                    </div>
-                    <div class="min-w-0">
-                        <span class="block truncate text-[15px] font-bold">
-                            {{ $t('app.name') }}
-                        </span>
-                        <span
-                            v-if="eventName"
-                            class="mt-0.5 block truncate text-xs text-muted"
-                        >
-                            {{ eventName }}
-                        </span>
-                    </div>
+                        {{ eventName }}
+                    </span>
                 </div>
                 <nav
                     class="hidden min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm text-muted lg:flex"

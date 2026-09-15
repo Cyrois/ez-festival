@@ -97,14 +97,16 @@ const statusVariant = {
         :title="$t('settings.events.title')"
         :breadcrumbs="breadcrumbs"
     >
-        <div class="mb-6">
-            <h1 class="m-0 text-2xl font-bold tracking-tight">
-                {{ $t('settings.events.title') }}
-            </h1>
-            <p class="mt-1 mb-0 text-sm text-muted">
-                {{ $t('settings.events.lead') }}
-            </p>
-        </div>
+        <template #heading>
+            <div class="mb-4">
+                <h1 class="m-0 text-2xl font-bold tracking-tight">
+                    {{ $t('settings.events.title') }}
+                </h1>
+                <p class="mt-1 mb-0 text-sm text-muted">
+                    {{ $t('settings.events.lead') }}
+                </p>
+            </div>
+        </template>
 
         <EmptyState
             v-if="events.length === 0"
@@ -121,7 +123,7 @@ const statusVariant = {
 
         <template v-else>
             <!-- Phone: card stack -->
-            <div class="flex flex-col gap-3 md:hidden">
+            <div class="flex flex-col gap-3 lg:hidden">
                 <div
                     v-for="event in events"
                     :key="`card-${event.id}`"
@@ -144,13 +146,13 @@ const statusVariant = {
                             {{ $t(`events.status.${primaryStatus(event)}`) }}
                         </Badge>
                     </div>
-                    <div class="mt-4 flex flex-col gap-2">
+                    <div class="mt-4 flex flex-wrap gap-2">
                         <Button
                             v-if="!event.is_locked"
                             :href="`/settings/events/${event.id}/edit`"
                             :variant="event.is_active ? 'primary' : 'outline'"
                             size="sm"
-                            class="min-h-11 w-full"
+                            class="min-h-11"
                         >
                             <Icon
                                 :name="['fas', 'pencil']"
@@ -163,7 +165,7 @@ const statusVariant = {
                             v-if="!event.is_active"
                             variant="outline"
                             size="sm"
-                            class="min-h-11 w-full"
+                            class="min-h-11"
                             :loading="setPrimaryBusy"
                             :disabled="setPrimaryBusy"
                             @click="setPrimary(event)"
@@ -179,7 +181,7 @@ const statusVariant = {
                             v-if="!event.is_locked"
                             variant="outline"
                             size="sm"
-                            class="min-h-11 w-full"
+                            class="min-h-11"
                             @click="openLock(event)"
                         >
                             <Icon
@@ -193,7 +195,7 @@ const statusVariant = {
                             v-else
                             variant="outline"
                             size="sm"
-                            class="min-h-11 w-full"
+                            class="min-h-11"
                             @click="openUnlock(event)"
                         >
                             <Icon
@@ -209,7 +211,7 @@ const statusVariant = {
 
             <!-- md+: table -->
             <div
-                class="hidden overflow-hidden rounded-xl border border-line bg-ground md:block"
+                class="hidden overflow-hidden rounded-xl border border-line bg-ground lg:block"
             >
                 <div class="overflow-x-auto">
                     <Table>
