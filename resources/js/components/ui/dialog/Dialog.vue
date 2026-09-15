@@ -42,7 +42,7 @@ const emit = defineEmits(['update:open', 'confirm', 'cancel']);
 
 const panelClass = computed(() =>
     cn(
-        'relative z-10 w-full max-w-md rounded-xl border border-line bg-ground p-5 text-charcoal shadow-toast',
+        'relative z-10 flex max-h-[min(90vh,40rem)] w-full max-w-md flex-col overflow-hidden rounded-t-xl border border-line bg-ground p-5 text-charcoal shadow-toast max-md:rounded-b-none sm:rounded-xl',
         props.class,
     ),
 );
@@ -94,7 +94,7 @@ onUnmounted(() => {
     <Teleport to="body">
         <div
             v-if="open"
-            class="fixed inset-0 z-50 flex items-center justify-center px-4"
+            class="fixed inset-0 z-50 flex items-end justify-center px-0 sm:items-center sm:px-4"
             role="presentation"
         >
             <div
@@ -126,10 +126,13 @@ onUnmounted(() => {
                     {{ description }}
                 </p>
                 <slot />
-                <div class="mt-5 flex justify-end gap-3">
+                <div
+                    class="mt-5 flex shrink-0 flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3"
+                >
                     <Button
                         type="button"
                         variant="outline"
+                        class="min-h-11 w-full sm:w-auto"
                         :disabled="busy"
                         @click="close"
                     >
@@ -137,6 +140,7 @@ onUnmounted(() => {
                     </Button>
                     <Button
                         type="button"
+                        class="min-h-11 w-full sm:w-auto"
                         :variant="confirmVariant"
                         :loading="busy"
                         :disabled="busy"

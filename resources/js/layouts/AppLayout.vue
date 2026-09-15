@@ -140,7 +140,7 @@ const closeNav = () => {
         <!-- Desktop main sidebar -->
         <aside
             v-if="!settingsNav"
-            class="hidden w-56 shrink-0 flex-col border-r border-line bg-ground md:flex"
+            class="hidden w-56 shrink-0 flex-col border-r border-line bg-ground lg:flex"
             :aria-label="$t('nav.sidebar')"
         >
             <div class="border-b border-line px-4 py-4">
@@ -234,7 +234,7 @@ const closeNav = () => {
         <!-- Desktop settings sidebar -->
         <aside
             v-if="settingsNav"
-            class="hidden w-56 shrink-0 flex-col border-r border-line bg-ground md:flex"
+            class="hidden w-56 shrink-0 flex-col border-r border-line bg-ground lg:flex"
             :aria-label="$t('settings.nav.label')"
         >
             <slot name="settings-nav" />
@@ -265,7 +265,7 @@ const closeNav = () => {
 
         <!-- Mobile drawer -->
         <div
-            class="md:hidden"
+            class="lg:hidden"
             :class="navOpen ? 'pointer-events-auto' : 'pointer-events-none'"
         >
             <div
@@ -422,7 +422,7 @@ const closeNav = () => {
             >
                 <button
                     type="button"
-                    class="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-charcoal hover:bg-page md:hidden"
+                    class="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-charcoal hover:bg-page lg:hidden"
                     :aria-label="$t('nav.menu')"
                     :aria-expanded="navOpen ? 'true' : 'false'"
                     @click="openNav"
@@ -432,8 +432,27 @@ const closeNav = () => {
                         size="sm"
                     />
                 </button>
+                <div class="flex min-w-0 flex-1 items-center gap-2.5 lg:hidden">
+                    <div
+                        class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-white"
+                        aria-hidden="true"
+                    >
+                        {{ $t('app.mark') }}
+                    </div>
+                    <div class="min-w-0">
+                        <span class="block truncate text-[15px] font-bold">
+                            {{ $t('app.name') }}
+                        </span>
+                        <span
+                            v-if="eventName"
+                            class="mt-0.5 block truncate text-xs text-muted"
+                        >
+                            {{ eventName }}
+                        </span>
+                    </div>
+                </div>
                 <nav
-                    class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm text-muted"
+                    class="hidden min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm text-muted lg:flex"
                     :aria-label="$t('nav.breadcrumbs')"
                 >
                     <template

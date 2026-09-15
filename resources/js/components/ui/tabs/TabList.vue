@@ -10,7 +10,10 @@ const props = defineProps({
 });
 
 const classes = computed(() =>
-    cn('flex flex-wrap gap-1 border-b border-line', props.class),
+    cn(
+        'flex flex-nowrap gap-1 overflow-x-auto border-b border-line',
+        props.class,
+    ),
 );
 
 const enabledTabs = (list) =>
