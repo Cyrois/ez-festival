@@ -25,56 +25,58 @@ defineProps({
 });
 
 const lockOpen = ref(false);
-const lockBusy = ref(false);
-const lockingEvent = ref(null);
+const unlockOpen = ref(false);
+const actionBusy = ref(false);
+const targetEvent = ref(null);
 
 const openLock = (event) => {
-    lockingEvent.value = event;
+    targetEvent.value = event;
     lockOpen.value = true;
 };
 
+const openUnlock = (event) => {
+    targetEvent.value = event;
+    unlockOpen.value = true;
+};
+
 const confirmLock = () => {
-    if (!lockingEvent.value || lockBusy.value) {
+    if (!targetEvent.value || actionBusy.value) {
         return;
     }
 
-    lockBusy.value = true;
+    actionBusy.value = true;
     router.post(
-        `/events/${lockingEvent.value.id}/lock`,
+        `/events/${targetEvent.value.id}/lock`,
         {},
         {
             preserveScroll: true,
             onFinish: () => {
-                lockBusy.value = false;
+                actionBusy.value = false;
                 lockOpen.value = false;
-                lockingEvent.value = null;
+                targetEvent.value = null;
             },
         },
     );
 };
 
-const statusLabel = (event) => {
-    if (event.is_locked) {
-        return trans('events.status.locked');
+const confirmUnlock = () => {
+    if (!targetEvent.value || actionBusy.value) {
+        return;
     }
 
-    if (event.is_active) {
-        return trans('events.status.active');
-    }
-
-    return trans('events.status.open');
-};
-
-const statusVariant = (event) => {
-    if (event.is_locked) {
-        return 'warning';
-    }
-
-    if (event.is_active) {
-        return 'primary';
-    }
-
-    return 'neutral';
+    actionBusy.value = true;
+    router.post(
+        `/events/${targetEvent.value.id}/unlock`,
+        {},
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                actionBusy.value = false;
+                unlockOpen.value = false;
+                targetEvent.value = null;
+            },
+        },
+    );
 };
 
 const formatDates = (event) => `${event.starts_on} – ${event.ends_on}`;
@@ -82,12 +84,10 @@ const formatDates = (event) => `${event.starts_on} – ${event.ends_on}`;
 
 <template>
     <AppLayout :title="$t('events.title')">
-        <div class="mb-6 flex items-start justify-between gap-4">
-            <div>
-                <h1 class="m-0 text-2xl font-bold tracking-tight">
-                    {{ $t('events.title') }}
-                </h1>
-            </div>
+        <div class="mb-6">
+            <h1 class="m-0 text-2xl font-bold tracking-tight">
+                {{ $t('events.title') }}
+            </h1>
         </div>
 
         <EmptyState
@@ -142,12 +142,29 @@ const formatDates = (event) => `${event.starts_on} – ${event.ends_on}`;
                             {{ event.timezone }}
                         </TableCell>
                         <TableCell>
-                            <Badge
-                                :variant="statusVariant(event)"
-                                pill
-                            >
-                                {{ statusLabel(event) }}
-                            </Badge>
+                            <div class="flex flex-wrap gap-1.5">
+                                <Badge
+                                    v-if="event.is_active"
+                                    variant="primary"
+                                    pill
+                                >
+                                    {{ $t('events.status.active') }}
+                                </Badge>
+                                <Badge
+                                    v-if="event.is_locked"
+                                    variant="warning"
+                                    pill
+                                >
+                                    {{ $t('events.status.locked') }}
+                                </Badge>
+                                <Badge
+                                    v-if="event.is_past"
+                                    variant="neutral"
+                                    pill
+                                >
+                                    {{ $t('events.status.past') }}
+                                </Badge>
+                            </div>
                         </TableCell>
                         <TableCell>
                             <div class="flex justify-end gap-2">
@@ -166,6 +183,14 @@ const formatDates = (event) => `${event.starts_on} – ${event.ends_on}`;
                                 >
                                     {{ $t('events.actions.lock') }}
                                 </Button>
+                                <Button
+                                    v-else
+                                    variant="secondary"
+                                    size="sm"
+                                    @click="openUnlock(event)"
+                                >
+                                    {{ $t('events.actions.unlock') }}
+                                </Button>
                             </div>
                         </TableCell>
                     </TableRow>
@@ -180,8 +205,19 @@ const formatDates = (event) => `${event.starts_on} – ${event.ends_on}`;
             :confirm-label="$t('events.lock.confirm')"
             :cancel-label="$t('events.lock.cancel')"
             confirm-variant="danger"
-            :busy="lockBusy"
+            :busy="actionBusy"
             @confirm="confirmLock"
+        />
+
+        <Dialog
+            v-model:open="unlockOpen"
+            :title="$t('events.unlock.title')"
+            :description="$t('events.unlock.body')"
+            :confirm-label="$t('events.unlock.confirm')"
+            :cancel-label="$t('events.unlock.cancel')"
+            confirm-variant="primary"
+            :busy="actionBusy"
+            @confirm="confirmUnlock"
         />
     </AppLayout>
 </template>

@@ -41,9 +41,10 @@ Route::middleware('auth')->group(function () {
         Route::get('events', [EventController::class, 'index'])->name('events.index');
         Route::get('events/{event}', [EventController::class, 'show'])->name('events.show');
         Route::post('events/{event}/lock', [EventController::class, 'lock'])->name('events.lock');
+        Route::post('events/{event}/unlock', [EventController::class, 'unlock'])->name('events.unlock');
     });
 
-    Route::middleware('organization')->prefix('setup')->name('setup.')->group(function () {
+    Route::middleware(['organization', 'event.writable'])->prefix('setup')->name('setup.')->group(function () {
         Route::get('event', [SetupEventController::class, 'show'])->name('event');
         Route::post('event', [SetupEventController::class, 'store']);
 

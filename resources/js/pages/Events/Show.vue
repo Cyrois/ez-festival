@@ -16,7 +16,8 @@ const props = defineProps({
 });
 
 const lockOpen = ref(false);
-const lockBusy = ref(false);
+const unlockOpen = ref(false);
+const actionBusy = ref(false);
 
 const breadcrumbs = computed(() => [
     {
@@ -28,44 +29,51 @@ const breadcrumbs = computed(() => [
     },
 ]);
 
-const statusLabel = computed(() => {
+const readOnlyMessage = computed(() => {
     if (props.event.is_locked) {
-        return trans('events.status.locked');
+        return trans('events.read_only_locked');
     }
 
-    if (props.event.is_active) {
-        return trans('events.status.active');
+    if (!props.event.is_active) {
+        return trans('events.read_only_inactive');
     }
 
-    return trans('events.status.open');
-});
-
-const statusVariant = computed(() => {
-    if (props.event.is_locked) {
-        return 'warning';
-    }
-
-    if (props.event.is_active) {
-        return 'primary';
-    }
-
-    return 'neutral';
+    return '';
 });
 
 const confirmLock = () => {
-    if (lockBusy.value) {
+    if (actionBusy.value) {
         return;
     }
 
-    lockBusy.value = true;
+    actionBusy.value = true;
     router.post(
         `/events/${props.event.id}/lock`,
         {},
         {
             preserveScroll: true,
             onFinish: () => {
-                lockBusy.value = false;
+                actionBusy.value = false;
                 lockOpen.value = false;
+            },
+        },
+    );
+};
+
+const confirmUnlock = () => {
+    if (actionBusy.value) {
+        return;
+    }
+
+    actionBusy.value = true;
+    router.post(
+        `/events/${props.event.id}/unlock`,
+        {},
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                actionBusy.value = false;
+                unlockOpen.value = false;
             },
         },
     );
@@ -78,10 +86,10 @@ const confirmLock = () => {
         :breadcrumbs="breadcrumbs"
     >
         <div
-            v-if="event.is_locked"
+            v-if="event.is_read_only"
             class="mb-4 rounded-lg border border-warning/20 bg-warning/10 px-4 py-3 text-sm font-semibold text-warning"
         >
-            {{ $t('events.read_only_banner') }}
+            {{ readOnlyMessage }}
         </div>
 
         <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
@@ -91,10 +99,25 @@ const confirmLock = () => {
                         {{ event.name }}
                     </h1>
                     <Badge
-                        :variant="statusVariant"
+                        v-if="event.is_active"
+                        variant="primary"
                         pill
                     >
-                        {{ statusLabel }}
+                        {{ $t('events.status.active') }}
+                    </Badge>
+                    <Badge
+                        v-if="event.is_locked"
+                        variant="warning"
+                        pill
+                    >
+                        {{ $t('events.status.locked') }}
+                    </Badge>
+                    <Badge
+                        v-if="event.is_past"
+                        variant="neutral"
+                        pill
+                    >
+                        {{ $t('events.status.past') }}
                     </Badge>
                 </div>
                 <Button
@@ -113,6 +136,14 @@ const confirmLock = () => {
                 @click="lockOpen = true"
             >
                 {{ $t('events.actions.lock') }}
+            </Button>
+            <Button
+                v-else
+                variant="secondary"
+                size="sm"
+                @click="unlockOpen = true"
+            >
+                {{ $t('events.actions.unlock') }}
             </Button>
         </div>
 
@@ -168,8 +199,19 @@ const confirmLock = () => {
             :confirm-label="$t('events.lock.confirm')"
             :cancel-label="$t('events.lock.cancel')"
             confirm-variant="danger"
-            :busy="lockBusy"
+            :busy="actionBusy"
             @confirm="confirmLock"
+        />
+
+        <Dialog
+            v-model:open="unlockOpen"
+            :title="$t('events.unlock.title')"
+            :description="$t('events.unlock.body')"
+            :confirm-label="$t('events.unlock.confirm')"
+            :cancel-label="$t('events.unlock.cancel')"
+            confirm-variant="primary"
+            :busy="actionBusy"
+            @confirm="confirmUnlock"
         />
     </AppLayout>
 </template>

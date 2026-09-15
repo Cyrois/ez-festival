@@ -265,5 +265,14 @@
     "setup.locations.delete_suggested_body": "Remove “:name” from suggestions. It will not be saved on Continue.",
     "setup.artist_types.suggested_label": "Suggested · not saved until Continue",
     "setup.artist_types.delete_suggested_body": "Remove “:name” from suggestions. It will not be saved on Continue.",
-    "setup.actions.next": "Next"
+    "setup.actions.next": "Next",
+    "events.status.past": "Past",
+    "events.actions.unlock": "Unlock",
+    "events.unlock.title": "Unlock this event?",
+    "events.unlock.body": "Unlocking lets the office edit this event again. Day-to-day work still stays on the org active event.",
+    "events.unlock.confirm": "Unlock event",
+    "events.unlock.cancel": "Cancel",
+    "events.toast.unlocked": "Event unlocked.",
+    "events.read_only_inactive": "This is not the active event. It is read-only. Day-to-day work stays on the org active event.",
+    "events.read_only_locked": "This event is locked. It is read-only for history and audit."
 }

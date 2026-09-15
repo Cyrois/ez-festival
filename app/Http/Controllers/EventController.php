@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\LockEventRequest;
+use App\Http\Requests\UnlockEventRequest;
 use App\Models\Event;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -51,20 +52,33 @@ class EventController extends Controller
             ->with('success', 'Event locked.');
     }
 
+    public function unlock(UnlockEventRequest $request, Event $event): RedirectResponse
+    {
+        $event->unlock();
+
+        return redirect()
+            ->route('events.show', $event)
+            ->with('success', 'Event unlocked.');
+    }
+
     /**
      * @return array<string, mixed>
      */
     private function eventPayload(Event $event, ?int $activeEventId): array
     {
+        $isActive = $activeEventId !== null && (int) $activeEventId === (int) $event->id;
+        $isLocked = $event->isLocked();
+
         return [
             'id' => $event->id,
             'name' => $event->name,
             'starts_on' => $event->starts_on->toDateString(),
             'ends_on' => $event->ends_on->toDateString(),
             'timezone' => $event->timezone,
-            'is_locked' => $event->isLocked(),
-            'locked_at' => $event->locked_at?->toIso8601String(),
-            'is_active' => $activeEventId !== null && (int) $activeEventId === (int) $event->id,
+            'is_locked' => $isLocked,
+            'is_active' => $isActive,
+            'is_past' => $event->isPast(),
+            'is_read_only' => ! $isActive || $isLocked,
         ];
     }
 }

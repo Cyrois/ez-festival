@@ -6,8 +6,9 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
-#[Fillable(['organization_id', 'name', 'starts_on', 'ends_on', 'timezone', 'locked_at'])]
+#[Fillable(['organization_id', 'name', 'starts_on', 'ends_on', 'timezone', 'locked'])]
 class Event extends Model
 {
     /**
@@ -18,7 +19,7 @@ class Event extends Model
         return [
             'starts_on' => 'date',
             'ends_on' => 'date',
-            'locked_at' => 'datetime',
+            'locked' => 'boolean',
         ];
     }
 
@@ -34,13 +35,27 @@ class Event extends Model
 
     public function isLocked(): bool
     {
-        return $this->locked_at !== null;
+        return (bool) $this->locked;
+    }
+
+    public function isPast(?Carbon $on = null): bool
+    {
+        $on ??= now();
+
+        return $this->ends_on->lt($on->copy()->startOfDay());
     }
 
     public function lock(): void
     {
-        if ($this->locked_at === null) {
-            $this->forceFill(['locked_at' => now()])->save();
+        if (! $this->locked) {
+            $this->forceFill(['locked' => true])->save();
+        }
+    }
+
+    public function unlock(): void
+    {
+        if ($this->locked) {
+            $this->forceFill(['locked' => false])->save();
         }
     }
 }

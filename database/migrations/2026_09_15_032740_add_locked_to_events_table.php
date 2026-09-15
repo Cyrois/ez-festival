@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('events', function (Blueprint $table) {
-            $table->timestamp('locked_at')->nullable()->after('timezone');
+            $table->boolean('locked')->default(false)->after('timezone');
         });
     }
 
@@ -22,7 +22,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('events', function (Blueprint $table) {
-            $table->dropColumn('locked_at');
+            $table->dropColumn('locked');
         });
     }
 };
