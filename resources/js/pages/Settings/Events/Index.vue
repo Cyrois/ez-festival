@@ -144,7 +144,7 @@ const statusVariant = {
                             {{ $t(`events.status.${primaryStatus(event)}`) }}
                         </Badge>
                     </div>
-                    <div class="mt-4 flex flex-wrap gap-2">
+                    <div class="mt-4 flex flex-wrap justify-end gap-2">
                         <Button
                             v-if="!event.is_locked"
                             :href="`/settings/events/${event.id}/edit`"
