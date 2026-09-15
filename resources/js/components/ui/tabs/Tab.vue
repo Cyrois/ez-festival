@@ -32,7 +32,7 @@ const panelId = computed(
 
 const classes = computed(() =>
     cn(
-        '-mb-px inline-flex items-center justify-center border-b-2 px-3 py-2 text-sm font-bold transition-colors',
+        '-mb-px inline-flex cursor-pointer items-center justify-center border-b-2 px-3 py-2 text-sm font-bold transition-colors',
         'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/35',
         isActive.value
             ? 'border-primary text-primary'

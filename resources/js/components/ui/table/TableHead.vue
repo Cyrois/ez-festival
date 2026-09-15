@@ -71,7 +71,7 @@ const onSort = () => {
         <button
             v-if="sortable"
             type="button"
-            class="inline-flex items-center gap-1 text-inherit uppercase focus-visible:ring-[3px] focus-visible:ring-primary/35 focus-visible:outline-none"
+            class="inline-flex cursor-pointer items-center gap-1 text-inherit uppercase focus-visible:ring-[3px] focus-visible:ring-primary/35 focus-visible:outline-none"
             @click="onSort"
         >
             <slot />
