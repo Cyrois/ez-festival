@@ -132,7 +132,7 @@ const onTabChange = (value) => {
             :model-value="tab"
             @update:model-value="onTabChange"
         >
-            <TabList>
+            <TabList class="flex-nowrap overflow-x-auto">
                 <Tab value="details">
                     {{ $t('settings.events.tabs.details') }}
                 </Tab>
