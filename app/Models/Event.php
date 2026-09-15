@@ -58,4 +58,23 @@ class Event extends Model
             $this->forceFill(['locked' => false])->save();
         }
     }
+
+    /**
+     * Abort if this event is locked or is not the organization's active event.
+     * Lock/unlock actions must not call this.
+     */
+    public function ensureWritable(Organization $organization): void
+    {
+        if ((int) $this->organization_id !== (int) $organization->id) {
+            abort(404);
+        }
+
+        if ($this->isLocked()) {
+            abort(403, 'This event is locked and read-only.');
+        }
+
+        if ((int) $organization->active_event_id !== (int) $this->id) {
+            abort(403, 'Only the active event can be edited.');
+        }
+    }
 }

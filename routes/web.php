@@ -44,17 +44,21 @@ Route::middleware('auth')->group(function () {
         Route::post('events/{event}/unlock', [EventController::class, 'unlock'])->name('events.unlock');
     });
 
-    Route::middleware(['organization', 'event.writable'])->prefix('setup')->name('setup.')->group(function () {
-        Route::get('event', [SetupEventController::class, 'show'])->name('event');
-        Route::post('event', [SetupEventController::class, 'store']);
+    Route::middleware('organization')->prefix('setup')->name('setup.')->group(function () {
+        // Event-scoped writes: blocked when active event is locked or non-active context.
+        Route::middleware('event.writable')->group(function () {
+            Route::get('event', [SetupEventController::class, 'show'])->name('event');
+            Route::post('event', [SetupEventController::class, 'store']);
 
-        Route::get('locations', [LocationController::class, 'show'])->name('locations');
-        Route::post('locations', [LocationController::class, 'store']);
-        Route::put('locations/{location}', [LocationController::class, 'update'])->name('locations.update');
-        Route::delete('locations/{location}', [LocationController::class, 'destroy'])->name('locations.destroy');
-        Route::post('locations/continue', [LocationController::class, 'continue'])->name('locations.continue');
-        Route::post('locations/skip', [LocationController::class, 'skip'])->name('locations.skip');
+            Route::get('locations', [LocationController::class, 'show'])->name('locations');
+            Route::post('locations', [LocationController::class, 'store']);
+            Route::put('locations/{location}', [LocationController::class, 'update'])->name('locations.update');
+            Route::delete('locations/{location}', [LocationController::class, 'destroy'])->name('locations.destroy');
+            Route::post('locations/continue', [LocationController::class, 'continue'])->name('locations.continue');
+            Route::post('locations/skip', [LocationController::class, 'skip'])->name('locations.skip');
+        });
 
+        // Org-scoped setup (not event writes).
         Route::get('vendor-types', [VendorTypeController::class, 'show'])->name('vendor-types');
         Route::post('vendor-types', [VendorTypeController::class, 'store']);
         Route::put('vendor-types/{vendorType}', [VendorTypeController::class, 'update'])->name('vendor-types.update');
