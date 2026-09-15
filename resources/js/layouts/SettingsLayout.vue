@@ -29,7 +29,6 @@ const organizationItems = [
     { key: 'vendor_types', enabled: false },
     { key: 'custom_fields', enabled: false },
     { key: 'labels', enabled: false },
-    { key: 'active_event', enabled: false },
 ];
 
 const eventsHref = '/settings/events';
