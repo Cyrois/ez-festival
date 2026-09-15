@@ -54,7 +54,7 @@ const onChange = () => {
     <label
         :class="
             cn(
-                'inline-flex items-center gap-2 text-sm text-charcoal',
+                'inline-flex cursor-pointer items-center gap-2 text-sm text-charcoal',
                 disabled && 'cursor-not-allowed opacity-45',
             )
         "
