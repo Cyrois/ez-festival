@@ -35,7 +35,7 @@ class EventLocationController extends Controller
     {
         $organization = $this->organization($request);
         $this->eventForOrganization($request, $event);
-        $event->ensureWritable($organization);
+        $event->ensureWritable($organization, $request->user());
 
         $event->locations()->create($request->validated());
 
@@ -55,7 +55,7 @@ class EventLocationController extends Controller
 
         abort_unless((int) $location->event_id === (int) $event->id, 404);
 
-        $event->ensureWritable($organization);
+        $event->ensureWritable($organization, $request->user());
         $location->update($request->validated());
 
         return redirect()
@@ -71,7 +71,7 @@ class EventLocationController extends Controller
 
         abort_unless((int) $location->event_id === (int) $event->id, 404);
 
-        $event->ensureWritable($organization);
+        $event->ensureWritable($organization, $request->user());
         $location->delete();
 
         return redirect()

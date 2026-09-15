@@ -287,7 +287,7 @@
     "settings.nav.items.active_event": "Active event",
     "settings.nav.items.events": "Events",
     "settings.events.title": "Events",
-    "settings.events.lead": "Manage events for your organization. Open past or locked events read-only. Day-to-day work stays on the active event.",
+    "settings.events.lead": "Manage events for your organization. Day-to-day work stays on your primary event.",
     "settings.events.edit_lead": "Edit this event’s details and locations.",
     "settings.events.back": "Back to Events",
     "settings.events.columns.event": "Event",
@@ -306,5 +306,8 @@
     "settings.events.fields.city": "Location / city",
     "settings.events.fields.timezone": "Timezone",
     "settings.events.toast.updated": "Event updated.",
-    "settings.nav.back": "Back to Dashboard"
+    "settings.nav.back": "Back to Dashboard",
+    "settings.events.actions.set_primary": "Set as Primary",
+    "settings.events.toast.set_primary": ":name is now your primary event.",
+    "settings.events.toast.set_primary_title": "Primary event updated"
 }

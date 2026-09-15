@@ -32,13 +32,14 @@ class PreventLockedEventWrites
         }
 
         $organization = $user->primaryOrganization() ?? $user->ensureOrganization();
-        $event = $this->resolveEvent($request, $organization->activeEvent);
+        $primary = $user->effectiveEvent($organization);
+        $event = $this->resolveEvent($request, $primary);
 
         if ($event === null) {
             return $next($request);
         }
 
-        $event->ensureWritable($organization);
+        $event->ensureWritable($organization, $user);
 
         return $next($request);
     }

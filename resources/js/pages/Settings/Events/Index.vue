@@ -14,7 +14,8 @@ import {
     TableRow,
 } from '../../../components/ui/table';
 import { useEventLockActions } from '../../../composables/useEventLockActions';
-import { computed } from 'vue';
+import { router } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
 defineProps({
@@ -33,6 +34,25 @@ const {
     confirmLock,
     confirmUnlock,
 } = useEventLockActions();
+
+const setPrimaryBusy = ref(false);
+
+const setPrimary = (event) => {
+    if (event.is_active || setPrimaryBusy.value) {
+        return;
+    }
+    setPrimaryBusy.value = true;
+    router.post(
+        `/settings/events/${event.id}/set-primary`,
+        {},
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                setPrimaryBusy.value = false;
+            },
+        },
+    );
+};
 
 const breadcrumbs = computed(() => [
     {
@@ -117,7 +137,9 @@ const statusVariant = {
                             {{ $t('settings.events.columns.status') }}
                         </TableHead>
                         <TableHead class="text-right">
-                            {{ $t('settings.events.columns.actions') }}
+                            <span class="sr-only">{{
+                                $t('settings.events.columns.actions')
+                            }}</span>
                         </TableHead>
                     </TableRow>
                 </TableHeader>
@@ -163,16 +185,23 @@ const statusVariant = {
                                     {{ $t('settings.events.actions.edit') }}
                                 </Button>
                                 <Button
-                                    :href="`/events/${event.id}`"
+                                    v-if="!event.is_active"
                                     variant="outline"
                                     size="sm"
+                                    :loading="setPrimaryBusy"
+                                    :disabled="setPrimaryBusy"
+                                    @click="setPrimary(event)"
                                 >
                                     <Icon
-                                        :name="['fas', 'folder-open']"
+                                        :name="['fas', 'star']"
                                         size="sm"
                                         class="mr-1.5"
                                     />
-                                    {{ $t('events.actions.view') }}
+                                    {{
+                                        $t(
+                                            'settings.events.actions.set_primary',
+                                        )
+                                    }}
                                 </Button>
                                 <Button
                                     v-if="!event.is_locked"

@@ -51,7 +51,7 @@ class LocationController extends Controller
             return redirect()->route('setup.event');
         }
 
-        $event->ensureWritable($organization);
+        $event->ensureWritable($organization, $request->user());
 
         $event->locations()->create($request->validated());
 
@@ -68,7 +68,7 @@ class LocationController extends Controller
             404,
         );
 
-        $event->ensureWritable($organization);
+        $event->ensureWritable($organization, $request->user());
 
         $location->update($request->validated());
 
@@ -85,7 +85,7 @@ class LocationController extends Controller
             404,
         );
 
-        $event->ensureWritable($organization);
+        $event->ensureWritable($organization, $request->user());
 
         $location->delete();
 
@@ -101,7 +101,7 @@ class LocationController extends Controller
             return redirect()->route('setup.event');
         }
 
-        $event->ensureWritable($organization);
+        $event->ensureWritable($organization, $request->user());
 
         $data = $request->validated();
 

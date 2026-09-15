@@ -41,6 +41,10 @@ trait InteractsWithSettings
      */
     protected function eventPayload(Event $event, Organization $organization): array
     {
-        return EventResource::toArray($event, $organization->active_event_id);
+        /** @var User $user */
+        $user = request()->user();
+        $primaryEventId = $user?->effectiveEvent($organization)?->id;
+
+        return EventResource::toArray($event, $primaryEventId);
     }
 }

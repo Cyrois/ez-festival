@@ -60,10 +60,11 @@ class Event extends Model
     }
 
     /**
-     * Abort if this event is locked or is not the organization's active event.
+     * Abort if this event is locked or is not the user's primary (effective) event.
+     * Falls back to the organization active event when no user is provided.
      * Lock/unlock actions must not call this.
      */
-    public function ensureWritable(Organization $organization): void
+    public function ensureWritable(Organization $organization, ?User $user = null): void
     {
         if ((int) $this->organization_id !== (int) $organization->id) {
             abort(404);
@@ -73,8 +74,11 @@ class Event extends Model
             abort(403, 'This event is locked and read-only.');
         }
 
-        if ((int) $organization->active_event_id !== (int) $this->id) {
-            abort(403, 'Only the active event can be edited.');
+        $primaryId = $user?->effectiveEvent($organization)?->id
+            ?? $organization->active_event_id;
+
+        if ((int) $primaryId !== (int) $this->id) {
+            abort(403, 'Only the primary event can be edited.');
         }
     }
 }
