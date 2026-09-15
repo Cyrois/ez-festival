@@ -38,6 +38,11 @@ class Event extends Model
         return (bool) $this->locked;
     }
 
+    public function artistEngagements(): HasMany
+    {
+        return $this->hasMany(ArtistEngagement::class);
+    }
+
     public function isPast(?Carbon $on = null): bool
     {
         $on ??= now();

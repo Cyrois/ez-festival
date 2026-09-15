@@ -34,7 +34,7 @@ class User extends Authenticatable
     public function organizations(): BelongsToMany
     {
         return $this->belongsToMany(Organization::class)
-            ->withPivot('current_event_id')
+            ->withPivot('current_event_id', 'can_manage_artists')
             ->withTimestamps();
     }
 
@@ -60,7 +60,7 @@ class User extends Authenticatable
             'name' => $name,
         ]);
 
-        $this->organizations()->attach($organization);
+        $this->organizations()->attach($organization, ['can_manage_artists' => true]);
 
         return $organization;
     }
