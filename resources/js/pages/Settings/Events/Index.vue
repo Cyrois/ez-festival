@@ -121,7 +121,7 @@ const statusVariant = {
 
         <template v-else>
             <!-- Phone: card stack -->
-            <div class="flex flex-col gap-3 lg:hidden">
+            <div class="flex flex-col gap-3 md:hidden">
                 <div
                     v-for="event in events"
                     :key="`card-${event.id}`"
@@ -209,7 +209,7 @@ const statusVariant = {
 
             <!-- md+: table -->
             <div
-                class="hidden overflow-hidden rounded-xl border border-line bg-ground lg:block"
+                class="hidden overflow-hidden rounded-xl border border-line bg-ground md:block"
             >
                 <div class="overflow-x-auto">
                     <Table>
