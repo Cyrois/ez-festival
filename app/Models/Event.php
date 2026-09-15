@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['organization_id', 'name', 'starts_on', 'ends_on', 'timezone'])]
+#[Fillable(['organization_id', 'name', 'starts_on', 'ends_on', 'timezone', 'locked_at'])]
 class Event extends Model
 {
     /**
@@ -18,6 +18,7 @@ class Event extends Model
         return [
             'starts_on' => 'date',
             'ends_on' => 'date',
+            'locked_at' => 'datetime',
         ];
     }
 
@@ -29,5 +30,17 @@ class Event extends Model
     public function locations(): HasMany
     {
         return $this->hasMany(Location::class);
+    }
+
+    public function isLocked(): bool
+    {
+        return $this->locked_at !== null;
+    }
+
+    public function lock(): void
+    {
+        if ($this->locked_at === null) {
+            $this->forceFill(['locked_at' => now()])->save();
+        }
     }
 }

@@ -3,8 +3,9 @@
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EventController;
 use App\Http\Controllers\Setup\ArtistTypeController;
-use App\Http\Controllers\Setup\EventController;
+use App\Http\Controllers\Setup\EventController as SetupEventController;
 use App\Http\Controllers\Setup\LocationController;
 use App\Http\Controllers\Setup\ReadyController;
 use App\Http\Controllers\Setup\VendorTypeController;
@@ -36,11 +37,15 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware(['organization', 'setup.complete'])->group(function () {
         Route::get('dashboard', DashboardController::class)->name('dashboard');
+
+        Route::get('events', [EventController::class, 'index'])->name('events.index');
+        Route::get('events/{event}', [EventController::class, 'show'])->name('events.show');
+        Route::post('events/{event}/lock', [EventController::class, 'lock'])->name('events.lock');
     });
 
     Route::middleware('organization')->prefix('setup')->name('setup.')->group(function () {
-        Route::get('event', [EventController::class, 'show'])->name('event');
-        Route::post('event', [EventController::class, 'store']);
+        Route::get('event', [SetupEventController::class, 'show'])->name('event');
+        Route::post('event', [SetupEventController::class, 'store']);
 
         Route::get('locations', [LocationController::class, 'show'])->name('locations');
         Route::post('locations', [LocationController::class, 'store']);

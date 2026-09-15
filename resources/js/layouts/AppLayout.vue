@@ -33,6 +33,12 @@ const navItems = [
         enabled: true,
     },
     {
+        key: 'events',
+        href: '/events',
+        icon: ['fas', 'calendar-days'],
+        enabled: true,
+    },
+    {
         key: 'artists',
         href: null,
         icon: ['fas', 'music'],

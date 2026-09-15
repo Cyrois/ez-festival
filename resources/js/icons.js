@@ -1,6 +1,7 @@
 import { library } from '@fortawesome/fontawesome-svg-core';
 import {
     faAddressBook,
+    faCalendarDays,
     faCheck,
     faChevronDown,
     faCircleExclamation,
@@ -27,6 +28,7 @@ import {
  */
 export const kitIcons = [
     faAddressBook,
+    faCalendarDays,
     faCheck,
     faChevronDown,
     faCircleExclamation,
