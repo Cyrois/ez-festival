@@ -70,7 +70,6 @@ const onTabChange = (value) => {
     <SettingsLayout
         :title="event.name"
         :breadcrumbs="breadcrumbs"
-        hide-section-nav
     >
         <div class="mb-2">
             <Button

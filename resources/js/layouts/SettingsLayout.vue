@@ -13,10 +13,6 @@ defineProps({
         type: Array,
         default: () => [],
     },
-    hideSectionNav: {
-        type: Boolean,
-        default: false,
-    },
 });
 
 const page = usePage();
@@ -82,18 +78,6 @@ const itemClass = (active, enabled) => {
     }
 
     return 'text-charcoal/80 hover:bg-page hover:text-charcoal';
-};
-
-const chipClass = (active, enabled) => {
-    if (!enabled) {
-        return 'cursor-default border-line bg-page text-charcoal/35';
-    }
-
-    if (active) {
-        return 'border-primary/30 bg-primary/10 text-primary';
-    }
-
-    return 'border-line bg-ground text-charcoal/80';
 };
 </script>
 
@@ -162,39 +146,6 @@ const chipClass = (active, enabled) => {
                 </div>
             </div>
         </template>
-
-        <slot name="heading" />
-
-        <div
-            v-if="!hideSectionNav"
-            class="mb-4 lg:hidden"
-            role="navigation"
-            :aria-label="$t('settings.nav.label')"
-        >
-            <div class="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-                <span
-                    v-for="item in organizationItems"
-                    :key="`chip-org-${item.key}`"
-                    class="inline-flex min-h-11 shrink-0 items-center rounded-full border px-3 text-[13px] font-semibold whitespace-nowrap"
-                    :class="chipClass(false, item.enabled)"
-                    aria-disabled="true"
-                >
-                    {{ $t(`settings.nav.items.${item.key}`) }}
-                </span>
-                <Link
-                    v-for="item in eventNavItems"
-                    :key="`chip-evt-${item.key}`"
-                    :href="item.href"
-                    class="inline-flex min-h-11 shrink-0 items-center rounded-full border px-3 text-[13px] font-semibold whitespace-nowrap no-underline"
-                    :class="chipClass(isEventNavActive(item.match), true)"
-                    :aria-current="
-                        isEventNavActive(item.match) ? 'page' : undefined
-                    "
-                >
-                    {{ $t(`settings.nav.items.${item.key}`) }}
-                </Link>
-            </div>
-        </div>
 
         <slot />
     </AppLayout>

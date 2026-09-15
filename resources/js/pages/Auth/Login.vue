@@ -18,7 +18,7 @@ const submit = () => {
     <Head :title="$t('auth.login.title')" />
 
     <div
-        class="flex min-h-screen items-center justify-center bg-page p-6 px-4 text-charcoal antialiased"
+        class="flex min-h-screen items-center justify-center bg-page px-4 py-6 text-charcoal antialiased"
     >
         <div class="w-full max-w-[400px]">
             <div class="mb-7 text-center">

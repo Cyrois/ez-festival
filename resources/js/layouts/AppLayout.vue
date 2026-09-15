@@ -124,22 +124,50 @@ const openNav = () => {
 const closeNav = () => {
     navOpen.value = false;
 };
+
+/** Shared classes: persistent sidebar lg+, off-canvas drawer below lg */
+const railClass = computed(() => {
+    const open = navOpen.value
+        ? 'max-lg:translate-x-0'
+        : 'max-lg:-translate-x-full';
+
+    return [
+        'fixed inset-y-0 left-0 z-50 flex w-[min(18rem,85vw)] flex-col border-r border-line bg-ground shadow-lg transition-transform duration-200',
+        'lg:static lg:z-auto lg:w-56 lg:shrink-0 lg:translate-x-0 lg:shadow-none',
+        open,
+    ].join(' ');
+});
 </script>
 
 <template>
     <Head :title="title" />
 
     <div class="flex min-h-screen bg-page text-charcoal antialiased">
-        <!-- Desktop main sidebar -->
+        <!-- Scrim (below lg only) -->
+        <div
+            class="fixed inset-0 z-40 bg-charcoal/40 transition-opacity lg:hidden"
+            :class="
+                navOpen
+                    ? 'pointer-events-auto opacity-100'
+                    : 'pointer-events-none opacity-0'
+            "
+            aria-hidden="true"
+            @click="closeNav"
+        />
+
+        <!-- Main app rail (single outlet) -->
         <aside
             v-if="!settingsNav"
-            class="hidden w-56 shrink-0 flex-col border-r border-line bg-ground lg:flex"
+            :class="railClass"
             :aria-label="$t('nav.sidebar')"
+            :aria-hidden="navOpen || undefined"
         >
-            <div class="border-b border-line px-4 py-4">
-                <div class="flex items-center gap-2.5">
+            <div
+                class="flex items-center justify-between border-b border-line px-4 py-3 lg:block lg:py-4"
+            >
+                <div class="flex min-w-0 items-center gap-2.5">
                     <div
-                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-xs font-bold text-white"
+                        class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-white"
                         aria-hidden="true"
                     >
                         {{ $t('app.mark') }}
@@ -162,9 +190,20 @@ const closeNav = () => {
                         </span>
                     </div>
                 </div>
+                <button
+                    type="button"
+                    class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-charcoal hover:bg-page lg:hidden"
+                    :aria-label="$t('nav.close_menu')"
+                    @click="closeNav"
+                >
+                    <Icon
+                        :name="['fas', 'xmark']"
+                        size="sm"
+                    />
+                </button>
             </div>
 
-            <nav class="flex flex-1 flex-col gap-1 px-2 py-3">
+            <nav class="flex flex-1 flex-col gap-1 overflow-y-auto px-2 py-3">
                 <component
                     :is="item.enabled ? Link : 'span'"
                     v-for="item in navItems"
@@ -186,199 +225,103 @@ const closeNav = () => {
                 </component>
             </nav>
 
-            <div class="mt-auto space-y-2 border-t border-line px-3 py-3">
-                <Link
-                    href="/settings/events"
-                    class="inline-flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-semibold no-underline"
-                    :class="settingsClass"
-                    :aria-current="settingsActive ? 'page' : undefined"
-                >
-                    <Icon
-                        :name="['fas', 'gear']"
-                        size="sm"
-                        fixed-width
-                    />
-                    {{ $t('nav.settings') }}
-                </Link>
-                <div class="min-w-0 px-2">
-                    <p class="m-0 truncate text-xs font-semibold text-charcoal">
-                        {{
-                            user?.name || user?.email || $t('dashboard.unknown')
-                        }}
-                    </p>
-                    <p
-                        v-if="user?.email && user?.name"
-                        class="m-0 truncate text-[11px] text-muted"
-                    >
-                        {{ user.email }}
-                    </p>
-                </div>
-                <Link
-                    method="post"
-                    href="/logout"
-                    as="button"
-                    :class="signOutClass"
-                >
-                    {{ $t('dashboard.sign_out') }}
-                </Link>
-            </div>
-        </aside>
-
-        <!-- Desktop settings sidebar -->
-        <aside
-            v-if="settingsNav"
-            class="hidden w-56 shrink-0 flex-col border-r border-line bg-ground lg:flex"
-            :aria-label="$t('settings.nav.label')"
-        >
-            <slot name="settings-nav" />
-            <div class="mt-auto space-y-2 border-t border-line px-3 py-3">
-                <div class="min-w-0 px-2">
-                    <p class="m-0 truncate text-xs font-semibold text-charcoal">
-                        {{
-                            user?.name || user?.email || $t('dashboard.unknown')
-                        }}
-                    </p>
-                    <p
-                        v-if="user?.email && user?.name"
-                        class="m-0 truncate text-[11px] text-muted"
-                    >
-                        {{ user.email }}
-                    </p>
-                </div>
-                <Link
-                    method="post"
-                    href="/logout"
-                    as="button"
-                    :class="signOutClass"
-                >
-                    {{ $t('dashboard.sign_out') }}
-                </Link>
-            </div>
-        </aside>
-
-        <!-- Mobile drawer -->
-        <div
-            class="lg:hidden"
-            :class="navOpen ? 'pointer-events-auto' : 'pointer-events-none'"
-        >
-            <div
-                class="fixed inset-0 z-40 bg-charcoal/40 transition-opacity"
-                :class="navOpen ? 'opacity-100' : 'opacity-0'"
-                aria-hidden="true"
-                @click="closeNav"
-            />
-            <aside
-                class="fixed inset-y-0 left-0 z-50 flex w-[min(18rem,85vw)] flex-col border-r border-line bg-ground shadow-lg transition-transform duration-200"
-                :class="navOpen ? 'translate-x-0' : '-translate-x-full'"
-                :aria-label="$t('nav.sidebar')"
-                :aria-hidden="navOpen ? undefined : 'true'"
-            >
-                <div
-                    class="flex items-center justify-between border-b border-line px-4 py-3"
-                >
-                    <div class="flex min-w-0 items-center gap-2.5">
-                        <div
-                            class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-white"
-                            aria-hidden="true"
-                        >
-                            {{ $t('app.mark') }}
-                        </div>
-                        <div class="min-w-0">
-                            <span class="block truncate text-[15px] font-bold">
-                                {{ $t('app.name') }}
-                            </span>
-                            <span
-                                v-if="eventName"
-                                class="mt-0.5 block truncate text-xs text-muted"
-                            >
-                                {{ eventName }}
-                            </span>
-                        </div>
-                    </div>
-                    <button
-                        type="button"
-                        class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-charcoal hover:bg-page"
-                        :aria-label="$t('nav.close_menu')"
-                        @click="closeNav"
+            <div class="mt-auto">
+                <div class="border-t border-line px-2 py-2">
+                    <Link
+                        href="/settings/events"
+                        class="inline-flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-semibold no-underline"
+                        :class="settingsClass"
+                        :aria-current="settingsActive ? 'page' : undefined"
                     >
                         <Icon
-                            :name="['fas', 'xmark']"
-                            size="sm"
-                        />
-                    </button>
-                </div>
-
-                <nav
-                    class="flex flex-1 flex-col gap-1 overflow-y-auto px-2 py-3"
-                >
-                    <component
-                        :is="item.enabled ? Link : 'span'"
-                        v-for="item in navItems"
-                        :key="`m-${item.key}`"
-                        :href="item.enabled ? item.href : undefined"
-                        class="inline-flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-semibold no-underline"
-                        :class="navItemClass(item)"
-                        :aria-current="
-                            item.enabled && isActive(item.href)
-                                ? 'page'
-                                : undefined
-                        "
-                        :aria-disabled="item.enabled ? undefined : 'true'"
-                    >
-                        <Icon
-                            :name="item.icon"
+                            :name="['fas', 'gear']"
                             size="sm"
                             fixed-width
                         />
-                        {{ $t(`nav.${item.key}`) }}
-                    </component>
-                </nav>
-                <div class="mt-auto">
-                    <div class="border-t border-line px-2 py-2">
-                        <Link
-                            href="/settings/events"
-                            class="inline-flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-semibold no-underline"
-                            :class="settingsClass"
-                            :aria-current="settingsActive ? 'page' : undefined"
-                        >
-                            <Icon
-                                :name="['fas', 'gear']"
-                                size="sm"
-                                fixed-width
-                            />
-                            {{ $t('nav.settings') }}
-                        </Link>
-                    </div>
-                    <div class="space-y-1 border-t border-line px-3 py-3">
-                        <div class="min-w-0 px-2">
-                            <p
-                                class="m-0 truncate text-xs font-semibold text-charcoal"
-                            >
-                                {{
-                                    user?.name ||
-                                    user?.email ||
-                                    $t('dashboard.unknown')
-                                }}
-                            </p>
-                            <p
-                                v-if="user?.email && user?.name"
-                                class="m-0 truncate text-[11px] text-muted"
-                            >
-                                {{ user.email }}
-                            </p>
-                        </div>
-                        <Link
-                            method="post"
-                            href="/logout"
-                            as="button"
-                            :class="signOutClass"
-                        >
-                            {{ $t('dashboard.sign_out') }}
-                        </Link>
-                    </div>
+                        {{ $t('nav.settings') }}
+                    </Link>
                 </div>
-            </aside>
-        </div>
+                <div class="space-y-1 border-t border-line px-3 py-3">
+                    <div class="min-w-0 px-2">
+                        <p
+                            class="m-0 truncate text-xs font-semibold text-charcoal"
+                        >
+                            {{
+                                user?.name ||
+                                user?.email ||
+                                $t('dashboard.unknown')
+                            }}
+                        </p>
+                        <p
+                            v-if="user?.email && user?.name"
+                            class="m-0 truncate text-[11px] text-muted"
+                        >
+                            {{ user.email }}
+                        </p>
+                    </div>
+                    <Link
+                        method="post"
+                        href="/logout"
+                        as="button"
+                        :class="signOutClass"
+                    >
+                        {{ $t('dashboard.sign_out') }}
+                    </Link>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Settings rail (single #settings-nav outlet) -->
+        <aside
+            v-if="settingsNav"
+            :class="railClass"
+            :aria-label="$t('settings.nav.label')"
+        >
+            <div
+                class="flex items-center justify-between border-b border-line px-4 py-3 lg:hidden"
+            >
+                <span class="truncate text-[15px] font-bold">
+                    {{ $t('nav.settings') }}
+                </span>
+                <button
+                    type="button"
+                    class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-charcoal hover:bg-page"
+                    :aria-label="$t('nav.close_menu')"
+                    @click="closeNav"
+                >
+                    <Icon
+                        :name="['fas', 'xmark']"
+                        size="sm"
+                    />
+                </button>
+            </div>
+            <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
+                <slot name="settings-nav" />
+            </div>
+            <div class="mt-auto space-y-1 border-t border-line px-3 py-3">
+                <div class="min-w-0 px-2">
+                    <p class="m-0 truncate text-xs font-semibold text-charcoal">
+                        {{
+                            user?.name || user?.email || $t('dashboard.unknown')
+                        }}
+                    </p>
+                    <p
+                        v-if="user?.email && user?.name"
+                        class="m-0 truncate text-[11px] text-muted"
+                    >
+                        {{ user.email }}
+                    </p>
+                </div>
+                <Link
+                    method="post"
+                    href="/logout"
+                    as="button"
+                    :class="signOutClass"
+                >
+                    {{ $t('dashboard.sign_out') }}
+                </Link>
+            </div>
+        </aside>
 
         <div class="flex min-w-0 flex-1 flex-col">
             <header

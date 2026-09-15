@@ -97,16 +97,14 @@ const statusVariant = {
         :title="$t('settings.events.title')"
         :breadcrumbs="breadcrumbs"
     >
-        <template #heading>
-            <div class="mb-4">
-                <h1 class="m-0 text-2xl font-bold tracking-tight">
-                    {{ $t('settings.events.title') }}
-                </h1>
-                <p class="mt-1 mb-0 text-sm text-muted">
-                    {{ $t('settings.events.lead') }}
-                </p>
-            </div>
-        </template>
+        <div class="mb-6">
+            <h1 class="m-0 text-2xl font-bold tracking-tight">
+                {{ $t('settings.events.title') }}
+            </h1>
+            <p class="mt-1 mb-0 text-sm text-muted">
+                {{ $t('settings.events.lead') }}
+            </p>
+        </div>
 
         <EmptyState
             v-if="events.length === 0"
@@ -123,7 +121,7 @@ const statusVariant = {
 
         <template v-else>
             <!-- Phone: card stack -->
-            <div class="flex flex-col gap-3 lg:hidden">
+            <div class="flex flex-col gap-3 md:hidden">
                 <div
                     v-for="event in events"
                     :key="`card-${event.id}`"
@@ -211,7 +209,7 @@ const statusVariant = {
 
             <!-- md+: table -->
             <div
-                class="hidden overflow-hidden rounded-xl border border-line bg-ground lg:block"
+                class="hidden overflow-hidden rounded-xl border border-line bg-ground md:block"
             >
                 <div class="overflow-x-auto">
                     <Table>
