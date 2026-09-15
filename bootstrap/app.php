@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureOrganization;
 use App\Http\Middleware\EnsureSetupComplete;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\PreventLockedEventWrites;
 use App\Support\PostLoginRedirect;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -25,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'organization' => EnsureOrganization::class,
             'setup.complete' => EnsureSetupComplete::class,
+            'event.writable' => PreventLockedEventWrites::class,
         ]);
 
         $middleware->redirectGuestsTo(fn () => route('login'));

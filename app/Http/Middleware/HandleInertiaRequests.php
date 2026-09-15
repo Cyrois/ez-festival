@@ -43,6 +43,11 @@ class HandleInertiaRequests extends Middleware
 
         return [
             ...parent::share($request),
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'success_title' => fn () => $request->session()->get('success_title'),
+                'error' => fn () => $request->session()->get('error'),
+            ],
             'auth' => [
                 'user' => $user
                     ? $user->only('id', 'name', 'email')
@@ -59,6 +64,7 @@ class HandleInertiaRequests extends Middleware
                 ? [
                     'id' => $event->id,
                     'name' => $event->name,
+                    'is_locked' => $event->isLocked(),
                 ]
                 : null,
         ];

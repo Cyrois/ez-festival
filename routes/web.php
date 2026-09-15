@@ -3,8 +3,9 @@
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EventController;
 use App\Http\Controllers\Setup\ArtistTypeController;
-use App\Http\Controllers\Setup\EventController;
+use App\Http\Controllers\Setup\EventController as SetupEventController;
 use App\Http\Controllers\Setup\LocationController;
 use App\Http\Controllers\Setup\ReadyController;
 use App\Http\Controllers\Setup\VendorTypeController;
@@ -36,19 +37,28 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware(['organization', 'setup.complete'])->group(function () {
         Route::get('dashboard', DashboardController::class)->name('dashboard');
+
+        Route::get('events', [EventController::class, 'index'])->name('events.index');
+        Route::get('events/{event}', [EventController::class, 'show'])->name('events.show');
+        Route::post('events/{event}/lock', [EventController::class, 'lock'])->name('events.lock');
+        Route::post('events/{event}/unlock', [EventController::class, 'unlock'])->name('events.unlock');
     });
 
     Route::middleware('organization')->prefix('setup')->name('setup.')->group(function () {
-        Route::get('event', [EventController::class, 'show'])->name('event');
-        Route::post('event', [EventController::class, 'store']);
+        // Event-scoped writes: blocked when active event is locked or non-active context.
+        Route::middleware('event.writable')->group(function () {
+            Route::get('event', [SetupEventController::class, 'show'])->name('event');
+            Route::post('event', [SetupEventController::class, 'store']);
 
-        Route::get('locations', [LocationController::class, 'show'])->name('locations');
-        Route::post('locations', [LocationController::class, 'store']);
-        Route::put('locations/{location}', [LocationController::class, 'update'])->name('locations.update');
-        Route::delete('locations/{location}', [LocationController::class, 'destroy'])->name('locations.destroy');
-        Route::post('locations/continue', [LocationController::class, 'continue'])->name('locations.continue');
-        Route::post('locations/skip', [LocationController::class, 'skip'])->name('locations.skip');
+            Route::get('locations', [LocationController::class, 'show'])->name('locations');
+            Route::post('locations', [LocationController::class, 'store']);
+            Route::put('locations/{location}', [LocationController::class, 'update'])->name('locations.update');
+            Route::delete('locations/{location}', [LocationController::class, 'destroy'])->name('locations.destroy');
+            Route::post('locations/continue', [LocationController::class, 'continue'])->name('locations.continue');
+            Route::post('locations/skip', [LocationController::class, 'skip'])->name('locations.skip');
+        });
 
+        // Org-scoped setup (not event writes).
         Route::get('vendor-types', [VendorTypeController::class, 'show'])->name('vendor-types');
         Route::post('vendor-types', [VendorTypeController::class, 'store']);
         Route::put('vendor-types/{vendorType}', [VendorTypeController::class, 'update'])->name('vendor-types.update');

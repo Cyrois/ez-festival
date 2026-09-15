@@ -45,6 +45,10 @@ class EventController extends Controller
 
         $event = $organization->activeEvent;
 
+        if ($event !== null) {
+            $event->ensureWritable($organization);
+        }
+
         if ($event === null) {
             $event = Event::query()->create([
                 'organization_id' => $organization->id,

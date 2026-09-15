@@ -4,17 +4,27 @@ import { trans } from 'laravel-vue-i18n';
 import { useFlashToast } from './useFlashToast';
 
 /**
- * Shared flash.error watcher + Inertia invalid handler for authenticated shells.
+ * Shared flash watchers + Inertia invalid handler for authenticated shells.
  */
 export function useInertiaErrorToast() {
     const page = usePage();
-    const { showError } = useFlashToast();
+    const { showError, showSuccess } = useFlashToast();
 
     watch(
         () => page.props.flash?.error,
         (error) => {
             if (error) {
                 showError(error);
+            }
+        },
+        { immediate: true },
+    );
+
+    watch(
+        () => page.props.flash?.success,
+        (success) => {
+            if (success) {
+                showSuccess(success, page.props.flash?.success_title || '');
             }
         },
         { immediate: true },
@@ -29,5 +39,5 @@ export function useInertiaErrorToast() {
         removeInvalidListener();
     });
 
-    return { showError };
+    return { showError, showSuccess };
 }
