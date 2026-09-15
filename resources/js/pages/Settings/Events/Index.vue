@@ -123,113 +123,121 @@ const statusVariant = {
             v-else
             class="overflow-hidden rounded-xl border border-line bg-ground"
         >
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>
-                            {{ $t('settings.events.columns.event') }}
-                        </TableHead>
-                        <TableHead>
-                            {{ $t('settings.events.columns.status') }}
-                        </TableHead>
-                        <TableHead class="text-right">
-                            <span class="sr-only">{{
-                                $t('settings.events.columns.actions')
-                            }}</span>
-                        </TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    <TableRow
-                        v-for="event in events"
-                        :key="event.id"
-                    >
-                        <TableCell>
-                            <div class="font-semibold">
-                                {{ event.name }}
-                            </div>
-                            <div class="mt-0.5 text-xs text-muted">
-                                {{ formatSubtext(event) }}
-                            </div>
-                        </TableCell>
-                        <TableCell>
-                            <Badge
-                                v-if="primaryStatus(event)"
-                                :variant="statusVariant[primaryStatus(event)]"
-                                pill
-                            >
-                                {{
-                                    $t(`events.status.${primaryStatus(event)}`)
-                                }}
-                            </Badge>
-                        </TableCell>
-                        <TableCell>
-                            <div class="flex justify-end gap-2">
-                                <Button
-                                    v-if="!event.is_locked"
-                                    :href="`/settings/events/${event.id}/edit`"
+            <div class="overflow-x-auto">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>
+                                {{ $t('settings.events.columns.event') }}
+                            </TableHead>
+                            <TableHead>
+                                {{ $t('settings.events.columns.status') }}
+                            </TableHead>
+                            <TableHead class="text-right">
+                                <span class="sr-only">{{
+                                    $t('settings.events.columns.actions')
+                                }}</span>
+                            </TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        <TableRow
+                            v-for="event in events"
+                            :key="event.id"
+                        >
+                            <TableCell>
+                                <div class="font-semibold">
+                                    {{ event.name }}
+                                </div>
+                                <div class="mt-0.5 text-xs text-muted">
+                                    {{ formatSubtext(event) }}
+                                </div>
+                            </TableCell>
+                            <TableCell>
+                                <Badge
+                                    v-if="primaryStatus(event)"
                                     :variant="
-                                        event.is_active ? 'primary' : 'outline'
+                                        statusVariant[primaryStatus(event)]
                                     "
-                                    size="sm"
+                                    pill
                                 >
-                                    <Icon
-                                        :name="['fas', 'pencil']"
-                                        size="sm"
-                                        class="mr-1.5"
-                                    />
-                                    {{ $t('settings.events.actions.edit') }}
-                                </Button>
-                                <Button
-                                    v-if="!event.is_active"
-                                    variant="outline"
-                                    size="sm"
-                                    :loading="setPrimaryBusy"
-                                    :disabled="setPrimaryBusy"
-                                    @click="setPrimary(event)"
-                                >
-                                    <Icon
-                                        :name="['fas', 'star']"
-                                        size="sm"
-                                        class="mr-1.5"
-                                    />
                                     {{
                                         $t(
-                                            'settings.events.actions.set_primary',
+                                            `events.status.${primaryStatus(event)}`,
                                         )
                                     }}
-                                </Button>
-                                <Button
-                                    v-if="!event.is_locked"
-                                    variant="outline"
-                                    size="sm"
-                                    @click="openLock(event)"
-                                >
-                                    <Icon
-                                        :name="['fas', 'lock']"
+                                </Badge>
+                            </TableCell>
+                            <TableCell>
+                                <div class="flex justify-end gap-2">
+                                    <Button
+                                        v-if="!event.is_locked"
+                                        :href="`/settings/events/${event.id}/edit`"
+                                        :variant="
+                                            event.is_active
+                                                ? 'primary'
+                                                : 'outline'
+                                        "
                                         size="sm"
-                                        class="mr-1.5"
-                                    />
-                                    {{ $t('events.actions.lock') }}
-                                </Button>
-                                <Button
-                                    v-else
-                                    variant="outline"
-                                    size="sm"
-                                    @click="openUnlock(event)"
-                                >
-                                    <Icon
-                                        :name="['fas', 'lock-open']"
+                                    >
+                                        <Icon
+                                            :name="['fas', 'pencil']"
+                                            size="sm"
+                                            class="mr-1.5"
+                                        />
+                                        {{ $t('settings.events.actions.edit') }}
+                                    </Button>
+                                    <Button
+                                        v-if="!event.is_active"
+                                        variant="outline"
                                         size="sm"
-                                        class="mr-1.5"
-                                    />
-                                    {{ $t('events.actions.unlock') }}
-                                </Button>
-                            </div>
-                        </TableCell>
-                    </TableRow>
-                </TableBody>
-            </Table>
+                                        :loading="setPrimaryBusy"
+                                        :disabled="setPrimaryBusy"
+                                        @click="setPrimary(event)"
+                                    >
+                                        <Icon
+                                            :name="['fas', 'star']"
+                                            size="sm"
+                                            class="mr-1.5"
+                                        />
+                                        {{
+                                            $t(
+                                                'settings.events.actions.set_primary',
+                                            )
+                                        }}
+                                    </Button>
+                                    <Button
+                                        v-if="!event.is_locked"
+                                        variant="outline"
+                                        size="sm"
+                                        @click="openLock(event)"
+                                    >
+                                        <Icon
+                                            :name="['fas', 'lock']"
+                                            size="sm"
+                                            class="mr-1.5"
+                                        />
+                                        {{ $t('events.actions.lock') }}
+                                    </Button>
+                                    <Button
+                                        v-else
+                                        variant="outline"
+                                        size="sm"
+                                        @click="openUnlock(event)"
+                                    >
+                                        <Icon
+                                            :name="['fas', 'lock-open']"
+                                            size="sm"
+                                            class="mr-1.5"
+                                        />
+                                        {{ $t('events.actions.unlock') }}
+                                    </Button>
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                    </TableBody>
+                </Table>
+            </div>
         </div>
 
         <Dialog

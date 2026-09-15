@@ -314,5 +314,7 @@
     "settings.events.primary_banner": "You are editing :name",
     "settings.events.primary_missing": "Set a primary event on Events before opening Locations, Roles, or Users.",
     "settings.events.primary_banner_note_before": "To work on an event, change your primary event in the ",
-    "settings.events.primary_banner_note_after": " page."
+    "settings.events.primary_banner_note_after": " page.",
+    "nav.menu": "Open menu",
+    "nav.close_menu": "Close menu"
 }

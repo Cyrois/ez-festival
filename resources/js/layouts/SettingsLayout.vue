@@ -91,7 +91,7 @@ const itemClass = (active, enabled) => {
             <div class="flex flex-1 flex-col gap-5 px-3 py-4">
                 <Link
                     href="/dashboard"
-                    class="inline-flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] font-semibold text-charcoal/80 no-underline hover:bg-page hover:text-charcoal"
+                    class="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 py-2.5 text-[13px] font-semibold text-charcoal/80 no-underline hover:bg-page hover:text-charcoal"
                 >
                     <Icon
                         :name="['fas', 'arrow-left']"
@@ -111,7 +111,7 @@ const itemClass = (active, enabled) => {
                         <span
                             v-for="item in organizationItems"
                             :key="item.key"
-                            class="rounded-lg px-2 py-1.5 text-[13px] font-semibold"
+                            class="min-h-11 rounded-lg px-2 py-2.5 text-[13px] font-semibold"
                             :class="itemClass(false, item.enabled)"
                             aria-disabled="true"
                         >
@@ -130,7 +130,7 @@ const itemClass = (active, enabled) => {
                             v-for="item in eventNavItems"
                             :key="item.key"
                             :href="item.href"
-                            class="rounded-lg px-2 py-1.5 text-[13px] font-semibold no-underline"
+                            class="inline-flex min-h-11 items-center rounded-lg px-2 py-2.5 text-[13px] font-semibold no-underline"
                             :class="
                                 itemClass(isEventNavActive(item.match), true)
                             "

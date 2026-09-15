@@ -72,7 +72,7 @@ const stepNumberClass = (n) => {
     <Head :title="title" />
 
     <div
-        class="min-h-screen bg-page px-6 text-charcoal antialiased"
+        class="min-h-screen bg-page px-4 text-charcoal antialiased sm:px-6"
         :class="isComplete ? 'flex items-center py-10 pb-16' : 'pt-10 pb-16'"
     >
         <div
