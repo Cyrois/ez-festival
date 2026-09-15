@@ -16,6 +16,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    settingsNav: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 const page = usePage();
@@ -23,6 +27,7 @@ useInertiaErrorToast();
 
 const user = computed(() => page.props.auth?.user);
 const eventName = computed(() => page.props.activeEvent?.name ?? null);
+const orgName = computed(() => page.props.organization?.name ?? null);
 const currentPath = computed(() => page.url.split('?')[0]);
 
 const navItems = [
@@ -30,12 +35,6 @@ const navItems = [
         key: 'home',
         href: '/dashboard',
         icon: ['fas', 'house'],
-        enabled: true,
-    },
-    {
-        key: 'events',
-        href: '/events',
-        icon: ['fas', 'calendar-days'],
         enabled: true,
     },
     {
@@ -63,6 +62,12 @@ const navItems = [
         enabled: false,
     },
 ];
+
+const settingsActive = computed(
+    () =>
+        currentPath.value === '/settings' ||
+        currentPath.value.startsWith('/settings/'),
+);
 
 const crumbItems = computed(() => {
     if (props.breadcrumbs.length > 0) {
@@ -94,6 +99,14 @@ const navItemClass = (item) => {
     return 'text-charcoal/80 hover:bg-page hover:text-charcoal';
 };
 
+const settingsClass = computed(() => {
+    if (settingsActive.value) {
+        return 'bg-primary/10 text-primary';
+    }
+
+    return 'text-charcoal/80 hover:bg-page hover:text-charcoal';
+});
+
 const signOutClass = cn(
     buttonVariants({
         variant: 'outline',
@@ -121,7 +134,7 @@ const signOutClass = cn(
                     </div>
                     <div class="min-w-0">
                         <span class="block truncate text-[15px] font-bold">
-                            {{ $t('app.name') }}
+                            {{ orgName || $t('app.name') }}
                         </span>
                         <span
                             v-if="eventName"
@@ -156,6 +169,19 @@ const signOutClass = cn(
             </nav>
 
             <div class="mt-auto space-y-2 border-t border-line px-3 py-3">
+                <Link
+                    href="/settings/events"
+                    class="inline-flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-semibold no-underline"
+                    :class="settingsClass"
+                    :aria-current="settingsActive ? 'page' : undefined"
+                >
+                    <Icon
+                        :name="['fas', 'gear']"
+                        size="sm"
+                        fixed-width
+                    />
+                    {{ $t('nav.settings') }}
+                </Link>
                 <div class="min-w-0 px-2">
                     <p class="m-0 truncate text-xs font-semibold text-charcoal">
                         {{
@@ -178,6 +204,14 @@ const signOutClass = cn(
                     {{ $t('dashboard.sign_out') }}
                 </Link>
             </div>
+        </aside>
+
+        <aside
+            v-if="settingsNav"
+            class="flex w-52 shrink-0 flex-col border-r border-line bg-ground"
+            :aria-label="$t('settings.nav.label')"
+        >
+            <slot name="settings-nav" />
         </aside>
 
         <div class="flex min-w-0 flex-1 flex-col">

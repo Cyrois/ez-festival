@@ -20,6 +20,7 @@ class EventResource
             'starts_on' => $event->starts_on->toDateString(),
             'ends_on' => $event->ends_on->toDateString(),
             'timezone' => $event->timezone,
+            'city' => $event->city,
             'is_locked' => $isLocked,
             'is_active' => $isActive,
             'is_past' => $event->isPast(),

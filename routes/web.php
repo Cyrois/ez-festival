@@ -4,6 +4,8 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\Settings\EventController as SettingsEventController;
+use App\Http\Controllers\Settings\EventLocationController;
 use App\Http\Controllers\Setup\ArtistTypeController;
 use App\Http\Controllers\Setup\EventController as SetupEventController;
 use App\Http\Controllers\Setup\LocationController;
@@ -42,6 +44,22 @@ Route::middleware('auth')->group(function () {
         Route::get('events/{event}', [EventController::class, 'show'])->name('events.show');
         Route::post('events/{event}/lock', [EventController::class, 'lock'])->name('events.lock');
         Route::post('events/{event}/unlock', [EventController::class, 'unlock'])->name('events.unlock');
+
+        Route::prefix('settings')->name('settings.')->group(function () {
+            Route::get('events', [SettingsEventController::class, 'index'])->name('events.index');
+            Route::get('events/{event}/edit', [SettingsEventController::class, 'edit'])->name('events.edit');
+            Route::get('events/{event}/roles', [SettingsEventController::class, 'roles'])->name('events.roles');
+            Route::get('events/{event}/users', [SettingsEventController::class, 'users'])->name('events.users');
+
+            Route::get('events/{event}/locations', [EventLocationController::class, 'index'])->name('events.locations');
+
+            Route::middleware('event.writable')->group(function () {
+                Route::put('events/{event}', [SettingsEventController::class, 'update'])->name('events.update');
+                Route::post('events/{event}/locations', [EventLocationController::class, 'store'])->name('events.locations.store');
+                Route::put('events/{event}/locations/{location}', [EventLocationController::class, 'update'])->name('events.locations.update');
+                Route::delete('events/{event}/locations/{location}', [EventLocationController::class, 'destroy'])->name('events.locations.destroy');
+            });
+        });
     });
 
     Route::middleware('organization')->prefix('setup')->name('setup.')->group(function () {

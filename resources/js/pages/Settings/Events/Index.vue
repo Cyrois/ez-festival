@@ -1,0 +1,232 @@
+<script setup>
+import SettingsLayout from '../../../layouts/SettingsLayout.vue';
+import { Badge } from '../../../components/ui/badge';
+import { Button } from '../../../components/ui/button';
+import { Dialog } from '../../../components/ui/dialog';
+import { EmptyState } from '../../../components/ui/empty-state';
+import { Icon } from '../../../components/ui/icon';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '../../../components/ui/table';
+import { useEventLockActions } from '../../../composables/useEventLockActions';
+import { computed } from 'vue';
+import { trans } from 'laravel-vue-i18n';
+
+defineProps({
+    events: {
+        type: Array,
+        default: () => [],
+    },
+});
+
+const {
+    lockOpen,
+    unlockOpen,
+    actionBusy,
+    openLock,
+    openUnlock,
+    confirmLock,
+    confirmUnlock,
+} = useEventLockActions();
+
+const breadcrumbs = computed(() => [
+    {
+        label: trans('app.name'),
+        href: '/dashboard',
+    },
+    {
+        label: trans('nav.settings'),
+        href: '/settings/events',
+    },
+    {
+        label: trans('settings.events.title'),
+    },
+]);
+
+const formatSubtext = (event) => {
+    const dates = `${event.starts_on} – ${event.ends_on}`;
+    if (event.city) {
+        return `${dates} · ${event.city}`;
+    }
+    return dates;
+};
+
+const primaryStatus = (event) => {
+    if (event.is_locked) {
+        return 'locked';
+    }
+    if (event.is_active) {
+        return 'active';
+    }
+    if (event.is_past) {
+        return 'past';
+    }
+    return null;
+};
+
+const statusVariant = {
+    active: 'success',
+    locked: 'warning',
+    past: 'neutral',
+};
+</script>
+
+<template>
+    <SettingsLayout
+        :title="$t('settings.events.title')"
+        :breadcrumbs="breadcrumbs"
+    >
+        <div class="mb-6">
+            <h1 class="m-0 text-2xl font-bold tracking-tight">
+                {{ $t('settings.events.title') }}
+            </h1>
+            <p class="mt-1 mb-0 text-sm text-muted">
+                {{ $t('settings.events.lead') }}
+            </p>
+        </div>
+
+        <EmptyState
+            v-if="events.length === 0"
+            :title="$t('events.empty.title')"
+            :description="$t('events.empty.body')"
+        >
+            <template #icon>
+                <Icon
+                    :name="['fas', 'calendar-days']"
+                    size="lg"
+                />
+            </template>
+        </EmptyState>
+
+        <div
+            v-else
+            class="overflow-hidden rounded-xl border border-line bg-ground"
+        >
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>
+                            {{ $t('settings.events.columns.event') }}
+                        </TableHead>
+                        <TableHead>
+                            {{ $t('settings.events.columns.status') }}
+                        </TableHead>
+                        <TableHead class="text-right">
+                            {{ $t('settings.events.columns.actions') }}
+                        </TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    <TableRow
+                        v-for="event in events"
+                        :key="event.id"
+                    >
+                        <TableCell>
+                            <div class="font-semibold">
+                                {{ event.name }}
+                            </div>
+                            <div class="mt-0.5 text-xs text-muted">
+                                {{ formatSubtext(event) }}
+                            </div>
+                        </TableCell>
+                        <TableCell>
+                            <Badge
+                                v-if="primaryStatus(event)"
+                                :variant="statusVariant[primaryStatus(event)]"
+                                pill
+                            >
+                                {{
+                                    $t(`events.status.${primaryStatus(event)}`)
+                                }}
+                            </Badge>
+                        </TableCell>
+                        <TableCell>
+                            <div class="flex justify-end gap-2">
+                                <Button
+                                    v-if="!event.is_locked"
+                                    :href="`/settings/events/${event.id}/edit`"
+                                    :variant="
+                                        event.is_active ? 'primary' : 'outline'
+                                    "
+                                    size="sm"
+                                >
+                                    <Icon
+                                        :name="['fas', 'pencil']"
+                                        size="sm"
+                                        class="mr-1.5"
+                                    />
+                                    {{ $t('settings.events.actions.edit') }}
+                                </Button>
+                                <Button
+                                    :href="`/events/${event.id}`"
+                                    variant="outline"
+                                    size="sm"
+                                >
+                                    <Icon
+                                        :name="['fas', 'folder-open']"
+                                        size="sm"
+                                        class="mr-1.5"
+                                    />
+                                    {{ $t('events.actions.view') }}
+                                </Button>
+                                <Button
+                                    v-if="!event.is_locked"
+                                    variant="outline"
+                                    size="sm"
+                                    @click="openLock(event)"
+                                >
+                                    <Icon
+                                        :name="['fas', 'lock']"
+                                        size="sm"
+                                        class="mr-1.5"
+                                    />
+                                    {{ $t('events.actions.lock') }}
+                                </Button>
+                                <Button
+                                    v-else
+                                    variant="outline"
+                                    size="sm"
+                                    @click="openUnlock(event)"
+                                >
+                                    <Icon
+                                        :name="['fas', 'lock-open']"
+                                        size="sm"
+                                        class="mr-1.5"
+                                    />
+                                    {{ $t('events.actions.unlock') }}
+                                </Button>
+                            </div>
+                        </TableCell>
+                    </TableRow>
+                </TableBody>
+            </Table>
+        </div>
+
+        <Dialog
+            v-model:open="lockOpen"
+            :title="$t('events.lock.title')"
+            :description="$t('events.lock.body')"
+            :confirm-label="$t('events.lock.confirm')"
+            :cancel-label="$t('events.lock.cancel')"
+            confirm-variant="secondary"
+            :busy="actionBusy"
+            @confirm="confirmLock"
+        />
+
+        <Dialog
+            v-model:open="unlockOpen"
+            :title="$t('events.unlock.title')"
+            :description="$t('events.unlock.body')"
+            :confirm-label="$t('events.unlock.confirm')"
+            :cancel-label="$t('events.unlock.cancel')"
+            confirm-variant="secondary"
+            :busy="actionBusy"
+            @confirm="confirmUnlock"
+        />
+    </SettingsLayout>
+</template>
