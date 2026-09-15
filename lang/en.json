@@ -44,7 +44,7 @@
     "events.actions.view": "Open",
     "events.actions.lock": "Lock",
     "events.lock.title": "Lock this event?",
-    "events.lock.body": "Locked events stay readable for history and audit. Day-to-day work stays on the active event. Unlock is not available yet.",
+    "events.lock.body": "Locked events stay readable for history and audit. Day-to-day work stays on the active event. You can unlock later if needed.",
     "events.lock.confirm": "Lock event",
     "events.lock.cancel": "Cancel",
     "events.toast.locked": "Event locked.",
