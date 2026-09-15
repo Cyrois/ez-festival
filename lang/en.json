@@ -276,8 +276,8 @@
     "events.toast.unlocked_title": "Event unlocked",
     "nav.settings": "Settings",
     "settings.nav.label": "Settings",
-    "settings.nav.organization": "Organization",
-    "settings.nav.events_group": "Events",
+    "settings.nav.organization": "Organization Settings",
+    "settings.nav.events_group": "Event Settings",
     "settings.nav.items.general": "General",
     "settings.nav.items.people": "People",
     "settings.nav.items.artist_types": "Artist types",
@@ -305,5 +305,6 @@
     "settings.events.fields.ends_on": "End date",
     "settings.events.fields.city": "Location / city",
     "settings.events.fields.timezone": "Timezone",
-    "settings.events.toast.updated": "Event updated."
+    "settings.events.toast.updated": "Event updated.",
+    "settings.nav.back": "Back to Dashboard"
 }

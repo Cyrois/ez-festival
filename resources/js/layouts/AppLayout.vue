@@ -121,6 +121,7 @@ const signOutClass = cn(
 
     <div class="flex min-h-screen bg-page text-charcoal antialiased">
         <aside
+            v-if="!settingsNav"
             class="flex w-56 shrink-0 flex-col border-r border-line bg-ground"
             :aria-label="$t('nav.sidebar')"
         >
@@ -214,10 +215,33 @@ const signOutClass = cn(
 
         <aside
             v-if="settingsNav"
-            class="flex w-52 shrink-0 flex-col border-r border-line bg-ground"
+            class="flex w-56 shrink-0 flex-col border-r border-line bg-ground"
             :aria-label="$t('settings.nav.label')"
         >
             <slot name="settings-nav" />
+            <div class="mt-auto space-y-2 border-t border-line px-3 py-3">
+                <div class="min-w-0 px-2">
+                    <p class="m-0 truncate text-xs font-semibold text-charcoal">
+                        {{
+                            user?.name || user?.email || $t('dashboard.unknown')
+                        }}
+                    </p>
+                    <p
+                        v-if="user?.email && user?.name"
+                        class="m-0 truncate text-[11px] text-muted"
+                    >
+                        {{ user.email }}
+                    </p>
+                </div>
+                <Link
+                    method="post"
+                    href="/logout"
+                    as="button"
+                    :class="signOutClass"
+                >
+                    {{ $t('dashboard.sign_out') }}
+                </Link>
+            </div>
         </aside>
 
         <div class="flex min-w-0 flex-1 flex-col">

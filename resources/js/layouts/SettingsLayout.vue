@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from './AppLayout.vue';
+import { Icon } from '../components/ui/icon';
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
@@ -63,6 +64,18 @@ const itemClass = (active, enabled) => {
             #settings-nav
         >
             <div class="flex flex-1 flex-col gap-5 px-3 py-4">
+                <Link
+                    href="/dashboard"
+                    class="inline-flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] font-semibold text-charcoal/80 no-underline hover:bg-page hover:text-charcoal"
+                >
+                    <Icon
+                        :name="['fas', 'arrow-left']"
+                        size="sm"
+                        fixed-width
+                    />
+                    {{ $t('settings.nav.back') }}
+                </Link>
+
                 <div>
                     <p
                         class="m-0 mb-2 px-2 text-[11px] font-bold tracking-wide text-muted uppercase"
