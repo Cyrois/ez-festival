@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ArtistController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\DashboardController;
@@ -40,6 +41,13 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware(['organization', 'setup.complete'])->group(function () {
         Route::get('dashboard', DashboardController::class)->name('dashboard');
+
+        Route::middleware('can:artists.manage')->group(function () {
+            Route::get('artists/advancing', [ArtistController::class, 'index'])->name('artists.index');
+            Route::get('artists/create', [ArtistController::class, 'create'])->name('artists.create');
+            Route::post('events/{event}/artists', [ArtistController::class, 'store'])
+                ->middleware('event.writable')->name('artists.store');
+        });
 
         Route::get('events', [EventController::class, 'index'])->name('events.index');
         Route::get('events/{event}', [EventController::class, 'show'])->name('events.show');

@@ -24,7 +24,7 @@ class Organization extends Model
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class)
-            ->withPivot('current_event_id')
+            ->withPivot('current_event_id', 'can_manage_artists')
             ->withTimestamps();
     }
 
@@ -51,6 +51,16 @@ class Organization extends Model
     public function setupIsComplete(): bool
     {
         return $this->setup_completed_at !== null;
+    }
+
+    public function artists(): HasMany
+    {
+        return $this->hasMany(Artist::class);
+    }
+
+    public function artistLabels(): HasMany
+    {
+        return $this->hasMany(ArtistLabel::class);
     }
 
     public function markSetupComplete(): void
