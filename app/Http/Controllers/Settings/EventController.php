@@ -54,7 +54,7 @@ class EventController extends Controller
         $organization = $this->organization($request);
         $this->eventForOrganization($request, $event);
 
-        $event->ensureWritable($organization, $request->user());
+        $event->ensureWritable($organization);
         $event->update($request->validated());
 
         return redirect()

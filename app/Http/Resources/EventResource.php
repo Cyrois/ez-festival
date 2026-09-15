@@ -23,7 +23,7 @@ class EventResource
             'is_locked' => $isLocked,
             'is_active' => $isActive,
             'is_past' => $event->isPast(),
-            'is_read_only' => ! $isActive || $isLocked,
+            'is_read_only' => $isLocked,
         ];
     }
 }

@@ -10,10 +10,10 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Block non-safe HTTP methods against a locked or non-active event.
+ * Block non-safe HTTP methods against a locked event.
  *
  * Resolves the target event from route {event}, {location}->event,
- * or the organization's active event for active-context routes.
+ * or the user's primary event for active-context routes.
  * Lock/unlock routes must not use this middleware.
  */
 class PreventLockedEventWrites
@@ -39,7 +39,7 @@ class PreventLockedEventWrites
             return $next($request);
         }
 
-        $event->ensureWritable($organization, $user);
+        $event->ensureWritable($organization);
 
         return $next($request);
     }

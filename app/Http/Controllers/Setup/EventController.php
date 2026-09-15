@@ -46,7 +46,7 @@ class EventController extends Controller
         $event = $organization->activeEvent;
 
         if ($event !== null) {
-            $event->ensureWritable($organization, $request->user());
+            $event->ensureWritable($organization);
         }
 
         if ($event === null) {
