@@ -131,7 +131,7 @@ const deleteBody = computed(() => {
     >
         <div
             v-if="canWrite"
-            class="mb-4"
+            class="mb-4 flex justify-end"
         >
             <Button
                 type="button"

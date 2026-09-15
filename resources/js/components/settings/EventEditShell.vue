@@ -76,7 +76,7 @@ const onTabChange = (value) => {
                 href="/settings/events"
                 variant="ghost"
                 size="sm"
-                class="mb-3 px-0"
+                class="mb-3 px-2.5"
             >
                 <Icon
                     :name="['fas', 'arrow-left']"
@@ -105,13 +105,14 @@ const onTabChange = (value) => {
                 }}
             </p>
             <p class="mt-1 mb-0 text-muted">
-                {{ $t('settings.events.primary_banner_note') }}
+                {{ $t('settings.events.primary_banner_note_before') }}
                 <Link
                     href="/settings/events"
-                    class="font-semibold text-primary no-underline hover:underline"
+                    class="mx-1 font-semibold text-primary no-underline hover:underline"
                 >
                     {{ $t('settings.nav.items.events') }}
                 </Link>
+                {{ $t('settings.events.primary_banner_note_after') }}
             </p>
         </div>
 
