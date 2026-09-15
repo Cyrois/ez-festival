@@ -80,6 +80,17 @@ const onTabChange = (value) => {
             </p>
         </div>
 
+        <div
+            v-if="event.is_read_only"
+            class="mb-4 rounded-lg border border-warning/20 bg-warning/10 px-4 py-3 text-sm font-semibold text-warning"
+        >
+            {{
+                event.is_locked
+                    ? $t('events.read_only_locked')
+                    : $t('events.read_only_inactive')
+            }}
+        </div>
+
         <Tabs
             class="mb-6"
             :model-value="tab"

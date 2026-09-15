@@ -134,13 +134,19 @@ const signOutClass = cn(
                     </div>
                     <div class="min-w-0">
                         <span class="block truncate text-[15px] font-bold">
-                            {{ orgName || $t('app.name') }}
+                            {{ $t('app.name') }}
                         </span>
                         <span
                             v-if="eventName"
                             class="mt-0.5 block truncate text-xs text-muted"
                         >
                             {{ eventName }}
+                        </span>
+                        <span
+                            v-else-if="orgName"
+                            class="mt-0.5 block truncate text-xs text-muted"
+                        >
+                            {{ orgName }}
                         </span>
                     </div>
                 </div>

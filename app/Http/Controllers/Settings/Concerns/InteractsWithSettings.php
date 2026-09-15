@@ -6,6 +6,7 @@ use App\Http\Resources\EventResource;
 use App\Models\Event;
 use App\Models\Organization;
 use App\Models\User;
+use App\Support\Timezones;
 use Illuminate\Http\Request;
 
 trait InteractsWithSettings
@@ -32,19 +33,7 @@ trait InteractsWithSettings
      */
     protected function timezones(): array
     {
-        return [
-            'America/Vancouver',
-            'America/Edmonton',
-            'America/Winnipeg',
-            'America/Toronto',
-            'America/Halifax',
-            'America/St_Johns',
-            'America/New_York',
-            'America/Chicago',
-            'America/Denver',
-            'America/Los_Angeles',
-            'UTC',
-        ];
+        return Timezones::common();
     }
 
     /**

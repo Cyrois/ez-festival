@@ -125,17 +125,6 @@ const deleteBody = computed(() => {
         :tab="tab"
     >
         <div
-            v-if="!canWrite"
-            class="mb-4 rounded-lg border border-warning/20 bg-warning/10 px-4 py-3 text-sm font-semibold text-warning"
-        >
-            {{
-                event.is_locked
-                    ? $t('events.read_only_locked')
-                    : $t('events.read_only_inactive')
-            }}
-        </div>
-
-        <div
             v-if="canWrite"
             class="mb-4"
         >

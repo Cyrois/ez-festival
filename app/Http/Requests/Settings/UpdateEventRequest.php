@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Settings;
 
+use App\Support\Timezones;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateEventRequest extends FormRequest
 {
@@ -21,7 +23,7 @@ class UpdateEventRequest extends FormRequest
             'starts_on' => ['required', 'date'],
             'ends_on' => ['required', 'date', 'after_or_equal:starts_on'],
             'city' => ['nullable', 'string', 'max:255'],
-            'timezone' => ['required', 'string', 'timezone:all'],
+            'timezone' => ['required', 'string', Rule::in(Timezones::common())],
         ];
     }
 }
