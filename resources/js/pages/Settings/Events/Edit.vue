@@ -34,7 +34,6 @@ const form = useForm({
     name: props.event.name ?? '',
     starts_on: props.event.starts_on ?? '',
     ends_on: props.event.ends_on ?? '',
-    city: props.event.city ?? '',
     timezone: props.event.timezone ?? 'America/Vancouver',
 });
 
@@ -108,23 +107,6 @@ const submit = () => {
                         </template>
                     </FormField>
                 </div>
-
-                <FormField
-                    :label="$t('settings.events.fields.city')"
-                    :error="fieldError(form, 'city')"
-                    class="mb-4"
-                >
-                    <template #default="{ id, invalid }">
-                        <Input
-                            :id="id"
-                            v-model="form.city"
-                            type="text"
-                            :invalid="invalid"
-                            :disabled="!canWrite"
-                            autocomplete="off"
-                        />
-                    </template>
-                </FormField>
 
                 <FormField
                     :label="$t('settings.events.fields.timezone')"

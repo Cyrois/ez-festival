@@ -302,7 +302,6 @@
     "settings.events.fields.name": "Event name",
     "settings.events.fields.starts_on": "Start date",
     "settings.events.fields.ends_on": "End date",
-    "settings.events.fields.city": "Location / city",
     "settings.events.fields.timezone": "Timezone",
     "settings.events.toast.updated": "Event updated.",
     "settings.nav.back": "Back to Dashboard",

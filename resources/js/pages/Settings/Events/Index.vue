@@ -69,11 +69,7 @@ const breadcrumbs = computed(() => [
 ]);
 
 const formatSubtext = (event) => {
-    const dates = `${event.starts_on} – ${event.ends_on}`;
-    if (event.city) {
-        return `${dates} · ${event.city}`;
-    }
-    return dates;
+    return `${event.starts_on} – ${event.ends_on}`;
 };
 
 const primaryStatus = (event) => {
