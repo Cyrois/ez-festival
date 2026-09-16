@@ -55,6 +55,7 @@ Route::middleware('auth')->group(function () {
 
         Route::redirect('vendors', '/vendors/advancing')->name('vendors.index');
         Route::get('vendors/advancing', [VendorController::class, 'index'])->name('vendors.advancing');
+        Route::get('vendors/create', [VendorController::class, 'create'])->name('vendors.create');
 
         Route::get('events', [EventController::class, 'index'])->name('events.index');
         Route::get('events/{event}', [EventController::class, 'show'])->name('events.show');
