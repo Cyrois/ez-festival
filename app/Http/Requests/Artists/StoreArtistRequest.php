@@ -14,6 +14,13 @@ class StoreArtistRequest extends FormRequest
         return $this->user()->can('artists.manage');
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('name')) {
+            $this->merge(['name' => trim((string) $this->input('name'))]);
+        }
+    }
+
     public function rules(): array
     {
         $organizationId = $this->user()->primaryOrganization()->id;

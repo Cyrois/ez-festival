@@ -368,5 +368,7 @@
     "artists.colors.success": "Green",
     "artists.colors.warning": "Amber",
     "artists.colors.danger": "Red",
-    "artists.colors.neutral": "Gray"
+    "artists.colors.neutral": "Gray",
+    "artists.errors.name_taken": "That artist name is already in use for this organization.",
+    "artists.errors.label_taken": "That label name is already in use."
 }

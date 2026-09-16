@@ -167,6 +167,20 @@ class ArtistAdvancingTest extends TestCase
         $this->assertDatabaseHas('artist_engagements', ['event_id' => $event->id, 'status' => 'idea', 'artist_type_id' => null]);
     }
 
+    public function test_reuses_artist_case_insensitively_without_duplicating_row(): void
+    {
+        [$user, $organization, $event] = $this->context();
+        Artist::factory()->for($organization)->create(['name' => 'River Hollow']);
+
+        $this->actingAs($user)->post(route('artists.store', $event), [
+            'name' => 'river hollow',
+        ])->assertRedirect(route('artists.index'));
+
+        $this->assertDatabaseCount('artists', 1);
+        $this->assertDatabaseHas('artists', ['organization_id' => $organization->id, 'name' => 'River Hollow']);
+        $this->assertDatabaseCount('artist_engagements', 1);
+    }
+
     public function test_returning_artist_preserves_history_and_labels_and_reuses_label_library(): void
     {
         [$user, $organization, $event] = $this->context();

@@ -2,15 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Artists\CreateArtistRequest;
 use App\Http\Requests\Artists\IndexArtistsRequest;
 use App\Http\Requests\Artists\StoreArtistRequest;
 use App\Http\Resources\ArtistEngagementResource;
+use App\Models\Artist;
 use App\Models\ArtistEngagement;
 use App\Models\ArtistLabel;
 use App\Models\Event;
+use App\Models\Organization;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -49,7 +52,7 @@ class ArtistController extends Controller
         ]);
     }
 
-    public function create(Request $request): Response
+    public function create(CreateArtistRequest $request): Response
     {
         $organization = $request->user()->primaryOrganization();
         $event = $request->user()->effectiveEvent($organization);
@@ -75,7 +78,7 @@ class ArtistController extends Controller
             // Serialize additions with event locking and duplicate submissions.
             $event = Event::query()->lockForUpdate()->findOrFail($event->id);
             $event->ensureWritable($organization);
-            $artist = $organization->artists()->firstOrCreate(['name' => $data['name']]);
+            $artist = $this->findOrCreateArtist($organization, $data['name']);
 
             if ($artist->engagements()->where('event_id', $event->id)->exists()) {
                 throw ValidationException::withMessages(['name' => __('artists.errors.already_added')]);
@@ -88,8 +91,11 @@ class ArtistController extends Controller
             ]);
             $labelIds = $data['label_ids'] ?? [];
             foreach ($data['new_labels'] ?? [] as $label) {
-                $labelIds[] = $organization->artistLabels()
-                    ->firstOrCreate(['name' => $label['name']], ['color' => $label['color']])->id;
+                $labelIds[] = $this->findOrCreateLabel(
+                    $organization,
+                    $label['name'],
+                    $label['color'],
+                )->id;
             }
 
             // Labels belong to the reusable artist; preserve assignments from previous events.
@@ -99,5 +105,62 @@ class ArtistController extends Controller
         return redirect()->route('artists.index')
             ->with('success', __('artists.toast.created'))
             ->with('success_title', __('toast.saved_title'));
+    }
+
+    private function findOrCreateArtist(Organization $organization, string $name): Artist
+    {
+        $existing = $organization->artists()
+            ->whereRaw('lower(name) = ?', [mb_strtolower($name)])
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        try {
+            return $organization->artists()->create(['name' => $name]);
+        } catch (UniqueConstraintViolationException) {
+            $artist = $organization->artists()
+                ->whereRaw('lower(name) = ?', [mb_strtolower($name)])
+                ->first();
+
+            if ($artist) {
+                return $artist;
+            }
+
+            throw ValidationException::withMessages([
+                'name' => __('artists.errors.name_taken'),
+            ]);
+        }
+    }
+
+    private function findOrCreateLabel(Organization $organization, string $name, string $color): ArtistLabel
+    {
+        $existing = $organization->artistLabels()
+            ->whereRaw('lower(name) = ?', [mb_strtolower($name)])
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        try {
+            return $organization->artistLabels()->create([
+                'name' => $name,
+                'color' => $color,
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            $label = $organization->artistLabels()
+                ->whereRaw('lower(name) = ?', [mb_strtolower($name)])
+                ->first();
+
+            if ($label) {
+                return $label;
+            }
+
+            throw ValidationException::withMessages([
+                'new_labels' => __('artists.errors.label_taken'),
+            ]);
+        }
     }
 }
