@@ -1,6 +1,6 @@
 # Database-per-organization architecture: remove organization tables
 
-Status: Approved and implemented for fresh and single-organization databases
+Status: Approved and implemented — fresh installs use clean create migrations (no organizations / no conversion migration; data loss OK for greenfield)
 
 Scope: Application schema, tenancy assumptions, data migration, backend, frontend contracts, tests, and operations
 
@@ -211,21 +211,23 @@ organization: {
 
 ## Database migration strategy
 
-There are two supported paths. Choose one per environment.
+### Fresh installs (current path)
 
-### Path A: no production data
+Greenfield / disposable environments use **clean create migrations** only. There is no `organizations` table, no `organization_id` columns, and **no conversion migration** — Calvin accepted data loss for this cutover.
 
-Use this for disposable development, test, and unreleased environments.
+Ordered domain migrations:
 
-1. Replace the original schema migrations with the target schema.
-2. Delete the organization pivot migration.
-3. Recreate the database with `migrate:fresh`.
-4. Seed one `application_state` row and a organization-local admin user.
-5. Configure `ORGANIZATION_KEY`, `ORGANIZATION_NAME`, and the organization database credentials.
+1. `2026_09_11_000001_create_events_and_types_tables.php` — events (with `locked`), locations, vendor/artist types, `application_state` singleton
+2. `2026_09_11_000002_add_current_event_id_to_users_table.php` — `users.current_event_id`
+3. `2026_09_15_000001_create_artists_tables.php` — artists, engagements, labels, engagement label assignments
+4. `2026_09_16_000001_create_artist_engagement_notes_table.php` — engagement notes
 
-This produces the cleanest migration history, but it must never be used against an environment with data that must be retained.
+Workflow:
 
-### Path B: existing shared data
+1. `php artisan migrate:fresh --seed` (seeds Test User with setup incomplete)
+2. Configure `ORGANIZATION_KEY`, `ORGANIZATION_NAME`, and database credentials per deployment
+
+### Path B: existing shared data (historical / ops reference)
 
 Do not run a destructive “drop organization columns” migration on the shared source. Build new target databases and copy one organization at a time.
 
