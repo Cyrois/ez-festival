@@ -53,6 +53,16 @@ class Organization extends Model
         return $this->setup_completed_at !== null;
     }
 
+    public function artists(): HasMany
+    {
+        return $this->hasMany(Artist::class);
+    }
+
+    public function artistLabels(): HasMany
+    {
+        return $this->hasMany(ArtistLabel::class);
+    }
+
     public function markSetupComplete(): void
     {
         if ($this->setup_completed_at === null) {

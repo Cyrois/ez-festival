@@ -46,9 +46,9 @@ const navItems = [
     },
     {
         key: 'artists',
-        href: null,
+        href: '/artists/advancing',
         icon: ['fas', 'music'],
-        enabled: false,
+        enabled: true,
     },
     {
         key: 'vendors',
@@ -87,6 +87,10 @@ const crumbItems = computed(() => {
 const isActive = (href) => {
     if (!href) {
         return false;
+    }
+
+    if (href === '/artists/advancing') {
+        return currentPath.value.startsWith('/artists/');
     }
 
     return (
