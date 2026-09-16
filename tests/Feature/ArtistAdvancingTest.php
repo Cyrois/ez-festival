@@ -176,8 +176,8 @@ class ArtistAdvancingTest extends TestCase
             'name' => 'river hollow',
         ])->assertRedirect(route('artists.index'));
 
-        $this->assertDatabaseCount('artists', 1);
-        $this->assertDatabaseHas('artists', ['organization_id' => $organization->id, 'name' => 'River Hollow']);
+        $this->assertDatabaseCount('organization_artists', 1);
+        $this->assertDatabaseHas('organization_artists', ['organization_id' => $organization->id, 'name' => 'River Hollow']);
         $this->assertDatabaseCount('artist_engagements', 1);
     }
 
