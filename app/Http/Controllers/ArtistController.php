@@ -3,11 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Artists\CreateArtistRequest;
-use App\Http\Requests\Artists\EditArtistRequest;
 use App\Http\Requests\Artists\IndexArtistsRequest;
 use App\Http\Requests\Artists\StoreArtistNoteRequest;
 use App\Http\Requests\Artists\StoreArtistRequest;
 use App\Http\Requests\Artists\UpdateArtistRequest;
+use App\Http\Requests\Artists\ViewArtistRequest;
 use App\Http\Resources\ArtistEngagementNoteResource;
 use App\Http\Resources\ArtistEngagementResource;
 use App\Models\ArtistEngagement;
@@ -74,11 +74,11 @@ class ArtistController extends Controller
             ->with('success_title', __('toast.saved_title'));
     }
 
-    public function edit(EditArtistRequest $request, ArtistEngagement $engagement): Response
+    public function view(ViewArtistRequest $request, ArtistEngagement $engagement): Response
     {
         [$organization, $event] = $this->resolveWritableContext($request, $engagement, writable: false);
 
-        $engagement->load(['artist.labels' => fn ($query) => $query->orderBy('name'), 'artistType']);
+        $engagement->load(['artist', 'labels' => fn ($query) => $query->orderBy('name'), 'artistType']);
 
         $notes = $engagement->notes()
             ->with('user:id,name,email')
@@ -86,7 +86,7 @@ class ArtistController extends Controller
             ->latest('id')
             ->get();
 
-        return Inertia::render('Artists/Edit', [
+        return Inertia::render('Artists/View', [
             'engagement' => (new ArtistEngagementResource($engagement))->resolve(),
             'notes' => ArtistEngagementNoteResource::collection($notes)->resolve(),
             'event' => $event->only('id', 'name', 'locked', 'timezone'),
@@ -103,7 +103,7 @@ class ArtistController extends Controller
         [$organization] = $this->resolveWritableContext($request, $engagement, writable: true);
         $this->artistService->updateEngagement($organization, $engagement, $request->validated());
 
-        return redirect()->route('artists.edit', $engagement)
+        return redirect()->route('artists.view', $engagement)
             ->with('success', __('artists.toast.updated'))
             ->with('success_title', __('toast.saved_title'));
     }
@@ -118,7 +118,7 @@ class ArtistController extends Controller
             $request->validated('body'),
         );
 
-        return redirect()->route('artists.edit', $engagement)
+        return redirect()->route('artists.view', $engagement)
             ->with('success', __('artists.toast.note_posted'))
             ->with('success_title', __('toast.saved_title'));
     }
@@ -127,7 +127,7 @@ class ArtistController extends Controller
      * @return array{0: Organization, 1: Event}
      */
     private function resolveWritableContext(
-        EditArtistRequest|UpdateArtistRequest|StoreArtistNoteRequest $request,
+        ViewArtistRequest|UpdateArtistRequest|StoreArtistNoteRequest $request,
         ArtistEngagement $engagement,
         bool $writable,
     ): array {

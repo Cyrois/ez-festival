@@ -41,8 +41,8 @@ class ArtistAdvancingTest extends TestCase
         $artist = Artist::factory()->for($organization)->create(['name' => 'River Hollow']);
         $type = $organization->artistTypes()->create(['name' => 'Performance']);
         $label = ArtistLabel::factory()->for($organization)->create(['name' => 'Headliner', 'color' => 'warning']);
-        $artist->labels()->attach($label);
-        ArtistEngagement::factory()->for($current)->for($artist)->create(['status' => 'contract_sent', 'artist_type_id' => $type->id]);
+        $engagement = ArtistEngagement::factory()->for($current)->for($artist)->create(['status' => 'contract_sent', 'artist_type_id' => $type->id]);
+        $engagement->labels()->attach($label);
 
         $this->actingAs($user)->get(route('artists.index'))->assertInertia(fn (Assert $page) => $page
             ->component('Artists/Index')
@@ -62,11 +62,11 @@ class ArtistAdvancingTest extends TestCase
         $vip = ArtistLabel::factory()->for($organization)->create(['name' => 'VIP']);
         $travel = ArtistLabel::factory()->for($organization)->create(['name' => 'Travel']);
         $match = Artist::factory()->for($organization)->create(['name' => 'River Hollow']);
-        $match->labels()->attach([$vip->id, $travel->id]);
         $partial = Artist::factory()->for($organization)->create(['name' => 'River Band']);
-        $partial->labels()->attach($vip);
-        ArtistEngagement::factory()->for($event)->for($match)->create();
-        ArtistEngagement::factory()->for($event)->for($partial)->create();
+        $matchEngagement = ArtistEngagement::factory()->for($event)->for($match)->create();
+        $partialEngagement = ArtistEngagement::factory()->for($event)->for($partial)->create();
+        $matchEngagement->labels()->attach([$vip->id, $travel->id]);
+        $partialEngagement->labels()->attach($vip);
 
         $this->actingAs($user)->get(route('artists.index', ['search' => 'river', 'labels' => [$vip->id, $travel->id]]))
             ->assertInertia(fn (Assert $page) => $page
@@ -145,10 +145,12 @@ class ArtistAdvancingTest extends TestCase
         ])->assertRedirect(route('artists.index'))->assertSessionHas('success', __('artists.toast.created'));
 
         $artist = Artist::query()->sole();
+        $engagement = ArtistEngagement::query()->sole();
         $this->assertSame('River Hollow', $artist->name);
         $this->assertSame($organization->id, $artist->organization_id);
         $this->assertDatabaseHas('artist_engagements', ['artist_id' => $artist->id, 'event_id' => $event->id, 'artist_type_id' => $type->id, 'status' => 'outreach', 'notes' => null]);
-        $this->assertSame(['Headliner', 'VIP'], $artist->labels()->orderBy('name')->pluck('name')->all());
+        $this->assertSame(['Headliner', 'VIP'], $engagement->labels()->orderBy('name')->pluck('name')->all());
+        $this->assertDatabaseCount('artist_label_assignments', 0);
         $this->assertDatabaseHas('artist_labels', ['organization_id' => $organization->id, 'name' => 'Headliner', 'color' => 'warning']);
     }
 
@@ -183,7 +185,7 @@ class ArtistAdvancingTest extends TestCase
         $past = $this->event($organization, 'Previous year');
         $history = ArtistEngagement::factory()->for($artist)->for($past)->create(['status' => 'confirmed', 'notes' => 'Past notes']);
         $label = ArtistLabel::factory()->for($organization)->create(['name' => 'VIP', 'color' => 'secondary']);
-        $artist->labels()->attach($label);
+        $history->labels()->attach($label);
 
         $this->actingAs($user)->post(route('artists.store', $event), [
             'name' => 'Maple & Pine',
@@ -193,7 +195,10 @@ class ArtistAdvancingTest extends TestCase
         $this->assertDatabaseCount('organization_artists', 1);
         $this->assertDatabaseCount('artist_engagements', 2);
         $this->assertDatabaseCount('artist_labels', 1);
-        $this->assertDatabaseCount('artist_label_assignments', 1);
+        $this->assertDatabaseCount('artist_label_assignments', 0);
+        $current = ArtistEngagement::query()->where('event_id', $event->id)->sole();
+        $this->assertSame(['VIP'], $history->fresh()->labels()->pluck('name')->all());
+        $this->assertSame(['VIP'], $current->labels()->pluck('name')->all());
         $this->assertSame('secondary', $label->fresh()->color);
         $this->assertSame('confirmed', $history->fresh()->status);
         $this->assertSame('Past notes', $history->fresh()->notes);

@@ -257,7 +257,7 @@ const clearFilters = () => {
                     <SegmentedControl
                         v-model="viewMode"
                         :options="viewOptions"
-                        :aria-label="$t('artists.view')"
+                        :aria-label="$t('artists.views.mode')"
                     />
                 </div>
             </div>
@@ -302,7 +302,7 @@ const clearFilters = () => {
                                 />
                                 <div class="min-w-0">
                                     <Link
-                                        :href="`/artists/engagements/${engagement.id}/edit`"
+                                        :href="`/artists/engagements/${engagement.id}`"
                                         class="font-semibold break-words text-charcoal no-underline hover:text-primary hover:underline"
                                     >
                                         {{ engagement.name }}
@@ -396,7 +396,7 @@ const clearFilters = () => {
                                                 size="sm"
                                             />
                                             <Link
-                                                :href="`/artists/engagements/${engagement.id}/edit`"
+                                                :href="`/artists/engagements/${engagement.id}`"
                                                 class="max-w-72 font-semibold break-words text-charcoal no-underline hover:text-primary hover:underline"
                                             >
                                                 {{ engagement.name }}

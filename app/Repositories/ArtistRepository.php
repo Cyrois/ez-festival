@@ -31,18 +31,22 @@ class ArtistRepository
 
         return ArtistEngagement::query()
             ->where('event_id', $event?->id)
-            ->whereHas('artist', function (Builder $query) use ($organization, $search, $searchPattern, $labelIds) {
+            ->whereHas('artist', function (Builder $query) use ($organization, $search, $searchPattern) {
                 $query->where('organization_id', $organization->id)
                     ->when(
                         $search !== '',
                         fn (Builder $query) => $query->whereRaw("lower(name) like ? escape '!'", [$searchPattern]),
                     );
-
-                foreach ($labelIds as $labelId) {
-                    $query->whereHas('labels', fn (Builder $query) => $query->whereKey($labelId));
-                }
             })
-            ->with(['artist.labels' => fn ($query) => $query->orderBy('name'), 'artistType'])
+            ->when(
+                $labelIds !== [],
+                function (Builder $query) use ($labelIds) {
+                    foreach ($labelIds as $labelId) {
+                        $query->whereHas('labels', fn (Builder $query) => $query->whereKey($labelId));
+                    }
+                },
+            )
+            ->with(['artist', 'labels' => fn ($query) => $query->orderBy('name'), 'artistType'])
             ->latest('id')
             ->paginate(25)
             ->withQueryString();

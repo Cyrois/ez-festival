@@ -11,6 +11,7 @@ import { Select } from '../../components/ui/select';
 import { Tag } from '../../components/ui/tag';
 import { Textarea } from '../../components/ui/textarea';
 import { useFlashToast } from '../../composables/useFlashToast';
+import { toastFormErrors } from '../../lib/fieldError';
 import { useForm } from '@inertiajs/vue3';
 import { computed, nextTick, ref } from 'vue';
 import { trans } from 'laravel-vue-i18n';
@@ -39,13 +40,13 @@ const noteForm = useForm({
 });
 
 const composing = ref(false);
-const { showFormError } = useFlashToast();
+const { showError, showFormError } = useFlashToast();
 
 const breadcrumbs = computed(() => [
     { label: trans('app.name'), href: '/dashboard' },
     { label: trans('nav.artists'), href: '/artists/advancing' },
     { label: trans('artists.advancing'), href: '/artists/advancing' },
-    { label: trans('artists.edit') },
+    { label: trans('artists.view') },
 ]);
 
 const readOnly = computed(() => !props.canWrite);
@@ -64,7 +65,8 @@ const submit = () => {
         return;
     }
     form.put(`/artists/engagements/${props.engagement.id}`, {
-        onError: showFormError,
+        onError: (errors) =>
+            toastFormErrors(form, errors, { showError, showFormError }),
     });
 };
 
@@ -89,7 +91,8 @@ const postNote = () => {
     }
     noteForm.post(`/artists/engagements/${props.engagement.id}/notes`, {
         preserveScroll: true,
-        onError: showFormError,
+        onError: (errors) =>
+            toastFormErrors(noteForm, errors, { showError, showFormError }),
         onSuccess: () => {
             noteForm.reset('body');
             composing.value = false;
@@ -133,7 +136,7 @@ const formatNoteTime = (iso) => {
             </h1>
         </div>
         <p class="mt-0 mb-4.5 text-sm text-muted">
-            {{ $t('artists.edit_lead', { name: event.name }) }}
+            {{ $t('artists.view_lead', { name: event.name }) }}
         </p>
 
         <p
@@ -142,7 +145,7 @@ const formatNoteTime = (iso) => {
             role="status"
         >
             <Icon :name="['fas', 'lock']" />
-            {{ $t('artists.edit_locked') }}
+            {{ $t('artists.view_locked') }}
         </p>
 
         <div class="grid items-start gap-4.5 lg:grid-cols-2">

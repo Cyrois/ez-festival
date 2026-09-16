@@ -13,7 +13,7 @@ use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
-class ArtistEditTest extends TestCase
+class ArtistViewTest extends TestCase
 {
     use LazilyRefreshDatabase;
 
@@ -27,23 +27,23 @@ class ArtistEditTest extends TestCase
     {
         $engagement = ArtistEngagement::factory()->create();
 
-        $this->get(route('artists.edit', $engagement))->assertRedirect(route('login'));
+        $this->get(route('artists.view', $engagement))->assertRedirect(route('login'));
         $this->put(route('artists.update', $engagement), ['name' => 'X', 'status' => 'idea'])->assertRedirect(route('login'));
         $this->post(route('artists.notes.store', $engagement), ['body' => 'Hello'])->assertRedirect(route('login'));
         $this->assertDatabaseCount('artist_engagement_notes', 0);
     }
 
-    public function test_can_open_edit_for_engagement_on_effective_event(): void
+    public function test_can_open_view_for_engagement_on_effective_event(): void
     {
         [$user, $organization, $event] = $this->context();
         $type = $organization->artistTypes()->create(['name' => 'Performance']);
         $label = ArtistLabel::factory()->for($organization)->create(['name' => 'Headliner']);
         $artist = Artist::factory()->for($organization)->create(['name' => 'River Hollow']);
-        $artist->labels()->attach($label);
         $engagement = ArtistEngagement::factory()->for($event)->for($artist)->create([
             'status' => 'outreach',
             'artist_type_id' => $type->id,
         ]);
+        $engagement->labels()->attach($label);
         ArtistEngagementNote::factory()->for($engagement, 'engagement')->for($user)->create([
             'body' => 'Older note',
             'created_at' => now()->subDay(),
@@ -53,8 +53,8 @@ class ArtistEditTest extends TestCase
             'created_at' => now(),
         ]);
 
-        $this->actingAs($user)->get(route('artists.edit', $engagement))->assertInertia(fn (Assert $page) => $page
-            ->component('Artists/Edit')
+        $this->actingAs($user)->get(route('artists.view', $engagement))->assertInertia(fn (Assert $page) => $page
+            ->component('Artists/View')
             ->where('engagement.name', 'River Hollow')
             ->where('engagement.status', 'outreach')
             ->where('engagement.artist_type_id', $type->id)
@@ -82,7 +82,7 @@ class ArtistEditTest extends TestCase
             'label_ids' => [$vip->id],
             'new_labels' => [['name' => 'Travel', 'color' => 'warning']],
             'notes' => 'Must not write legacy column',
-        ])->assertRedirect(route('artists.edit', $engagement))
+        ])->assertRedirect(route('artists.view', $engagement))
             ->assertSessionHas('success', __('artists.toast.updated'));
 
         $artist->refresh();
@@ -91,18 +91,19 @@ class ArtistEditTest extends TestCase
         $this->assertSame('negotiating', $engagement->status);
         $this->assertSame($type->id, $engagement->artist_type_id);
         $this->assertNull($engagement->notes);
-        $this->assertSame(['Travel', 'VIP'], $artist->labels()->orderBy('name')->pluck('name')->all());
+        $this->assertSame(['Travel', 'VIP'], $engagement->labels()->orderBy('name')->pluck('name')->all());
+        $this->assertDatabaseCount('artist_label_assignments', 0);
     }
 
-    public function test_locked_event_edit_is_readable_but_blocks_update_and_note_post(): void
+    public function test_locked_event_view_is_readable_but_blocks_update_and_note_post(): void
     {
         [$user, $organization, $event] = $this->context();
         $artist = Artist::factory()->for($organization)->create(['name' => 'River Hollow']);
         $engagement = ArtistEngagement::factory()->for($event)->for($artist)->create(['status' => 'idea']);
         $event->lock();
 
-        $this->actingAs($user)->get(route('artists.edit', $engagement))->assertInertia(fn (Assert $page) => $page
-            ->component('Artists/Edit')
+        $this->actingAs($user)->get(route('artists.view', $engagement))->assertInertia(fn (Assert $page) => $page
+            ->component('Artists/View')
             ->where('canWrite', false)
             ->where('engagement.name', 'River Hollow'));
 
@@ -128,7 +129,7 @@ class ArtistEditTest extends TestCase
 
         $this->actingAs($user)->post(route('artists.notes.store', $engagement), [
             'body' => '  First outreach sent.  ',
-        ])->assertRedirect(route('artists.edit', $engagement))
+        ])->assertRedirect(route('artists.view', $engagement))
             ->assertSessionHas('success', __('artists.toast.note_posted'));
 
         $this->assertDatabaseHas('artist_engagement_notes', [
@@ -139,9 +140,9 @@ class ArtistEditTest extends TestCase
 
         $this->post(route('artists.notes.store', $engagement), [
             'body' => 'Agent replied.',
-        ])->assertRedirect(route('artists.edit', $engagement));
+        ])->assertRedirect(route('artists.view', $engagement));
 
-        $this->get(route('artists.edit', $engagement))->assertInertia(fn (Assert $page) => $page
+        $this->get(route('artists.view', $engagement))->assertInertia(fn (Assert $page) => $page
             ->has('notes', 2)
             ->where('notes.0.body', 'Agent replied.')
             ->where('notes.1.body', 'First outreach sent.')
@@ -168,11 +169,11 @@ class ArtistEditTest extends TestCase
             ->for(Artist::factory()->for($organization)->create(['name' => 'Local Act']))
             ->create();
 
-        $this->actingAs($user)->get(route('artists.edit', $foreign))->assertNotFound();
+        $this->actingAs($user)->get(route('artists.view', $foreign))->assertNotFound();
         $this->put(route('artists.update', $foreign), ['name' => 'X', 'status' => 'idea'])->assertNotFound();
         $this->post(route('artists.notes.store', $foreign), ['body' => 'Nope'])->assertNotFound();
 
-        $this->get(route('artists.edit', $wrongEvent))->assertNotFound();
+        $this->get(route('artists.view', $wrongEvent))->assertNotFound();
         $this->put(route('artists.update', $wrongEvent), ['name' => 'X', 'status' => 'idea'])->assertNotFound();
         $this->post(route('artists.notes.store', $wrongEvent), ['body' => 'Nope'])->assertNotFound();
 
@@ -180,7 +181,7 @@ class ArtistEditTest extends TestCase
         $this->assertSame($event->id, $user->effectiveEvent($organization)->id);
     }
 
-    public function test_index_links_include_engagement_ids_for_edit(): void
+    public function test_index_links_include_engagement_ids_for_view(): void
     {
         [$user, $organization, $event] = $this->context();
         $artist = Artist::factory()->for($organization)->create(['name' => 'River Hollow']);

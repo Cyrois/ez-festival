@@ -44,7 +44,7 @@ Route::middleware('auth')->group(function () {
 
         Route::get('artists/advancing', [ArtistController::class, 'index'])->name('artists.index');
         Route::get('artists/create', [ArtistController::class, 'create'])->name('artists.create');
-        Route::get('artists/engagements/{engagement}/edit', [ArtistController::class, 'edit'])->name('artists.edit');
+        Route::get('artists/engagements/{engagement}', [ArtistController::class, 'view'])->name('artists.view');
         Route::put('artists/engagements/{engagement}', [ArtistController::class, 'update'])
             ->middleware('event.writable')->name('artists.update');
         Route::post('artists/engagements/{engagement}/notes', [ArtistController::class, 'storeNote'])

@@ -40,7 +40,7 @@ class ArtistService
                 throw ValidationException::withMessages(['name' => __('artists.errors.already_added')]);
             }
 
-            $artist->engagements()->create([
+            $engagement = $artist->engagements()->create([
                 'event_id' => $event->id,
                 'artist_type_id' => $data['artist_type_id'] ?? null,
                 'status' => $data['status'] ?? 'idea',
@@ -61,8 +61,8 @@ class ArtistService
                 }
             }
 
-            // Labels belong to the reusable artist; preserve assignments from previous events.
-            $artist->labels()->syncWithoutDetaching($labelIds);
+            // Labels belong to this engagement/event, not the org-wide artist.
+            $engagement->labels()->sync(array_values(array_unique($labelIds)));
         });
     }
 
@@ -103,8 +103,8 @@ class ArtistService
                 }
             }
 
-            // Edit UI presents the full label set for the org artist; sync replaces assignments.
-            $artist->labels()->sync(array_values(array_unique($labelIds)));
+            // View UI presents labels for this engagement; sync replaces this engagement's set.
+            $engagement->labels()->sync(array_values(array_unique($labelIds)));
         });
     }
 
