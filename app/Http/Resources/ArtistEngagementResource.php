@@ -14,8 +14,9 @@ class ArtistEngagementResource extends JsonResource
             'artist_id' => $this->artist_id,
             'name' => $this->artist->name,
             'status' => $this->status,
+            'artist_type_id' => $this->artist_type_id,
             'type' => $this->artistType?->name,
-            'labels' => $this->artist->labels->map->only(['id', 'name', 'color'])->values(),
+            'labels' => $this->labels->map->only(['id', 'name', 'color'])->values(),
             // TODO: Read filled values from the shared artist custom-field system when available.
             'custom' => [],
         ];

@@ -17,7 +17,7 @@ import {
     TableHeader,
     TableRow,
 } from '../../components/ui/table';
-import { router } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
@@ -257,7 +257,7 @@ const clearFilters = () => {
                     <SegmentedControl
                         v-model="viewMode"
                         :options="viewOptions"
-                        :aria-label="$t('artists.view')"
+                        :aria-label="$t('artists.views.mode')"
                     />
                 </div>
             </div>
@@ -301,9 +301,12 @@ const clearFilters = () => {
                                     size="sm"
                                 />
                                 <div class="min-w-0">
-                                    <div class="font-semibold break-words">
+                                    <Link
+                                        :href="`/artists/engagements/${engagement.id}`"
+                                        class="font-semibold break-words text-charcoal no-underline hover:text-primary hover:underline"
+                                    >
                                         {{ engagement.name }}
-                                    </div>
+                                    </Link>
                                     <div class="mt-0.5 text-xs text-muted">
                                         {{
                                             engagement.type ||
@@ -392,10 +395,12 @@ const clearFilters = () => {
                                                 :name="engagement.name"
                                                 size="sm"
                                             />
-                                            <span
-                                                class="max-w-72 font-semibold break-words"
-                                                >{{ engagement.name }}</span
+                                            <Link
+                                                :href="`/artists/engagements/${engagement.id}`"
+                                                class="max-w-72 font-semibold break-words text-charcoal no-underline hover:text-primary hover:underline"
                                             >
+                                                {{ engagement.name }}
+                                            </Link>
                                         </div>
                                     </TableCell>
                                     <TableCell class="min-w-32 text-muted">{{
