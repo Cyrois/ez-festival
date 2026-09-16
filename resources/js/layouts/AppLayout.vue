@@ -14,6 +14,14 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    backHref: {
+        type: String,
+        default: '',
+    },
+    backLabel: {
+        type: String,
+        default: '',
+    },
     settingsNav: {
         type: Boolean,
         default: false,
@@ -343,8 +351,21 @@ const railClass = computed(() => {
                         size="sm"
                     />
                 </button>
+                <Link
+                    v-if="backHref"
+                    :href="backHref"
+                    class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] text-charcoal no-underline hover:bg-page"
+                    :aria-label="backLabel || $t('nav.back')"
+                    :title="backLabel || $t('nav.back')"
+                >
+                    <Icon
+                        :name="['fas', 'arrow-left']"
+                        size="sm"
+                    />
+                </Link>
                 <div
                     class="flex min-w-0 flex-1 items-center justify-between gap-3 lg:hidden"
+                    :class="backHref ? 'hidden' : ''"
                 >
                     <span class="truncate text-[15px] font-bold">
                         {{ $t('app.name') }}
@@ -358,6 +379,9 @@ const railClass = computed(() => {
                 </div>
                 <nav
                     class="hidden min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm text-muted lg:flex"
+                    :class="
+                        backHref ? 'ml-5 border-l border-line pl-5 lg:flex' : ''
+                    "
                     :aria-label="$t('nav.breadcrumbs')"
                 >
                     <template
@@ -375,6 +399,38 @@ const railClass = computed(() => {
                             v-if="crumb.href"
                             :href="crumb.href"
                             class="hidden truncate font-medium text-muted no-underline hover:text-charcoal sm:inline"
+                        >
+                            {{ crumb.label }}
+                        </Link>
+                        <span
+                            v-else
+                            class="truncate font-semibold text-charcoal"
+                            aria-current="page"
+                        >
+                            {{ crumb.label }}
+                        </span>
+                    </template>
+                </nav>
+                <nav
+                    v-if="backHref"
+                    class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden border-l border-line pl-3 text-sm text-muted lg:hidden"
+                    :aria-label="$t('nav.breadcrumbs')"
+                >
+                    <template
+                        v-for="(crumb, index) in crumbItems"
+                        :key="`m-${crumb.label}-${index}`"
+                    >
+                        <span
+                            v-if="index > 0"
+                            class="text-line"
+                            aria-hidden="true"
+                        >
+                            /
+                        </span>
+                        <Link
+                            v-if="crumb.href"
+                            :href="crumb.href"
+                            class="truncate font-medium text-muted no-underline hover:text-charcoal"
                         >
                             {{ crumb.label }}
                         </Link>

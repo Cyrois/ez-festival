@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\ArtistEngagement;
 use App\Models\Event;
 use App\Models\Location;
 use App\Models\User;
@@ -12,8 +13,8 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Block non-safe HTTP methods against a locked event.
  *
- * Resolves the target event from route {event}, {location}->event,
- * or the user's primary event for active-context routes.
+ * Resolves the target event from route {event}, {engagement}->event,
+ * {location}->event, or the user's primary event for active-context routes.
  * Lock/unlock routes must not use this middleware.
  */
 class PreventLockedEventWrites
@@ -50,6 +51,12 @@ class PreventLockedEventWrites
 
         if ($routeEvent instanceof Event) {
             return $routeEvent;
+        }
+
+        $engagement = $request->route('engagement');
+
+        if ($engagement instanceof ArtistEngagement) {
+            return $engagement->event;
         }
 
         $location = $request->route('location');
