@@ -9,12 +9,6 @@ class OrganizationContext
 {
     public function name(): string
     {
-        $configured = config('organization.name');
-
-        if (is_string($configured) && $configured !== '') {
-            return $configured;
-        }
-
         return $this->organization()->name;
     }
 
@@ -25,7 +19,7 @@ class OrganizationContext
     {
         return Organization::query()->firstOrCreate(
             ['id' => 1],
-            ['name' => (string) (config('organization.name') ?: 'Festival')],
+            ['name' => 'Festival'],
         );
     }
 

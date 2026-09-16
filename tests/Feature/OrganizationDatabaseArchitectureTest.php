@@ -71,8 +71,8 @@ class OrganizationDatabaseArchitectureTest extends TestCase
 
     public function test_setup_uses_configured_organization_name_and_persists_organization_wide_state(): void
     {
-        config()->set('organization.name', 'Coastal Folk Festival');
         $user = User::factory()->create();
+        app(OrganizationContext::class)->organization()->update(['name' => 'Coastal Folk Festival']);
 
         $this->actingAs($user)->get(route('setup.event'))->assertInertia(fn (Assert $page) => $page
             ->component('Setup/Event')
