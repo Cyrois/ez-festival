@@ -58,7 +58,6 @@ const clearSearch = () => {
                 v-if="event && !event.locked"
                 href="/vendors/create"
                 class="min-h-11 w-full sm:w-auto"
-                disabled
             >
                 <Icon
                     :name="['fas', 'plus']"
