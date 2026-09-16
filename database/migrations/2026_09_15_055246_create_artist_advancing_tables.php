@@ -16,7 +16,7 @@ return new class extends Migration
         // Existing members had unrestricted organization access before permissions existed.
         DB::table('organization_user')->update(['can_manage_artists' => true]);
 
-        Schema::create('artists', function (Blueprint $table) {
+        Schema::create('organization_artists', function (Blueprint $table) {
             $table->id();
             $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
             $table->string('name');
@@ -25,7 +25,7 @@ return new class extends Migration
         });
         Schema::create('artist_engagements', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('artist_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('artist_id')->constrained('organization_artists')->cascadeOnDelete();
             $table->foreignId('event_id')->constrained()->cascadeOnDelete();
             $table->foreignId('artist_type_id')->nullable()->constrained()->nullOnDelete();
             $table->string('status')->default('idea');
@@ -43,7 +43,7 @@ return new class extends Migration
             $table->unique(['organization_id', 'name']);
         });
         Schema::create('artist_label_assignments', function (Blueprint $table) {
-            $table->foreignId('artist_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('artist_id')->constrained('organization_artists')->cascadeOnDelete();
             $table->foreignId('artist_label_id')->constrained()->cascadeOnDelete();
             $table->primary(['artist_id', 'artist_label_id']);
         });
@@ -54,7 +54,7 @@ return new class extends Migration
         Schema::dropIfExists('artist_label_assignments');
         Schema::dropIfExists('artist_labels');
         Schema::dropIfExists('artist_engagements');
-        Schema::dropIfExists('artists');
+        Schema::dropIfExists('organization_artists');
         Schema::table('organization_user', function (Blueprint $table) {
             $table->dropColumn('can_manage_artists');
         });

@@ -29,7 +29,7 @@ class ArtistAdvancingTest extends TestCase
         $this->get(route('artists.index'))->assertRedirect(route('login'));
         $this->get(route('artists.create'))->assertRedirect(route('login'));
         $this->post('/events/1/artists', ['name' => 'River Hollow'])->assertRedirect(route('login'));
-        $this->assertDatabaseCount('artists', 0);
+        $this->assertDatabaseCount('organization_artists', 0);
     }
 
     public function test_permission_controls_navigation_and_all_artist_actions(): void
@@ -181,7 +181,7 @@ class ArtistAdvancingTest extends TestCase
             'new_labels' => [['name' => 'VIP', 'color' => 'warning']],
         ])->assertRedirect(route('artists.index'));
 
-        $this->assertDatabaseCount('artists', 1);
+        $this->assertDatabaseCount('organization_artists', 1);
         $this->assertDatabaseCount('artist_engagements', 2);
         $this->assertDatabaseCount('artist_labels', 1);
         $this->assertDatabaseCount('artist_label_assignments', 1);
@@ -200,7 +200,7 @@ class ArtistAdvancingTest extends TestCase
             'new_labels' => [['name' => 'Unwanted label', 'color' => 'primary']],
         ])->assertSessionHasErrors(['name' => __('artists.errors.already_added')]);
 
-        $this->assertDatabaseCount('artists', 1);
+        $this->assertDatabaseCount('organization_artists', 1);
         $this->assertDatabaseCount('artist_engagements', 1);
         $this->assertDatabaseCount('artist_labels', 0);
     }
@@ -213,7 +213,7 @@ class ArtistAdvancingTest extends TestCase
         $this->actingAs($user)->get(route('artists.index'))->assertInertia(fn (Assert $page) => $page->where('event.locked', true));
         $this->get(route('artists.create'))->assertForbidden();
         $this->post(route('artists.store', $event), ['name' => 'River Hollow'])->assertForbidden();
-        $this->assertDatabaseCount('artists', 0);
+        $this->assertDatabaseCount('organization_artists', 0);
         $this->assertDatabaseCount('artist_engagements', 0);
     }
 
@@ -228,7 +228,7 @@ class ArtistAdvancingTest extends TestCase
         $this->post(route('artists.store', $event), ['name' => 'River Hollow', 'artist_type_id' => $type->id, 'label_ids' => [$label->id]])
             ->assertSessionHasErrors(['artist_type_id', 'label_ids.0']);
         $this->get(route('artists.index', ['labels' => [$label->id]]))->assertSessionHasErrors('labels.0');
-        $this->assertDatabaseCount('artists', 0);
+        $this->assertDatabaseCount('organization_artists', 0);
         $this->assertDatabaseCount('artist_engagements', 0);
     }
 
@@ -239,7 +239,7 @@ class ArtistAdvancingTest extends TestCase
 
         $this->actingAs($user)->post(route('artists.store', $event), $payload)->assertSessionHasErrors($field);
 
-        $this->assertDatabaseCount('artists', 0);
+        $this->assertDatabaseCount('organization_artists', 0);
         $this->assertDatabaseCount('artist_labels', 0);
         $this->assertDatabaseCount('artist_engagements', 0);
     }

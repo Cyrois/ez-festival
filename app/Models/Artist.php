@@ -14,6 +14,8 @@ class Artist extends Model
 {
     use HasFactory;
 
+    protected $table = 'organization_artists';
+
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
