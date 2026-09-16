@@ -21,7 +21,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Log::withContext([
-            'client_key' => config('client.key'),
+            'organization_key' => config('organization.key'),
         ]);
     }
 }

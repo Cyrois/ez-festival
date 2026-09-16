@@ -11,7 +11,7 @@ return new class extends Migration
 
     public function up(): void
     {
-        $organization = $this->assertDatabaseCanBecomeSingleClient();
+        $organization = $this->assertDatabaseCanBecomeSingleOrganization();
 
         Schema::table('users', function (Blueprint $table) {
             $table->foreignId('current_event_id')
@@ -107,17 +107,17 @@ return new class extends Migration
     public function down(): void
     {
         throw new RuntimeException(
-            'The database-per-client conversion is not reversible. Restore the pre-migration backup instead.',
+            'The database-per-organization conversion is not reversible. Restore the pre-migration backup instead.',
         );
     }
 
-    private function assertDatabaseCanBecomeSingleClient(): ?object
+    private function assertDatabaseCanBecomeSingleOrganization(): ?object
     {
         $organizations = DB::table('organizations')->orderBy('id')->get();
 
         if ($organizations->count() > 1) {
             throw new RuntimeException(
-                'This database contains multiple organizations. Split it into one database per client before running this migration.',
+                'This database contains multiple organizations. Split it into one database per organization before running this migration.',
             );
         }
 

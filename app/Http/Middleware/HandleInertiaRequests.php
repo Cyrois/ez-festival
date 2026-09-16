@@ -2,13 +2,13 @@
 
 namespace App\Http\Middleware;
 
-use App\Support\ClientContext;
+use App\Support\OrganizationContext;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
-    public function __construct(private readonly ClientContext $client) {}
+    public function __construct(private readonly OrganizationContext $organization) {}
 
     /**
      * The root template that's loaded on the first page visit.
@@ -53,10 +53,10 @@ class HandleInertiaRequests extends Middleware
                     ? $user->only('id', 'name', 'email')
                     : null,
             ],
-            'client' => $user
+            'organization' => $user
                 ? [
-                    'name' => $this->client->name(),
-                    'setup_completed' => $this->client->setupIsComplete(),
+                    'name' => $this->organization->name(),
+                    'setup_completed' => $this->organization->setupIsComplete(),
                 ]
                 : null,
             'activeEvent' => $event

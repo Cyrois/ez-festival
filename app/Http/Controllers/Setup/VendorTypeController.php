@@ -18,16 +18,16 @@ class VendorTypeController extends Controller
 
     public function show(Request $request): Response|RedirectResponse
     {
-        $client = $this->client();
-        $event = $client->defaultEvent();
+        $organization = $this->organization();
+        $event = $organization->defaultEvent();
 
         if ($event === null) {
             return redirect()->route('setup.event');
         }
 
         return Inertia::render('Setup/VendorTypes', [
-            'client' => [
-                'name' => $client->name(),
+            'organization' => [
+                'name' => $organization->name(),
             ],
             'event' => ['id' => $event->id, 'name' => $event->name],
             'types' => VendorType::query()

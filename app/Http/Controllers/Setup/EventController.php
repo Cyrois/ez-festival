@@ -18,12 +18,12 @@ class EventController extends Controller
 
     public function show(Request $request): Response
     {
-        $client = $this->client();
-        $event = $client->defaultEvent();
+        $organization = $this->organization();
+        $event = $organization->defaultEvent();
 
         return Inertia::render('Setup/Event', [
-            'client' => [
-                'name' => $client->name(),
+            'organization' => [
+                'name' => $organization->name(),
             ],
             'event' => $event ? [
                 'id' => $event->id,
@@ -39,10 +39,10 @@ class EventController extends Controller
 
     public function store(StoreEventRequest $request): RedirectResponse
     {
-        $client = $this->client();
+        $organization = $this->organization();
         $data = $request->validated();
 
-        $event = $client->defaultEvent();
+        $event = $organization->defaultEvent();
 
         if ($event !== null) {
             $event->ensureWritable();
@@ -54,7 +54,7 @@ class EventController extends Controller
             $event->update($data);
         }
 
-        $client->setDefaultEvent($event);
+        $organization->setDefaultEvent($event);
 
         /** @var User $user */
         $user = $request->user();

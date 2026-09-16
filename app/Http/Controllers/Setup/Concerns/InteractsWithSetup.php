@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers\Setup\Concerns;
 
-use App\Support\ClientContext;
+use App\Support\OrganizationContext;
 use App\Support\Timezones;
 
 trait InteractsWithSetup
 {
-    protected function client(): ClientContext
+    protected function organization(): OrganizationContext
     {
-        return app(ClientContext::class);
+        return app(OrganizationContext::class);
     }
 
     /**

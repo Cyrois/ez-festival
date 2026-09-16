@@ -17,23 +17,23 @@ Festival software built with Laravel 13 and Tailwind CSS 4.
 composer install
 cp .env.example .env
 php artisan key:generate
-# Set CLIENT_KEY, CLIENT_NAME, and the dedicated client DB_* values in .env.
+# Set ORGANIZATION_KEY, ORGANIZATION_NAME, and the dedicated organization DB_* values in .env.
 npm install
 npm run build
 php artisan migrate
 php artisan serve
 ```
 
-## Client database isolation
+## Organization database isolation
 
-Artist Tree uses one deployment and one database per client. The configured database is the tenancy boundary: users and festival data in that database belong to that client, and the application does not select database connections from request input.
+Artist Tree uses one deployment and one database per organization. The configured database is the tenancy boundary: users and festival data in that database belong to that organization, and the application does not select database connections from request input.
 
-- `CLIENT_KEY` is an immutable operational identifier used for deployment inventory, logging, backups, and shared-service prefixes.
-- `CLIENT_NAME` is the festival name shown in the application shell and setup flow.
-- Each deployment requires dedicated database credentials. If Redis or object storage is shared, prefix its keys or paths with `CLIENT_KEY`.
-- Run migrations, backups, restores, queue workers, and health checks independently for every client deployment.
+- `ORGANIZATION_KEY` is an immutable operational identifier used for deployment inventory, logging, backups, and shared-service prefixes.
+- `ORGANIZATION_NAME` is the festival name shown in the application shell and setup flow.
+- Each deployment requires dedicated database credentials. If Redis or object storage is shared, prefix its keys or paths with `ORGANIZATION_KEY`.
+- Run migrations, backups, restores, queue workers, and health checks independently for every organization deployment.
 
-The detailed architecture and data-split runbook are in [`docs/specs/database-per-client-remove-organizations.md`](docs/specs/database-per-client-remove-organizations.md).
+The detailed architecture and data-split runbook are in [`docs/specs/database-per-organization-remove-organizations.md`](docs/specs/database-per-organization-remove-organizations.md).
 
 For an existing database, take a verified backup before running migrations. The conversion migration preserves a database containing zero or one organization, but it is intentionally irreversible and stops if multiple organizations or case-insensitive artist/label conflicts are present. A multi-organization database must be split with the runbook before the conversion is applied.
 

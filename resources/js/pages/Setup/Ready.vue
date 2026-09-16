@@ -6,7 +6,7 @@ import { router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
 defineProps({
-    client: { type: Object, required: true },
+    organization: { type: Object, required: true },
     currentStep: { type: Number, required: true },
 });
 
@@ -33,7 +33,7 @@ const enterApp = () => {
     <SetupLayout
         :title="$t('setup.ready.title')"
         :current-step="currentStep"
-        :client-name="client.name"
+        :organization-name="organization.name"
     >
         <div
             class="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-success-soft text-success"

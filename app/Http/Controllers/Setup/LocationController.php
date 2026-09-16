@@ -19,16 +19,16 @@ class LocationController extends Controller
 
     public function show(Request $request): Response|RedirectResponse
     {
-        $client = $this->client();
-        $event = $client->defaultEvent();
+        $organization = $this->organization();
+        $event = $organization->defaultEvent();
 
         if ($event === null) {
             return redirect()->route('setup.event');
         }
 
         return Inertia::render('Setup/Locations', [
-            'client' => [
-                'name' => $client->name(),
+            'organization' => [
+                'name' => $organization->name(),
             ],
             'event' => [
                 'id' => $event->id,
@@ -43,7 +43,7 @@ class LocationController extends Controller
 
     public function store(StoreLocationRequest $request): RedirectResponse
     {
-        $event = $this->client()->defaultEvent();
+        $event = $this->organization()->defaultEvent();
 
         if ($event === null) {
             return redirect()->route('setup.event');
@@ -58,7 +58,7 @@ class LocationController extends Controller
 
     public function update(UpdateLocationRequest $request, Location $location): RedirectResponse
     {
-        $event = $this->client()->defaultEvent();
+        $event = $this->organization()->defaultEvent();
 
         abort_unless(
             $event !== null && $location->event_id === $event->id,
@@ -74,7 +74,7 @@ class LocationController extends Controller
 
     public function destroy(Request $request, Location $location): RedirectResponse
     {
-        $event = $this->client()->defaultEvent();
+        $event = $this->organization()->defaultEvent();
 
         abort_unless(
             $event !== null && $location->event_id === $event->id,
@@ -90,7 +90,7 @@ class LocationController extends Controller
 
     public function continue(ContinueLocationsRequest $request): RedirectResponse
     {
-        $event = $this->client()->defaultEvent();
+        $event = $this->organization()->defaultEvent();
 
         if ($event === null) {
             return redirect()->route('setup.event');

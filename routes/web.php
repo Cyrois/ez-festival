@@ -92,7 +92,7 @@ Route::middleware('auth')->group(function () {
             Route::post('locations/skip', [LocationController::class, 'skip'])->name('locations.skip');
         });
 
-        // Client-scoped setup (not event writes).
+        // Organization-scoped setup (not event writes).
         Route::get('vendor-types', [VendorTypeController::class, 'show'])->name('vendor-types');
         Route::post('vendor-types', [VendorTypeController::class, 'store']);
         Route::put('vendor-types/{vendorType}', [VendorTypeController::class, 'update'])->name('vendor-types.update');

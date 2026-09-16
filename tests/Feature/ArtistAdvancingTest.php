@@ -8,7 +8,7 @@ use App\Models\ArtistLabel;
 use App\Models\ArtistType;
 use App\Models\Event;
 use App\Models\User;
-use App\Support\ClientContext;
+use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -116,7 +116,7 @@ class ArtistAdvancingTest extends TestCase
                 ->where('engagements.links.prev', fn (string $url) => str_contains($url, 'search=Band')));
     }
 
-    public function test_create_form_contains_client_options_and_current_event(): void
+    public function test_create_form_contains_organization_options_and_current_event(): void
     {
         [$user, $event] = $this->context();
         ArtistType::query()->create(['name' => 'Performance']);
@@ -143,7 +143,7 @@ class ArtistAdvancingTest extends TestCase
             'artist_type_id' => $type->id,
             'label_ids' => [$vip->id],
             'new_labels' => [['name' => 'Headliner', 'color' => 'warning']],
-            'client_id' => 9999,
+            'organization_id' => 9999,
             'notes' => 'Not a writable field',
         ])->assertRedirect(route('artists.index'))->assertSessionHas('success', __('artists.toast.created'));
 
@@ -267,7 +267,7 @@ class ArtistAdvancingTest extends TestCase
         $this->assertDatabaseCount('artist_engagements', 0);
     }
 
-    public function test_unknown_client_local_options_are_rejected(): void
+    public function test_unknown_organization_local_options_are_rejected(): void
     {
         [$user, $event] = $this->context();
 
@@ -322,7 +322,7 @@ class ArtistAdvancingTest extends TestCase
     {
         [$user] = $this->context();
         $user->forceFill(['current_event_id' => null])->save();
-        app(ClientContext::class)->state()->forceFill(['default_event_id' => null])->save();
+        app(OrganizationContext::class)->state()->forceFill(['default_event_id' => null])->save();
 
         $this->actingAs($user)->get(route('artists.index'))->assertInertia(fn (Assert $page) => $page
             ->where('event', null)->has('engagements.data', 0));
@@ -333,9 +333,9 @@ class ArtistAdvancingTest extends TestCase
     {
         $user = User::factory()->create();
         $event = $this->event('Festival');
-        $client = app(ClientContext::class);
-        $client->setDefaultEvent($event);
-        $client->markSetupComplete();
+        $organization = app(OrganizationContext::class);
+        $organization->setDefaultEvent($event);
+        $organization->markSetupComplete();
         $user->setCurrentEvent($event);
 
         return [$user, $event];

@@ -10,7 +10,7 @@ import { trans } from 'laravel-vue-i18n';
 import { ref } from 'vue';
 
 const props = defineProps({
-    client: { type: Object, required: true },
+    organization: { type: Object, required: true },
     event: { type: Object, default: null },
     types: { type: Array, required: true },
     currentStep: { type: Number, required: true },
@@ -77,7 +77,7 @@ const skip = () =>
     <SetupLayout
         :title="$t('setup.vendor_types.title')"
         :current-step="currentStep"
-        :client-name="client.name"
+        :organization-name="organization.name"
     >
         <div class="mb-5 flex items-start justify-between gap-3">
             <div>

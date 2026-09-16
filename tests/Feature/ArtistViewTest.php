@@ -9,7 +9,7 @@ use App\Models\ArtistLabel;
 use App\Models\ArtistType;
 use App\Models\Event;
 use App\Models\User;
-use App\Support\ClientContext;
+use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -201,9 +201,9 @@ class ArtistViewTest extends TestCase
     {
         $user = User::factory()->create();
         $event = $this->event('Festival');
-        $client = app(ClientContext::class);
-        $client->setDefaultEvent($event);
-        $client->markSetupComplete();
+        $organization = app(OrganizationContext::class);
+        $organization->setDefaultEvent($event);
+        $organization->markSetupComplete();
         $user->setCurrentEvent($event);
 
         return [$user, $event];

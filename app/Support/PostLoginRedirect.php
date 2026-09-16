@@ -11,7 +11,7 @@ class PostLoginRedirect
      */
     public static function for(User $user): string
     {
-        if (! app(ClientContext::class)->setupIsComplete()) {
+        if (! app(OrganizationContext::class)->setupIsComplete()) {
             return route('setup.event', absolute: false);
         }
 

@@ -5,11 +5,11 @@ namespace App\Support;
 use App\Models\ApplicationState;
 use App\Models\Event;
 
-class ClientContext
+class OrganizationContext
 {
     public function name(): string
     {
-        return (string) config('client.name', 'Festival');
+        return (string) config('organization.name', 'Festival');
     }
 
     public function state(): ApplicationState
