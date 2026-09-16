@@ -16,8 +16,7 @@ class DashboardController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
-        $organization = $user->primaryOrganization() ?? $user->ensureOrganization();
-        $event = $user->effectiveEvent($organization);
+        $event = $user->effectiveEvent();
 
         return Inertia::render('Dashboard', [
             'event' => $event

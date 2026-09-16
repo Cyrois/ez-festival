@@ -4,11 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
-#[Fillable(['organization_id', 'name', 'starts_on', 'ends_on', 'timezone'])]
+#[Fillable(['name', 'starts_on', 'ends_on', 'timezone'])]
 class Event extends Model
 {
     /**
@@ -21,11 +20,6 @@ class Event extends Model
             'ends_on' => 'date',
             'locked' => 'boolean',
         ];
-    }
-
-    public function organization(): BelongsTo
-    {
-        return $this->belongsTo(Organization::class);
     }
 
     public function locations(): HasMany
@@ -65,16 +59,12 @@ class Event extends Model
     }
 
     /**
-     * Abort if this event is locked or not in the organization.
+     * Abort if this event is locked.
      * Primary is only the user's default open event — it does not gate writes.
      * Lock/unlock actions must not call this.
      */
-    public function ensureWritable(Organization $organization): void
+    public function ensureWritable(): void
     {
-        if ((int) $this->organization_id !== (int) $organization->id) {
-            abort(404);
-        }
-
         if ($this->isLocked()) {
             abort(403, 'This event is locked and read-only.');
         }

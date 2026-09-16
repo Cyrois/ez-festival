@@ -12,8 +12,8 @@ use App\Http\Resources\ArtistEngagementNoteResource;
 use App\Http\Resources\ArtistEngagementResource;
 use App\Models\ArtistEngagement;
 use App\Models\ArtistLabel;
+use App\Models\ArtistType;
 use App\Models\Event;
-use App\Models\Organization;
 use App\Repositories\ArtistRepository;
 use App\Services\ArtistService;
 use Illuminate\Http\RedirectResponse;
@@ -29,17 +29,16 @@ class ArtistController extends Controller
 
     public function index(IndexArtistsRequest $request): Response
     {
-        $organization = $request->user()->primaryOrganization();
-        $event = $request->user()->effectiveEvent($organization);
+        $event = $request->user()->effectiveEvent();
         $filters = $request->validated();
         $search = $filters['search'] ?? '';
         $labelIds = $filters['labels'] ?? [];
 
-        $engagements = $this->artists->paginateEngagements($organization, $event, $search, $labelIds);
+        $engagements = $this->artists->paginateEngagements($event, $search, $labelIds);
 
         return Inertia::render('Artists/Index', [
             'engagements' => ArtistEngagementResource::collection($engagements),
-            'labels' => $this->artists->labelsFor($organization),
+            'labels' => $this->artists->labelsFor(),
             'filters' => ['search' => $search, 'labels' => array_map('intval', $labelIds)],
             'event' => $event?->only('id', 'name', 'locked'),
         ]);
@@ -47,15 +46,14 @@ class ArtistController extends Controller
 
     public function create(CreateArtistRequest $request): Response
     {
-        $organization = $request->user()->primaryOrganization();
-        $event = $request->user()->effectiveEvent($organization);
+        $event = $request->user()->effectiveEvent();
         abort_if($event === null, 404);
-        $event->ensureWritable($organization);
+        $event->ensureWritable();
 
         return Inertia::render('Artists/Create', [
             'event' => $event->only('id', 'name'),
-            'types' => $organization->artistTypes()->orderBy('name')->get(['id', 'name']),
-            'labels' => $organization->artistLabels()->orderBy('name')->get(['id', 'name', 'color']),
+            'types' => ArtistType::query()->orderBy('name')->get(['id', 'name']),
+            'labels' => ArtistLabel::query()->orderBy('name')->get(['id', 'name', 'color']),
             'statuses' => ArtistEngagement::STATUSES,
             'labelColors' => ArtistLabel::COLORS,
         ]);
@@ -63,11 +61,10 @@ class ArtistController extends Controller
 
     public function store(StoreArtistRequest $request, Event $event): RedirectResponse
     {
-        $organization = $request->user()->primaryOrganization();
-        $effectiveEvent = $request->user()->effectiveEvent($organization);
+        $effectiveEvent = $request->user()->effectiveEvent();
         abort_unless($effectiveEvent?->is($event), 404);
-        $event->ensureWritable($organization);
-        $this->artistService->addToEvent($organization, $event, $request->validated());
+        $event->ensureWritable();
+        $this->artistService->addToEvent($event, $request->validated());
 
         return redirect()->route('artists.index')
             ->with('success', __('artists.toast.created'))
@@ -76,7 +73,7 @@ class ArtistController extends Controller
 
     public function view(ViewArtistRequest $request, ArtistEngagement $engagement): Response
     {
-        [$organization, $event] = $this->resolveWritableContext($request, $engagement, writable: false);
+        $event = $this->resolveEventContext($request, $engagement, writable: false);
 
         $engagement->load(['artist', 'labels' => fn ($query) => $query->orderBy('name'), 'artistType']);
 
@@ -90,8 +87,8 @@ class ArtistController extends Controller
             'engagement' => (new ArtistEngagementResource($engagement))->resolve(),
             'notes' => ArtistEngagementNoteResource::collection($notes)->resolve(),
             'event' => $event->only('id', 'name', 'locked', 'timezone'),
-            'types' => $organization->artistTypes()->orderBy('name')->get(['id', 'name']),
-            'labels' => $organization->artistLabels()->orderBy('name')->get(['id', 'name', 'color']),
+            'types' => ArtistType::query()->orderBy('name')->get(['id', 'name']),
+            'labels' => ArtistLabel::query()->orderBy('name')->get(['id', 'name', 'color']),
             'statuses' => ArtistEngagement::STATUSES,
             'labelColors' => ArtistLabel::COLORS,
             'canWrite' => ! $event->isLocked(),
@@ -100,8 +97,8 @@ class ArtistController extends Controller
 
     public function update(UpdateArtistRequest $request, ArtistEngagement $engagement): RedirectResponse
     {
-        [$organization] = $this->resolveWritableContext($request, $engagement, writable: true);
-        $this->artistService->updateEngagement($organization, $engagement, $request->validated());
+        $this->resolveEventContext($request, $engagement, writable: true);
+        $this->artistService->updateEngagement($engagement, $request->validated());
 
         return redirect()->route('artists.view', $engagement)
             ->with('success', __('artists.toast.updated'))
@@ -110,9 +107,8 @@ class ArtistController extends Controller
 
     public function storeNote(StoreArtistNoteRequest $request, ArtistEngagement $engagement): RedirectResponse
     {
-        [$organization] = $this->resolveWritableContext($request, $engagement, writable: true);
+        $this->resolveEventContext($request, $engagement, writable: true);
         $this->artistService->addNote(
-            $organization,
             $engagement,
             $request->user(),
             $request->validated('body'),
@@ -123,33 +119,23 @@ class ArtistController extends Controller
             ->with('success_title', __('toast.saved_title'));
     }
 
-    /**
-     * @return array{0: Organization, 1: Event}
-     */
-    private function resolveWritableContext(
+    private function resolveEventContext(
         ViewArtistRequest|UpdateArtistRequest|StoreArtistNoteRequest $request,
         ArtistEngagement $engagement,
         bool $writable,
-    ): array {
-        $organization = $request->user()->primaryOrganization();
-        $effectiveEvent = $request->user()->effectiveEvent($organization);
+    ): Event {
+        $effectiveEvent = $request->user()->effectiveEvent();
         abort_if($effectiveEvent === null, 404);
 
-        $engagement->loadMissing(['artist', 'event']);
-
-        abort_unless(
-            (int) $engagement->event_id === (int) $effectiveEvent->id
-            && (int) $engagement->artist->organization_id === (int) $organization->id,
-            404,
-        );
+        $engagement->loadMissing('event');
+        abort_unless((int) $engagement->event_id === (int) $effectiveEvent->id, 404);
 
         $event = $engagement->event;
-        abort_unless((int) $event->organization_id === (int) $organization->id, 404);
 
         if ($writable) {
-            $event->ensureWritable($organization);
+            $event->ensureWritable();
         }
 
-        return [$organization, $event];
+        return $event;
     }
 }

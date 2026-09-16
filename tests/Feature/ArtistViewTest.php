@@ -6,9 +6,10 @@ use App\Models\Artist;
 use App\Models\ArtistEngagement;
 use App\Models\ArtistEngagementNote;
 use App\Models\ArtistLabel;
+use App\Models\ArtistType;
 use App\Models\Event;
-use App\Models\Organization;
 use App\Models\User;
+use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -35,10 +36,10 @@ class ArtistViewTest extends TestCase
 
     public function test_can_open_view_for_engagement_on_effective_event(): void
     {
-        [$user, $organization, $event] = $this->context();
-        $type = $organization->artistTypes()->create(['name' => 'Performance']);
-        $label = ArtistLabel::factory()->for($organization)->create(['name' => 'Headliner']);
-        $artist = Artist::factory()->for($organization)->create(['name' => 'River Hollow']);
+        [$user, $event] = $this->context();
+        $type = ArtistType::query()->create(['name' => 'Performance']);
+        $label = ArtistLabel::factory()->create(['name' => 'Headliner']);
+        $artist = Artist::factory()->create(['name' => 'River Hollow']);
         $engagement = ArtistEngagement::factory()->for($event)->for($artist)->create([
             'status' => 'outreach',
             'artist_type_id' => $type->id,
@@ -69,10 +70,10 @@ class ArtistViewTest extends TestCase
 
     public function test_can_update_name_status_type_and_labels(): void
     {
-        [$user, $organization, $event] = $this->context();
-        $type = $organization->artistTypes()->create(['name' => 'Performance']);
-        $vip = ArtistLabel::factory()->for($organization)->create(['name' => 'VIP']);
-        $artist = Artist::factory()->for($organization)->create(['name' => 'River Hollow']);
+        [$user, $event] = $this->context();
+        $type = ArtistType::query()->create(['name' => 'Performance']);
+        $vip = ArtistLabel::factory()->create(['name' => 'VIP']);
+        $artist = Artist::factory()->create(['name' => 'River Hollow']);
         $engagement = ArtistEngagement::factory()->for($event)->for($artist)->create(['status' => 'idea']);
 
         $this->actingAs($user)->put(route('artists.update', $engagement), [
@@ -97,8 +98,8 @@ class ArtistViewTest extends TestCase
 
     public function test_locked_event_view_is_readable_but_blocks_update_and_note_post(): void
     {
-        [$user, $organization, $event] = $this->context();
-        $artist = Artist::factory()->for($organization)->create(['name' => 'River Hollow']);
+        [$user, $event] = $this->context();
+        $artist = Artist::factory()->create(['name' => 'River Hollow']);
         $engagement = ArtistEngagement::factory()->for($event)->for($artist)->create(['status' => 'idea']);
         $event->lock();
 
@@ -123,8 +124,8 @@ class ArtistViewTest extends TestCase
 
     public function test_can_post_note_newest_first_and_cannot_when_locked(): void
     {
-        [$user, $organization, $event] = $this->context();
-        $artist = Artist::factory()->for($organization)->create(['name' => 'River Hollow']);
+        [$user, $event] = $this->context();
+        $artist = Artist::factory()->create(['name' => 'River Hollow']);
         $engagement = ArtistEngagement::factory()->for($event)->for($artist)->create();
 
         $this->actingAs($user)->post(route('artists.notes.store', $engagement), [
@@ -153,38 +154,27 @@ class ArtistViewTest extends TestCase
         $this->assertDatabaseCount('artist_engagement_notes', 2);
     }
 
-    public function test_cross_org_and_wrong_event_engagements_are_not_found(): void
+    public function test_wrong_event_engagements_are_not_found(): void
     {
-        [$user, $organization, $event] = $this->context();
-        [, $other, $foreignEvent] = $this->context();
-
-        $foreign = ArtistEngagement::factory()
-            ->for($foreignEvent)
-            ->for(Artist::factory()->for($other)->create())
-            ->create();
-
-        $otherEvent = $this->event($organization, 'Other event');
+        [$user, $event] = $this->context();
+        $otherEvent = $this->event('Other event');
         $wrongEvent = ArtistEngagement::factory()
             ->for($otherEvent)
-            ->for(Artist::factory()->for($organization)->create(['name' => 'Local Act']))
+            ->for(Artist::factory()->create(['name' => 'Local Act']))
             ->create();
 
-        $this->actingAs($user)->get(route('artists.view', $foreign))->assertNotFound();
-        $this->put(route('artists.update', $foreign), ['name' => 'X', 'status' => 'idea'])->assertNotFound();
-        $this->post(route('artists.notes.store', $foreign), ['body' => 'Nope'])->assertNotFound();
-
-        $this->get(route('artists.view', $wrongEvent))->assertNotFound();
+        $this->actingAs($user)->get(route('artists.view', $wrongEvent))->assertNotFound();
         $this->put(route('artists.update', $wrongEvent), ['name' => 'X', 'status' => 'idea'])->assertNotFound();
         $this->post(route('artists.notes.store', $wrongEvent), ['body' => 'Nope'])->assertNotFound();
 
         $this->assertDatabaseCount('artist_engagement_notes', 0);
-        $this->assertSame($event->id, $user->effectiveEvent($organization)->id);
+        $this->assertSame($event->id, $user->effectiveEvent()->id);
     }
 
     public function test_index_links_include_engagement_ids_for_view(): void
     {
-        [$user, $organization, $event] = $this->context();
-        $artist = Artist::factory()->for($organization)->create(['name' => 'River Hollow']);
+        [$user, $event] = $this->context();
+        $artist = Artist::factory()->create(['name' => 'River Hollow']);
         $engagement = ArtistEngagement::factory()->for($event)->for($artist)->create();
 
         $this->actingAs($user)->get(route('artists.index'))->assertInertia(fn (Assert $page) => $page
@@ -194,10 +184,10 @@ class ArtistViewTest extends TestCase
 
     public function test_blank_note_body_is_rejected(): void
     {
-        [$user, $organization, $event] = $this->context();
+        [$user, $event] = $this->context();
         $engagement = ArtistEngagement::factory()
             ->for($event)
-            ->for(Artist::factory()->for($organization))
+            ->for(Artist::factory())
             ->create();
 
         $this->actingAs($user)->post(route('artists.notes.store', $engagement), [
@@ -210,16 +200,18 @@ class ArtistViewTest extends TestCase
     private function context(): array
     {
         $user = User::factory()->create();
-        $organization = $user->ensureOrganization();
-        $event = $this->event($organization, 'Festival');
-        $organization->update(['active_event_id' => $event->id, 'setup_completed_at' => now()]);
+        $event = $this->event('Festival');
+        $organization = app(OrganizationContext::class);
+        $organization->setDefaultEvent($event);
+        $organization->markSetupComplete();
+        $user->setCurrentEvent($event);
 
-        return [$user, $organization, $event];
+        return [$user, $event];
     }
 
-    private function event(Organization $organization, string $name): Event
+    private function event(string $name): Event
     {
-        return $organization->events()->create([
+        return Event::query()->create([
             'name' => $name,
             'starts_on' => '2027-06-01',
             'ends_on' => '2027-06-03',

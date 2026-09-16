@@ -19,11 +19,8 @@ class EventLocationController extends Controller
 
     public function index(Request $request, Event $event): Response
     {
-        $organization = $this->organization($request);
-        $this->eventForOrganization($request, $event);
-
         return Inertia::render('Settings/Events/Locations', [
-            'event' => $this->eventPayload($event, $organization),
+            'event' => $this->eventPayload($event),
             'locations' => $event->locations()
                 ->orderBy('id')
                 ->get(['id', 'name', 'type']),
@@ -33,9 +30,7 @@ class EventLocationController extends Controller
 
     public function store(StoreEventLocationRequest $request, Event $event): RedirectResponse
     {
-        $organization = $this->organization($request);
-        $this->eventForOrganization($request, $event);
-        $event->ensureWritable($organization);
+        $event->ensureWritable();
 
         $event->locations()->create($request->validated());
 
@@ -50,12 +45,9 @@ class EventLocationController extends Controller
         Event $event,
         Location $location,
     ): RedirectResponse {
-        $organization = $this->organization($request);
-        $this->eventForOrganization($request, $event);
-
         abort_unless((int) $location->event_id === (int) $event->id, 404);
 
-        $event->ensureWritable($organization);
+        $event->ensureWritable();
         $location->update($request->validated());
 
         return redirect()
@@ -66,12 +58,9 @@ class EventLocationController extends Controller
 
     public function destroy(Request $request, Event $event, Location $location): RedirectResponse
     {
-        $organization = $this->organization($request);
-        $this->eventForOrganization($request, $event);
-
         abort_unless((int) $location->event_id === (int) $event->id, 404);
 
-        $event->ensureWritable($organization);
+        $event->ensureWritable();
         $location->delete();
 
         return redirect()

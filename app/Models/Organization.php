@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['name', 'active_event_id', 'setup_completed_at'])]
 class Organization extends Model
@@ -23,14 +22,7 @@ class Organization extends Model
 
     public function users(): BelongsToMany
     {
-        return $this->belongsToMany(User::class)
-            ->withPivot('current_event_id')
-            ->withTimestamps();
-    }
-
-    public function events(): HasMany
-    {
-        return $this->hasMany(Event::class);
+        return $this->belongsToMany(User::class)->withTimestamps();
     }
 
     public function activeEvent(): BelongsTo
@@ -38,29 +30,9 @@ class Organization extends Model
         return $this->belongsTo(Event::class, 'active_event_id');
     }
 
-    public function vendorTypes(): HasMany
-    {
-        return $this->hasMany(VendorType::class);
-    }
-
-    public function artistTypes(): HasMany
-    {
-        return $this->hasMany(ArtistType::class);
-    }
-
     public function setupIsComplete(): bool
     {
         return $this->setup_completed_at !== null;
-    }
-
-    public function artists(): HasMany
-    {
-        return $this->hasMany(Artist::class);
-    }
-
-    public function artistLabels(): HasMany
-    {
-        return $this->hasMany(ArtistLabel::class);
     }
 
     public function markSetupComplete(): void

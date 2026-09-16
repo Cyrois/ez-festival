@@ -6,7 +6,6 @@ use App\Models\Artist;
 use App\Models\ArtistEngagement;
 use App\Models\ArtistEngagementNote;
 use App\Models\Event;
-use App\Models\Organization;
 use App\Models\User;
 use App\Repositories\ArtistRepository;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -20,21 +19,13 @@ class ArtistService
     /**
      * @param  array<string, mixed>  $data
      */
-    public function addToEvent(Organization $organization, Event $event, array $data): void
+    public function addToEvent(Event $event, array $data): void
     {
-        DB::transaction(function () use ($organization, $event, $data) {
-            // The organization lock serializes case-insensitive artist and label creation.
-            Organization::query()->lockForUpdate()->findOrFail($organization->id);
+        DB::transaction(function () use ($event, $data) {
             $event = Event::query()->lockForUpdate()->findOrFail($event->id);
-            $event->ensureWritable($organization);
+            $event->ensureWritable();
 
-            try {
-                $artist = $this->artists->findOrCreateArtist($organization, $data['name']);
-            } catch (UniqueConstraintViolationException) {
-                throw ValidationException::withMessages([
-                    'name' => __('artists.errors.name_taken'),
-                ]);
-            }
+            $artist = $this->artists->findOrCreateArtist($data['name']);
 
             if ($artist->engagements()->where('event_id', $event->id)->exists()) {
                 throw ValidationException::withMessages(['name' => __('artists.errors.already_added')]);
@@ -48,20 +39,13 @@ class ArtistService
 
             $labelIds = $data['label_ids'] ?? [];
             foreach ($data['new_labels'] ?? [] as $label) {
-                try {
-                    $labelIds[] = $this->artists->findOrCreateLabel(
-                        $organization,
-                        $label['name'],
-                        $label['color'],
-                    )->id;
-                } catch (UniqueConstraintViolationException) {
-                    throw ValidationException::withMessages([
-                        'new_labels' => __('artists.errors.label_taken'),
-                    ]);
-                }
+                $labelIds[] = $this->artists->findOrCreateLabel(
+                    $label['name'],
+                    $label['color'],
+                )->id;
             }
 
-            // Labels belong to this engagement/event, not the org-wide artist.
+            // Labels belong to this engagement/event, not the festival-wide artist.
             $engagement->labels()->sync(array_values(array_unique($labelIds)));
         });
     }
@@ -70,18 +54,16 @@ class ArtistService
      * @param  array<string, mixed>  $data
      */
     public function updateEngagement(
-        Organization $organization,
         ArtistEngagement $engagement,
         array $data,
     ): void {
-        DB::transaction(function () use ($organization, $engagement, $data) {
-            Organization::query()->lockForUpdate()->findOrFail($organization->id);
+        DB::transaction(function () use ($engagement, $data) {
             $event = Event::query()->lockForUpdate()->findOrFail($engagement->event_id);
-            $event->ensureWritable($organization);
+            $event->ensureWritable();
 
             $artist = Artist::query()->lockForUpdate()->findOrFail($engagement->artist_id);
 
-            $this->renameArtist($organization, $artist, $data['name']);
+            $this->renameArtist($artist, $data['name']);
 
             $engagement->update([
                 'status' => $data['status'],
@@ -90,17 +72,10 @@ class ArtistService
 
             $labelIds = $data['label_ids'] ?? [];
             foreach ($data['new_labels'] ?? [] as $label) {
-                try {
-                    $labelIds[] = $this->artists->findOrCreateLabel(
-                        $organization,
-                        $label['name'],
-                        $label['color'],
-                    )->id;
-                } catch (UniqueConstraintViolationException) {
-                    throw ValidationException::withMessages([
-                        'new_labels' => __('artists.errors.label_taken'),
-                    ]);
-                }
+                $labelIds[] = $this->artists->findOrCreateLabel(
+                    $label['name'],
+                    $label['color'],
+                )->id;
             }
 
             // View UI presents labels for this engagement; sync replaces this engagement's set.
@@ -109,14 +84,13 @@ class ArtistService
     }
 
     public function addNote(
-        Organization $organization,
         ArtistEngagement $engagement,
         User $user,
         string $body,
     ): ArtistEngagementNote {
-        return DB::transaction(function () use ($organization, $engagement, $user, $body) {
+        return DB::transaction(function () use ($engagement, $user, $body) {
             $event = Event::query()->lockForUpdate()->findOrFail($engagement->event_id);
-            $event->ensureWritable($organization);
+            $event->ensureWritable();
 
             return $engagement->notes()->create([
                 'user_id' => $user->id,
@@ -125,11 +99,11 @@ class ArtistService
         });
     }
 
-    private function renameArtist(Organization $organization, Artist $artist, string $name): void
+    private function renameArtist(Artist $artist, string $name): void
     {
+        $nameKey = Artist::normalizeName($name);
         $conflict = Artist::query()
-            ->where('organization_id', $organization->id)
-            ->whereRaw('lower(name) = ?', [mb_strtolower($name)])
+            ->where('name_key', $nameKey)
             ->whereKeyNot($artist->id)
             ->exists();
 

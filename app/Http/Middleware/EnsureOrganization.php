@@ -9,7 +9,7 @@ use Symfony\Component\HttpFoundation\Response;
 class EnsureOrganization
 {
     /**
-     * Ensure the authenticated user belongs to an organization.
+     * Ensure the authenticated user belongs to this database's organization.
      *
      * @param  Closure(Request): Response  $next
      */

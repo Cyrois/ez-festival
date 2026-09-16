@@ -6,13 +6,9 @@ use App\Models\Artist;
 use App\Models\ArtistEngagement;
 use App\Models\ArtistLabel;
 use App\Models\Event;
-use App\Models\Organization;
 use App\Support\SqlLike;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 
 class ArtistRepository
@@ -22,7 +18,6 @@ class ArtistRepository
      * @return LengthAwarePaginator<int, ArtistEngagement>
      */
     public function paginateEngagements(
-        Organization $organization,
         ?Event $event,
         string $search,
         array $labelIds,
@@ -31,12 +26,11 @@ class ArtistRepository
 
         return ArtistEngagement::query()
             ->where('event_id', $event?->id)
-            ->whereHas('artist', function (Builder $query) use ($organization, $search, $searchPattern) {
-                $query->where('organization_id', $organization->id)
-                    ->when(
-                        $search !== '',
-                        fn (Builder $query) => $query->whereRaw("lower(name) like ? escape '!'", [$searchPattern]),
-                    );
+            ->whereHas('artist', function (Builder $query) use ($search, $searchPattern) {
+                $query->when(
+                    $search !== '',
+                    fn (Builder $query) => $query->whereRaw("lower(name) like ? escape '!'", [$searchPattern]),
+                );
             })
             ->when(
                 $labelIds !== [],
@@ -55,49 +49,39 @@ class ArtistRepository
     /**
      * @return Collection<int, ArtistLabel>
      */
-    public function labelsFor(Organization $organization): Collection
+    public function labelsFor(): Collection
     {
-        return $organization->artistLabels()->orderBy('name')->get(['id', 'name', 'color']);
+        return ArtistLabel::query()->orderBy('name')->get(['id', 'name', 'color']);
     }
 
-    public function findOrCreateArtist(Organization $organization, string $name): Artist
+    public function findOrCreateArtist(string $name): Artist
     {
-        /** @var Artist */
-        return $this->findOrCreateByName($organization->artists(), $name);
+        $nameKey = Artist::normalizeName($name);
+        $now = now();
+
+        Artist::query()->insertOrIgnore([
+            'name' => $name,
+            'name_key' => $nameKey,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        return Artist::query()->where('name_key', $nameKey)->firstOrFail();
     }
 
-    public function findOrCreateLabel(Organization $organization, string $name, string $color): ArtistLabel
+    public function findOrCreateLabel(string $name, string $color): ArtistLabel
     {
-        /** @var ArtistLabel */
-        return $this->findOrCreateByName($organization->artistLabels(), $name, ['color' => $color]);
-    }
+        $nameKey = ArtistLabel::normalizeName($name);
+        $now = now();
 
-    /**
-     * @param  HasMany<Model, Organization>  $relation
-     * @param  array<string, mixed>  $attributes
-     */
-    private function findOrCreateByName(HasMany $relation, string $name, array $attributes = []): Model
-    {
-        $existing = (clone $relation->getQuery())
-            ->whereRaw('lower(name) = ?', [mb_strtolower($name)])
-            ->first();
+        ArtistLabel::query()->insertOrIgnore([
+            'name' => $name,
+            'name_key' => $nameKey,
+            'color' => $color,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
 
-        if ($existing) {
-            return $existing;
-        }
-
-        try {
-            return $relation->create(['name' => $name, ...$attributes]);
-        } catch (UniqueConstraintViolationException $exception) {
-            $existing = (clone $relation->getQuery())
-                ->whereRaw('lower(name) = ?', [mb_strtolower($name)])
-                ->first();
-
-            if ($existing) {
-                return $existing;
-            }
-
-            throw $exception;
-        }
+        return ArtistLabel::query()->where('name_key', $nameKey)->firstOrFail();
     }
 }

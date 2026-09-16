@@ -14,7 +14,7 @@ const props = defineProps({
 const page = usePage();
 useInertiaErrorToast();
 
-const orgName = computed(
+const resolvedOrganizationName = computed(
     () => props.organizationName || page.props.organization?.name || '',
 );
 
@@ -22,12 +22,14 @@ const hasActiveEvent = computed(() => Boolean(page.props.activeEvent?.id));
 
 const isComplete = computed(() => props.currentStep > 4);
 
-const orgSetupLabel = computed(() => {
-    if (!orgName.value) {
+const organizationSetupLabel = computed(() => {
+    if (!resolvedOrganizationName.value) {
         return trans('nav.setup');
     }
 
-    return trans('setup.shell.org_setup', { name: orgName.value });
+    return trans('setup.shell.organization_setup', {
+        name: resolvedOrganizationName.value,
+    });
 });
 
 const steps = [
@@ -98,7 +100,7 @@ const stepNumberClass = (n) => {
                     <span
                         v-if="!isComplete"
                         class="mt-0.5 block truncate text-xs text-muted"
-                        >{{ orgSetupLabel }}</span
+                        >{{ organizationSetupLabel }}</span
                     >
                 </div>
             </div>

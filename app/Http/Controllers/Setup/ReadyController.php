@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Setup;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Setup\Concerns\InteractsWithSetup;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -15,12 +16,11 @@ class ReadyController extends Controller
 
     public function show(Request $request): Response
     {
-        $organization = $this->organization($request);
+        $organization = $this->organization();
 
         return Inertia::render('Setup/Ready', [
             'organization' => [
-                'id' => $organization->id,
-                'name' => $organization->name,
+                'name' => $organization->name(),
             ],
             'currentStep' => 5,
         ]);
@@ -28,8 +28,11 @@ class ReadyController extends Controller
 
     public function complete(Request $request): RedirectResponse
     {
-        $organization = $this->organization($request);
-        $organization->markSetupComplete();
+        /** @var User $user */
+        $user = $request->user();
+        $user->ensureOrganization();
+
+        $this->organization()->markSetupComplete();
 
         return redirect()->route('dashboard');
     }

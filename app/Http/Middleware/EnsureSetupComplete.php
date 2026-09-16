@@ -2,12 +2,15 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\OrganizationContext;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsureSetupComplete
 {
+    public function __construct(private readonly OrganizationContext $organization) {}
+
     /**
      * Redirect users with incomplete setup away from the main app.
      *
@@ -21,9 +24,7 @@ class EnsureSetupComplete
             return $next($request);
         }
 
-        $organization = $user->primaryOrganization() ?? $user->ensureOrganization();
-
-        if (! $organization->setupIsComplete()) {
+        if (! $this->organization->setupIsComplete()) {
             return redirect()->route('setup.event');
         }
 

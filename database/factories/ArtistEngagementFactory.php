@@ -12,8 +12,7 @@ class ArtistEngagementFactory extends Factory
     {
         return [
             'artist_id' => Artist::factory(),
-            'event_id' => fn (array $attributes) => Event::query()->create([
-                'organization_id' => Artist::query()->findOrFail($attributes['artist_id'])->organization_id,
+            'event_id' => fn () => Event::query()->create([
                 'name' => fake()->words(3, true),
                 'starts_on' => '2027-06-01',
                 'ends_on' => '2027-06-03',

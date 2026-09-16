@@ -18,21 +18,19 @@ class VendorTypeController extends Controller
 
     public function show(Request $request): Response|RedirectResponse
     {
-        $organization = $this->organization($request);
+        $organization = $this->organization();
+        $event = $organization->defaultEvent();
 
-        if ($organization->activeEvent === null) {
+        if ($event === null) {
             return redirect()->route('setup.event');
         }
 
         return Inertia::render('Setup/VendorTypes', [
             'organization' => [
-                'id' => $organization->id,
-                'name' => $organization->name,
+                'name' => $organization->name(),
             ],
-            'event' => $organization->activeEvent
-                ? ['id' => $organization->activeEvent->id, 'name' => $organization->activeEvent->name]
-                : null,
-            'types' => $organization->vendorTypes()
+            'event' => ['id' => $event->id, 'name' => $event->name],
+            'types' => VendorType::query()
                 ->orderBy('id')
                 ->get(['id', 'name']),
             'currentStep' => 3,
@@ -41,19 +39,13 @@ class VendorTypeController extends Controller
 
     public function store(StoreTypeRequest $request): RedirectResponse
     {
-        $organization = $this->organization($request);
-
-        $organization->vendorTypes()->create($request->validated());
+        VendorType::query()->create($request->validated());
 
         return redirect()->route('setup.vendor-types');
     }
 
     public function update(UpdateTypeRequest $request, VendorType $vendorType): RedirectResponse
     {
-        $organization = $this->organization($request);
-
-        abort_unless($vendorType->organization_id === $organization->id, 404);
-
         $vendorType->update($request->validated());
 
         return redirect()->route('setup.vendor-types');
@@ -61,15 +53,11 @@ class VendorTypeController extends Controller
 
     public function continue(Request $request): RedirectResponse
     {
-        $this->organization($request);
-
         return redirect()->route('setup.artist-types');
     }
 
     public function skip(Request $request): RedirectResponse
     {
-        $this->organization($request);
-
         return redirect()->route('setup.artist-types');
     }
 }

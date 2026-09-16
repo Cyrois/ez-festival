@@ -23,12 +23,10 @@ class EventController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
-        $organization = $user->primaryOrganization() ?? $user->ensureOrganization();
-
-        abort_unless((int) $event->organization_id === (int) $organization->id, 404);
+        $activeEventId = $user->effectiveEvent()?->id;
 
         return Inertia::render('Events/Show', [
-            'event' => EventResource::toArray($event, $organization->active_event_id),
+            'event' => EventResource::toArray($event, $activeEventId),
         ]);
     }
 

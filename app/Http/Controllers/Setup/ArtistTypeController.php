@@ -19,21 +19,19 @@ class ArtistTypeController extends Controller
 
     public function show(Request $request): Response|RedirectResponse
     {
-        $organization = $this->organization($request);
+        $organization = $this->organization();
+        $event = $organization->defaultEvent();
 
-        if ($organization->activeEvent === null) {
+        if ($event === null) {
             return redirect()->route('setup.event');
         }
 
         return Inertia::render('Setup/ArtistTypes', [
             'organization' => [
-                'id' => $organization->id,
-                'name' => $organization->name,
+                'name' => $organization->name(),
             ],
-            'event' => $organization->activeEvent
-                ? ['id' => $organization->activeEvent->id, 'name' => $organization->activeEvent->name]
-                : null,
-            'types' => $organization->artistTypes()
+            'event' => ['id' => $event->id, 'name' => $event->name],
+            'types' => ArtistType::query()
                 ->orderBy('id')
                 ->get(['id', 'name']),
             'currentStep' => 4,
@@ -42,19 +40,13 @@ class ArtistTypeController extends Controller
 
     public function store(StoreTypeRequest $request): RedirectResponse
     {
-        $organization = $this->organization($request);
-
-        $organization->artistTypes()->create($request->validated());
+        ArtistType::query()->create($request->validated());
 
         return redirect()->route('setup.artist-types');
     }
 
     public function update(UpdateTypeRequest $request, ArtistType $artistType): RedirectResponse
     {
-        $organization = $this->organization($request);
-
-        abort_unless($artistType->organization_id === $organization->id, 404);
-
         $artistType->update($request->validated());
 
         return redirect()->route('setup.artist-types');
@@ -62,10 +54,6 @@ class ArtistTypeController extends Controller
 
     public function destroy(Request $request, ArtistType $artistType): RedirectResponse
     {
-        $organization = $this->organization($request);
-
-        abort_unless($artistType->organization_id === $organization->id, 404);
-
         $artistType->delete();
 
         return redirect()->route('setup.artist-types');
@@ -73,12 +61,10 @@ class ArtistTypeController extends Controller
 
     public function continue(ContinueArtistTypesRequest $request): RedirectResponse
     {
-        $organization = $this->organization($request);
-
         $data = $request->validated();
 
         foreach ($data['suggestions'] ?? [] as $item) {
-            $organization->artistTypes()->create([
+            ArtistType::query()->create([
                 'name' => $item['name'],
             ]);
         }
@@ -88,8 +74,6 @@ class ArtistTypeController extends Controller
 
     public function skip(Request $request): RedirectResponse
     {
-        $this->organization($request);
-
         return redirect()->route('setup.ready');
     }
 }
