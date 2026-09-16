@@ -18,13 +18,12 @@ class EventController extends Controller
 
     public function show(Request $request): Response
     {
-        $organization = $this->organization($request);
-        $event = $organization->activeEvent;
+        $client = $this->client();
+        $event = $client->defaultEvent();
 
         return Inertia::render('Setup/Event', [
-            'organization' => [
-                'id' => $organization->id,
-                'name' => $organization->name,
+            'client' => [
+                'name' => $client->name(),
             ],
             'event' => $event ? [
                 'id' => $event->id,
@@ -40,29 +39,26 @@ class EventController extends Controller
 
     public function store(StoreEventRequest $request): RedirectResponse
     {
-        $organization = $this->organization($request);
+        $client = $this->client();
         $data = $request->validated();
 
-        $event = $organization->activeEvent;
+        $event = $client->defaultEvent();
 
         if ($event !== null) {
-            $event->ensureWritable($organization);
+            $event->ensureWritable();
         }
 
         if ($event === null) {
-            $event = Event::query()->create([
-                'organization_id' => $organization->id,
-                ...$data,
-            ]);
+            $event = Event::query()->create($data);
         } else {
             $event->update($data);
         }
 
-        $organization->forceFill(['active_event_id' => $event->id])->save();
+        $client->setDefaultEvent($event);
 
         /** @var User $user */
         $user = $request->user();
-        $user->setCurrentEvent($organization, $event);
+        $user->setCurrentEvent($event);
 
         return redirect()->route('setup.locations');
     }

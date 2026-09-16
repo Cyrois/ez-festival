@@ -18,7 +18,7 @@ defineProps({
 const page = usePage();
 const currentPath = computed(() => page.url.split('?')[0]);
 
-const organizationItems = [
+const clientItems = [
     { key: 'general', enabled: false },
     { key: 'people', enabled: false },
     { key: 'artist_types', enabled: false },
@@ -105,11 +105,11 @@ const itemClass = (active, enabled) => {
                     <p
                         class="m-0 mb-2 px-2 text-[11px] font-bold tracking-wide text-muted uppercase"
                     >
-                        {{ $t('settings.nav.organization') }}
+                        {{ $t('settings.nav.client') }}
                     </p>
                     <nav class="flex flex-col gap-0.5">
                         <span
-                            v-for="item in organizationItems"
+                            v-for="item in clientItems"
                             :key="item.key"
                             class="min-h-11 rounded-lg px-2 py-2.5 text-[13px] font-semibold"
                             :class="itemClass(false, item.enabled)"

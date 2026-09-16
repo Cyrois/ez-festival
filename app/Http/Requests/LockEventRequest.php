@@ -3,8 +3,6 @@
 namespace App\Http\Requests;
 
 use App\Models\Event;
-use App\Models\Organization;
-use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 
 class LockEventRequest extends FormRequest
@@ -18,18 +16,7 @@ class LockEventRequest extends FormRequest
             return false;
         }
 
-        $organization = $this->organization();
-
-        return (int) $event->organization_id === (int) $organization->id
-            && ! $event->isLocked();
-    }
-
-    public function organization(): Organization
-    {
-        /** @var User $user */
-        $user = $this->user();
-
-        return $user->primaryOrganization() ?? $user->ensureOrganization();
+        return ! $event->isLocked();
     }
 
     /**

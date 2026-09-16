@@ -2,24 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasNormalizedName;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['organization_id', 'name'])]
+#[Fillable(['name'])]
 class Artist extends Model
 {
-    use HasFactory;
-
-    protected $table = 'organization_artists';
-
-    public function organization(): BelongsTo
-    {
-        return $this->belongsTo(Organization::class);
-    }
+    use HasFactory, HasNormalizedName;
 
     public function engagements(): HasMany
     {

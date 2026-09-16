@@ -20,13 +20,11 @@ class EventController extends Controller
 
     public function index(Request $request): Response
     {
-        $organization = $this->organization($request);
-
         /** @var User $user */
         $user = $request->user();
-        $primaryEventId = $user->effectiveEvent($organization)?->id;
+        $primaryEventId = $user->effectiveEvent()?->id;
 
-        $events = $organization->events()
+        $events = Event::query()
             ->orderByDesc('starts_on')
             ->orderByDesc('id')
             ->get()
@@ -39,11 +37,8 @@ class EventController extends Controller
 
     public function edit(Request $request, Event $event): Response
     {
-        $organization = $this->organization($request);
-        $this->eventForOrganization($request, $event);
-
         return Inertia::render('Settings/Events/Edit', [
-            'event' => $this->eventPayload($event, $organization),
+            'event' => $this->eventPayload($event),
             'timezones' => $this->timezones(),
             'tab' => 'details',
         ]);
@@ -51,10 +46,7 @@ class EventController extends Controller
 
     public function update(UpdateEventRequest $request, Event $event): RedirectResponse
     {
-        $organization = $this->organization($request);
-        $this->eventForOrganization($request, $event);
-
-        $event->ensureWritable($organization);
+        $event->ensureWritable();
         $event->update($request->validated());
 
         return redirect()
@@ -65,12 +57,9 @@ class EventController extends Controller
 
     public function setPrimary(SetPrimaryEventRequest $request, Event $event): RedirectResponse
     {
-        $organization = $request->organization();
-        $this->eventForOrganization($request, $event);
-
         /** @var User $user */
         $user = $request->user();
-        $user->setCurrentEvent($organization, $event);
+        $user->setCurrentEvent($event);
 
         return redirect()
             ->route('settings.events.index')
@@ -80,22 +69,16 @@ class EventController extends Controller
 
     public function roles(Request $request, Event $event): Response
     {
-        $organization = $this->organization($request);
-        $this->eventForOrganization($request, $event);
-
         return Inertia::render('Settings/Events/Roles', [
-            'event' => $this->eventPayload($event, $organization),
+            'event' => $this->eventPayload($event),
             'tab' => 'roles',
         ]);
     }
 
     public function users(Request $request, Event $event): Response
     {
-        $organization = $this->organization($request);
-        $this->eventForOrganization($request, $event);
-
         return Inertia::render('Settings/Events/Users', [
-            'event' => $this->eventPayload($event, $organization),
+            'event' => $this->eventPayload($event),
             'tab' => 'users',
         ]);
     }

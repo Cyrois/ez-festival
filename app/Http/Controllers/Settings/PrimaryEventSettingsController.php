@@ -23,10 +23,8 @@ class PrimaryEventSettingsController extends Controller
             return $event;
         }
 
-        $organization = $this->organization($request);
-
         return Inertia::render('Settings/Events/Locations', [
-            'event' => $this->eventPayload($event, $organization),
+            'event' => $this->eventPayload($event),
             'locations' => $event->locations()
                 ->orderBy('id')
                 ->get(['id', 'name', 'type']),
@@ -43,10 +41,8 @@ class PrimaryEventSettingsController extends Controller
             return $event;
         }
 
-        $organization = $this->organization($request);
-
         return Inertia::render('Settings/Events/Roles', [
-            'event' => $this->eventPayload($event, $organization),
+            'event' => $this->eventPayload($event),
             'tab' => 'roles',
             'forPrimary' => true,
         ]);
@@ -60,10 +56,8 @@ class PrimaryEventSettingsController extends Controller
             return $event;
         }
 
-        $organization = $this->organization($request);
-
         return Inertia::render('Settings/Events/Users', [
-            'event' => $this->eventPayload($event, $organization),
+            'event' => $this->eventPayload($event),
             'tab' => 'users',
             'forPrimary' => true,
         ]);
@@ -71,11 +65,9 @@ class PrimaryEventSettingsController extends Controller
 
     private function primaryEventOrRedirect(Request $request): Event|RedirectResponse
     {
-        $organization = $this->organization($request);
-
         /** @var User $user */
         $user = $request->user();
-        $event = $user->effectiveEvent($organization);
+        $event = $user->effectiveEvent();
 
         if ($event === null) {
             return redirect()

@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Middleware\EnsureOrganization;
 use App\Http\Middleware\EnsureSetupComplete;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\PreventLockedEventWrites;
@@ -24,7 +23,6 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->alias([
-            'organization' => EnsureOrganization::class,
             'setup.complete' => EnsureSetupComplete::class,
             'event.writable' => PreventLockedEventWrites::class,
         ]);

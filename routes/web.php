@@ -39,7 +39,7 @@ Route::middleware('auth')->group(function () {
         Route::get('ui', UiKitController::class)->name('ui');
     }
 
-    Route::middleware(['organization', 'setup.complete'])->group(function () {
+    Route::middleware('setup.complete')->group(function () {
         Route::get('dashboard', DashboardController::class)->name('dashboard');
 
         Route::get('artists/advancing', [ArtistController::class, 'index'])->name('artists.index');
@@ -73,7 +73,7 @@ Route::middleware('auth')->group(function () {
         });
     });
 
-    Route::middleware('organization')->prefix('setup')->name('setup.')->group(function () {
+    Route::prefix('setup')->name('setup.')->group(function () {
         // Event-scoped writes: blocked when active event is locked or non-active context.
         Route::middleware('event.writable')->group(function () {
             Route::get('event', [SetupEventController::class, 'show'])->name('event');
@@ -87,7 +87,7 @@ Route::middleware('auth')->group(function () {
             Route::post('locations/skip', [LocationController::class, 'skip'])->name('locations.skip');
         });
 
-        // Org-scoped setup (not event writes).
+        // Client-scoped setup (not event writes).
         Route::get('vendor-types', [VendorTypeController::class, 'show'])->name('vendor-types');
         Route::post('vendor-types', [VendorTypeController::class, 'store']);
         Route::put('vendor-types/{vendorType}', [VendorTypeController::class, 'update'])->name('vendor-types.update');

@@ -2,11 +2,14 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\ClientContext;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
+    public function __construct(private readonly ClientContext $client) {}
+
     /**
      * The root template that's loaded on the first page visit.
      *
@@ -36,10 +39,7 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $user = $request->user();
-        $organization = $user?->primaryOrganization();
-        $event = $user && $organization
-            ? $user->effectiveEvent($organization)
-            : null;
+        $event = $user?->effectiveEvent();
 
         return [
             ...parent::share($request),
@@ -53,11 +53,10 @@ class HandleInertiaRequests extends Middleware
                     ? $user->only('id', 'name', 'email')
                     : null,
             ],
-            'organization' => $organization
+            'client' => $user
                 ? [
-                    'id' => $organization->id,
-                    'name' => $organization->name,
-                    'setup_completed' => $organization->setupIsComplete(),
+                    'name' => $this->client->name(),
+                    'setup_completed' => $this->client->setupIsComplete(),
                 ]
                 : null,
             'activeEvent' => $event

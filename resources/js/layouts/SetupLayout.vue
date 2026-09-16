@@ -8,26 +8,28 @@ import { computed } from 'vue';
 const props = defineProps({
     title: { type: String, required: true },
     currentStep: { type: Number, required: true },
-    organizationName: { type: String, default: '' },
+    clientName: { type: String, default: '' },
 });
 
 const page = usePage();
 useInertiaErrorToast();
 
-const orgName = computed(
-    () => props.organizationName || page.props.organization?.name || '',
+const resolvedClientName = computed(
+    () => props.clientName || page.props.client?.name || '',
 );
 
 const hasActiveEvent = computed(() => Boolean(page.props.activeEvent?.id));
 
 const isComplete = computed(() => props.currentStep > 4);
 
-const orgSetupLabel = computed(() => {
-    if (!orgName.value) {
+const clientSetupLabel = computed(() => {
+    if (!resolvedClientName.value) {
         return trans('nav.setup');
     }
 
-    return trans('setup.shell.org_setup', { name: orgName.value });
+    return trans('setup.shell.client_setup', {
+        name: resolvedClientName.value,
+    });
 });
 
 const steps = [
@@ -98,7 +100,7 @@ const stepNumberClass = (n) => {
                     <span
                         v-if="!isComplete"
                         class="mt-0.5 block truncate text-xs text-muted"
-                        >{{ orgSetupLabel }}</span
+                        >{{ clientSetupLabel }}</span
                     >
                 </div>
             </div>

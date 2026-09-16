@@ -3,9 +3,7 @@
 namespace App\Services;
 
 use App\Models\Event;
-use App\Models\Organization;
 use App\Repositories\ArtistRepository;
-use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -16,21 +14,13 @@ class ArtistService
     /**
      * @param  array<string, mixed>  $data
      */
-    public function addToEvent(Organization $organization, Event $event, array $data): void
+    public function addToEvent(Event $event, array $data): void
     {
-        DB::transaction(function () use ($organization, $event, $data) {
-            // The organization lock serializes case-insensitive artist and label creation.
-            Organization::query()->lockForUpdate()->findOrFail($organization->id);
+        DB::transaction(function () use ($event, $data) {
             $event = Event::query()->lockForUpdate()->findOrFail($event->id);
-            $event->ensureWritable($organization);
+            $event->ensureWritable();
 
-            try {
-                $artist = $this->artists->findOrCreateArtist($organization, $data['name']);
-            } catch (UniqueConstraintViolationException) {
-                throw ValidationException::withMessages([
-                    'name' => __('artists.errors.name_taken'),
-                ]);
-            }
+            $artist = $this->artists->findOrCreateArtist($data['name']);
 
             if ($artist->engagements()->where('event_id', $event->id)->exists()) {
                 throw ValidationException::withMessages(['name' => __('artists.errors.already_added')]);
@@ -44,17 +34,10 @@ class ArtistService
 
             $labelIds = $data['label_ids'] ?? [];
             foreach ($data['new_labels'] ?? [] as $label) {
-                try {
-                    $labelIds[] = $this->artists->findOrCreateLabel(
-                        $organization,
-                        $label['name'],
-                        $label['color'],
-                    )->id;
-                } catch (UniqueConstraintViolationException) {
-                    throw ValidationException::withMessages([
-                        'new_labels' => __('artists.errors.label_taken'),
-                    ]);
-                }
+                $labelIds[] = $this->artists->findOrCreateLabel(
+                    $label['name'],
+                    $label['color'],
+                )->id;
             }
 
             // Labels belong to the reusable artist; preserve assignments from previous events.

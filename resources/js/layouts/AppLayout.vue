@@ -34,7 +34,7 @@ watch(
 
 const user = computed(() => page.props.auth?.user);
 const eventName = computed(() => page.props.activeEvent?.name ?? null);
-const orgName = computed(() => page.props.organization?.name ?? null);
+const clientName = computed(() => page.props.client?.name ?? null);
 const currentPath = computed(() => page.url.split('?')[0]);
 
 const navItems = [
@@ -187,10 +187,10 @@ const railClass = computed(() => {
                             {{ eventName }}
                         </span>
                         <span
-                            v-else-if="orgName"
+                            v-else-if="clientName"
                             class="mt-0.5 block truncate text-xs text-muted"
                         >
-                            {{ orgName }}
+                            {{ clientName }}
                         </span>
                     </div>
                 </div>

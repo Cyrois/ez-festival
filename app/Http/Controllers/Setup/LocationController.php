@@ -19,17 +19,16 @@ class LocationController extends Controller
 
     public function show(Request $request): Response|RedirectResponse
     {
-        $organization = $this->organization($request);
-        $event = $organization->activeEvent;
+        $client = $this->client();
+        $event = $client->defaultEvent();
 
         if ($event === null) {
             return redirect()->route('setup.event');
         }
 
         return Inertia::render('Setup/Locations', [
-            'organization' => [
-                'id' => $organization->id,
-                'name' => $organization->name,
+            'client' => [
+                'name' => $client->name(),
             ],
             'event' => [
                 'id' => $event->id,
@@ -44,14 +43,13 @@ class LocationController extends Controller
 
     public function store(StoreLocationRequest $request): RedirectResponse
     {
-        $organization = $this->organization($request);
-        $event = $organization->activeEvent;
+        $event = $this->client()->defaultEvent();
 
         if ($event === null) {
             return redirect()->route('setup.event');
         }
 
-        $event->ensureWritable($organization);
+        $event->ensureWritable();
 
         $event->locations()->create($request->validated());
 
@@ -60,15 +58,14 @@ class LocationController extends Controller
 
     public function update(UpdateLocationRequest $request, Location $location): RedirectResponse
     {
-        $organization = $this->organization($request);
-        $event = $organization->activeEvent;
+        $event = $this->client()->defaultEvent();
 
         abort_unless(
             $event !== null && $location->event_id === $event->id,
             404,
         );
 
-        $event->ensureWritable($organization);
+        $event->ensureWritable();
 
         $location->update($request->validated());
 
@@ -77,15 +74,14 @@ class LocationController extends Controller
 
     public function destroy(Request $request, Location $location): RedirectResponse
     {
-        $organization = $this->organization($request);
-        $event = $organization->activeEvent;
+        $event = $this->client()->defaultEvent();
 
         abort_unless(
             $event !== null && $location->event_id === $event->id,
             404,
         );
 
-        $event->ensureWritable($organization);
+        $event->ensureWritable();
 
         $location->delete();
 
@@ -94,14 +90,13 @@ class LocationController extends Controller
 
     public function continue(ContinueLocationsRequest $request): RedirectResponse
     {
-        $organization = $this->organization($request);
-        $event = $organization->activeEvent;
+        $event = $this->client()->defaultEvent();
 
         if ($event === null) {
             return redirect()->route('setup.event');
         }
 
-        $event->ensureWritable($organization);
+        $event->ensureWritable();
 
         $data = $request->validated();
 
@@ -117,8 +112,6 @@ class LocationController extends Controller
 
     public function skip(Request $request): RedirectResponse
     {
-        $this->organization($request);
-
         return redirect()->route('setup.vendor-types');
     }
 }

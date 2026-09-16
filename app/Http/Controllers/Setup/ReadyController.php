@@ -15,12 +15,11 @@ class ReadyController extends Controller
 
     public function show(Request $request): Response
     {
-        $organization = $this->organization($request);
+        $client = $this->client();
 
         return Inertia::render('Setup/Ready', [
-            'organization' => [
-                'id' => $organization->id,
-                'name' => $organization->name,
+            'client' => [
+                'name' => $client->name(),
             ],
             'currentStep' => 5,
         ]);
@@ -28,8 +27,7 @@ class ReadyController extends Controller
 
     public function complete(Request $request): RedirectResponse
     {
-        $organization = $this->organization($request);
-        $organization->markSetupComplete();
+        $this->client()->markSetupComplete();
 
         return redirect()->route('dashboard');
     }

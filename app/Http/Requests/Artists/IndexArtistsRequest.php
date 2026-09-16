@@ -17,8 +17,7 @@ class IndexArtistsRequest extends FormRequest
         return [
             'search' => ['nullable', 'string', 'max:255'],
             'labels' => ['sometimes', 'array', 'max:50'],
-            'labels.*' => ['integer', 'distinct', Rule::exists('artist_labels', 'id')
-                ->where('organization_id', $this->user()->primaryOrganization()->id)],
+            'labels.*' => ['integer', 'distinct', Rule::exists('artist_labels', 'id')],
             'page' => ['sometimes', 'integer', 'min:1'],
         ];
     }

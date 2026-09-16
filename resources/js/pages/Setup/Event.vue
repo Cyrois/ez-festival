@@ -10,7 +10,7 @@ import { useForm } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 
 const props = defineProps({
-    organization: { type: Object, required: true },
+    client: { type: Object, required: true },
     event: { type: Object, default: null },
     timezones: { type: Array, required: true },
     currentStep: { type: Number, required: true },
@@ -37,7 +37,7 @@ const submit = () =>
     <SetupLayout
         :title="$t('setup.event.title')"
         :current-step="currentStep"
-        :organization-name="organization.name"
+        :client-name="client.name"
     >
         <div class="mb-5">
             <h1 class="m-0 mb-1.5 text-[28px] font-bold tracking-tight">
