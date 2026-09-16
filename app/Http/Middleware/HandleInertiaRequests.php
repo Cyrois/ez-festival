@@ -49,7 +49,6 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
             ],
             'auth' => [
-                'can' => ['manage_artists' => $user?->can('artists.manage') ?? false],
                 'user' => $user
                     ? $user->only('id', 'name', 'email')
                     : null,

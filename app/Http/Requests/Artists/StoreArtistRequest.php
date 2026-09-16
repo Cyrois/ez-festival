@@ -11,13 +11,25 @@ class StoreArtistRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->can('artists.manage');
+        return true;
     }
 
     protected function prepareForValidation(): void
     {
         if ($this->has('name')) {
             $this->merge(['name' => trim((string) $this->input('name'))]);
+        }
+
+        if ($this->has('new_labels') && is_array($this->input('new_labels'))) {
+            $this->merge([
+                'new_labels' => array_map(function ($label) {
+                    if (! is_array($label) || ! array_key_exists('name', $label)) {
+                        return $label;
+                    }
+
+                    return [...$label, 'name' => trim((string) $label['name'])];
+                }, $this->input('new_labels')),
+            ]);
         }
     }
 
@@ -33,7 +45,7 @@ class StoreArtistRequest extends FormRequest
             'label_ids.*' => ['integer', 'distinct', Rule::exists('artist_labels', 'id')->where('organization_id', $organizationId)],
             'new_labels' => ['sometimes', 'array', 'max:20'],
             'new_labels.*' => ['array:name,color'],
-            'new_labels.*.name' => ['required', 'string', 'max:255', 'distinct'],
+            'new_labels.*.name' => ['required', 'string', 'max:255', 'distinct:ignore_case'],
             'new_labels.*.color' => ['required', Rule::in(ArtistLabel::COLORS)],
         ];
     }

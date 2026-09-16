@@ -2,20 +2,12 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('organization_user', function (Blueprint $table) {
-            $table->boolean('can_manage_artists')->default(false);
-        });
-
-        // Existing members had unrestricted organization access before permissions existed.
-        DB::table('organization_user')->update(['can_manage_artists' => true]);
-
         Schema::create('organization_artists', function (Blueprint $table) {
             $table->id();
             $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
@@ -55,8 +47,5 @@ return new class extends Migration
         Schema::dropIfExists('artist_labels');
         Schema::dropIfExists('artist_engagements');
         Schema::dropIfExists('organization_artists');
-        Schema::table('organization_user', function (Blueprint $table) {
-            $table->dropColumn('can_manage_artists');
-        });
     }
 };

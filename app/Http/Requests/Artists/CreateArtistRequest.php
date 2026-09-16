@@ -8,7 +8,7 @@ class CreateArtistRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->can('artists.manage');
+        return true;
     }
 
     public function rules(): array

@@ -37,7 +37,7 @@ const eventName = computed(() => page.props.activeEvent?.name ?? null);
 const orgName = computed(() => page.props.organization?.name ?? null);
 const currentPath = computed(() => page.url.split('?')[0]);
 
-const navItems = computed(() => [
+const navItems = [
     {
         key: 'home',
         href: '/dashboard',
@@ -48,7 +48,7 @@ const navItems = computed(() => [
         key: 'artists',
         href: '/artists/advancing',
         icon: ['fas', 'music'],
-        enabled: page.props.auth?.can?.manage_artists ?? false,
+        enabled: true,
     },
     {
         key: 'vendors',
@@ -68,7 +68,7 @@ const navItems = computed(() => [
         icon: ['fas', 'users'],
         enabled: false,
     },
-]);
+];
 
 const settingsActive = computed(
     () =>

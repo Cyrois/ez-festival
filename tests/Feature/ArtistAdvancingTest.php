@@ -9,7 +9,6 @@ use App\Models\Event;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
-use Illuminate\Support\Facades\Gate;
 use Inertia\Testing\AssertableInertia as Assert;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -32,30 +31,6 @@ class ArtistAdvancingTest extends TestCase
         $this->assertDatabaseCount('organization_artists', 0);
     }
 
-    public function test_permission_controls_navigation_and_all_artist_actions(): void
-    {
-        [$user, $organization, $event] = $this->context();
-        $user->organizations()->updateExistingPivot($organization->id, ['can_manage_artists' => false]);
-
-        $this->assertFalse(Gate::forUser($user)->allows('artists.manage'));
-        $this->actingAs($user)->get(route('artists.index'))->assertForbidden();
-        $this->get(route('artists.create'))->assertForbidden();
-        $this->post(route('artists.store', $event), ['name' => 'River Hollow'])->assertForbidden();
-        $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page->where('auth.can.manage_artists', false));
-        $this->assertDatabaseCount('artist_engagements', 0);
-    }
-
-    public function test_organization_creator_gets_permission_but_new_members_do_not(): void
-    {
-        $creator = User::factory()->create();
-        $organization = $creator->ensureOrganization();
-        $member = User::factory()->create();
-        $member->organizations()->attach($organization);
-
-        $this->assertTrue(Gate::forUser($creator)->allows('artists.manage'));
-        $this->assertFalse(Gate::forUser($member)->allows('artists.manage'));
-    }
-
     public function test_list_uses_membership_event_and_excludes_other_events_and_organizations(): void
     {
         [$user, $organization, $primary] = $this->context();
@@ -72,7 +47,6 @@ class ArtistAdvancingTest extends TestCase
         $this->actingAs($user)->get(route('artists.index'))->assertInertia(fn (Assert $page) => $page
             ->component('Artists/Index')
             ->where('event.id', $current->id)
-            ->where('auth.can.manage_artists', true)
             ->has('engagements.data', 1)
             ->where('engagements.data.0.name', 'River Hollow')
             ->where('engagements.data.0.status', 'contract_sent')
@@ -99,6 +73,27 @@ class ArtistAdvancingTest extends TestCase
                 ->has('engagements.data', 1)
                 ->where('engagements.data.0.name', 'River Hollow')
                 ->where('filters.labels', [$vip->id, $travel->id]));
+    }
+
+    public function test_search_treats_like_wildcards_as_literal_characters(): void
+    {
+        [$user, $organization, $event] = $this->context();
+        $percent = Artist::factory()->for($organization)->create(['name' => '100% Real']);
+        $underscore = Artist::factory()->for($organization)->create(['name' => 'Under_score']);
+        ArtistEngagement::factory()->for($event)->for($percent)->create();
+        ArtistEngagement::factory()->for($event)->for($underscore)->create();
+        ArtistEngagement::factory()->for($event)->for(Artist::factory()->for($organization)->state(['name' => '1000 Real']))->create();
+        ArtistEngagement::factory()->for($event)->for(Artist::factory()->for($organization)->state(['name' => 'UnderXscore']))->create();
+
+        $this->actingAs($user)->get(route('artists.index', ['search' => '%']))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('engagements.data', 1)
+                ->where('engagements.data.0.name', '100% Real'));
+
+        $this->get(route('artists.index', ['search' => '_']))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('engagements.data', 1)
+                ->where('engagements.data.0.name', 'Under_score'));
     }
 
     public function test_list_paginates_and_preserves_search(): void
@@ -204,6 +199,22 @@ class ArtistAdvancingTest extends TestCase
         $this->assertSame('Past notes', $history->fresh()->notes);
     }
 
+    public function test_new_label_names_must_be_distinct_ignoring_case(): void
+    {
+        [$user, , $event] = $this->context();
+
+        $this->actingAs($user)->post(route('artists.store', $event), [
+            'name' => 'River Hollow',
+            'new_labels' => [
+                ['name' => ' VIP ', 'color' => 'primary'],
+                ['name' => 'vip', 'color' => 'warning'],
+            ],
+        ])->assertSessionHasErrors('new_labels.0.name');
+
+        $this->assertDatabaseCount('organization_artists', 0);
+        $this->assertDatabaseCount('artist_labels', 0);
+    }
+
     public function test_duplicate_engagement_is_rejected_without_creating_labels(): void
     {
         [$user, $organization, $event] = $this->context();
@@ -242,6 +253,19 @@ class ArtistAdvancingTest extends TestCase
         $this->post(route('artists.store', $event), ['name' => 'River Hollow', 'artist_type_id' => $type->id, 'label_ids' => [$label->id]])
             ->assertSessionHasErrors(['artist_type_id', 'label_ids.0']);
         $this->get(route('artists.index', ['labels' => [$label->id]]))->assertSessionHasErrors('labels.0');
+        $this->assertDatabaseCount('organization_artists', 0);
+        $this->assertDatabaseCount('artist_engagements', 0);
+    }
+
+    public function test_store_rejects_a_non_current_event_from_the_same_organization(): void
+    {
+        [$user, $organization] = $this->context();
+        $otherEvent = $this->event($organization, 'Other event');
+
+        $this->actingAs($user)->post(route('artists.store', $otherEvent), [
+            'name' => 'River Hollow',
+        ])->assertNotFound();
+
         $this->assertDatabaseCount('organization_artists', 0);
         $this->assertDatabaseCount('artist_engagements', 0);
     }

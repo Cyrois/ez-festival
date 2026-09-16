@@ -24,7 +24,7 @@ class Organization extends Model
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class)
-            ->withPivot('current_event_id', 'can_manage_artists')
+            ->withPivot('current_event_id')
             ->withTimestamps();
     }
 
