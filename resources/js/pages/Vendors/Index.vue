@@ -31,7 +31,7 @@ const viewOptions = computed(() => [
 ]);
 const breadcrumbs = computed(() => [
     { label: trans('app.name'), href: '/dashboard' },
-    { label: trans('nav.vendors'), href: '/vendors' },
+    { label: trans('nav.vendors'), href: '/vendors/advancing' },
     { label: trans('vendors.title') },
 ]);
 
@@ -60,6 +60,10 @@ const clearSearch = () => {
                 class="min-h-11 w-full sm:w-auto"
                 disabled
             >
+                <Icon
+                    :name="['fas', 'plus']"
+                    size="sm"
+                />
                 {{ $t('vendors.add') }}
             </Button>
         </div>

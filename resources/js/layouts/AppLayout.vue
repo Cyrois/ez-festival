@@ -60,9 +60,21 @@ const navItems = [
     },
     {
         key: 'vendors',
-        href: '/vendors',
+        href: null,
         icon: ['fas', 'store'],
         enabled: true,
+        children: [
+            {
+                key: 'vendors.advancing',
+                href: '/vendors/advancing',
+                enabled: true,
+            },
+            {
+                key: 'vendors.check_in',
+                href: null,
+                enabled: false,
+            },
+        ],
     },
     {
         key: 'patrons',
@@ -111,11 +123,26 @@ const navItemClass = (item) => {
         return 'cursor-default text-charcoal/35';
     }
 
-    if (isActive(item.href)) {
+    if (
+        isActive(item.href) ||
+        item.children?.some((child) => isActive(child.href))
+    ) {
         return 'bg-primary/10 text-primary';
     }
 
     return 'text-charcoal/80 hover:bg-page hover:text-charcoal';
+};
+
+const navSubItemClass = (item) => {
+    if (!item.enabled) {
+        return 'cursor-default text-charcoal/35';
+    }
+
+    if (isActive(item.href)) {
+        return 'bg-primary/10 text-primary';
+    }
+
+    return 'text-charcoal/70 hover:bg-page hover:text-charcoal';
 };
 
 const settingsClass = computed(() => {
@@ -216,25 +243,85 @@ const railClass = computed(() => {
             </div>
 
             <nav class="flex flex-1 flex-col gap-1 overflow-y-auto px-2 py-3">
-                <component
-                    :is="item.enabled ? Link : 'span'"
+                <template
                     v-for="item in navItems"
                     :key="item.key"
-                    :href="item.enabled ? item.href : undefined"
-                    class="inline-flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-semibold no-underline"
-                    :class="navItemClass(item)"
-                    :aria-current="
-                        item.enabled && isActive(item.href) ? 'page' : undefined
-                    "
-                    :aria-disabled="item.enabled ? undefined : 'true'"
                 >
-                    <Icon
-                        :name="item.icon"
-                        size="sm"
-                        fixed-width
-                    />
-                    {{ $t(`nav.${item.key}`) }}
-                </component>
+                    <div
+                        v-if="item.children"
+                        class="space-y-1"
+                    >
+                        <component
+                            :is="item.enabled && item.href ? Link : 'span'"
+                            :href="
+                                item.enabled && item.href
+                                    ? item.href
+                                    : undefined
+                            "
+                            class="inline-flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-semibold no-underline"
+                            :class="navItemClass(item)"
+                            :aria-current="
+                                item.enabled &&
+                                (isActive(item.href) ||
+                                    item.children.some((child) =>
+                                        isActive(child.href),
+                                    ))
+                                    ? 'page'
+                                    : undefined
+                            "
+                            :aria-disabled="
+                                item.enabled && item.href ? undefined : 'true'
+                            "
+                        >
+                            <Icon
+                                :name="item.icon"
+                                size="sm"
+                                fixed-width
+                            />
+                            {{ $t(`nav.${item.key}`) }}
+                        </component>
+                        <div class="ml-5 border-l border-line pl-3">
+                            <component
+                                :is="child.enabled ? Link : 'span'"
+                                v-for="child in item.children"
+                                :key="child.key"
+                                :href="child.enabled ? child.href : undefined"
+                                class="flex min-h-9 items-center rounded-lg px-3 py-2 text-[12px] font-semibold no-underline"
+                                :class="navSubItemClass(child)"
+                                :aria-current="
+                                    child.enabled && isActive(child.href)
+                                        ? 'page'
+                                        : undefined
+                                "
+                                :aria-disabled="
+                                    child.enabled ? undefined : 'true'
+                                "
+                            >
+                                {{ $t(`nav.${child.key}`) }}
+                            </component>
+                        </div>
+                    </div>
+                    <component
+                        :is="item.enabled ? Link : 'span'"
+                        v-else
+                        :href="item.enabled ? item.href : undefined"
+                        class="inline-flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-semibold no-underline"
+                        :class="navItemClass(item)"
+                        :aria-current="
+                            item.enabled && isActive(item.href)
+                                ? 'page'
+                                : undefined
+                        "
+                        :aria-disabled="item.enabled ? undefined : 'true'"
+                    >
+                        <Icon
+                            :name="item.icon"
+                            size="sm"
+                            fixed-width
+                        />
+                        {{ $t(`nav.${item.key}`) }}
+                    </component>
+                </template>
             </nav>
 
             <div class="mt-auto">

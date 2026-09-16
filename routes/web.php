@@ -53,7 +53,8 @@ Route::middleware('auth')->group(function () {
         Route::post('events/{event}/artists', [ArtistController::class, 'store'])
             ->middleware('event.writable')->name('artists.store');
 
-        Route::get('vendors', [VendorController::class, 'index'])->name('vendors.index');
+        Route::redirect('vendors', '/vendors/advancing')->name('vendors.index');
+        Route::get('vendors/advancing', [VendorController::class, 'index'])->name('vendors.advancing');
 
         Route::get('events', [EventController::class, 'index'])->name('events.index');
         Route::get('events/{event}', [EventController::class, 'show'])->name('events.show');
