@@ -2,42 +2,50 @@
 
 namespace App\Support;
 
-use App\Models\ApplicationState;
 use App\Models\Event;
+use App\Models\Organization;
 
 class OrganizationContext
 {
     public function name(): string
     {
-        return (string) config('organization.name', 'Festival');
+        $configured = config('organization.name');
+
+        if (is_string($configured) && $configured !== '') {
+            return $configured;
+        }
+
+        return $this->organization()->name;
     }
 
-    public function state(): ApplicationState
+    /**
+     * Singleton organization row for this client database.
+     */
+    public function organization(): Organization
     {
-        return ApplicationState::query()->firstOrCreate(['id' => 1]);
+        return Organization::query()->firstOrCreate(
+            ['id' => 1],
+            ['name' => (string) (config('organization.name') ?: 'Festival')],
+        );
     }
 
     public function defaultEvent(): ?Event
     {
-        return $this->state()->defaultEvent;
+        return $this->organization()->activeEvent;
     }
 
     public function setupIsComplete(): bool
     {
-        return $this->state()->setup_completed_at !== null;
+        return $this->organization()->setupIsComplete();
     }
 
     public function markSetupComplete(): void
     {
-        $state = $this->state();
-
-        if ($state->setup_completed_at === null) {
-            $state->forceFill(['setup_completed_at' => now()])->save();
-        }
+        $this->organization()->markSetupComplete();
     }
 
     public function setDefaultEvent(Event $event): void
     {
-        $this->state()->forceFill(['default_event_id' => $event->id])->save();
+        $this->organization()->forceFill(['active_event_id' => $event->id])->save();
     }
 }

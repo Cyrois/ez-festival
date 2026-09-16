@@ -322,7 +322,7 @@ class ArtistAdvancingTest extends TestCase
     {
         [$user] = $this->context();
         $user->forceFill(['current_event_id' => null])->save();
-        app(OrganizationContext::class)->state()->forceFill(['default_event_id' => null])->save();
+        app(OrganizationContext::class)->organization()->forceFill(['active_event_id' => null])->save();
 
         $this->actingAs($user)->get(route('artists.index'))->assertInertia(fn (Assert $page) => $page
             ->where('event', null)->has('engagements.data', 0));

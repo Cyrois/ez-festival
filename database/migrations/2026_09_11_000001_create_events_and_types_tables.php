@@ -2,13 +2,20 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
+        Schema::create('organizations', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->unsignedBigInteger('active_event_id')->nullable();
+            $table->timestamp('setup_completed_at')->nullable();
+            $table->timestamps();
+        });
+
         Schema::create('events', function (Blueprint $table) {
             $table->id();
             $table->string('name');
@@ -17,6 +24,22 @@ return new class extends Migration
             $table->string('timezone');
             $table->boolean('locked')->default(false);
             $table->timestamps();
+        });
+
+        Schema::table('organizations', function (Blueprint $table) {
+            $table->foreign('active_event_id')
+                ->references('id')
+                ->on('events')
+                ->nullOnDelete();
+        });
+
+        Schema::create('organization_user', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->timestamps();
+
+            $table->unique(['organization_id', 'user_id']);
         });
 
         Schema::create('locations', function (Blueprint $table) {
@@ -38,32 +61,20 @@ return new class extends Migration
             $table->string('name');
             $table->timestamps();
         });
-
-        Schema::create('application_state', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('default_event_id')
-                ->nullable()
-                ->constrained('events')
-                ->nullOnDelete();
-            $table->timestamp('setup_completed_at')->nullable();
-            $table->timestamps();
-        });
-
-        DB::table('application_state')->insert([
-            'id' => 1,
-            'default_event_id' => null,
-            'setup_completed_at' => null,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('application_state');
         Schema::dropIfExists('artist_types');
         Schema::dropIfExists('vendor_types');
         Schema::dropIfExists('locations');
+        Schema::dropIfExists('organization_user');
+
+        Schema::table('organizations', function (Blueprint $table) {
+            $table->dropForeign(['active_event_id']);
+        });
+
         Schema::dropIfExists('events');
+        Schema::dropIfExists('organizations');
     }
 };

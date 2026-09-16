@@ -39,7 +39,7 @@ Route::middleware('auth')->group(function () {
         Route::get('ui', UiKitController::class)->name('ui');
     }
 
-    Route::middleware('setup.complete')->group(function () {
+    Route::middleware(['organization', 'setup.complete'])->group(function () {
         Route::get('dashboard', DashboardController::class)->name('dashboard');
 
         Route::get('artists/advancing', [ArtistController::class, 'index'])->name('artists.index');
@@ -78,7 +78,7 @@ Route::middleware('auth')->group(function () {
         });
     });
 
-    Route::prefix('setup')->name('setup.')->group(function () {
+    Route::middleware('organization')->prefix('setup')->name('setup.')->group(function () {
         // Event-scoped writes: blocked when active event is locked or non-active context.
         Route::middleware('event.writable')->group(function () {
             Route::get('event', [SetupEventController::class, 'show'])->name('event');

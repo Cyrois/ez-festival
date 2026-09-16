@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Event;
+use App\Models\Organization;
 use App\Models\User;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -20,10 +21,11 @@ class OrganizationDatabaseArchitectureTest extends TestCase
         $this->withoutVite();
     }
 
-    public function test_schema_has_no_row_scoped_tenancy_artifacts(): void
+    public function test_schema_keeps_org_membership_without_row_scoped_tenancy(): void
     {
-        $this->assertFalse(Schema::hasTable('organizations'));
-        $this->assertFalse(Schema::hasTable('organization_user'));
+        $this->assertTrue(Schema::hasTable('organizations'));
+        $this->assertTrue(Schema::hasTable('organization_user'));
+        $this->assertFalse(Schema::hasTable('application_state'));
         $this->assertFalse(Schema::hasTable('organization_artists'));
         $this->assertTrue(Schema::hasTable('artists'));
 
@@ -48,7 +50,8 @@ class OrganizationDatabaseArchitectureTest extends TestCase
 
         $this->assertTrue($first->fresh()->effectiveEvent()->is($selected));
         $this->assertTrue($second->fresh()->effectiveEvent()->is($default));
-        $this->assertDatabaseCount('application_state', 1);
+        $this->assertDatabaseCount('organizations', 1);
+        $this->assertSame($default->id, Organization::query()->sole()->active_event_id);
     }
 
     public function test_deleted_user_event_falls_back_to_the_organization_default(): void
@@ -76,6 +79,8 @@ class OrganizationDatabaseArchitectureTest extends TestCase
             ->where('organization.name', 'Coastal Folk Festival')
             ->where('event', null));
 
+        $this->assertTrue($user->organizations()->exists());
+
         $this->post(route('setup.event'), [
             'name' => 'Coastal Folk Festival 2027',
             'starts_on' => '2027-07-10',
@@ -89,9 +94,11 @@ class OrganizationDatabaseArchitectureTest extends TestCase
 
         $this->post(route('setup.ready.complete'))->assertRedirect(route('dashboard'));
         $this->assertTrue(app(OrganizationContext::class)->setupIsComplete());
+        $this->assertNotNull(Organization::query()->sole()->setup_completed_at);
 
         $otherUser = User::factory()->create();
         $this->actingAs($otherUser)->get(route('dashboard'))->assertOk();
+        $this->assertTrue($otherUser->organizations()->exists());
     }
 
     private function event(string $name): Event
