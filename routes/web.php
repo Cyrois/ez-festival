@@ -14,6 +14,7 @@ use App\Http\Controllers\Setup\LocationController;
 use App\Http\Controllers\Setup\ReadyController;
 use App\Http\Controllers\Setup\VendorTypeController;
 use App\Http\Controllers\UiKitController;
+use App\Http\Controllers\VendorController;
 use App\Support\PostLoginRedirect;
 use Illuminate\Support\Facades\Route;
 
@@ -51,6 +52,8 @@ Route::middleware('auth')->group(function () {
             ->middleware('event.writable')->name('artists.notes.store');
         Route::post('events/{event}/artists', [ArtistController::class, 'store'])
             ->middleware('event.writable')->name('artists.store');
+
+        Route::get('vendors', [VendorController::class, 'index'])->name('vendors.index');
 
         Route::get('events', [EventController::class, 'index'])->name('events.index');
         Route::get('events/{event}', [EventController::class, 'show'])->name('events.show');

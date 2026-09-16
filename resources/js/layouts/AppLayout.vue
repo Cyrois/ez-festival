@@ -60,9 +60,9 @@ const navItems = [
     },
     {
         key: 'vendors',
-        href: null,
+        href: '/vendors',
         icon: ['fas', 'store'],
-        enabled: false,
+        enabled: true,
     },
     {
         key: 'patrons',
