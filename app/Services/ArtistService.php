@@ -103,6 +103,7 @@ class ArtistService
                 }
             }
 
+            // Edit UI presents the full label set for the org artist; sync replaces assignments.
             $artist->labels()->sync(array_values(array_unique($labelIds)));
         });
     }

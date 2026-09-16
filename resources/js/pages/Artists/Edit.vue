@@ -12,7 +12,7 @@ import { Tag } from '../../components/ui/tag';
 import { Textarea } from '../../components/ui/textarea';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { useForm } from '@inertiajs/vue3';
-import { computed, nextTick } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
 const props = defineProps({
@@ -442,7 +442,8 @@ const formatNoteTime = (iso) => {
                                 class="mb-1.5 flex flex-wrap items-baseline justify-between gap-2 text-xs"
                             >
                                 <strong class="font-bold">{{
-                                    note.author
+                                    note.author ||
+                                    $t('artists.notes_author_unknown')
                                 }}</strong>
                                 <span class="text-muted">{{
                                     formatNoteTime(note.created_at)

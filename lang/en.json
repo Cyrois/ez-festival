@@ -389,5 +389,6 @@
     "artists.notes_empty": "No notes yet. Post the first update for this artist.",
     "artists.toast.updated": "Artist details saved.",
     "artists.toast.note_posted": "Note posted.",
-    "nav.back": "Back"
+    "nav.back": "Back",
+    "artists.notes_author_unknown": "Former user"
 }

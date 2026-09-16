@@ -12,7 +12,7 @@ class ArtistEngagementNoteResource extends JsonResource
         return [
             'id' => $this->id,
             'body' => $this->body,
-            'author' => $this->user?->name ?? $this->user?->email,
+            'author' => $this->user?->name ?? $this->user?->email ?? __('artists.notes_author_unknown'),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

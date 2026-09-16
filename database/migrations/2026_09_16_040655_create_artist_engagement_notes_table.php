@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('artist_engagement_notes', function (Blueprint $table) {
             $table->id();
             $table->foreignId('artist_engagement_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
             $table->text('body');
             $table->timestamps();
 
