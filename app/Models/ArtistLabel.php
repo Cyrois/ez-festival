@@ -24,4 +24,9 @@ class ArtistLabel extends Model
     {
         return $this->belongsToMany(Artist::class, 'artist_label_assignments');
     }
+
+    public function engagements(): BelongsToMany
+    {
+        return $this->belongsToMany(ArtistEngagement::class, 'artist_engagement_label_assignments');
+    }
 }
