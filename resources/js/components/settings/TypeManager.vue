@@ -19,9 +19,13 @@ const props = defineProps({
 
 const { showFormError, showSuccess, showError } = useFlashToast();
 const orderedTypes = ref([...props.types]);
+const list = ref(null);
 const editingId = ref(null);
 const draggedId = ref(null);
 const activeDropIndex = ref(null);
+let activePointerId = null;
+let pointerStart = null;
+let rowMidpoints = [];
 const deleting = ref(null);
 const deleteBusy = ref(false);
 const addForm = useForm({ name: '' });
@@ -123,22 +127,47 @@ const persistOrder = () => {
         },
     );
 };
-const startDrag = (event, id) => {
-    draggedId.value = id;
-    activeDropIndex.value = null;
-    event.dataTransfer.effectAllowed = 'move';
-};
 const endDrag = () => {
+    activePointerId = null;
+    pointerStart = null;
+    rowMidpoints = [];
     draggedId.value = null;
     activeDropIndex.value = null;
 };
-const updateDropIndex = (event, index) => {
-    if (draggedId.value === null) return;
-    const bounds = event.currentTarget.getBoundingClientRect();
-    activeDropIndex.value =
-        event.clientY < bounds.top + bounds.height / 2 ? index : index + 1;
+const startDrag = (event, id) => {
+    if (newType.value || event.button !== 0) return;
+
+    activePointerId = event.pointerId;
+    pointerStart = { x: event.clientX, y: event.clientY };
+    rowMidpoints = Array.from(
+        list.value?.querySelectorAll('[data-type-index]') ?? [],
+    ).map((row) => {
+        const { top, height } = row.getBoundingClientRect();
+
+        return top + height / 2;
+    });
+    draggedId.value = id;
+    activeDropIndex.value = null;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
 };
-const dropType = () => {
+const updateDropIndex = (event) => {
+    if (event.pointerId !== activePointerId || !list.value) return;
+    if (
+        Math.abs(event.clientX - pointerStart.x) < 4 &&
+        Math.abs(event.clientY - pointerStart.y) < 4
+    )
+        return;
+
+    const nextIndex = rowMidpoints.findIndex(
+        (midpoint) => event.clientY < midpoint,
+    );
+
+    activeDropIndex.value = nextIndex === -1 ? rowMidpoints.length : nextIndex;
+};
+const dropType = (event) => {
+    if (event.pointerId !== activePointerId) return;
+    updateDropIndex(event);
     const targetIndex = activeDropIndex.value;
     const from = orderedTypes.value.findIndex(
         (type) => type.id === draggedId.value,
@@ -198,160 +227,169 @@ const deleteBody = computed(() => {
     </div>
     <div
         v-else
+        ref="list"
         class="flex flex-col gap-3"
     >
-        <div
-            v-if="draggedId !== null && activeDropIndex === 0"
-            class="min-h-[72px] rounded-lg border-2 border-dashed border-primary bg-primary/10"
-            @dragover.prevent
-            @drop.prevent="dropType"
-        />
-        <Card
+        <template
             v-for="(type, index) in orderedTypes"
             :key="type.id"
-            class="p-4"
-            :class="
-                draggedId === type.id ? 'ring-2 ring-primary ring-offset-2' : ''
-            "
-            @dragover.prevent="!type.isNew && updateDropIndex($event, index)"
-            @drop.prevent="!type.isNew && dropType()"
         >
-            <form
-                v-if="type.isNew"
-                class="flex w-full flex-col gap-3 sm:flex-row sm:items-end"
-                @submit.prevent="submitAdd"
-            >
-                <FormField
-                    :label="$t('setup.types.name')"
-                    :error="fieldError(addForm, 'name')"
-                    required
-                    class="min-w-0 flex-1"
-                >
-                    <template #default="{ id, invalid }">
-                        <Input
-                            :id="id"
-                            v-model="addForm.name"
-                            type="text"
-                            :placeholder="$t('setup.types.name_placeholder')"
-                            :invalid="invalid"
-                            autocomplete="off"
-                        />
-                    </template>
-                </FormField>
-                <div class="flex justify-end gap-2">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        :aria-label="$t('settings.type_actions.cancel')"
-                        @click="cancelAdd"
-                    >
-                        <Icon :name="['fas', 'xmark']" />
-                    </Button>
-                    <Button
-                        type="submit"
-                        variant="primary"
-                        size="sm"
-                        :aria-label="$t('settings.type_actions.save')"
-                        :loading="addForm.processing"
-                        :disabled="addForm.processing"
-                    >
-                        <Icon :name="['fas', 'check']" />
-                    </Button>
-                </div>
-            </form>
-            <form
-                v-else-if="editingId === type.id"
-                class="flex w-full flex-col gap-3 sm:flex-row sm:items-end"
-                @submit.prevent="submitEdit(type)"
-            >
-                <FormField
-                    :label="$t('setup.types.name')"
-                    :error="fieldError(editForm, 'name')"
-                    required
-                    class="min-w-0 flex-1"
-                >
-                    <template #default="{ id, invalid }">
-                        <Input
-                            :id="id"
-                            v-model="editForm.name"
-                            type="text"
-                            :invalid="invalid"
-                        />
-                    </template>
-                </FormField>
-                <div class="flex justify-end gap-2">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        :aria-label="$t('settings.type_actions.cancel')"
-                        @click="cancelEdit"
-                    >
-                        <Icon :name="['fas', 'xmark']" />
-                    </Button>
-                    <Button
-                        type="submit"
-                        variant="primary"
-                        size="sm"
-                        :aria-label="$t('settings.type_actions.save')"
-                        :loading="editForm.processing"
-                        :disabled="editForm.processing"
-                    >
-                        <Icon :name="['fas', 'check']" />
-                    </Button>
-                </div>
-            </form>
             <div
-                v-else
-                class="flex items-center gap-3"
+                v-if="draggedId !== null && activeDropIndex === index"
+                class="flex min-h-[64px] items-center justify-center rounded-xl border-2 border-dashed border-primary bg-primary/10 text-sm font-medium text-primary"
             >
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    class="cursor-grab touch-none px-2 text-muted active:cursor-grabbing"
-                    :aria-label="$t('settings.type_actions.drag_handle')"
-                    draggable="true"
-                    @dragstart="startDrag($event, type.id)"
-                    @dragend="endDrag"
-                >
-                    <Icon
-                        :name="['fas', 'grip-lines']"
-                        fixed-width
-                    />
-                </Button>
-                <strong class="min-w-0 flex-1 font-bold">{{
-                    type.name
-                }}</strong>
-                <div class="flex shrink-0 gap-2">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        :aria-label="$t('settings.type_actions.edit')"
-                        @click="startEdit(type)"
-                    >
-                        <Icon :name="['fas', 'pencil']" />
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="outline-danger"
-                        size="sm"
-                        :aria-label="$t('settings.type_actions.delete')"
-                        @click="askDelete(type)"
-                    >
-                        <Icon :name="['fas', 'trash-can']" />
-                    </Button>
-                </div>
+                {{ $t('settings.type_actions.drop_here') }}
             </div>
-        </Card>
+            <Card
+                :data-type-index="index"
+                class="p-4"
+                :class="
+                    draggedId === type.id
+                        ? 'ring-2 ring-primary ring-offset-2'
+                        : ''
+                "
+            >
+                <form
+                    v-if="type.isNew"
+                    class="flex w-full flex-col gap-3 sm:flex-row sm:items-end"
+                    @submit.prevent="submitAdd"
+                >
+                    <FormField
+                        :label="$t('setup.types.name')"
+                        :error="fieldError(addForm, 'name')"
+                        required
+                        class="min-w-0 flex-1"
+                    >
+                        <template #default="{ id, invalid }">
+                            <Input
+                                :id="id"
+                                v-model="addForm.name"
+                                type="text"
+                                :placeholder="
+                                    $t('setup.types.name_placeholder')
+                                "
+                                :invalid="invalid"
+                                autocomplete="off"
+                            />
+                        </template>
+                    </FormField>
+                    <div class="flex justify-end gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            :aria-label="$t('settings.type_actions.cancel')"
+                            @click="cancelAdd"
+                        >
+                            <Icon :name="['fas', 'xmark']" />
+                        </Button>
+                        <Button
+                            type="submit"
+                            variant="primary"
+                            size="sm"
+                            :aria-label="$t('settings.type_actions.save')"
+                            :loading="addForm.processing"
+                            :disabled="addForm.processing"
+                        >
+                            <Icon :name="['fas', 'check']" />
+                        </Button>
+                    </div>
+                </form>
+                <form
+                    v-else-if="editingId === type.id"
+                    class="flex w-full flex-col gap-3 sm:flex-row sm:items-end"
+                    @submit.prevent="submitEdit(type)"
+                >
+                    <FormField
+                        :label="$t('setup.types.name')"
+                        :error="fieldError(editForm, 'name')"
+                        required
+                        class="min-w-0 flex-1"
+                    >
+                        <template #default="{ id, invalid }">
+                            <Input
+                                :id="id"
+                                v-model="editForm.name"
+                                type="text"
+                                :invalid="invalid"
+                            />
+                        </template>
+                    </FormField>
+                    <div class="flex justify-end gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            :aria-label="$t('settings.type_actions.cancel')"
+                            @click="cancelEdit"
+                        >
+                            <Icon :name="['fas', 'xmark']" />
+                        </Button>
+                        <Button
+                            type="submit"
+                            variant="primary"
+                            size="sm"
+                            :aria-label="$t('settings.type_actions.save')"
+                            :loading="editForm.processing"
+                            :disabled="editForm.processing"
+                        >
+                            <Icon :name="['fas', 'check']" />
+                        </Button>
+                    </div>
+                </form>
+                <div
+                    v-else
+                    class="flex items-center gap-3"
+                >
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        class="cursor-grab touch-none px-2 text-muted active:cursor-grabbing"
+                        :aria-label="$t('settings.type_actions.drag_handle')"
+                        :disabled="Boolean(newType)"
+                        @pointerdown="startDrag($event, type.id)"
+                        @pointermove="updateDropIndex"
+                        @pointerup="dropType"
+                        @pointercancel="endDrag"
+                    >
+                        <Icon
+                            :name="['fas', 'grip-lines']"
+                            fixed-width
+                        />
+                    </Button>
+                    <strong class="min-w-0 flex-1 font-bold">{{
+                        type.name
+                    }}</strong>
+                    <div class="flex shrink-0 gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            :aria-label="$t('settings.type_actions.edit')"
+                            @click="startEdit(type)"
+                        >
+                            <Icon :name="['fas', 'pencil']" />
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline-danger"
+                            size="sm"
+                            :aria-label="$t('settings.type_actions.delete')"
+                            @click="askDelete(type)"
+                        >
+                            <Icon :name="['fas', 'trash-can']" />
+                        </Button>
+                    </div>
+                </div>
+            </Card>
+        </template>
         <div
             v-if="draggedId !== null && activeDropIndex === orderedTypes.length"
-            class="min-h-[72px] rounded-lg border-2 border-dashed border-primary bg-primary/10"
-            @dragover.prevent
-            @drop.prevent="dropType"
-        />
+            class="flex min-h-[64px] items-center justify-center rounded-xl border-2 border-dashed border-primary bg-primary/10 text-sm font-medium text-primary"
+        >
+            {{ $t('settings.type_actions.drop_here') }}
+        </div>
     </div>
     <Dialog
         :open="Boolean(deleting)"
