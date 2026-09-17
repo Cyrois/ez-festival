@@ -55,6 +55,11 @@ Route::middleware('auth')->group(function () {
 
         Route::redirect('vendors', '/vendors/advancing')->name('vendors.index');
         Route::get('vendors/advancing', [VendorController::class, 'index'])->name('vendors.advancing');
+        Route::get('vendors/engagements/{engagement}', [VendorController::class, 'view'])->name('vendors.view');
+        Route::put('vendors/engagements/{engagement}', [VendorController::class, 'update'])
+            ->middleware('event.writable')->name('vendors.update');
+        Route::post('vendors/engagements/{engagement}/notes', [VendorController::class, 'storeNote'])
+            ->middleware('event.writable')->name('vendors.notes.store');
         Route::get('vendors/create', [VendorController::class, 'create'])->name('vendors.create');
         Route::post('events/{event}/vendors', [VendorController::class, 'store'])
             ->middleware('event.writable')->name('vendors.store');

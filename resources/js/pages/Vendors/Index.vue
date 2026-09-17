@@ -15,7 +15,7 @@ import {
     TableHeader,
     TableRow,
 } from '../../components/ui/table';
-import { router } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
@@ -162,7 +162,11 @@ watch(search, (value) => {
                             :name="vendor.name"
                             size="sm"
                         />
-                        <span class="font-semibold">{{ vendor.name }}</span>
+                        <Link
+                            :href="`/vendors/engagements/${vendor.id}`"
+                            class="font-semibold text-charcoal"
+                            >{{ vendor.name }}</Link
+                        >
                         <Badge
                             variant="neutral"
                             pill
@@ -208,13 +212,16 @@ watch(search, (value) => {
                                 :key="vendor.id"
                             >
                                 <TableCell class="font-semibold">
-                                    <div class="flex items-center gap-3">
+                                    <Link
+                                        :href="`/vendors/engagements/${vendor.id}`"
+                                        class="flex items-center gap-3 text-charcoal"
+                                    >
                                         <Avatar
                                             :name="vendor.name"
                                             size="sm"
                                         />
                                         {{ vendor.name }}
-                                    </div>
+                                    </Link>
                                 </TableCell>
                                 <TableCell class="text-muted">
                                     {{ vendor.type || $t('vendors.not_set') }}
