@@ -422,5 +422,8 @@
     "vendors.status.negotiating": "Negotiating",
     "vendors.status.contract_sent": "Contract sent",
     "vendors.status.confirmed": "Confirmed",
-    "vendors.status.declined": "Declined"
+    "vendors.status.declined": "Declined",
+    "vendors.toast.created": "Vendor added.",
+    "vendors.errors.already_added": "This vendor is already in this event.",
+    "vendors.not_set": "—"
 }
