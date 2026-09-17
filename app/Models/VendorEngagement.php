@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['vendor_id', 'event_id', 'vendor_type_id', 'status'])]
 class VendorEngagement extends Model
@@ -27,5 +28,10 @@ class VendorEngagement extends Model
     public function vendorType(): BelongsTo
     {
         return $this->belongsTo(VendorType::class);
+    }
+
+    public function notes(): HasMany
+    {
+        return $this->hasMany(VendorEngagementNote::class);
     }
 }

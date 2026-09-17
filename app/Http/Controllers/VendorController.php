@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Vendors\IndexVendorsRequest;
+use App\Http\Requests\Vendors\StoreVendorNoteRequest;
 use App\Http\Requests\Vendors\StoreVendorRequest;
+use App\Http\Requests\Vendors\UpdateVendorRequest;
+use App\Http\Resources\VendorEngagementNoteResource;
 use App\Http\Resources\VendorResource;
 use App\Models\Event;
 use App\Models\VendorEngagement;
@@ -56,5 +59,53 @@ class VendorController extends Controller
         return redirect()->route('vendors.advancing')
             ->with('success', __('vendors.toast.created'))
             ->with('success_title', __('toast.saved_title'));
+    }
+
+    public function view(VendorEngagement $engagement): Response
+    {
+        $event = $this->resolveEventContext($engagement);
+        $engagement->load(['vendor', 'vendorType']);
+        $notes = $engagement->notes()->with('user:id,name,email')->latest('created_at')->latest('id')->get();
+
+        return Inertia::render('Vendors/View', [
+            'engagement' => (new VendorResource($engagement))->resolve(),
+            'notes' => VendorEngagementNoteResource::collection($notes)->resolve(),
+            'event' => $event->only('id', 'name', 'locked', 'timezone'),
+            'types' => VendorType::query()->orderBy('name')->get(['id', 'name']),
+            'statuses' => VendorEngagement::STATUSES,
+            'canWrite' => ! $event->isLocked(),
+        ]);
+    }
+
+    public function update(UpdateVendorRequest $request, VendorEngagement $engagement): RedirectResponse
+    {
+        $this->resolveEventContext($engagement, writable: true);
+        $this->vendorService->updateEngagement($engagement, $request->validated());
+
+        return redirect()->route('vendors.view', $engagement)
+            ->with('success', __('vendors.toast.updated'))
+            ->with('success_title', __('toast.saved_title'));
+    }
+
+    public function storeNote(StoreVendorNoteRequest $request, VendorEngagement $engagement): RedirectResponse
+    {
+        $this->resolveEventContext($engagement, writable: true);
+        $this->vendorService->addNote($engagement, $request->user(), $request->validated('body'));
+
+        return redirect()->route('vendors.view', $engagement)
+            ->with('success', __('vendors.toast.note_posted'))
+            ->with('success_title', __('toast.saved_title'));
+    }
+
+    private function resolveEventContext(VendorEngagement $engagement, bool $writable = false): Event
+    {
+        $event = request()->user()->effectiveEvent();
+        abort_if($event === null, 404);
+        abort_unless((int) $engagement->event_id === (int) $event->id, 404);
+        if ($writable) {
+            $event->ensureWritable();
+        }
+
+        return $event;
     }
 }
