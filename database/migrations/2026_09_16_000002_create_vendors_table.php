@@ -10,20 +10,27 @@ return new class extends Migration
     {
         Schema::create('vendors', function (Blueprint $table) {
             $table->id();
+            $table->string('name');
+            $table->string('name_key')->unique();
+            $table->timestamps();
+        });
+
+        Schema::create('vendor_engagements', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('vendor_id')->constrained('vendors')->cascadeOnDelete();
             $table->foreignId('event_id')->constrained()->cascadeOnDelete();
             $table->foreignId('vendor_type_id')->nullable()->constrained()->nullOnDelete();
-            $table->string('name');
-            $table->string('name_key');
             $table->string('status')->default('idea');
             $table->timestamps();
 
-            $table->unique(['event_id', 'name_key']);
+            $table->unique(['vendor_id', 'event_id']);
             $table->index(['event_id', 'status']);
         });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('vendor_engagements');
         Schema::dropIfExists('vendors');
     }
 };

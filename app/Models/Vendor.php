@@ -5,22 +5,20 @@ namespace App\Models;
 use App\Models\Concerns\HasNormalizedName;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['event_id', 'vendor_type_id', 'name', 'name_key', 'status'])]
+#[Fillable(['name', 'name_key'])]
 class Vendor extends Model
 {
     use HasNormalizedName;
 
-    public const STATUSES = ['idea', 'outreach', 'negotiating', 'contract_sent', 'confirmed', 'declined'];
-
-    public function event(): BelongsTo
+    public function engagements(): HasMany
     {
-        return $this->belongsTo(Event::class);
+        return $this->hasMany(VendorEngagement::class);
     }
 
-    public function vendorType(): BelongsTo
+    public function engagementFor(Event $event): ?VendorEngagement
     {
-        return $this->belongsTo(VendorType::class);
+        return $this->engagements()->whereBelongsTo($event)->first();
     }
 }

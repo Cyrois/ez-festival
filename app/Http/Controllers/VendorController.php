@@ -6,7 +6,7 @@ use App\Http\Requests\Vendors\IndexVendorsRequest;
 use App\Http\Requests\Vendors\StoreVendorRequest;
 use App\Http\Resources\VendorResource;
 use App\Models\Event;
-use App\Models\Vendor;
+use App\Models\VendorEngagement;
 use App\Models\VendorType;
 use App\Repositories\VendorRepository;
 use App\Services\VendorService;
@@ -43,7 +43,7 @@ class VendorController extends Controller
         return Inertia::render('Vendors/Create', [
             'event' => $event->only('id', 'name'),
             'types' => VendorType::query()->orderBy('name')->get(['id', 'name']),
-            'statuses' => Vendor::STATUSES,
+            'statuses' => VendorEngagement::STATUSES,
         ]);
     }
 
