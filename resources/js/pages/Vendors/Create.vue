@@ -5,6 +5,7 @@ import { Card } from '../../components/ui/card';
 import { FormField } from '../../components/ui/form-field';
 import { Input } from '../../components/ui/input';
 import { Select } from '../../components/ui/select';
+import { useFlashToast } from '../../composables/useFlashToast';
 import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { trans } from 'laravel-vue-i18n';
@@ -12,27 +13,22 @@ import { trans } from 'laravel-vue-i18n';
 const props = defineProps({
     event: { type: Object, required: true },
     types: { type: Array, required: true },
+    statuses: { type: Array, required: true },
 });
 
-const statuses = [
-    'idea',
-    'outreach',
-    'negotiating',
-    'contract_sent',
-    'confirmed',
-    'declined',
-];
 const form = useForm({
     name: '',
     status: 'idea',
     vendor_type_id: '',
 });
+const { showFormError } = useFlashToast();
 const breadcrumbs = computed(() => [
     { label: trans('nav.vendors'), href: '/vendors/advancing' },
     { label: trans('vendors.add') },
 ]);
 
-const submit = () => form.post(`/events/${props.event.id}/vendors`);
+const submit = () =>
+    form.post(`/events/${props.event.id}/vendors`, { onError: showFormError });
 </script>
 
 <template>
