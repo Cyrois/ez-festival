@@ -77,8 +77,14 @@ Route::middleware('auth')->group(function () {
             Route::get('roles', [PrimaryEventSettingsController::class, 'roles'])->name('roles');
             Route::get('users', [PrimaryEventSettingsController::class, 'users'])->name('users');
             Route::get('artist-types', [SettingsArtistTypeController::class, 'index'])->name('artist-types');
+            Route::post('artist-types', [SettingsArtistTypeController::class, 'store'])->name('artist-types.store');
+            Route::put('artist-types/{artistType}', [SettingsArtistTypeController::class, 'update'])->name('artist-types.update');
+            Route::delete('artist-types/{artistType}', [SettingsArtistTypeController::class, 'destroy'])->name('artist-types.destroy');
             Route::post('artist-types/reorder', [SettingsArtistTypeController::class, 'reorder'])->name('artist-types.reorder');
             Route::get('vendor-types', [SettingsVendorTypeController::class, 'index'])->name('vendor-types');
+            Route::post('vendor-types', [SettingsVendorTypeController::class, 'store'])->name('vendor-types.store');
+            Route::put('vendor-types/{vendorType}', [SettingsVendorTypeController::class, 'update'])->name('vendor-types.update');
+            Route::delete('vendor-types/{vendorType}', [SettingsVendorTypeController::class, 'destroy'])->name('vendor-types.destroy');
             Route::post('vendor-types/reorder', [SettingsVendorTypeController::class, 'reorder'])->name('vendor-types.reorder');
             Route::get('events/{event}/edit', [SettingsEventController::class, 'edit'])->name('events.edit');
             Route::post('events/{event}/set-primary', [SettingsEventController::class, 'setPrimary'])->name('events.set-primary');

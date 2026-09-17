@@ -119,11 +119,15 @@ onUnmounted(() => {
                     {{ title }}
                 </h2>
                 <p
-                    v-if="description"
+                    v-if="description || $slots.description"
                     id="ui-dialog-description"
                     class="m-0 text-sm leading-snug text-muted"
                 >
-                    {{ description }}
+                    <slot
+                        v-if="$slots.description"
+                        name="description"
+                    />
+                    <template v-else>{{ description }}</template>
                 </p>
                 <slot />
                 <div
