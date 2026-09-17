@@ -329,6 +329,8 @@
     "settings.type_actions.drag_handle": "Drag to reorder",
     "settings.type_actions.delete_title": "Delete this type?",
     "settings.type_actions.delete_body": "This will remove :name from the available types.",
+    "settings.type_actions.delete_body_affected": "This will remove :name from :count associated records. Those artists or vendors will no longer have this type.",
+    "settings.type_actions.delete_irreversible": "This cannot be undone.",
     "settings.type_actions.saved": "Type saved.",
     "settings.type_actions.updated": "Type updated.",
     "settings.type_actions.deleted": "Type deleted.",

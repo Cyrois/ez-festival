@@ -20,6 +20,7 @@ class ArtistTypeController extends Controller
             'types' => ArtistType::query()
                 ->orderBy('sort_order')
                 ->orderBy('id')
+                ->withCount('engagements as affected_count')
                 ->get(['id', 'name', 'sort_order']),
         ]);
     }

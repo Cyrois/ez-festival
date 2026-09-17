@@ -158,13 +158,18 @@ const dropType = () => {
     endDrag();
     persistOrder();
 };
-const deleteBody = computed(() =>
-    deleting.value
-        ? trans('settings.type_actions.delete_body', {
-              name: deleting.value.name,
-          })
-        : '',
-);
+const deleteBody = computed(() => {
+    if (!deleting.value) return '';
+
+    const key = deleting.value.affected_count
+        ? 'settings.type_actions.delete_body_affected'
+        : 'settings.type_actions.delete_body';
+
+    return trans(key, {
+        name: deleting.value.name,
+        count: deleting.value.affected_count,
+    });
+});
 </script>
 
 <template>
@@ -351,11 +356,17 @@ const deleteBody = computed(() =>
     <Dialog
         :open="Boolean(deleting)"
         :title="$t('settings.type_actions.delete_title')"
-        :description="deleteBody"
         :confirm-label="$t('settings.type_actions.delete')"
         confirm-variant="danger"
         :busy="deleteBusy"
         @update:open="deleting = null"
         @confirm="confirmDelete"
-    />
+    >
+        <template #description>
+            {{ deleteBody }}
+            <strong class="mt-2 block text-charcoal">
+                {{ $t('settings.type_actions.delete_irreversible') }}
+            </strong>
+        </template>
+    </Dialog>
 </template>
