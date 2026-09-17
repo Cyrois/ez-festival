@@ -15,16 +15,18 @@ import {
     TableHeader,
     TableRow,
 } from '../../components/ui/table';
-import { computed, ref } from 'vue';
+import { router } from '@inertiajs/vue3';
+import { computed, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
 const props = defineProps({
+    vendors: { type: Object, required: true },
+    filters: { type: Object, required: true },
     event: { type: Object, default: null },
 });
 
-const search = ref('');
+const search = ref(props.filters.search);
 const viewMode = ref('list');
-const vendors = ref([]);
 const viewOptions = computed(() => [
     { value: 'columns', label: trans('vendors.views.columns') },
     { value: 'list', label: trans('vendors.views.list') },
@@ -38,6 +40,18 @@ const breadcrumbs = computed(() => [
 const clearSearch = () => {
     search.value = '';
 };
+
+let searchTimer;
+watch(search, (value) => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+        router.get(
+            '/vendors/advancing',
+            { search: value },
+            { preserveState: true, preserveScroll: true, replace: true },
+        );
+    }, 300);
+});
 </script>
 
 <template>
@@ -58,7 +72,6 @@ const clearSearch = () => {
                 v-if="event && !event.locked"
                 href="/vendors/create"
                 class="min-h-11 w-full sm:w-auto"
-                disabled
             >
                 <Icon
                     :name="['fas', 'plus']"
@@ -140,7 +153,7 @@ const clearSearch = () => {
 
             <div class="flex flex-col gap-3 md:hidden">
                 <div
-                    v-for="vendor in vendors"
+                    v-for="vendor in vendors.data"
                     :key="vendor.id"
                     class="rounded-xl border border-line bg-ground p-4"
                 >
@@ -153,11 +166,12 @@ const clearSearch = () => {
                         <Badge
                             variant="neutral"
                             pill
-                            >{{ vendor.status }}</Badge
+                            >{{ $t(`vendors.status.${vendor.status}`) }}</Badge
                         >
                     </div>
                 </div>
                 <p
+                    v-if="!vendors.data.length"
                     class="rounded-xl border border-line bg-ground px-4 py-16 text-center text-muted"
                 >
                     {{ $t(search ? 'vendors.no_matches' : 'vendors.empty') }}
@@ -189,7 +203,41 @@ const clearSearch = () => {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            <TableRow v-if="!vendors.length">
+                            <TableRow
+                                v-for="vendor in vendors.data"
+                                :key="vendor.id"
+                            >
+                                <TableCell class="font-semibold">
+                                    <div class="flex items-center gap-3">
+                                        <Avatar
+                                            :name="vendor.name"
+                                            size="sm"
+                                        />
+                                        {{ vendor.name }}
+                                    </div>
+                                </TableCell>
+                                <TableCell class="text-muted">
+                                    {{ vendor.type || $t('vendors.not_set') }}
+                                </TableCell>
+                                <TableCell>
+                                    <Badge
+                                        variant="neutral"
+                                        pill
+                                        >{{
+                                            $t(
+                                                `vendors.status.${vendor.status}`,
+                                            )
+                                        }}</Badge
+                                    >
+                                </TableCell>
+                                <TableCell class="text-muted">
+                                    {{ $t('vendors.not_set') }}
+                                </TableCell>
+                                <TableCell class="text-muted">
+                                    {{ $t('vendors.not_set') }}
+                                </TableCell>
+                            </TableRow>
+                            <TableRow v-if="!vendors.data.length">
                                 <TableCell
                                     :colspan="5"
                                     class="py-16 text-center text-muted"
