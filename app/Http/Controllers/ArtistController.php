@@ -16,6 +16,7 @@ use App\Models\ArtistType;
 use App\Models\Event;
 use App\Repositories\ArtistRepository;
 use App\Services\ArtistService;
+use App\Support\EventContext;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -25,6 +26,7 @@ class ArtistController extends Controller
     public function __construct(
         private readonly ArtistRepository $artists,
         private readonly ArtistService $artistService,
+        private readonly EventContext $eventContext,
     ) {}
 
     public function index(IndexArtistsRequest $request): Response
@@ -46,9 +48,7 @@ class ArtistController extends Controller
 
     public function create(CreateArtistRequest $request): Response
     {
-        $event = $request->user()->effectiveEvent();
-        abort_if($event === null, 404);
-        $event->ensureWritable();
+        $event = $this->eventContext->requireWritable($request->user());
 
         return Inertia::render('Artists/Create', [
             'event' => $event->only('id', 'name'),
@@ -61,9 +61,7 @@ class ArtistController extends Controller
 
     public function store(StoreArtistRequest $request, Event $event): RedirectResponse
     {
-        $effectiveEvent = $request->user()->effectiveEvent();
-        abort_unless($effectiveEvent?->is($event), 404);
-        $event->ensureWritable();
+        $this->eventContext->requireCurrentEvent($request->user(), $event, writable: true);
         $this->artistService->addToEvent($event, $request->validated());
 
         return redirect()->route('artists.index')
@@ -124,18 +122,12 @@ class ArtistController extends Controller
         ArtistEngagement $engagement,
         bool $writable,
     ): Event {
-        $effectiveEvent = $request->user()->effectiveEvent();
-        abort_if($effectiveEvent === null, 404);
-
         $engagement->loadMissing('event');
-        abort_unless((int) $engagement->event_id === (int) $effectiveEvent->id, 404);
 
-        $event = $engagement->event;
-
-        if ($writable) {
-            $event->ensureWritable();
-        }
-
-        return $event;
+        return $this->eventContext->requireCurrentEvent(
+            $request->user(),
+            $engagement->event,
+            writable: $writable,
+        );
     }
 }

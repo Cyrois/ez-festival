@@ -6,6 +6,8 @@ use App\Models\ArtistEngagement;
 use App\Models\Event;
 use App\Models\Location;
 use App\Models\User;
+use App\Models\VendorEngagement;
+use App\Support\EventContext;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -19,6 +21,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class PreventLockedEventWrites
 {
+    public function __construct(private readonly EventContext $eventContext) {}
+
     public function handle(Request $request, Closure $next): Response
     {
         if ($request->isMethodSafe()) {
@@ -32,7 +36,7 @@ class PreventLockedEventWrites
             return $next($request);
         }
 
-        $primary = $user->effectiveEvent();
+        $primary = $this->eventContext->current($user);
         $event = $this->resolveEvent($request, $primary);
 
         if ($event === null) {
@@ -54,7 +58,7 @@ class PreventLockedEventWrites
 
         $engagement = $request->route('engagement');
 
-        if ($engagement instanceof ArtistEngagement) {
+        if ($engagement instanceof ArtistEngagement || $engagement instanceof VendorEngagement) {
             return $engagement->event;
         }
 

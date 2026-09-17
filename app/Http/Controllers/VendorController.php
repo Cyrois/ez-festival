@@ -13,7 +13,9 @@ use App\Models\VendorEngagement;
 use App\Models\VendorType;
 use App\Repositories\VendorRepository;
 use App\Services\VendorService;
+use App\Support\EventContext;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -22,6 +24,7 @@ class VendorController extends Controller
     public function __construct(
         private readonly VendorRepository $vendors,
         private readonly VendorService $vendorService,
+        private readonly EventContext $eventContext,
     ) {}
 
     public function index(IndexVendorsRequest $request): Response
@@ -37,11 +40,9 @@ class VendorController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(Request $request): Response
     {
-        $event = request()->user()->effectiveEvent();
-        abort_if($event === null, 404);
-        $event->ensureWritable();
+        $event = $this->eventContext->requireWritable($request->user());
 
         return Inertia::render('Vendors/Create', [
             'event' => $event->only('id', 'name'),
@@ -52,9 +53,7 @@ class VendorController extends Controller
 
     public function store(StoreVendorRequest $request, Event $event): RedirectResponse
     {
-        $effectiveEvent = $request->user()->effectiveEvent();
-        abort_unless($effectiveEvent?->is($event), 404);
-        $event->ensureWritable();
+        $this->eventContext->requireCurrentEvent($request->user(), $event, writable: true);
         $this->vendorService->addToEvent($event, $request->validated());
 
         return redirect()->route('vendors.advancing')
