@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests\Vendors;
 
-use App\Models\Vendor;
+use App\Models\VendorEngagement;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -24,7 +24,7 @@ class StoreVendorRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'status' => ['sometimes', 'required', Rule::in(Vendor::STATUSES)],
+            'status' => ['sometimes', 'required', Rule::in(VendorEngagement::STATUSES)],
             'vendor_type_id' => ['nullable', 'integer', Rule::exists('vendor_types', 'id')],
         ];
     }

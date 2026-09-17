@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Event;
 use App\Models\User;
 use App\Models\Vendor;
+use App\Models\VendorEngagement;
 use App\Models\VendorType;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -47,8 +48,10 @@ class VendorTest extends TestCase
         $vendor = Vendor::query()->firstOrFail();
         $this->assertSame('North Catering', $vendor->name);
         $this->assertSame('north catering', $vendor->name_key);
-        $this->assertSame('confirmed', $vendor->status);
-        $this->assertSame($type->id, $vendor->vendor_type_id);
+        $engagement = $vendor->engagements()->firstOrFail();
+        $this->assertSame('confirmed', $engagement->status);
+        $this->assertSame($type->id, $engagement->vendor_type_id);
+        $this->assertSame($event->id, $engagement->event_id);
 
         $this->actingAs($user)->get(route('vendors.advancing'))->assertInertia(fn (Assert $page) => $page
             ->component('Vendors/Index')
@@ -61,10 +64,13 @@ class VendorTest extends TestCase
     public function test_duplicate_vendor_names_are_rejected_for_the_same_event(): void
     {
         [$user, $event] = $this->context();
-        Vendor::query()->create([
-            'event_id' => $event->id,
+        $vendor = Vendor::query()->create([
             'name' => 'North Catering',
             'name_key' => 'north catering',
+        ]);
+        VendorEngagement::query()->create([
+            'vendor_id' => $vendor->id,
+            'event_id' => $event->id,
             'status' => 'idea',
         ]);
 
@@ -74,6 +80,25 @@ class VendorTest extends TestCase
             ->assertSessionHasErrors('name');
 
         $this->assertDatabaseCount('vendors', 1);
+        $this->assertDatabaseCount('vendor_engagements', 1);
+    }
+
+    public function test_existing_global_vendor_can_be_added_to_another_event(): void
+    {
+        [$user, $event] = $this->context();
+        $vendor = Vendor::query()->create([
+            'name' => 'North Catering',
+            'name_key' => 'north catering',
+        ]);
+
+        $this->actingAs($user)->post(route('vendors.store', $event), [
+            'name' => 'North Catering',
+            'status' => 'outreach',
+        ])->assertRedirect(route('vendors.advancing'));
+
+        $this->assertSame(1, Vendor::query()->count());
+        $this->assertSame(1, VendorEngagement::query()->count());
+        $this->assertSame($vendor->id, VendorEngagement::query()->firstOrFail()->vendor_id);
     }
 
     public function test_locked_event_blocks_vendor_creation(): void

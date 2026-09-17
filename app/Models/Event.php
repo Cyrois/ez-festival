@@ -37,9 +37,9 @@ class Event extends Model
         return $this->hasMany(ArtistEngagement::class);
     }
 
-    public function vendors(): HasMany
+    public function vendorEngagements(): HasMany
     {
-        return $this->hasMany(Vendor::class);
+        return $this->hasMany(VendorEngagement::class);
     }
 
     public function isPast(?Carbon $on = null): bool
