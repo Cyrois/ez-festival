@@ -21,8 +21,8 @@ const currentPath = computed(() => page.url.split('?')[0]);
 const organizationItems = [
     { key: 'general', enabled: false },
     { key: 'people', enabled: false },
-    { key: 'artist_types', enabled: false },
-    { key: 'vendor_types', enabled: false },
+    { key: 'artist_types', href: '/settings/artist-types', enabled: true },
+    { key: 'vendor_types', href: '/settings/vendor-types', enabled: true },
     { key: 'custom_fields', enabled: false },
     { key: 'labels', enabled: false },
 ];
@@ -68,6 +68,15 @@ const isEventNavActive = (match) => {
     return false;
 };
 
+const isOrganizationNavActive = (key) => {
+    const path = currentPath.value;
+
+    return (
+        (key === 'artist_types' && path === '/settings/artist-types') ||
+        (key === 'vendor_types' && path === '/settings/vendor-types')
+    );
+};
+
 const itemClass = (active, enabled) => {
     if (!enabled) {
         return 'cursor-default text-charcoal/35';
@@ -108,15 +117,27 @@ const itemClass = (active, enabled) => {
                         {{ $t('settings.nav.organization') }}
                     </p>
                     <nav class="flex flex-col gap-0.5">
-                        <span
+                        <component
+                            :is="item.enabled ? Link : 'span'"
                             v-for="item in organizationItems"
                             :key="item.key"
                             class="min-h-11 rounded-lg px-2 py-2.5 text-[13px] font-semibold"
-                            :class="itemClass(false, item.enabled)"
-                            aria-disabled="true"
+                            :class="
+                                itemClass(
+                                    isOrganizationNavActive(item.key),
+                                    item.enabled,
+                                )
+                            "
+                            :href="item.enabled ? item.href : undefined"
+                            :aria-current="
+                                isOrganizationNavActive(item.key)
+                                    ? 'page'
+                                    : undefined
+                            "
+                            :aria-disabled="item.enabled ? undefined : 'true'"
                         >
                             {{ $t(`settings.nav.items.${item.key}`) }}
-                        </span>
+                        </component>
                     </nav>
                 </div>
                 <div>

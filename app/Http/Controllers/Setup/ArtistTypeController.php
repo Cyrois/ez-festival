@@ -32,8 +32,9 @@ class ArtistTypeController extends Controller
             ],
             'event' => ['id' => $event->id, 'name' => $event->name],
             'types' => ArtistType::query()
+                ->orderBy('sort_order')
                 ->orderBy('id')
-                ->get(['id', 'name']),
+                ->get(['id', 'name', 'sort_order']),
             'currentStep' => 4,
         ]);
     }
