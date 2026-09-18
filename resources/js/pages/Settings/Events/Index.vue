@@ -163,7 +163,7 @@ const statusVariant = {
                         <Button
                             v-if="!event.is_locked"
                             :href="`/settings/events/${event.id}/edit`"
-                            :variant="event.is_active ? 'primary' : 'outline'"
+                            variant="primary"
                             size="sm"
                             class="min-h-11"
                         >
@@ -278,11 +278,7 @@ const statusVariant = {
                                         <Button
                                             v-if="!event.is_locked"
                                             :href="`/settings/events/${event.id}/edit`"
-                                            :variant="
-                                                event.is_active
-                                                    ? 'primary'
-                                                    : 'outline'
-                                            "
+                                            variant="primary"
                                             size="sm"
                                         >
                                             <Icon
