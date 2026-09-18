@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\Settings\ArtistTypeController as SettingsArtistTypeController;
+use App\Http\Controllers\Settings\CustomFieldController;
 use App\Http\Controllers\Settings\EventController as SettingsEventController;
 use App\Http\Controllers\Settings\EventLocationController;
 use App\Http\Controllers\Settings\LabelController;
@@ -87,6 +88,7 @@ Route::middleware('auth')->group(function () {
             Route::put('vendor-types/{vendorType}', [SettingsVendorTypeController::class, 'update'])->name('vendor-types.update');
             Route::delete('vendor-types/{vendorType}', [SettingsVendorTypeController::class, 'destroy'])->name('vendor-types.destroy');
             Route::post('vendor-types/reorder', [SettingsVendorTypeController::class, 'reorder'])->name('vendor-types.reorder');
+            Route::get('custom-fields', CustomFieldController::class)->name('custom-fields');
             Route::get('labels', LabelController::class)->name('labels');
             Route::get('events/{event}/edit', [SettingsEventController::class, 'edit'])->name('events.edit');
             Route::post('events/{event}/set-primary', [SettingsEventController::class, 'setPrimary'])->name('events.set-primary');
