@@ -24,16 +24,7 @@ const breadcrumbs = computed(() => [
     { label: trans('settings.custom_fields.title') },
 ]);
 
-const targets = [
-    { key: 'artist', label: trans('settings.custom_fields.target.artist') },
-    { key: 'vendor', label: trans('settings.custom_fields.target.vendor') },
-    { key: 'patron', label: trans('settings.custom_fields.target.patron') },
-    {
-        key: 'team_member',
-        label: trans('settings.custom_fields.target.team_member'),
-    },
-    { key: 'user', label: trans('settings.custom_fields.target.user') },
-];
+const targets = ['artist', 'vendor', 'patron', 'team_member', 'user'];
 
 const { showError, showFormError, showSuccess } = useFlashToast();
 const editing = ref(null);
@@ -144,18 +135,18 @@ const remove = (field) => {
 
             <section
                 v-for="target in targets"
-                :key="target.key"
+                :key="target"
                 class="flex flex-col gap-4"
             >
                 <div class="flex items-center justify-between gap-4">
                     <h2 class="m-0 text-lg font-semibold text-charcoal">
-                        {{ target.label }}
+                        {{ $t(`settings.custom_fields.target.${target}`) }}
                     </h2>
                     <Button
                         v-if="editing === null"
                         type="button"
                         size="sm"
-                        @click="beginCreate(target.key)"
+                        @click="beginCreate(target)"
                     >
                         <Icon
                             :name="['fas', 'plus']"
@@ -165,7 +156,7 @@ const remove = (field) => {
                         {{
                             $t('settings.custom_fields.actions.add_target', {
                                 target: $t(
-                                    `settings.custom_fields.target_singular.${target.key}`,
+                                    `settings.custom_fields.target_singular.${target}`,
                                 ),
                             })
                         }}
@@ -180,7 +171,7 @@ const remove = (field) => {
                     leave-from-class="translate-y-0 opacity-100"
                     leave-to-class="-translate-y-3 opacity-0"
                 >
-                    <Card v-if="editingTarget === target.key">
+                    <Card v-if="editingTarget === target">
                         <template #header>
                             <h3
                                 class="m-0 text-base font-semibold text-charcoal"
@@ -191,7 +182,7 @@ const remove = (field) => {
                                               'settings.custom_fields.form.title.add_target',
                                               {
                                                   target: $t(
-                                                      `settings.custom_fields.target_singular.${target.key}`,
+                                                      `settings.custom_fields.target_singular.${target}`,
                                                   ),
                                               },
                                           )
@@ -358,11 +349,11 @@ const remove = (field) => {
                 </Transition>
 
                 <div
-                    v-if="fieldsForTarget(target.key).length > 0"
+                    v-if="fieldsForTarget(target).length > 0"
                     class="flex flex-col gap-3"
                 >
                     <Card
-                        v-for="field in fieldsForTarget(target.key)"
+                        v-for="field in fieldsForTarget(target)"
                         :key="field.id"
                         class="p-4"
                     >
@@ -441,7 +432,7 @@ const remove = (field) => {
                     </Card>
                 </div>
                 <p
-                    v-else-if="editingTarget !== target.key"
+                    v-else-if="editingTarget !== target"
                     class="m-0 text-sm text-muted"
                 >
                     {{ $t('settings.custom_fields.empty.section') }}
