@@ -19,16 +19,18 @@ const page = usePage();
 const currentPath = computed(() => page.url.split('?')[0]);
 
 const organizationItems = [
-    { key: 'general', enabled: false },
-    { key: 'people', enabled: false },
+    { key: 'events', href: '/settings/events', enabled: true },
+    { key: 'team', href: '/settings/team', enabled: true },
     { key: 'artist_types', href: '/settings/artist-types', enabled: true },
     { key: 'vendor_types', href: '/settings/vendor-types', enabled: true },
-    { key: 'custom_fields', enabled: false },
-    { key: 'labels', enabled: false },
+    { key: 'custom_fields', href: '/settings/custom-fields', enabled: true },
+];
+
+const personalItems = [
+    { key: 'account', href: '/settings/account', enabled: true },
 ];
 
 const eventNavItems = [
-    { key: 'events', href: '/settings/events', match: 'events' },
     { key: 'locations', href: '/settings/locations', match: 'locations' },
     { key: 'roles', href: '/settings/roles', match: 'roles' },
     { key: 'users', href: '/settings/users', match: 'users' },
@@ -72,10 +74,16 @@ const isOrganizationNavActive = (key) => {
     const path = currentPath.value;
 
     return (
+        (key === 'events' && isEventNavActive('events')) ||
+        (key === 'team' && path === '/settings/team') ||
         (key === 'artist_types' && path === '/settings/artist-types') ||
-        (key === 'vendor_types' && path === '/settings/vendor-types')
+        (key === 'vendor_types' && path === '/settings/vendor-types') ||
+        (key === 'custom_fields' && path === '/settings/custom-fields')
     );
 };
+
+const isPersonalNavActive = (key) =>
+    key === 'account' && currentPath.value === '/settings/account';
 </script>
 
 <template>
@@ -110,6 +118,30 @@ const isOrganizationNavActive = (key) => {
                             density="settings"
                             :aria-current="
                                 isOrganizationNavActive(item.key)
+                                    ? 'page'
+                                    : undefined
+                            "
+                        >
+                            {{ $t(`settings.nav.items.${item.key}`) }}
+                        </SidebarNavItem>
+                    </nav>
+                </div>
+                <div>
+                    <p
+                        class="m-0 mb-2 px-2 text-[11px] font-bold tracking-wide text-muted uppercase"
+                    >
+                        {{ $t('settings.nav.personal') }}
+                    </p>
+                    <nav class="flex flex-col gap-0.5">
+                        <SidebarNavItem
+                            v-for="item in personalItems"
+                            :key="item.key"
+                            :href="item.enabled ? item.href : undefined"
+                            :enabled="item.enabled"
+                            :active="isPersonalNavActive(item.key)"
+                            density="settings"
+                            :aria-current="
+                                isPersonalNavActive(item.key)
                                     ? 'page'
                                     : undefined
                             "
