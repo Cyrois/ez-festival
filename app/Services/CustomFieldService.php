@@ -20,7 +20,7 @@ class CustomFieldService
             ->where('organization_id', $this->organizationContext->organization()->id);
 
         if ($target !== null) {
-            $fields->where('target', $target);
+            $fields->forTarget($target);
         }
 
         return $fields

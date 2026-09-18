@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -50,5 +51,13 @@ class CustomField extends Model
     public function values(): HasMany
     {
         return $this->hasMany(CustomFieldValue::class);
+    }
+
+    /**
+     * @param  Builder<CustomField>  $query
+     */
+    public function scopeForTarget(Builder $query, string $target): void
+    {
+        $query->where('target', $target);
     }
 }

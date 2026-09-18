@@ -63,7 +63,7 @@ class UpdateAccountRequest extends FormRequest
     {
         return CustomField::query()
             ->where('organization_id', app(OrganizationContext::class)->organization()->id)
-            ->where('target', CustomField::TARGET_USER)
+            ->forTarget(CustomField::TARGET_USER)
             ->where('active', true)
             ->orderBy('sort_order')
             ->get();

@@ -62,7 +62,7 @@ class StoreVendorRequest extends FormRequest
     {
         return CustomField::query()
             ->where('organization_id', app(OrganizationContext::class)->organization()->id)
-            ->where('target', CustomField::TARGET_VENDOR)
+            ->forTarget(CustomField::TARGET_VENDOR)
             ->where('active', true)
             ->orderBy('sort_order')
             ->get();

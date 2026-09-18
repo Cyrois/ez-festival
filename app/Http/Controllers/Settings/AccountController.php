@@ -20,7 +20,7 @@ class AccountController extends Controller
         $values = $user->customFieldValues()->get()->keyBy('custom_field_id');
         $fields = CustomField::query()
             ->where('organization_id', app(OrganizationContext::class)->organization()->id)
-            ->where('target', CustomField::TARGET_USER)
+            ->forTarget(CustomField::TARGET_USER)
             ->where('active', true)
             ->orderBy('sort_order')
             ->orderBy('id')
