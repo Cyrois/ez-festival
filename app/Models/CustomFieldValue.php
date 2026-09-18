@@ -27,6 +27,11 @@ class CustomFieldValue extends Model
         return $this->belongsTo(CustomField::class);
     }
 
+    public function event(): BelongsTo
+    {
+        return $this->belongsTo(Event::class);
+    }
+
     public function customFieldable(): MorphTo
     {
         return $this->morphTo();
