@@ -19,7 +19,7 @@ const page = usePage();
 const currentPath = computed(() => page.url.split('?')[0]);
 
 const organizationItems = [
-    { key: 'people', enabled: false },
+    { key: 'team', href: '/settings/team', enabled: true },
     { key: 'artist_types', href: '/settings/artist-types', enabled: true },
     { key: 'vendor_types', href: '/settings/vendor-types', enabled: true },
     { key: 'custom_fields', href: '/settings/custom-fields', enabled: true },
@@ -70,6 +70,7 @@ const isOrganizationNavActive = (key) => {
     const path = currentPath.value;
 
     return (
+        (key === 'team' && path === '/settings/team') ||
         (key === 'artist_types' && path === '/settings/artist-types') ||
         (key === 'vendor_types' && path === '/settings/vendor-types') ||
         (key === 'custom_fields' && path === '/settings/custom-fields')

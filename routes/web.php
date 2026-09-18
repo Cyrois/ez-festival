@@ -11,6 +11,7 @@ use App\Http\Controllers\Settings\EventController as SettingsEventController;
 use App\Http\Controllers\Settings\EventLocationController;
 use App\Http\Controllers\Settings\LabelController;
 use App\Http\Controllers\Settings\PrimaryEventSettingsController;
+use App\Http\Controllers\Settings\TeamController;
 use App\Http\Controllers\Settings\VendorTypeController as SettingsVendorTypeController;
 use App\Http\Controllers\Setup\ArtistTypeController;
 use App\Http\Controllers\Setup\EventController as SetupEventController;
@@ -88,6 +89,7 @@ Route::middleware('auth')->group(function () {
             Route::put('vendor-types/{vendorType}', [SettingsVendorTypeController::class, 'update'])->name('vendor-types.update');
             Route::delete('vendor-types/{vendorType}', [SettingsVendorTypeController::class, 'destroy'])->name('vendor-types.destroy');
             Route::post('vendor-types/reorder', [SettingsVendorTypeController::class, 'reorder'])->name('vendor-types.reorder');
+            Route::get('team', TeamController::class)->name('team');
             Route::get('custom-fields', CustomFieldController::class)->name('custom-fields');
             Route::get('labels', LabelController::class)->name('labels');
             Route::get('events/{event}/edit', [SettingsEventController::class, 'edit'])->name('events.edit');
