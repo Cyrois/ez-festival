@@ -77,6 +77,8 @@ Route::middleware('auth')->group(function () {
 
         Route::prefix('settings')->name('settings.')->group(function () {
             Route::get('events', [SettingsEventController::class, 'index'])->name('events.index');
+            Route::get('events/create', [SettingsEventController::class, 'create'])->name('events.create');
+            Route::post('events', [SettingsEventController::class, 'store'])->name('events.store');
             Route::get('locations', [PrimaryEventSettingsController::class, 'locations'])->name('locations');
             Route::get('roles', [PrimaryEventSettingsController::class, 'roles'])->name('roles');
             Route::get('users', [PrimaryEventSettingsController::class, 'users'])->name('users');

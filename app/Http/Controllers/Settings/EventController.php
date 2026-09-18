@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Settings;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Settings\Concerns\InteractsWithSettings;
 use App\Http\Requests\Settings\SetPrimaryEventRequest;
+use App\Http\Requests\Settings\StoreEventRequest;
 use App\Http\Requests\Settings\UpdateEventRequest;
 use App\Http\Resources\EventResource;
 use App\Models\Event;
@@ -33,6 +34,23 @@ class EventController extends Controller
         return Inertia::render('Settings/Events/Index', [
             'events' => $events,
         ]);
+    }
+
+    public function create(): Response
+    {
+        return Inertia::render('Settings/Events/Create', [
+            'timezones' => $this->timezones(),
+        ]);
+    }
+
+    public function store(StoreEventRequest $request): RedirectResponse
+    {
+        Event::query()->create($request->validated());
+
+        return redirect()
+            ->route('settings.events.index')
+            ->with('success', __('settings.events.toast.created'))
+            ->with('success_title', __('toast.saved_title'));
     }
 
     public function edit(Request $request, Event $event): Response

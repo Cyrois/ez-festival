@@ -97,13 +97,28 @@ const statusVariant = {
         :title="$t('settings.events.title')"
         :breadcrumbs="breadcrumbs"
     >
-        <div class="mb-6">
-            <h1 class="m-0 text-2xl font-bold tracking-tight">
-                {{ $t('settings.events.title') }}
-            </h1>
-            <p class="mt-1 mb-0 text-sm text-muted">
-                {{ $t('settings.events.lead') }}
-            </p>
+        <div
+            class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
+        >
+            <div>
+                <h1 class="m-0 text-2xl font-bold tracking-tight">
+                    {{ $t('settings.events.title') }}
+                </h1>
+                <p class="mt-1 mb-0 text-sm text-muted">
+                    {{ $t('settings.events.lead') }}
+                </p>
+            </div>
+            <Button
+                href="/settings/events/create"
+                variant="primary"
+                class="min-h-11 w-full sm:w-auto"
+            >
+                <Icon
+                    :name="['fas', 'plus']"
+                    size="sm"
+                />
+                {{ $t('settings.events.actions.create') }}
+            </Button>
         </div>
 
         <EmptyState
