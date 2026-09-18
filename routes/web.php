@@ -91,7 +91,7 @@ Route::middleware('auth')->group(function () {
             Route::delete('vendor-types/{vendorType}', [SettingsVendorTypeController::class, 'destroy'])->name('vendor-types.destroy');
             Route::post('vendor-types/reorder', [SettingsVendorTypeController::class, 'reorder'])->name('vendor-types.reorder');
             Route::get('team', TeamController::class)->name('team');
-            Route::get('account', AccountController::class)->name('account');
+            Route::get('account', [AccountController::class, 'index'])->name('account');
             Route::put('account', [AccountController::class, 'update'])->name('account.update');
             Route::put('account/password', [AccountController::class, 'updatePassword'])->name('account.password.update');
             Route::get('custom-fields', [CustomFieldController::class, 'index'])->name('custom-fields');

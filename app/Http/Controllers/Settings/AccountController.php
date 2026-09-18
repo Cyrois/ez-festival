@@ -15,7 +15,7 @@ use Inertia\Response;
 
 class AccountController extends Controller
 {
-    public function __invoke(): Response
+    public function index(): Response
     {
         $user = auth()->user();
         $values = $user->customFieldValues()->get()->keyBy('custom_field_id');
