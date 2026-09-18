@@ -8,12 +8,14 @@ use App\Http\Requests\Vendors\StoreVendorRequest;
 use App\Http\Requests\Vendors\UpdateVendorRequest;
 use App\Http\Resources\VendorEngagementNoteResource;
 use App\Http\Resources\VendorResource;
+use App\Models\CustomField;
 use App\Models\Event;
 use App\Models\VendorEngagement;
 use App\Models\VendorType;
 use App\Repositories\VendorRepository;
 use App\Services\VendorService;
 use App\Support\EventContext;
+use App\Support\OrganizationContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -48,13 +50,24 @@ class VendorController extends Controller
             'event' => $event->only('id', 'name'),
             'types' => VendorType::query()->orderBy('name')->get(['id', 'name']),
             'statuses' => VendorEngagement::STATUSES,
+            'customFields' => CustomField::query()
+                ->where('organization_id', app(OrganizationContext::class)->organization()->id)
+                ->where('target', CustomField::TARGET_VENDOR)
+                ->where('active', true)
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get(['id', 'label', 'type', 'required', 'options']),
         ]);
     }
 
     public function store(StoreVendorRequest $request, Event $event): RedirectResponse
     {
         $this->eventContext->requireCurrentEvent($request->user(), $event, writable: true);
-        $this->vendorService->addToEvent($event, $request->validated());
+        $this->vendorService->addToEvent(
+            $event,
+            $request->validated(),
+            $request->customFields(),
+        );
 
         return redirect()->route('vendors.advancing')
             ->with('success', __('vendors.toast.created'))

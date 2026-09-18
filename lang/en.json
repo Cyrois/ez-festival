@@ -510,6 +510,8 @@
     "vendors.name_hint": "Use the name your team will recognize for this festival partner.",
     "vendors.type_optional": "No type (optional)",
     "vendors.save": "Save vendor",
+    "vendors.custom_fields.title": "Custom fields",
+    "vendors.custom_fields.lead": "Additional details configured for vendors.",
     "vendors.status.idea": "Idea",
     "vendors.status.outreach": "Outreach",
     "vendors.status.negotiating": "Negotiating",

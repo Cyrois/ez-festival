@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\CustomField;
 use App\Models\Event;
+use App\Models\Organization;
 use App\Models\User;
 use App\Models\Vendor;
 use App\Models\VendorEngagement;
@@ -81,6 +83,35 @@ class VendorTest extends TestCase
 
         $this->assertDatabaseCount('vendors', 1);
         $this->assertDatabaseCount('vendor_engagements', 1);
+    }
+
+    public function test_can_create_a_vendor_with_custom_field_values(): void
+    {
+        [$user, $event] = $this->context();
+        $field = CustomField::query()->create([
+            'organization_id' => Organization::query()->firstOrFail()->id,
+            'target' => CustomField::TARGET_VENDOR,
+            'label' => 'Wristband provider',
+            'key' => 'wristband_provider',
+            'type' => 'select',
+            'options' => ['Yes', 'No'],
+            'sort_order' => 1,
+        ]);
+
+        $this->actingAs($user)->post(route('vendors.store', $event), [
+            'name' => 'North Catering',
+            'custom_fields' => [$field->id => 'Yes'],
+        ])->assertRedirect(route('vendors.advancing'));
+
+        $vendor = Vendor::query()->firstOrFail();
+
+        $this->assertDatabaseHas('custom_field_values', [
+            'custom_field_id' => $field->id,
+            'custom_fieldable_type' => Vendor::class,
+            'custom_fieldable_id' => $vendor->id,
+            'value_text' => 'Yes',
+            'value_search' => 'yes',
+        ]);
     }
 
     public function test_existing_global_vendor_can_be_added_to_another_event(): void
