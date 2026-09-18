@@ -3,13 +3,111 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\StoreCustomFieldRequest;
+use App\Http\Requests\Settings\UpdateCustomFieldRequest;
+use App\Models\CustomField;
+use App\Support\OrganizationContext;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class CustomFieldController extends Controller
 {
-    public function __invoke(): Response
+    public function index(): Response
     {
-        return Inertia::render('Settings/CustomFields');
+        return Inertia::render('Settings/CustomFields', [
+            'fields' => $this->fields()->get([
+                'id', 'label', 'key', 'type', 'required', 'options', 'active', 'sort_order',
+            ]),
+        ]);
+    }
+
+    public function store(StoreCustomFieldRequest $request): RedirectResponse
+    {
+        $organizationId = app(OrganizationContext::class)->organization()->id;
+        $data = $request->validated();
+
+        CustomField::query()->create([
+            'organization_id' => $organizationId,
+            'target' => CustomField::TARGET_USER,
+            'label' => $data['label'],
+            'key' => $this->nextKey($data['label']),
+            'type' => $data['type'],
+            'required' => $data['required'] ?? false,
+            'options' => $this->optionsFor($data),
+            'sort_order' => ((int) $this->fields()->max('sort_order')) + 1,
+        ]);
+
+        return back();
+    }
+
+    public function update(UpdateCustomFieldRequest $request, CustomField $customField): RedirectResponse
+    {
+        $this->ensureOrganizationField($customField);
+        $data = $request->validated();
+
+        $customField->update([
+            'label' => $data['label'],
+            'type' => $data['type'],
+            'required' => $data['required'] ?? false,
+            'active' => $data['active'] ?? true,
+            'options' => $this->optionsFor($data),
+        ]);
+
+        return back();
+    }
+
+    public function destroy(CustomField $customField): RedirectResponse
+    {
+        $this->ensureOrganizationField($customField);
+        $customField->delete();
+
+        return back();
+    }
+
+    private function fields()
+    {
+        return CustomField::query()
+            ->where('organization_id', app(OrganizationContext::class)->organization()->id)
+            ->where('target', CustomField::TARGET_USER)
+            ->orderBy('sort_order')
+            ->orderBy('id');
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<int, string>|null
+     */
+    private function optionsFor(array $data): ?array
+    {
+        if ($data['type'] !== 'select') {
+            return null;
+        }
+
+        return array_values($data['options'] ?? []);
+    }
+
+    private function nextKey(string $label): string
+    {
+        $base = Str::slug($label, '_') ?: 'field';
+        $key = $base;
+        $suffix = 2;
+
+        while ($this->fields()->where('key', $key)->exists()) {
+            $key = "{$base}_{$suffix}";
+            $suffix++;
+        }
+
+        return $key;
+    }
+
+    private function ensureOrganizationField(CustomField $customField): void
+    {
+        abort_unless(
+            $customField->organization_id === app(OrganizationContext::class)->organization()->id
+                && $customField->target === CustomField::TARGET_USER,
+            404,
+        );
     }
 }

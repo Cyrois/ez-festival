@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Settings;
 
+use App\Models\CustomField;
 use App\Models\Event;
+use App\Models\Organization;
 use App\Models\User;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -72,6 +74,62 @@ class AccountControllerTest extends TestCase
             'email' => $otherUser->email,
             'phone' => '',
         ])->assertSessionHasErrors('email');
+    }
+
+    public function test_account_renders_and_saves_custom_field_values(): void
+    {
+        $user = $this->userWithCompletedSetup();
+        $field = CustomField::query()->create([
+            'organization_id' => Organization::query()->firstOrFail()->id,
+            'target' => CustomField::TARGET_USER,
+            'label' => 'Wristband',
+            'key' => 'wristband',
+            'type' => 'select',
+            'options' => ['Gold', 'General admission'],
+            'sort_order' => 1,
+        ]);
+
+        $this->actingAs($user)->get(route('settings.account'))->assertInertia(
+            fn (Assert $page) => $page
+                ->where('customFields.0.id', $field->id)
+                ->where('customFields.0.value', null),
+        );
+
+        $this->actingAs($user)->put(route('settings.account.update'), [
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => '',
+            'custom_fields' => [$field->id => 'Gold'],
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('custom_field_values', [
+            'custom_field_id' => $field->id,
+            'custom_fieldable_type' => User::class,
+            'custom_fieldable_id' => $user->id,
+            'value_text' => 'Gold',
+            'value_search' => 'gold',
+        ]);
+    }
+
+    public function test_account_rejects_an_unknown_custom_field_choice(): void
+    {
+        $user = $this->userWithCompletedSetup();
+        $field = CustomField::query()->create([
+            'organization_id' => Organization::query()->firstOrFail()->id,
+            'target' => CustomField::TARGET_USER,
+            'label' => 'Wristband',
+            'key' => 'wristband',
+            'type' => 'select',
+            'options' => ['Gold'],
+            'sort_order' => 1,
+        ]);
+
+        $this->actingAs($user)->put(route('settings.account.update'), [
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => '',
+            'custom_fields' => [$field->id => 'Counterfeit'],
+        ])->assertSessionHasErrors("custom_fields.{$field->id}");
     }
 
     public function test_authenticated_user_can_update_password_with_current_password(): void

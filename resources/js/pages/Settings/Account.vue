@@ -2,8 +2,11 @@
 import SettingsLayout from '../../layouts/SettingsLayout.vue';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
+import { Checkbox } from '../../components/ui/checkbox';
 import { FormField } from '../../components/ui/form-field';
 import { Input } from '../../components/ui/input';
+import { Select } from '../../components/ui/select';
+import { Textarea } from '../../components/ui/textarea';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { fieldError, toastFormErrors } from '../../lib/fieldError';
 import { useForm } from '@inertiajs/vue3';
@@ -14,6 +17,10 @@ const props = defineProps({
     account: {
         type: Object,
         required: true,
+    },
+    customFields: {
+        type: Array,
+        default: () => [],
     },
 });
 
@@ -29,6 +36,12 @@ const accountForm = useForm({
     name: props.account.name ?? '',
     email: props.account.email ?? '',
     phone: props.account.phone ?? '',
+    custom_fields: Object.fromEntries(
+        props.customFields.map((field) => [
+            field.id,
+            field.value ?? (field.type === 'checkbox' ? false : ''),
+        ]),
+    ),
 });
 
 const passwordForm = useForm({
@@ -133,6 +146,118 @@ const submitPassword = () => {
                                 />
                             </template>
                         </FormField>
+                        <template
+                            v-for="field in customFields"
+                            :key="field.id"
+                        >
+                            <FormField
+                                v-if="
+                                    field.type === 'text' ||
+                                    field.type === 'number' ||
+                                    field.type === 'date'
+                                "
+                                :label="field.label"
+                                :error="
+                                    fieldError(
+                                        accountForm,
+                                        `custom_fields.${field.id}`,
+                                    )
+                                "
+                                :required="field.required"
+                            >
+                                <template #default="{ id, invalid }">
+                                    <Input
+                                        :id="id"
+                                        v-model="
+                                            accountForm.custom_fields[field.id]
+                                        "
+                                        :type="
+                                            field.type === 'text'
+                                                ? 'text'
+                                                : field.type
+                                        "
+                                        :invalid="invalid"
+                                        autocomplete="off"
+                                    />
+                                </template>
+                            </FormField>
+                            <FormField
+                                v-else-if="field.type === 'textarea'"
+                                :label="field.label"
+                                :error="
+                                    fieldError(
+                                        accountForm,
+                                        `custom_fields.${field.id}`,
+                                    )
+                                "
+                                :required="field.required"
+                                class="sm:col-span-2"
+                            >
+                                <template #default="{ id, invalid }">
+                                    <Textarea
+                                        :id="id"
+                                        v-model="
+                                            accountForm.custom_fields[field.id]
+                                        "
+                                        :invalid="invalid"
+                                    />
+                                </template>
+                            </FormField>
+                            <FormField
+                                v-else-if="field.type === 'select'"
+                                :label="field.label"
+                                :error="
+                                    fieldError(
+                                        accountForm,
+                                        `custom_fields.${field.id}`,
+                                    )
+                                "
+                                :required="field.required"
+                            >
+                                <template #default="{ id, invalid }">
+                                    <Select
+                                        :id="id"
+                                        v-model="
+                                            accountForm.custom_fields[field.id]
+                                        "
+                                        :invalid="invalid"
+                                    >
+                                        <option value="">
+                                            {{ $t('ui.select.placeholder') }}
+                                        </option>
+                                        <option
+                                            v-for="option in field.options"
+                                            :key="option"
+                                            :value="option"
+                                        >
+                                            {{ option }}
+                                        </option>
+                                    </Select>
+                                </template>
+                            </FormField>
+                            <FormField
+                                v-else-if="field.type === 'checkbox'"
+                                :label="field.label"
+                                :error="
+                                    fieldError(
+                                        accountForm,
+                                        `custom_fields.${field.id}`,
+                                    )
+                                "
+                                :required="field.required"
+                                class="justify-end"
+                            >
+                                <template #default="{ id, invalid }">
+                                    <Checkbox
+                                        :id="id"
+                                        v-model="
+                                            accountForm.custom_fields[field.id]
+                                        "
+                                        :invalid="invalid"
+                                    />
+                                </template>
+                            </FormField>
+                        </template>
                     </div>
 
                     <div class="mt-6 flex justify-end">
