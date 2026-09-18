@@ -373,6 +373,7 @@
     "settings.account.fields.new_password": "New password",
     "settings.account.fields.password_confirmation": "Confirm new password",
     "settings.account.actions.save_profile": "Save changes",
+    "settings.account.actions.save_custom_fields": "Save custom details",
     "settings.account.actions.update_password": "Update password",
     "settings.account.toast.updated": "Account details updated.",
     "settings.account.toast.password_updated": "Password updated.",

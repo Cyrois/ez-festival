@@ -146,6 +146,32 @@ const submitPassword = () => {
                                 />
                             </template>
                         </FormField>
+                    </div>
+
+                    <div class="mt-6 flex justify-end">
+                        <Button
+                            type="submit"
+                            :loading="accountForm.processing"
+                            :disabled="accountForm.processing"
+                        >
+                            {{ $t('settings.account.actions.save_profile') }}
+                        </Button>
+                    </div>
+                </form>
+            </Card>
+
+            <Card v-if="customFields.length > 0">
+                <template #header>
+                    <h2 class="m-0 text-base font-semibold text-charcoal">
+                        {{ $t('settings.account.custom_fields.title') }}
+                    </h2>
+                    <p class="mt-1 mb-0 text-sm text-muted">
+                        {{ $t('settings.account.custom_fields.lead') }}
+                    </p>
+                </template>
+
+                <form @submit.prevent="submitAccount">
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <template
                             v-for="field in customFields"
                             :key="field.id"
@@ -266,7 +292,11 @@ const submitPassword = () => {
                             :loading="accountForm.processing"
                             :disabled="accountForm.processing"
                         >
-                            {{ $t('settings.account.actions.save_profile') }}
+                            {{
+                                $t(
+                                    'settings.account.actions.save_custom_fields',
+                                )
+                            }}
                         </Button>
                     </div>
                 </form>
