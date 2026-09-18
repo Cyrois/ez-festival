@@ -19,12 +19,10 @@ const page = usePage();
 const currentPath = computed(() => page.url.split('?')[0]);
 
 const organizationItems = [
-    { key: 'general', enabled: false },
     { key: 'people', enabled: false },
     { key: 'artist_types', href: '/settings/artist-types', enabled: true },
     { key: 'vendor_types', href: '/settings/vendor-types', enabled: true },
     { key: 'custom_fields', enabled: false },
-    { key: 'labels', enabled: false },
 ];
 
 const eventNavItems = [
