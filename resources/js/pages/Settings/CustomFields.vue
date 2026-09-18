@@ -31,7 +31,6 @@ const form = useForm({
     target: 'user',
     label: '',
     type: 'text',
-    required: false,
     active: true,
     optionsText: '',
 });
@@ -43,7 +42,6 @@ const resetForm = () => {
     form.reset();
     form.target = 'user';
     form.type = 'text';
-    form.required = false;
     form.active = true;
     form.optionsText = '';
     form.clearErrors();
@@ -59,7 +57,6 @@ const beginEdit = (field) => {
     form.target = field.target;
     form.label = field.label;
     form.type = field.type;
-    form.required = field.required;
     form.active = field.active;
     form.optionsText = (field.options ?? []).join('\n');
     form.clearErrors();
@@ -70,7 +67,6 @@ const submit = () => {
         target: data.target,
         label: data.label,
         type: data.type,
-        required: data.required,
         active: data.active,
         options:
             data.type === 'select'
@@ -298,10 +294,6 @@ const remove = (field) => {
                     <div
                         class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"
                     >
-                        <Checkbox
-                            v-model="form.required"
-                            :label="$t('settings.custom_fields.form.required')"
-                        />
                         <Checkbox
                             v-if="editing !== 'new'"
                             v-model="form.active"

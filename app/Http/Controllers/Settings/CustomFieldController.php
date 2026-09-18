@@ -50,7 +50,7 @@ class CustomFieldController extends Controller
         $customField->update([
             'label' => $data['label'],
             'type' => $data['type'],
-            'required' => $data['required'] ?? false,
+            'required' => $data['required'] ?? $customField->required,
             'active' => $data['active'] ?? true,
             'options' => $this->optionsFor($data),
         ]);
