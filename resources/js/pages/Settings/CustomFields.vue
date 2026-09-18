@@ -157,6 +157,7 @@ const remove = (field) => {
                             :label="$t('settings.custom_fields.form.target')"
                             :error="fieldError(form, 'target')"
                             required
+                            class="sm:col-span-2"
                         >
                             <template #default="{ id, invalid }">
                                 <Select
