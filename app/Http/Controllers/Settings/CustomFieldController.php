@@ -18,7 +18,7 @@ class CustomFieldController extends Controller
     {
         return Inertia::render('Settings/CustomFields', [
             'fields' => $this->fields()->get([
-                'id', 'label', 'key', 'type', 'required', 'options', 'active', 'sort_order',
+                'id', 'target', 'label', 'key', 'type', 'required', 'options', 'active', 'sort_order',
             ]),
         ]);
     }
@@ -30,13 +30,13 @@ class CustomFieldController extends Controller
 
         CustomField::query()->create([
             'organization_id' => $organizationId,
-            'target' => CustomField::TARGET_USER,
+            'target' => $data['target'],
             'label' => $data['label'],
-            'key' => $this->nextKey($data['label']),
+            'key' => $this->nextKey($data['label'], $data['target']),
             'type' => $data['type'],
             'required' => $data['required'] ?? false,
             'options' => $this->optionsFor($data),
-            'sort_order' => ((int) $this->fields()->max('sort_order')) + 1,
+            'sort_order' => ((int) $this->fields($data['target'])->max('sort_order')) + 1,
         ]);
 
         return back();
@@ -66,11 +66,17 @@ class CustomFieldController extends Controller
         return back();
     }
 
-    private function fields()
+    private function fields(?string $target = null)
     {
-        return CustomField::query()
-            ->where('organization_id', app(OrganizationContext::class)->organization()->id)
-            ->where('target', CustomField::TARGET_USER)
+        $fields = CustomField::query()
+            ->where('organization_id', app(OrganizationContext::class)->organization()->id);
+
+        if ($target !== null) {
+            $fields->where('target', $target);
+        }
+
+        return $fields
+            ->orderBy('target')
             ->orderBy('sort_order')
             ->orderBy('id');
     }
@@ -88,13 +94,13 @@ class CustomFieldController extends Controller
         return array_values($data['options'] ?? []);
     }
 
-    private function nextKey(string $label): string
+    private function nextKey(string $label, string $target): string
     {
         $base = Str::slug($label, '_') ?: 'field';
         $key = $base;
         $suffix = 2;
 
-        while ($this->fields()->where('key', $key)->exists()) {
+        while ($this->fields($target)->where('key', $key)->exists()) {
             $key = "{$base}_{$suffix}";
             $suffix++;
         }
@@ -105,8 +111,7 @@ class CustomFieldController extends Controller
     private function ensureOrganizationField(CustomField $customField): void
     {
         abort_unless(
-            $customField->organization_id === app(OrganizationContext::class)->organization()->id
-                && $customField->target === CustomField::TARGET_USER,
+            $customField->organization_id === app(OrganizationContext::class)->organization()->id,
             404,
         );
     }

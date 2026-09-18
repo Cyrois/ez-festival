@@ -51,6 +51,7 @@ class CustomFieldControllerTest extends TestCase
         $organization = Organization::query()->firstOrFail();
 
         $this->actingAs($user)->post(route('settings.custom-fields.store'), [
+            'target' => 'user',
             'label' => 'Wristband',
             'type' => 'select',
             'required' => true,
@@ -73,10 +74,29 @@ class CustomFieldControllerTest extends TestCase
         $user = $this->userWithCompletedSetup();
 
         $this->actingAs($user)->post(route('settings.custom-fields.store'), [
+            'target' => 'user',
             'label' => 'Wristband',
             'type' => 'select',
             'options' => [],
         ])->assertSessionHasErrors('options');
+    }
+
+    public function test_authenticated_user_can_create_custom_fields_for_each_supported_target(): void
+    {
+        $user = $this->userWithCompletedSetup();
+
+        foreach (['artist', 'vendor', 'patron', 'team_member', 'user'] as $target) {
+            $this->actingAs($user)->post(route('settings.custom-fields.store'), [
+                'target' => $target,
+                'label' => "{$target} identifier",
+                'type' => 'text',
+            ])->assertRedirect();
+
+            $this->assertDatabaseHas('custom_fields', [
+                'target' => $target,
+                'label' => "{$target} identifier",
+            ]);
+        }
     }
 
     private function userWithCompletedSetup(): User

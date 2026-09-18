@@ -19,6 +19,7 @@ class StoreCustomFieldRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'target' => ['required', 'string', Rule::in(CustomField::TARGETS)],
             'label' => ['required', 'string', 'max:255'],
             'type' => ['required', 'string', Rule::in(CustomField::TYPES)],
             'required' => ['boolean'],

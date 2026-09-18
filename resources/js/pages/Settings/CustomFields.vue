@@ -28,6 +28,7 @@ const breadcrumbs = computed(() => [
 const { showError, showFormError, showSuccess } = useFlashToast();
 const editing = ref(null);
 const form = useForm({
+    target: 'user',
     label: '',
     type: 'text',
     required: false,
@@ -40,6 +41,7 @@ const isSelect = computed(() => form.type === 'select');
 const resetForm = () => {
     editing.value = null;
     form.reset();
+    form.target = 'user';
     form.type = 'text';
     form.required = false;
     form.active = true;
@@ -54,6 +56,7 @@ const beginCreate = () => {
 
 const beginEdit = (field) => {
     editing.value = field;
+    form.target = field.target;
     form.label = field.label;
     form.type = field.type;
     form.required = field.required;
@@ -64,6 +67,7 @@ const beginEdit = (field) => {
 
 const submit = () => {
     form.transform((data) => ({
+        target: data.target,
         label: data.label,
         type: data.type,
         required: data.required,
@@ -149,6 +153,56 @@ const remove = (field) => {
 
                 <form @submit.prevent="submit">
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <FormField
+                            :label="$t('settings.custom_fields.form.target')"
+                            :error="fieldError(form, 'target')"
+                            required
+                        >
+                            <template #default="{ id, invalid }">
+                                <Select
+                                    :id="id"
+                                    v-model="form.target"
+                                    :invalid="invalid"
+                                    :disabled="editing !== 'new'"
+                                >
+                                    <option value="artist">
+                                        {{
+                                            $t(
+                                                'settings.custom_fields.target.artist',
+                                            )
+                                        }}
+                                    </option>
+                                    <option value="vendor">
+                                        {{
+                                            $t(
+                                                'settings.custom_fields.target.vendor',
+                                            )
+                                        }}
+                                    </option>
+                                    <option value="patron">
+                                        {{
+                                            $t(
+                                                'settings.custom_fields.target.patron',
+                                            )
+                                        }}
+                                    </option>
+                                    <option value="team_member">
+                                        {{
+                                            $t(
+                                                'settings.custom_fields.target.team_member',
+                                            )
+                                        }}
+                                    </option>
+                                    <option value="user">
+                                        {{
+                                            $t(
+                                                'settings.custom_fields.target.user',
+                                            )
+                                        }}
+                                    </option>
+                                </Select>
+                            </template>
+                        </FormField>
                         <FormField
                             :label="$t('settings.custom_fields.form.label')"
                             :error="fieldError(form, 'label')"
@@ -317,6 +371,15 @@ const remove = (field) => {
                                     {{
                                         $t(
                                             `settings.custom_fields.type.${field.type}`,
+                                        )
+                                    }}
+                                </span>
+                                <span
+                                    class="rounded-full bg-page px-2 py-0.5 text-xs text-muted"
+                                >
+                                    {{
+                                        $t(
+                                            `settings.custom_fields.target.${field.target}`,
                                         )
                                     }}
                                 </span>

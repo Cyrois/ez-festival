@@ -12,6 +12,22 @@ class CustomField extends Model
 {
     public const TARGET_USER = 'user';
 
+    public const TARGET_ARTIST = 'artist';
+
+    public const TARGET_VENDOR = 'vendor';
+
+    public const TARGET_PATRON = 'patron';
+
+    public const TARGET_TEAM_MEMBER = 'team_member';
+
+    public const TARGETS = [
+        self::TARGET_ARTIST,
+        self::TARGET_VENDOR,
+        self::TARGET_PATRON,
+        self::TARGET_TEAM_MEMBER,
+        self::TARGET_USER,
+    ];
+
     public const TYPES = ['text', 'textarea', 'number', 'date', 'select', 'checkbox'];
 
     /**
