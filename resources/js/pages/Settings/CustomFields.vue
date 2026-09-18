@@ -3,6 +3,7 @@ import SettingsLayout from '../../layouts/SettingsLayout.vue';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Checkbox } from '../../components/ui/checkbox';
+import { CustomDropdown } from '../../components/ui/custom-dropdown';
 import { EmptyState } from '../../components/ui/empty-state';
 import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
@@ -37,6 +38,35 @@ const form = useForm({
 });
 
 const isSelect = computed(() => form.type === 'select');
+const targetItems = computed(() => [
+    {
+        value: 'artist',
+        title: trans('settings.custom_fields.target.artist'),
+        description: trans('settings.custom_fields.target.artist_description'),
+    },
+    {
+        value: 'vendor',
+        title: trans('settings.custom_fields.target.vendor'),
+        description: trans('settings.custom_fields.target.vendor_description'),
+    },
+    {
+        value: 'patron',
+        title: trans('settings.custom_fields.target.patron'),
+        description: trans('settings.custom_fields.target.patron_description'),
+    },
+    {
+        value: 'team_member',
+        title: trans('settings.custom_fields.target.team_member'),
+        description: trans(
+            'settings.custom_fields.target.team_member_description',
+        ),
+    },
+    {
+        value: 'user',
+        title: trans('settings.custom_fields.target.user'),
+        description: trans('settings.custom_fields.target.user_description'),
+    },
+]);
 
 const resetForm = () => {
     editing.value = null;
@@ -160,48 +190,13 @@ const remove = (field) => {
                             class="sm:col-span-2"
                         >
                             <template #default="{ id, invalid }">
-                                <Select
+                                <CustomDropdown
                                     :id="id"
                                     v-model="form.target"
+                                    :items="targetItems"
                                     :invalid="invalid"
                                     :disabled="editing !== 'new'"
-                                >
-                                    <option value="artist">
-                                        {{
-                                            $t(
-                                                'settings.custom_fields.target.artist',
-                                            )
-                                        }}
-                                    </option>
-                                    <option value="vendor">
-                                        {{
-                                            $t(
-                                                'settings.custom_fields.target.vendor',
-                                            )
-                                        }}
-                                    </option>
-                                    <option value="patron">
-                                        {{
-                                            $t(
-                                                'settings.custom_fields.target.patron',
-                                            )
-                                        }}
-                                    </option>
-                                    <option value="team_member">
-                                        {{
-                                            $t(
-                                                'settings.custom_fields.target.team_member',
-                                            )
-                                        }}
-                                    </option>
-                                    <option value="user">
-                                        {{
-                                            $t(
-                                                'settings.custom_fields.target.user',
-                                            )
-                                        }}
-                                    </option>
-                                </Select>
+                                />
                             </template>
                         </FormField>
                         <FormField
