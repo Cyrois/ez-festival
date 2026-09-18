@@ -92,6 +92,8 @@ Route::middleware('auth')->group(function () {
             Route::post('vendor-types/reorder', [SettingsVendorTypeController::class, 'reorder'])->name('vendor-types.reorder');
             Route::get('team', TeamController::class)->name('team');
             Route::get('account', AccountController::class)->name('account');
+            Route::put('account', [AccountController::class, 'update'])->name('account.update');
+            Route::put('account/password', [AccountController::class, 'updatePassword'])->name('account.password.update');
             Route::get('custom-fields', CustomFieldController::class)->name('custom-fields');
             Route::get('labels', LabelController::class)->name('labels');
             Route::get('events/{event}/edit', [SettingsEventController::class, 'edit'])->name('events.edit');
