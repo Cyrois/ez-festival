@@ -66,4 +66,41 @@ class EventControllerTest extends TestCase
 
         $this->assertDatabaseCount(Event::class, 0);
     }
+
+    public function test_user_can_delete_an_unlocked_event(): void
+    {
+        $user = User::factory()->create();
+        app(OrganizationContext::class)->organization()->markSetupComplete();
+        $event = Event::query()->create([
+            'name' => 'Coastal Folk Festival 2027',
+            'starts_on' => '2027-07-10',
+            'ends_on' => '2027-07-12',
+            'timezone' => 'America/Vancouver',
+        ]);
+
+        $this->actingAs($user)
+            ->delete(route('settings.events.destroy', $event))
+            ->assertRedirect(route('settings.events.index'));
+
+        $this->assertModelMissing($event);
+    }
+
+    public function test_user_cannot_delete_a_locked_event(): void
+    {
+        $user = User::factory()->create();
+        app(OrganizationContext::class)->organization()->markSetupComplete();
+        $event = Event::query()->create([
+            'name' => 'Coastal Folk Festival 2027',
+            'starts_on' => '2027-07-10',
+            'ends_on' => '2027-07-12',
+            'timezone' => 'America/Vancouver',
+            'locked' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->delete(route('settings.events.destroy', $event))
+            ->assertForbidden();
+
+        $this->assertModelExists($event);
+    }
 }

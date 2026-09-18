@@ -110,6 +110,7 @@ Route::middleware('auth')->group(function () {
 
             Route::middleware('event.writable')->group(function () {
                 Route::put('events/{event}', [SettingsEventController::class, 'update'])->name('events.update');
+                Route::delete('events/{event}', [SettingsEventController::class, 'destroy'])->name('events.destroy');
                 Route::post('events/{event}/locations', [EventLocationController::class, 'store'])->name('events.locations.store');
                 Route::put('events/{event}/locations/{location}', [EventLocationController::class, 'update'])->name('events.locations.update');
                 Route::delete('events/{event}/locations/{location}', [EventLocationController::class, 'destroy'])->name('events.locations.destroy');

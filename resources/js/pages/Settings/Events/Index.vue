@@ -2,7 +2,6 @@
 import SettingsLayout from '../../../layouts/SettingsLayout.vue';
 import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
-import { Dialog } from '../../../components/ui/dialog';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { Icon } from '../../../components/ui/icon';
 import {
@@ -13,7 +12,6 @@ import {
     TableHeader,
     TableRow,
 } from '../../../components/ui/table';
-import { useEventLockActions } from '../../../composables/useEventLockActions';
 import { router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { trans } from 'laravel-vue-i18n';
@@ -24,16 +22,6 @@ defineProps({
         default: () => [],
     },
 });
-
-const {
-    lockOpen,
-    unlockOpen,
-    actionBusy,
-    openLock,
-    openUnlock,
-    confirmLock,
-    confirmUnlock,
-} = useEventLockActions();
 
 const setPrimaryBusy = ref(false);
 
@@ -161,20 +149,6 @@ const statusVariant = {
                     </div>
                     <div class="mt-4 flex flex-wrap justify-end gap-2">
                         <Button
-                            v-if="!event.is_locked"
-                            :href="`/settings/events/${event.id}/edit`"
-                            variant="primary"
-                            size="sm"
-                            class="min-h-11"
-                        >
-                            <Icon
-                                :name="['fas', 'pencil']"
-                                size="sm"
-                                class="mr-1.5"
-                            />
-                            {{ $t('settings.events.actions.edit') }}
-                        </Button>
-                        <Button
                             v-if="!event.is_active"
                             variant="outline"
                             size="sm"
@@ -192,31 +166,17 @@ const statusVariant = {
                         </Button>
                         <Button
                             v-if="!event.is_locked"
-                            variant="outline"
+                            :href="`/settings/events/${event.id}/edit`"
+                            variant="primary"
                             size="sm"
                             class="min-h-11"
-                            @click="openLock(event)"
                         >
                             <Icon
-                                :name="['fas', 'lock']"
+                                :name="['fas', 'pencil']"
                                 size="sm"
                                 class="mr-1.5"
                             />
-                            {{ $t('events.actions.lock') }}
-                        </Button>
-                        <Button
-                            v-else
-                            variant="outline"
-                            size="sm"
-                            class="min-h-11"
-                            @click="openUnlock(event)"
-                        >
-                            <Icon
-                                :name="['fas', 'lock-open']"
-                                size="sm"
-                                class="mr-1.5"
-                            />
-                            {{ $t('events.actions.unlock') }}
+                            {{ $t('settings.events.actions.edit') }}
                         </Button>
                     </div>
                 </div>
@@ -276,23 +236,6 @@ const statusVariant = {
                                         class="flex flex-wrap justify-end gap-2"
                                     >
                                         <Button
-                                            v-if="!event.is_locked"
-                                            :href="`/settings/events/${event.id}/edit`"
-                                            variant="primary"
-                                            size="sm"
-                                        >
-                                            <Icon
-                                                :name="['fas', 'pencil']"
-                                                size="sm"
-                                                class="mr-1.5"
-                                            />
-                                            {{
-                                                $t(
-                                                    'settings.events.actions.edit',
-                                                )
-                                            }}
-                                        </Button>
-                                        <Button
                                             v-if="!event.is_active"
                                             variant="outline"
                                             size="sm"
@@ -313,29 +256,20 @@ const statusVariant = {
                                         </Button>
                                         <Button
                                             v-if="!event.is_locked"
-                                            variant="outline"
+                                            :href="`/settings/events/${event.id}/edit`"
+                                            variant="primary"
                                             size="sm"
-                                            @click="openLock(event)"
                                         >
                                             <Icon
-                                                :name="['fas', 'lock']"
+                                                :name="['fas', 'pencil']"
                                                 size="sm"
                                                 class="mr-1.5"
                                             />
-                                            {{ $t('events.actions.lock') }}
-                                        </Button>
-                                        <Button
-                                            v-else
-                                            variant="outline"
-                                            size="sm"
-                                            @click="openUnlock(event)"
-                                        >
-                                            <Icon
-                                                :name="['fas', 'lock-open']"
-                                                size="sm"
-                                                class="mr-1.5"
-                                            />
-                                            {{ $t('events.actions.unlock') }}
+                                            {{
+                                                $t(
+                                                    'settings.events.actions.edit',
+                                                )
+                                            }}
                                         </Button>
                                     </div>
                                 </TableCell>
@@ -345,27 +279,5 @@ const statusVariant = {
                 </div>
             </div>
         </template>
-
-        <Dialog
-            v-model:open="lockOpen"
-            :title="$t('events.lock.title')"
-            :description="$t('events.lock.body')"
-            :confirm-label="$t('events.lock.confirm')"
-            :cancel-label="$t('events.lock.cancel')"
-            confirm-variant="secondary"
-            :busy="actionBusy"
-            @confirm="confirmLock"
-        />
-
-        <Dialog
-            v-model:open="unlockOpen"
-            :title="$t('events.unlock.title')"
-            :description="$t('events.unlock.body')"
-            :confirm-label="$t('events.unlock.confirm')"
-            :cancel-label="$t('events.unlock.cancel')"
-            confirm-variant="secondary"
-            :busy="actionBusy"
-            @confirm="confirmUnlock"
-        />
     </SettingsLayout>
 </template>
