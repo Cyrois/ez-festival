@@ -77,6 +77,8 @@ Route::middleware('auth')->group(function () {
 
         Route::prefix('settings')->name('settings.')->group(function () {
             Route::get('events', [SettingsEventController::class, 'index'])->name('events.index');
+            Route::get('events/create', [SettingsEventController::class, 'create'])->name('events.create');
+            Route::post('events', [SettingsEventController::class, 'store'])->name('events.store');
             Route::get('locations', [PrimaryEventSettingsController::class, 'locations'])->name('locations');
             Route::get('roles', [PrimaryEventSettingsController::class, 'roles'])->name('roles');
             Route::get('users', [PrimaryEventSettingsController::class, 'users'])->name('users');
@@ -108,6 +110,7 @@ Route::middleware('auth')->group(function () {
 
             Route::middleware('event.writable')->group(function () {
                 Route::put('events/{event}', [SettingsEventController::class, 'update'])->name('events.update');
+                Route::delete('events/{event}', [SettingsEventController::class, 'destroy'])->name('events.destroy');
                 Route::post('events/{event}/locations', [EventLocationController::class, 'store'])->name('events.locations.store');
                 Route::put('events/{event}/locations/{location}', [EventLocationController::class, 'update'])->name('events.locations.update');
                 Route::delete('events/{event}/locations/{location}', [EventLocationController::class, 'destroy'])->name('events.locations.destroy');
