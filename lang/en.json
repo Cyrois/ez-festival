@@ -343,7 +343,7 @@
     "settings.custom_fields.form.label": "Field name",
     "settings.custom_fields.form.target": "Applies to",
     "settings.custom_fields.form.type": "Field type",
-    "settings.custom_fields.form.required": "Required on user accounts",
+    "settings.custom_fields.form.required": "Required field",
     "settings.custom_fields.form.active": "Show this field on user accounts",
     "settings.custom_fields.form.options": "Choices",
     "settings.custom_fields.form.options_hint": "Enter one choice per line.",
