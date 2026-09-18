@@ -170,168 +170,193 @@ const remove = (field) => {
                 </Button>
             </div>
 
-            <Card v-if="editing !== null">
-                <template #header>
-                    <h2 class="m-0 text-base font-semibold text-charcoal">
-                        {{
-                            editing === 'new'
-                                ? $t('settings.custom_fields.form.title.add')
-                                : $t('settings.custom_fields.form.title.edit')
-                        }}
-                    </h2>
-                </template>
+            <Transition
+                enter-active-class="transition duration-200 ease-out"
+                enter-from-class="-translate-y-3 opacity-0"
+                enter-to-class="translate-y-0 opacity-100"
+                leave-active-class="transition duration-150 ease-in"
+                leave-from-class="translate-y-0 opacity-100"
+                leave-to-class="-translate-y-3 opacity-0"
+            >
+                <Card v-if="editing !== null">
+                    <template #header>
+                        <h2 class="m-0 text-base font-semibold text-charcoal">
+                            {{
+                                editing === 'new'
+                                    ? $t(
+                                          'settings.custom_fields.form.title.add',
+                                      )
+                                    : $t(
+                                          'settings.custom_fields.form.title.edit',
+                                      )
+                            }}
+                        </h2>
+                    </template>
 
-                <form @submit.prevent="submit">
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <FormField
-                            :label="$t('settings.custom_fields.form.target')"
-                            :error="fieldError(form, 'target')"
-                            required
-                            class="sm:col-span-2"
-                        >
-                            <template #default="{ id, invalid }">
-                                <CustomDropdown
-                                    :id="id"
-                                    v-model="form.target"
-                                    :items="targetItems"
-                                    :invalid="invalid"
-                                    :disabled="editing !== 'new'"
-                                />
-                            </template>
-                        </FormField>
-                        <FormField
-                            :label="$t('settings.custom_fields.form.label')"
-                            :error="fieldError(form, 'label')"
-                            required
-                        >
-                            <template #default="{ id, invalid }">
-                                <Input
-                                    :id="id"
-                                    v-model="form.label"
-                                    type="text"
-                                    :invalid="invalid"
-                                    autocomplete="off"
-                                />
-                            </template>
-                        </FormField>
-                        <FormField
-                            :label="$t('settings.custom_fields.form.type')"
-                            :error="fieldError(form, 'type')"
-                            required
-                        >
-                            <template #default="{ id, invalid }">
-                                <Select
-                                    :id="id"
-                                    v-model="form.type"
-                                    :invalid="invalid"
-                                >
-                                    <option value="text">
-                                        {{
-                                            $t(
-                                                'settings.custom_fields.type.text',
-                                            )
-                                        }}
-                                    </option>
-                                    <option value="textarea">
-                                        {{
-                                            $t(
-                                                'settings.custom_fields.type.textarea',
-                                            )
-                                        }}
-                                    </option>
-                                    <option value="number">
-                                        {{
-                                            $t(
-                                                'settings.custom_fields.type.number',
-                                            )
-                                        }}
-                                    </option>
-                                    <option value="date">
-                                        {{
-                                            $t(
-                                                'settings.custom_fields.type.date',
-                                            )
-                                        }}
-                                    </option>
-                                    <option value="select">
-                                        {{
-                                            $t(
-                                                'settings.custom_fields.type.select',
-                                            )
-                                        }}
-                                    </option>
-                                    <option value="checkbox">
-                                        {{
-                                            $t(
-                                                'settings.custom_fields.type.checkbox',
-                                            )
-                                        }}
-                                    </option>
-                                </Select>
-                            </template>
-                        </FormField>
-                        <FormField
-                            v-if="isSelect"
-                            :label="$t('settings.custom_fields.form.options')"
-                            :error="fieldError(form, 'options')"
-                            :hint="
-                                $t('settings.custom_fields.form.options_hint')
-                            "
-                            required
-                            class="sm:col-span-2"
-                        >
-                            <template #default="{ id, invalid }">
-                                <Textarea
-                                    :id="id"
-                                    v-model="form.optionsText"
-                                    :invalid="invalid"
-                                />
-                            </template>
-                        </FormField>
-                    </div>
-
-                    <div
-                        class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"
-                    >
-                        <Checkbox
-                            v-model="form.required"
-                            :label="$t('settings.custom_fields.form.required')"
-                        />
-                        <Checkbox
-                            v-if="editing !== 'new'"
-                            v-model="form.active"
-                            :label="$t('settings.custom_fields.form.active')"
-                        />
-                        <div class="flex gap-2 sm:ml-auto">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                :disabled="form.processing"
-                                @click="resetForm"
+                    <form @submit.prevent="submit">
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <FormField
+                                :label="
+                                    $t('settings.custom_fields.form.target')
+                                "
+                                :error="fieldError(form, 'target')"
+                                required
+                                class="sm:col-span-2"
                             >
-                                {{
-                                    $t('settings.custom_fields.actions.cancel')
-                                }}
-                            </Button>
-                            <Button
-                                type="submit"
-                                :loading="form.processing"
-                                :disabled="form.processing"
+                                <template #default="{ id, invalid }">
+                                    <CustomDropdown
+                                        :id="id"
+                                        v-model="form.target"
+                                        :items="targetItems"
+                                        :invalid="invalid"
+                                        :disabled="editing !== 'new'"
+                                    />
+                                </template>
+                            </FormField>
+                            <FormField
+                                :label="$t('settings.custom_fields.form.label')"
+                                :error="fieldError(form, 'label')"
+                                required
                             >
-                                {{
-                                    editing === 'new'
-                                        ? $t(
-                                              'settings.custom_fields.actions.save',
-                                          )
-                                        : $t(
-                                              'settings.custom_fields.actions.update',
-                                          )
-                                }}
-                            </Button>
+                                <template #default="{ id, invalid }">
+                                    <Input
+                                        :id="id"
+                                        v-model="form.label"
+                                        type="text"
+                                        :invalid="invalid"
+                                        autocomplete="off"
+                                    />
+                                </template>
+                            </FormField>
+                            <FormField
+                                :label="$t('settings.custom_fields.form.type')"
+                                :error="fieldError(form, 'type')"
+                                required
+                            >
+                                <template #default="{ id, invalid }">
+                                    <Select
+                                        :id="id"
+                                        v-model="form.type"
+                                        :invalid="invalid"
+                                    >
+                                        <option value="text">
+                                            {{
+                                                $t(
+                                                    'settings.custom_fields.type.text',
+                                                )
+                                            }}
+                                        </option>
+                                        <option value="textarea">
+                                            {{
+                                                $t(
+                                                    'settings.custom_fields.type.textarea',
+                                                )
+                                            }}
+                                        </option>
+                                        <option value="number">
+                                            {{
+                                                $t(
+                                                    'settings.custom_fields.type.number',
+                                                )
+                                            }}
+                                        </option>
+                                        <option value="date">
+                                            {{
+                                                $t(
+                                                    'settings.custom_fields.type.date',
+                                                )
+                                            }}
+                                        </option>
+                                        <option value="select">
+                                            {{
+                                                $t(
+                                                    'settings.custom_fields.type.select',
+                                                )
+                                            }}
+                                        </option>
+                                        <option value="checkbox">
+                                            {{
+                                                $t(
+                                                    'settings.custom_fields.type.checkbox',
+                                                )
+                                            }}
+                                        </option>
+                                    </Select>
+                                </template>
+                            </FormField>
+                            <FormField
+                                v-if="isSelect"
+                                :label="
+                                    $t('settings.custom_fields.form.options')
+                                "
+                                :error="fieldError(form, 'options')"
+                                :hint="
+                                    $t(
+                                        'settings.custom_fields.form.options_hint',
+                                    )
+                                "
+                                required
+                                class="sm:col-span-2"
+                            >
+                                <template #default="{ id, invalid }">
+                                    <Textarea
+                                        :id="id"
+                                        v-model="form.optionsText"
+                                        :invalid="invalid"
+                                    />
+                                </template>
+                            </FormField>
                         </div>
-                    </div>
-                </form>
-            </Card>
+
+                        <div
+                            class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"
+                        >
+                            <Checkbox
+                                v-model="form.required"
+                                :label="
+                                    $t('settings.custom_fields.form.required')
+                                "
+                            />
+                            <Checkbox
+                                v-if="editing !== 'new'"
+                                v-model="form.active"
+                                :label="
+                                    $t('settings.custom_fields.form.active')
+                                "
+                            />
+                            <div class="flex gap-2 sm:ml-auto">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    :disabled="form.processing"
+                                    @click="resetForm"
+                                >
+                                    {{
+                                        $t(
+                                            'settings.custom_fields.actions.cancel',
+                                        )
+                                    }}
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    :loading="form.processing"
+                                    :disabled="form.processing"
+                                >
+                                    {{
+                                        editing === 'new'
+                                            ? $t(
+                                                  'settings.custom_fields.actions.save',
+                                              )
+                                            : $t(
+                                                  'settings.custom_fields.actions.update',
+                                              )
+                                    }}
+                                </Button>
+                            </div>
+                        </div>
+                    </form>
+                </Card>
+            </Transition>
 
             <EmptyState
                 v-if="fields.length === 0 && editing === null"
