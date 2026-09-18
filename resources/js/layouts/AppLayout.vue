@@ -1,6 +1,7 @@
 <script setup>
 import { Toast } from '../components/ui/toast';
 import { Icon } from '../components/ui/icon';
+import SidebarNavItem from '../components/navigation/SidebarNavItem.vue';
 import { useInertiaErrorToast } from '../composables/useInertiaErrorToast';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
@@ -118,41 +119,6 @@ const isActive = (href) => {
     );
 };
 
-const navItemClass = (item) => {
-    if (!item.enabled) {
-        return 'cursor-default text-charcoal/35';
-    }
-
-    if (
-        isActive(item.href) ||
-        item.children?.some((child) => isActive(child.href))
-    ) {
-        return 'bg-primary/10 text-primary';
-    }
-
-    return 'text-charcoal/80 hover:bg-page hover:text-charcoal';
-};
-
-const navSubItemClass = (item) => {
-    if (!item.enabled) {
-        return 'cursor-default text-charcoal/35';
-    }
-
-    if (isActive(item.href)) {
-        return 'bg-primary/10 text-primary';
-    }
-
-    return 'text-charcoal/70 hover:bg-page hover:text-charcoal';
-};
-
-const settingsClass = computed(() => {
-    if (settingsActive.value) {
-        return 'bg-primary/10 text-primary';
-    }
-
-    return 'text-charcoal/80 hover:bg-page hover:text-charcoal';
-});
-
 const signOutClass =
     'inline-flex min-h-11 w-full items-center justify-start px-2 text-[13px] font-semibold text-primary no-underline hover:underline';
 
@@ -251,15 +217,20 @@ const railClass = computed(() => {
                         v-if="item.children"
                         class="space-y-1"
                     >
-                        <component
-                            :is="item.enabled && item.href ? Link : 'span'"
+                        <SidebarNavItem
                             :href="
                                 item.enabled && item.href
                                     ? item.href
                                     : undefined
                             "
-                            class="inline-flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-semibold no-underline"
-                            :class="navItemClass(item)"
+                            :enabled="item.enabled"
+                            :active="
+                                isActive(item.href) ||
+                                item.children.some((child) =>
+                                    isActive(child.href),
+                                )
+                            "
+                            :icon="item.icon"
                             :aria-current="
                                 item.enabled &&
                                 (isActive(item.href) ||
@@ -269,76 +240,54 @@ const railClass = computed(() => {
                                     ? 'page'
                                     : undefined
                             "
-                            :aria-disabled="
-                                item.enabled && item.href ? undefined : 'true'
-                            "
                         >
-                            <Icon
-                                :name="item.icon"
-                                size="sm"
-                                fixed-width
-                            />
                             {{ $t(`nav.${item.key}`) }}
-                        </component>
+                        </SidebarNavItem>
                         <div class="ml-5 border-l border-line pl-3">
-                            <component
-                                :is="child.enabled ? Link : 'span'"
+                            <SidebarNavItem
                                 v-for="child in item.children"
                                 :key="child.key"
                                 :href="child.enabled ? child.href : undefined"
-                                class="flex min-h-9 items-center rounded-lg px-3 py-2 text-[12px] font-semibold no-underline"
-                                :class="navSubItemClass(child)"
+                                :enabled="child.enabled"
+                                :active="isActive(child.href)"
+                                density="sub"
                                 :aria-current="
                                     child.enabled && isActive(child.href)
                                         ? 'page'
                                         : undefined
                                 "
-                                :aria-disabled="
-                                    child.enabled ? undefined : 'true'
-                                "
                             >
                                 {{ $t(`nav.${child.key}`) }}
-                            </component>
+                            </SidebarNavItem>
                         </div>
                     </div>
-                    <component
-                        :is="item.enabled ? Link : 'span'"
+                    <SidebarNavItem
                         v-else
                         :href="item.enabled ? item.href : undefined"
-                        class="inline-flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-semibold no-underline"
-                        :class="navItemClass(item)"
+                        :enabled="item.enabled"
+                        :active="isActive(item.href)"
+                        :icon="item.icon"
                         :aria-current="
                             item.enabled && isActive(item.href)
                                 ? 'page'
                                 : undefined
                         "
-                        :aria-disabled="item.enabled ? undefined : 'true'"
                     >
-                        <Icon
-                            :name="item.icon"
-                            size="sm"
-                            fixed-width
-                        />
                         {{ $t(`nav.${item.key}`) }}
-                    </component>
+                    </SidebarNavItem>
                 </template>
             </nav>
 
             <div class="mt-auto">
                 <div class="border-t border-line px-2 py-2">
-                    <Link
+                    <SidebarNavItem
                         href="/settings/events"
-                        class="inline-flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-semibold no-underline"
-                        :class="settingsClass"
+                        :active="settingsActive"
+                        :icon="['fas', 'gear']"
                         :aria-current="settingsActive ? 'page' : undefined"
                     >
-                        <Icon
-                            :name="['fas', 'gear']"
-                            size="sm"
-                            fixed-width
-                        />
                         {{ $t('nav.settings') }}
-                    </Link>
+                    </SidebarNavItem>
                 </div>
                 <div class="space-y-1 border-t border-line px-3 py-3">
                     <div class="min-w-0 px-2">
