@@ -1,7 +1,7 @@
 <script setup>
 import AppLayout from './AppLayout.vue';
-import { Icon } from '../components/ui/icon';
-import { Link, usePage } from '@inertiajs/vue3';
+import SidebarNavItem from '../components/navigation/SidebarNavItem.vue';
+import { usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
 defineProps({
@@ -76,18 +76,6 @@ const isOrganizationNavActive = (key) => {
         (key === 'vendor_types' && path === '/settings/vendor-types')
     );
 };
-
-const itemClass = (active, enabled) => {
-    if (!enabled) {
-        return 'cursor-default text-charcoal/35';
-    }
-
-    if (active) {
-        return 'bg-primary/10 text-primary';
-    }
-
-    return 'text-charcoal/80 hover:bg-page hover:text-charcoal';
-};
 </script>
 
 <template>
@@ -98,17 +86,13 @@ const itemClass = (active, enabled) => {
     >
         <template #settings-nav>
             <div class="flex flex-1 flex-col gap-5 px-3 py-4">
-                <Link
+                <SidebarNavItem
                     href="/dashboard"
-                    class="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 py-2.5 text-[13px] font-semibold text-charcoal/80 no-underline hover:bg-page hover:text-charcoal"
+                    density="settings"
+                    :icon="['fas', 'arrow-left']"
                 >
-                    <Icon
-                        :name="['fas', 'arrow-left']"
-                        size="sm"
-                        fixed-width
-                    />
                     {{ $t('settings.nav.back') }}
-                </Link>
+                </SidebarNavItem>
 
                 <div>
                     <p
@@ -117,27 +101,21 @@ const itemClass = (active, enabled) => {
                         {{ $t('settings.nav.organization') }}
                     </p>
                     <nav class="flex flex-col gap-0.5">
-                        <component
-                            :is="item.enabled ? Link : 'span'"
+                        <SidebarNavItem
                             v-for="item in organizationItems"
                             :key="item.key"
-                            class="min-h-11 rounded-lg px-2 py-2.5 text-[13px] font-semibold"
-                            :class="
-                                itemClass(
-                                    isOrganizationNavActive(item.key),
-                                    item.enabled,
-                                )
-                            "
                             :href="item.enabled ? item.href : undefined"
+                            :enabled="item.enabled"
+                            :active="isOrganizationNavActive(item.key)"
+                            density="settings"
                             :aria-current="
                                 isOrganizationNavActive(item.key)
                                     ? 'page'
                                     : undefined
                             "
-                            :aria-disabled="item.enabled ? undefined : 'true'"
                         >
                             {{ $t(`settings.nav.items.${item.key}`) }}
-                        </component>
+                        </SidebarNavItem>
                     </nav>
                 </div>
                 <div>
@@ -147,14 +125,12 @@ const itemClass = (active, enabled) => {
                         {{ $t('settings.nav.events_group') }}
                     </p>
                     <nav class="flex flex-col gap-0.5">
-                        <Link
+                        <SidebarNavItem
                             v-for="item in eventNavItems"
                             :key="item.key"
                             :href="item.href"
-                            class="inline-flex min-h-11 items-center rounded-lg px-2 py-2.5 text-[13px] font-semibold no-underline"
-                            :class="
-                                itemClass(isEventNavActive(item.match), true)
-                            "
+                            density="settings"
+                            :active="isEventNavActive(item.match)"
                             :aria-current="
                                 isEventNavActive(item.match)
                                     ? 'page'
@@ -162,7 +138,7 @@ const itemClass = (active, enabled) => {
                             "
                         >
                             {{ $t(`settings.nav.items.${item.key}`) }}
-                        </Link>
+                        </SidebarNavItem>
                     </nav>
                 </div>
             </div>
