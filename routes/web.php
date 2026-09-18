@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\Settings\AccountController;
 use App\Http\Controllers\Settings\ArtistTypeController as SettingsArtistTypeController;
 use App\Http\Controllers\Settings\CustomFieldController;
 use App\Http\Controllers\Settings\EventController as SettingsEventController;
@@ -90,6 +91,7 @@ Route::middleware('auth')->group(function () {
             Route::delete('vendor-types/{vendorType}', [SettingsVendorTypeController::class, 'destroy'])->name('vendor-types.destroy');
             Route::post('vendor-types/reorder', [SettingsVendorTypeController::class, 'reorder'])->name('vendor-types.reorder');
             Route::get('team', TeamController::class)->name('team');
+            Route::get('account', AccountController::class)->name('account');
             Route::get('custom-fields', CustomFieldController::class)->name('custom-fields');
             Route::get('labels', LabelController::class)->name('labels');
             Route::get('events/{event}/edit', [SettingsEventController::class, 'edit'])->name('events.edit');
