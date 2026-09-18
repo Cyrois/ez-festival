@@ -134,9 +134,12 @@ const remove = (field) => {
             </div>
 
             <section
-                v-for="target in targets"
+                v-for="(target, index) in targets"
                 :key="target"
-                class="flex flex-col gap-4"
+                :class="[
+                    'flex flex-col gap-4',
+                    index > 0 && 'border-t border-line pt-8',
+                ]"
             >
                 <div class="flex items-center justify-between gap-4">
                     <h2 class="m-0 text-lg font-semibold text-charcoal">
