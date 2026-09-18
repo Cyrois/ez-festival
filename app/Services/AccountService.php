@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\DB;
 
 class AccountService
 {
+    public function __construct(private CustomFieldValueService $customFieldValueService) {}
+
     /**
      * @param  array<string, mixed>  $data
      * @param  Collection<int, CustomField>  $customFields
@@ -19,8 +21,8 @@ class AccountService
         DB::transaction(function () use ($customFields, $data, $user): void {
             $user->update(Arr::except($data, 'custom_fields'));
 
-            $this->syncCustomFieldValues(
-                $user,
+            $this->customFieldValueService->sync(
+                $user->customFieldValues(),
                 $customFields,
                 $data['custom_fields'] ?? [],
             );
@@ -30,34 +32,5 @@ class AccountService
     public function updatePassword(User $user, string $password): void
     {
         $user->update(['password' => $password]);
-    }
-
-    /**
-     * @param  Collection<int, CustomField>  $customFields
-     * @param  array<int|string, mixed>  $values
-     */
-    private function syncCustomFieldValues(User $user, Collection $customFields, array $values): void
-    {
-        foreach ($customFields as $field) {
-            if (! array_key_exists($field->id, $values)) {
-                continue;
-            }
-
-            $value = $values[$field->id];
-
-            if ($field->type !== 'checkbox' && ($value === null || $value === '')) {
-                $user->customFieldValues()
-                    ->where('custom_field_id', $field->id)
-                    ->delete();
-
-                continue;
-            }
-
-            $fieldValue = $user->customFieldValues()->firstOrNew([
-                'custom_field_id' => $field->id,
-            ]);
-            $fieldValue->setTypedValue($field, $value);
-            $fieldValue->save();
-        }
     }
 }

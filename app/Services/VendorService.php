@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\CustomField;
 use App\Models\Event;
 use App\Models\User;
 use App\Models\Vendor;
@@ -15,6 +14,8 @@ use Illuminate\Validation\ValidationException;
 
 class VendorService
 {
+    public function __construct(private CustomFieldValueService $customFieldValueService) {}
+
     /**
      * @param  array<string, mixed>  $data
      */
@@ -49,8 +50,8 @@ class VendorService
                     'status' => $data['status'] ?? 'idea',
                 ]);
 
-                $this->syncCustomFieldValues(
-                    $vendor,
+                $this->customFieldValueService->sync(
+                    $vendor->customFieldValues(),
                     $customFields,
                     $data['custom_fields'] ?? [],
                 );
@@ -62,35 +63,6 @@ class VendorService
                 ]);
             }
         });
-    }
-
-    /**
-     * @param  Collection<int, CustomField>  $customFields
-     * @param  array<int|string, mixed>  $values
-     */
-    private function syncCustomFieldValues(Vendor $vendor, Collection $customFields, array $values): void
-    {
-        foreach ($customFields as $field) {
-            if (! array_key_exists($field->id, $values)) {
-                continue;
-            }
-
-            $value = $values[$field->id];
-
-            if ($field->type !== 'checkbox' && ($value === null || $value === '')) {
-                $vendor->customFieldValues()
-                    ->where('custom_field_id', $field->id)
-                    ->delete();
-
-                continue;
-            }
-
-            $fieldValue = $vendor->customFieldValues()->firstOrNew([
-                'custom_field_id' => $field->id,
-            ]);
-            $fieldValue->setTypedValue($field, $value);
-            $fieldValue->save();
-        }
     }
 
     /** @param array<string, mixed> $data */
