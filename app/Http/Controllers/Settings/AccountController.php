@@ -14,7 +14,7 @@ class AccountController extends Controller
     public function __invoke(): Response
     {
         return Inertia::render('Settings/Account', [
-            'account' => auth()->user()->only(['name', 'email']),
+            'account' => auth()->user()->only(['name', 'email', 'phone']),
         ]);
     }
 

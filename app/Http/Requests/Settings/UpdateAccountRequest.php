@@ -26,6 +26,7 @@ class UpdateAccountRequest extends FormRequest
                 'max:255',
                 Rule::unique('users', 'email')->ignore($this->user()),
             ],
+            'phone' => ['nullable', 'string', 'max:30'],
         ];
     }
 }

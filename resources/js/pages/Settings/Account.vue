@@ -28,6 +28,7 @@ const { showError, showSuccess, showFormError } = useFlashToast();
 const accountForm = useForm({
     name: props.account.name ?? '',
     email: props.account.email ?? '',
+    phone: props.account.phone ?? '',
 });
 
 const passwordForm = useForm({
@@ -115,6 +116,20 @@ const submitPassword = () => {
                                     type="email"
                                     :invalid="invalid"
                                     autocomplete="email"
+                                />
+                            </template>
+                        </FormField>
+                        <FormField
+                            :label="$t('settings.account.fields.phone')"
+                            :error="fieldError(accountForm, 'phone')"
+                        >
+                            <template #default="{ id, invalid }">
+                                <Input
+                                    :id="id"
+                                    v-model="accountForm.phone"
+                                    type="tel"
+                                    :invalid="invalid"
+                                    autocomplete="tel"
                                 />
                             </template>
                         </FormField>

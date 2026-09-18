@@ -39,7 +39,8 @@ class AccountControllerTest extends TestCase
             fn (Assert $page) => $page
                 ->component('Settings/Account')
                 ->where('account.name', $user->name)
-                ->where('account.email', $user->email),
+                ->where('account.email', $user->email)
+                ->where('account.phone', null),
         );
     }
 
@@ -50,12 +51,14 @@ class AccountControllerTest extends TestCase
         $this->actingAs($user)->put(route('settings.account.update'), [
             'name' => 'Avery Festival',
             'email' => 'avery@example.test',
+            'phone' => '+1 604 555 0142',
         ])->assertRedirect();
 
         $this->assertDatabaseHas('users', [
             'id' => $user->id,
             'name' => 'Avery Festival',
             'email' => 'avery@example.test',
+            'phone' => '+1 604 555 0142',
         ]);
     }
 
@@ -67,6 +70,7 @@ class AccountControllerTest extends TestCase
         $this->actingAs($user)->put(route('settings.account.update'), [
             'name' => $user->name,
             'email' => $otherUser->email,
+            'phone' => '',
         ])->assertSessionHasErrors('email');
     }
 
