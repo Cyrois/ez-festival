@@ -95,7 +95,7 @@ JSON locale files live at repo-root `lang/` (e.g. `lang/en.json`), not `resource
 ## Tenancy / data model
 
 - Product is one Artist Tree app for music-festival back office; each festival company is a client/organization.
-- **DB-per-client isolation:** one database = one organization. Do not put `organization_id` on child tables (events, types, artists, labels, vendors, etc.). Do not join `organizations` into ordinary list/detail queries for scoping — the DB connection is the wall.
+- **DB-per-client isolation:** one database = one organization. Do not put `organization_id` on child tables (events, types, artists, labels, vendors, custom_fields, custom_field_values, etc.). Do not join `organizations` into ordinary list/detail queries for scoping — the DB connection is the wall.
 - Keep the `organizations` table (name, `active_event_id` / default event, `setup_completed_at`). Keep `organization_user` for org-level membership.
 - Do not use an `application_state` table — setup/default event live on the organization row.
 - Control-plane (org directory, DB routing across clients) is outside this tenant DB — do not build it unless locked.
@@ -106,7 +106,7 @@ JSON locale files live at repo-root `lang/` (e.g. `lang/en.json`), not `resource
 
 - An event does **not** have to be the user’s primary to be writable.
 - Writes blocked only when the event is **locked** (or user not in org).
-- `is_read_only` / canWrite follows locked only.
+- Source of truth: `Event::isLocked()` / `Event::ensureWritable()` (throws when locked). Inertia may expose `is_locked`, `is_read_only` (same as locked), and page `canWrite` as `! $event->isLocked()` — do not invent a separate primary-based write flag.
 - Locked/archived events are read-only for audit; Owner can lock for now.
 
 ## Settings IA
@@ -155,5 +155,6 @@ JSON locale files live at repo-root `lang/` (e.g. `lang/en.json`), not `resource
 
 ## Naming
 
+- Product brand spelling in docs and UI copy: **Artist Tree** (two words). Use hyphenated **Artist-Tree** only for agent/team names (e.g. Artist-Tree Code Reviewer), not the product.
 - Wall is called **organization**, not client (client retired in product language).
 - Prefer existing i18n keys; don’t hardcode strings.
