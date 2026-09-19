@@ -28,7 +28,7 @@ return new class extends Migration
         Schema::create('custom_field_values', function (Blueprint $table) {
             $table->id();
             $table->foreignId('custom_field_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('event_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('event_id')->nullable()->constrained()->cascadeOnDelete();
             $table->morphs('custom_fieldable');
             $table->text('value_text')->nullable();
             $table->string('value_search', 255)->nullable();

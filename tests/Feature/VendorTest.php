@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\CustomField;
+use App\Models\CustomFieldValue;
 use App\Models\Event;
 use App\Models\User;
 use App\Models\Vendor;
@@ -212,6 +213,77 @@ class VendorTest extends TestCase
             'value_text' => '20x20',
         ]);
         $this->assertSame(2, $vendor->customFieldValues()->count());
+    }
+
+    public function test_deleting_events_cascades_vendor_custom_field_values_without_unique_collision(): void
+    {
+        [$user, $eventA] = $this->context();
+        $eventB = Event::query()->create([
+            'name' => 'Second Festival',
+            'starts_on' => '2027-08-01',
+            'ends_on' => '2027-08-03',
+            'timezone' => 'America/Vancouver',
+        ]);
+
+        $vendorField = CustomField::query()->create([
+            'target' => CustomField::TARGET_VENDOR,
+            'label' => 'Booth size',
+            'key' => 'booth_size',
+            'type' => 'text',
+            'sort_order' => 1,
+        ]);
+        $userField = CustomField::query()->create([
+            'target' => CustomField::TARGET_USER,
+            'label' => 'Shirt size',
+            'key' => 'shirt_size',
+            'type' => 'text',
+            'sort_order' => 1,
+        ]);
+
+        CustomFieldValue::query()->create([
+            'custom_field_id' => $userField->id,
+            'event_id' => null,
+            'custom_fieldable_type' => User::class,
+            'custom_fieldable_id' => $user->id,
+            'value_text' => 'M',
+            'value_search' => 'm',
+        ]);
+
+        $this->actingAs($user)->post(route('vendors.store', $eventA), [
+            'name' => 'North Catering',
+            'custom_fields' => [$vendorField->id => '10x10'],
+        ])->assertRedirect(route('vendors.advancing'));
+
+        $user->setCurrentEvent($eventB);
+
+        $this->actingAs($user)->post(route('vendors.store', $eventB), [
+            'name' => 'North Catering',
+            'custom_fields' => [$vendorField->id => '20x20'],
+        ])->assertRedirect(route('vendors.advancing'));
+
+        $vendor = Vendor::query()->where('name', 'North Catering')->firstOrFail();
+        $this->assertSame(2, $vendor->customFieldValues()->count());
+
+        $this->actingAs($user)
+            ->delete(route('settings.events.destroy', $eventA))
+            ->assertRedirect(route('settings.events.index'));
+        $this->actingAs($user)
+            ->delete(route('settings.events.destroy', $eventB))
+            ->assertRedirect(route('settings.events.index'));
+
+        $this->assertDatabaseMissing('custom_field_values', [
+            'custom_field_id' => $vendorField->id,
+            'custom_fieldable_type' => Vendor::class,
+            'custom_fieldable_id' => $vendor->id,
+        ]);
+        $this->assertSame(0, $vendor->customFieldValues()->count());
+        $this->assertDatabaseHas('custom_field_values', [
+            'custom_field_id' => $userField->id,
+            'event_id' => null,
+            'custom_fieldable_type' => User::class,
+            'custom_fieldable_id' => $user->id,
+            'value_text' => 'M',
+        ]);
     }
 
     public function test_vendor_update_syncs_custom_fields(): void

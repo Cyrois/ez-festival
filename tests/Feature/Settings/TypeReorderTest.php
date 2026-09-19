@@ -40,7 +40,7 @@ class TypeReorderTest extends TestCase
         $this->assertSame(2, $c->fresh()->sort_order);
     }
 
-    public function test_artist_type_reorder_rejects_unknown_ids_and_duplicate_positions(): void
+    public function test_artist_type_reorder_rejects_unknown_and_duplicate_ids(): void
     {
         $user = $this->userWithCompletedSetup();
         $a = ArtistType::query()->create(['name' => 'Headliner', 'sort_order' => 0]);
@@ -58,6 +58,24 @@ class TypeReorderTest extends TestCase
                 ['id' => $a->id, 'position' => 1],
             ],
         ])->assertSessionHasErrors('types.1.id');
+    }
+
+    public function test_artist_type_reorder_rejects_duplicate_positions(): void
+    {
+        $user = $this->userWithCompletedSetup();
+        $a = ArtistType::query()->create(['name' => 'Headliner', 'sort_order' => 0]);
+        $b = ArtistType::query()->create(['name' => 'Support', 'sort_order' => 1]);
+
+        // Validation uses distinct on position; normalize only runs after validation passes.
+        $this->actingAs($user)->post(route('settings.artist-types.reorder'), [
+            'types' => [
+                ['id' => $a->id, 'position' => 0],
+                ['id' => $b->id, 'position' => 0],
+            ],
+        ])->assertSessionHasErrors('types.0.position');
+
+        $this->assertSame(0, $a->fresh()->sort_order);
+        $this->assertSame(1, $b->fresh()->sort_order);
     }
 
     private function userWithCompletedSetup(): User
