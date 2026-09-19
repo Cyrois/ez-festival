@@ -3,21 +3,17 @@
 namespace App\Services;
 
 use App\Models\CustomField;
-use App\Support\OrganizationContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 
 class CustomFieldService
 {
-    public function __construct(private OrganizationContext $organizationContext) {}
-
     /**
      * @return Builder<CustomField>
      */
     public function fields(?string $target = null): Builder
     {
-        $fields = CustomField::query()
-            ->where('organization_id', $this->organizationContext->organization()->id);
+        $fields = CustomField::query();
 
         if ($target !== null) {
             $fields->forTarget($target);
@@ -37,7 +33,6 @@ class CustomFieldService
         $target = $data['target'];
 
         return CustomField::query()->create([
-            'organization_id' => $this->organizationContext->organization()->id,
             'target' => $target,
             'label' => $data['label'],
             'key' => $this->nextKey($data['label'], $target),
@@ -53,8 +48,6 @@ class CustomFieldService
      */
     public function update(CustomField $customField, array $data): void
     {
-        $this->ensureOrganizationField($customField);
-
         $customField->update([
             'label' => $data['label'],
             'type' => $data['type'],
@@ -66,8 +59,6 @@ class CustomFieldService
 
     public function delete(CustomField $customField): void
     {
-        $this->ensureOrganizationField($customField);
-
         $customField->delete();
     }
 
@@ -96,13 +87,5 @@ class CustomFieldService
         }
 
         return $key;
-    }
-
-    private function ensureOrganizationField(CustomField $customField): void
-    {
-        abort_unless(
-            $customField->organization_id === $this->organizationContext->organization()->id,
-            404,
-        );
     }
 }

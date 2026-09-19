@@ -7,7 +7,6 @@ use App\Http\Requests\Settings\UpdateAccountRequest;
 use App\Http\Requests\Settings\UpdatePasswordRequest;
 use App\Models\CustomField;
 use App\Services\AccountService;
-use App\Support\OrganizationContext;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -17,9 +16,8 @@ class AccountController extends Controller
     public function index(): Response
     {
         $user = auth()->user();
-        $values = $user->customFieldValues()->get()->keyBy('custom_field_id');
+        $values = $user->customFieldValues()->whereNull('event_id')->get()->keyBy('custom_field_id');
         $fields = CustomField::query()
-            ->where('organization_id', app(OrganizationContext::class)->organization()->id)
             ->forTarget(CustomField::TARGET_USER)
             ->where('active', true)
             ->orderBy('sort_order')

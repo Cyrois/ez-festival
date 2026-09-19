@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\DestroyArtistTypeRequest;
 use App\Http\Requests\Settings\ReorderTypeRequest;
 use App\Http\Requests\Settings\StoreTypeRequest;
 use App\Http\Requests\Settings\UpdateTypeRequest;
@@ -63,7 +64,7 @@ class ArtistTypeController extends Controller
         return back();
     }
 
-    public function destroy(ArtistType $artistType): RedirectResponse
+    public function destroy(DestroyArtistTypeRequest $request, ArtistType $artistType): RedirectResponse
     {
         $artistType->delete();
 

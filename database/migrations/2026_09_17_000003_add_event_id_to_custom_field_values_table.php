@@ -1,28 +1,18 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('custom_field_values', function (Blueprint $table) {
-            $table->foreignId('event_id')
-                ->nullable()
-                ->constrained()
-                ->nullOnDelete()
-                ->after('custom_field_id');
-            $table->index(['event_id', 'custom_field_id']);
-        });
+        // Folded into 2026_09_17_000002_create_custom_fields_tables (migrate:fresh style).
+        // event_id uses cascadeOnDelete so IFNULL/COALESCE(event_id, 0) unique index
+        // cannot collide when multiple events for the same owner are deleted.
     }
 
     public function down(): void
     {
-        Schema::table('custom_field_values', function (Blueprint $table) {
-            $table->dropIndex(['event_id', 'custom_field_id']);
-            $table->dropConstrainedForeignId('event_id');
-        });
+        //
     }
 };

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Vendors\CreateVendorRequest;
 use App\Http\Requests\Vendors\IndexVendorsRequest;
 use App\Http\Requests\Vendors\StoreVendorNoteRequest;
 use App\Http\Requests\Vendors\StoreVendorRequest;
@@ -15,9 +16,7 @@ use App\Models\VendorType;
 use App\Repositories\VendorRepository;
 use App\Services\VendorService;
 use App\Support\EventContext;
-use App\Support\OrganizationContext;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -47,7 +46,7 @@ class VendorController extends Controller
         return Inertia::render('Vendors/CheckIn');
     }
 
-    public function create(Request $request): Response
+    public function create(CreateVendorRequest $request): Response
     {
         $event = $this->eventContext->requireWritable($request->user());
 
@@ -56,7 +55,6 @@ class VendorController extends Controller
             'types' => VendorType::query()->orderBy('name')->get(['id', 'name']),
             'statuses' => VendorEngagement::STATUSES,
             'customFields' => CustomField::query()
-                ->where('organization_id', app(OrganizationContext::class)->organization()->id)
                 ->forTarget(CustomField::TARGET_VENDOR)
                 ->where('active', true)
                 ->orderBy('sort_order')
@@ -98,7 +96,11 @@ class VendorController extends Controller
     public function update(UpdateVendorRequest $request, VendorEngagement $engagement): RedirectResponse
     {
         $this->resolveEventContext($engagement, writable: true);
-        $this->vendorService->updateEngagement($engagement, $request->validated());
+        $this->vendorService->updateEngagement(
+            $engagement,
+            $request->validated(),
+            $request->customFields(),
+        );
 
         return redirect()->route('vendors.view', $engagement)
             ->with('success', __('vendors.toast.updated'))

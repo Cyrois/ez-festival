@@ -15,11 +15,6 @@ class ArtistLabel extends Model
 
     public const COLORS = ['primary', 'secondary', 'success', 'warning', 'danger', 'neutral'];
 
-    public function artists(): BelongsToMany
-    {
-        return $this->belongsToMany(Artist::class, 'artist_label_assignments');
-    }
-
     public function engagements(): BelongsToMany
     {
         return $this->belongsToMany(ArtistEngagement::class, 'artist_engagement_label_assignments');

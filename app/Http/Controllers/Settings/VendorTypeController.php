@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\DestroyVendorTypeRequest;
 use App\Http\Requests\Settings\ReorderTypeRequest;
 use App\Http\Requests\Settings\StoreTypeRequest;
 use App\Http\Requests\Settings\UpdateTypeRequest;
@@ -63,7 +64,7 @@ class VendorTypeController extends Controller
         return back();
     }
 
-    public function destroy(VendorType $vendorType): RedirectResponse
+    public function destroy(DestroyVendorTypeRequest $request, VendorType $vendorType): RedirectResponse
     {
         $vendorType->delete();
 
