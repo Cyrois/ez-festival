@@ -2,13 +2,17 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\FeatureFlagService;
 use App\Support\OrganizationContext;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
-    public function __construct(private readonly OrganizationContext $organization) {}
+    public function __construct(
+        private readonly OrganizationContext $organization,
+        private readonly FeatureFlagService $featureFlags,
+    ) {}
 
     /**
      * The root template that's loaded on the first page visit.
@@ -66,6 +70,9 @@ class HandleInertiaRequests extends Middleware
                     'is_locked' => $event->isLocked(),
                 ]
                 : null,
+            'features' => $user
+                ? fn () => $this->featureFlags->all()
+                : [],
         ];
     }
 }

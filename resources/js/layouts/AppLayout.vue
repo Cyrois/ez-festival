@@ -45,8 +45,9 @@ const user = computed(() => page.props.auth?.user);
 const eventName = computed(() => page.props.activeEvent?.name ?? null);
 const organizationName = computed(() => page.props.organization?.name ?? null);
 const currentPath = computed(() => page.url.split('?')[0]);
+const features = computed(() => page.props.features ?? {});
 
-const navItems = [
+const navItems = computed(() => [
     {
         key: 'home',
         href: '/dashboard',
@@ -93,15 +94,15 @@ const navItems = [
         key: 'patrons',
         href: '/patrons',
         icon: ['fas', 'address-book'],
-        enabled: true,
+        enabled: features.value.patrons ?? true,
     },
     {
         key: 'crew',
         href: '/crew',
         icon: ['fas', 'users'],
-        enabled: true,
+        enabled: features.value.crew ?? true,
     },
-];
+]);
 
 const settingsActive = computed(
     () =>

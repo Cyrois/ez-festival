@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureFeatureEnabled;
 use App\Http\Middleware\EnsureOrganization;
 use App\Http\Middleware\EnsureSetupComplete;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -27,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'organization' => EnsureOrganization::class,
             'setup.complete' => EnsureSetupComplete::class,
             'event.writable' => PreventLockedEventWrites::class,
+            'feature' => EnsureFeatureEnabled::class,
         ]);
 
         $middleware->redirectGuestsTo(fn () => route('login'));
