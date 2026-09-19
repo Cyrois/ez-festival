@@ -5,7 +5,7 @@ namespace App\Http\Requests\Credentials;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 
-class CreateCredentialPassRequest extends FormRequest
+class CreatePassRequest extends FormRequest
 {
     public function authorize(): bool
     {

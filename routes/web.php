@@ -3,10 +3,10 @@
 use App\Http\Controllers\ArtistController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
-use App\Http\Controllers\CredentialPassController;
 use App\Http\Controllers\CrewController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\PassController;
 use App\Http\Controllers\PatronController;
 use App\Http\Controllers\Settings\AccountController;
 use App\Http\Controllers\Settings\ArtistTypeController as SettingsArtistTypeController;
@@ -71,11 +71,11 @@ Route::middleware('auth')->group(function () {
             ->middleware('feature:crew')
             ->name('crew.index');
 
-        Route::get('credentials/passes', [CredentialPassController::class, 'index'])
+        Route::get('credentials/passes', [PassController::class, 'index'])
             ->name('credentials.passes');
-        Route::get('credentials/passes/create', [CredentialPassController::class, 'create'])
+        Route::get('credentials/passes/create', [PassController::class, 'create'])
             ->name('credentials.passes.create');
-        Route::post('events/{event}/credentials/passes', [CredentialPassController::class, 'store'])
+        Route::post('events/{event}/credentials/passes', [PassController::class, 'store'])
             ->middleware('event.writable')
             ->name('credentials.passes.store');
 

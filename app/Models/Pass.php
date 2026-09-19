@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 #[Fillable(['event_id', 'name', 'name_key', 'max_assignments'])]
-class CredentialPass extends Model
+class Pass extends Model
 {
     use HasNormalizedName;
 
@@ -29,8 +29,8 @@ class CredentialPass extends Model
     public function labels(): BelongsToMany
     {
         return $this->belongsToMany(
-            CredentialPassLabel::class,
-            'credential_pass_label_assignments',
+            PassLabel::class,
+            'pass_label_assignments',
         );
     }
 

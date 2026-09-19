@@ -70,7 +70,7 @@ const submit = () =>
         back-href="/credentials/passes"
         :back-label="$t('credentials.passes.back')"
     >
-        <div class="mx-auto w-full max-w-2xl">
+        <div class="w-full">
             <div class="mb-6">
                 <h1 class="m-0 text-2xl font-bold tracking-tight">
                     {{ $t('credentials.passes.create') }}

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 #[Fillable(['name', 'name_key', 'color'])]
-class CredentialPassLabel extends Model
+class PassLabel extends Model
 {
     use HasNormalizedName;
 
@@ -17,8 +17,8 @@ class CredentialPassLabel extends Model
     public function passes(): BelongsToMany
     {
         return $this->belongsToMany(
-            CredentialPass::class,
-            'credential_pass_label_assignments',
+            Pass::class,
+            'pass_label_assignments',
         );
     }
 }

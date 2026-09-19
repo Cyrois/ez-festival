@@ -2,16 +2,16 @@
 
 namespace App\Services;
 
-use App\Models\CredentialPass;
-use App\Models\CredentialPassLabel;
 use App\Models\CustomField;
 use App\Models\Event;
+use App\Models\Pass;
+use App\Models\PassLabel;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
-class CredentialPassService
+class PassService
 {
     public function __construct(private readonly CustomFieldValueService $customFieldValueService) {}
 
@@ -19,14 +19,14 @@ class CredentialPassService
      * @param  array<string, mixed>  $data
      * @param  Collection<int, CustomField>  $customFields
      */
-    public function create(Event $event, array $data, Collection $customFields): CredentialPass
+    public function create(Event $event, array $data, Collection $customFields): Pass
     {
-        return DB::transaction(function () use ($event, $data, $customFields): CredentialPass {
+        return DB::transaction(function () use ($event, $data, $customFields): Pass {
             $event = Event::query()->lockForUpdate()->findOrFail($event->id);
             $event->ensureWritable();
 
             try {
-                $pass = $event->credentialPasses()->create([
+                $pass = $event->passes()->create([
                     'name' => $data['name'],
                     'max_assignments' => $data['max_assignments'] ?? null,
                 ]);
@@ -34,8 +34,8 @@ class CredentialPassService
                 $labelIds = $data['label_ids'] ?? [];
 
                 foreach ($data['new_labels'] ?? [] as $label) {
-                    $nameKey = CredentialPassLabel::normalizeName($label['name']);
-                    $savedLabel = CredentialPassLabel::query()->firstOrCreate(
+                    $nameKey = PassLabel::normalizeName($label['name']);
+                    $savedLabel = PassLabel::query()->firstOrCreate(
                         ['name_key' => $nameKey],
                         ['name' => $label['name'], 'color' => $label['color']],
                     );

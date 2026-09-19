@@ -2,17 +2,17 @@
 
 namespace Tests\Feature;
 
-use App\Models\CredentialPass;
-use App\Models\CredentialPassLabel;
 use App\Models\CustomField;
 use App\Models\Event;
+use App\Models\Pass;
+use App\Models\PassLabel;
 use App\Models\User;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
-class CredentialPassesTest extends TestCase
+class PassesTest extends TestCase
 {
     use LazilyRefreshDatabase;
 
@@ -53,12 +53,12 @@ class CredentialPassesTest extends TestCase
     public function test_create_page_renders_labels_and_pass_custom_fields(): void
     {
         [$user, $event] = $this->createEventContext();
-        $label = CredentialPassLabel::query()->create([
+        $label = PassLabel::query()->create([
             'name' => 'All-access',
             'color' => 'secondary',
         ]);
         $field = CustomField::query()->create([
-            'target' => CustomField::TARGET_CREDENTIAL_PASS,
+            'target' => CustomField::TARGET_PASS,
             'label' => 'Print name',
             'key' => 'print_name',
             'type' => 'text',
@@ -79,12 +79,12 @@ class CredentialPassesTest extends TestCase
     public function test_user_can_create_an_event_pass_with_labels_and_custom_fields(): void
     {
         [$user, $event] = $this->createEventContext();
-        $existingLabel = CredentialPassLabel::query()->create([
+        $existingLabel = PassLabel::query()->create([
             'name' => 'Wristband',
             'color' => 'warning',
         ]);
         $field = CustomField::query()->create([
-            'target' => CustomField::TARGET_CREDENTIAL_PASS,
+            'target' => CustomField::TARGET_PASS,
             'label' => 'Access tier',
             'key' => 'access_tier',
             'type' => 'select',
@@ -109,7 +109,7 @@ class CredentialPassesTest extends TestCase
         $response->assertRedirect(route('credentials.passes'));
         $response->assertSessionHas('success', 'Pass created.');
 
-        $pass = CredentialPass::query()->sole();
+        $pass = Pass::query()->sole();
         $this->assertSame($event->id, $pass->event_id);
         $this->assertSame('Artist', $pass->name);
         $this->assertSame(50, $pass->max_assignments);
@@ -120,7 +120,7 @@ class CredentialPassesTest extends TestCase
         $this->assertDatabaseHas('custom_field_values', [
             'custom_field_id' => $field->id,
             'event_id' => $event->id,
-            'custom_fieldable_type' => CredentialPass::class,
+            'custom_fieldable_type' => Pass::class,
             'custom_fieldable_id' => $pass->id,
             'value_text' => 'Backstage',
         ]);
@@ -129,13 +129,13 @@ class CredentialPassesTest extends TestCase
     public function test_pass_name_is_unique_within_an_event_ignoring_case(): void
     {
         [$user, $event] = $this->createEventContext();
-        $event->credentialPasses()->create(['name' => 'Artist']);
+        $event->passes()->create(['name' => 'Artist']);
 
         $this->actingAs($user)->post(route('credentials.passes.store', $event), [
             'name' => ' artist ',
         ])->assertSessionHasErrors('name');
 
-        $this->assertSame(1, CredentialPass::query()->count());
+        $this->assertSame(1, Pass::query()->count());
     }
 
     public function test_locked_event_cannot_open_or_submit_the_create_pass_flow(): void
