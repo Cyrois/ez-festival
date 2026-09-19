@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\CustomField;
 use App\Models\Event;
-use App\Models\Organization;
 use App\Models\User;
 use App\Models\Vendor;
 use App\Models\VendorEngagement;
@@ -89,7 +88,6 @@ class VendorTest extends TestCase
     {
         [$user, $event] = $this->context();
         $field = CustomField::query()->create([
-            'organization_id' => Organization::query()->firstOrFail()->id,
             'target' => CustomField::TARGET_VENDOR,
             'label' => 'Wristband provider',
             'key' => 'wristband_provider',
@@ -164,6 +162,86 @@ class VendorTest extends TestCase
             'starts_on' => '2027-06-01',
             'ends_on' => '2027-06-03',
             'timezone' => 'America/Vancouver',
+        ]);
+    }
+
+    public function test_vendor_custom_field_values_are_scoped_per_event(): void
+    {
+        [$user, $eventA] = $this->context();
+        $eventB = Event::query()->create([
+            'name' => 'Second Festival',
+            'starts_on' => '2027-08-01',
+            'ends_on' => '2027-08-03',
+            'timezone' => 'America/Vancouver',
+        ]);
+
+        $field = CustomField::query()->create([
+            'target' => CustomField::TARGET_VENDOR,
+            'label' => 'Booth size',
+            'key' => 'booth_size',
+            'type' => 'text',
+            'sort_order' => 1,
+        ]);
+
+        $this->actingAs($user)->post(route('vendors.store', $eventA), [
+            'name' => 'North Catering',
+            'custom_fields' => [$field->id => '10x10'],
+        ])->assertRedirect(route('vendors.advancing'));
+
+        $user->setCurrentEvent($eventB);
+
+        $this->actingAs($user)->post(route('vendors.store', $eventB), [
+            'name' => 'North Catering',
+            'custom_fields' => [$field->id => '20x20'],
+        ])->assertRedirect(route('vendors.advancing'));
+
+        $vendor = Vendor::query()->where('name', 'North Catering')->firstOrFail();
+
+        $this->assertDatabaseHas('custom_field_values', [
+            'custom_field_id' => $field->id,
+            'custom_fieldable_type' => Vendor::class,
+            'custom_fieldable_id' => $vendor->id,
+            'event_id' => $eventA->id,
+            'value_text' => '10x10',
+        ]);
+        $this->assertDatabaseHas('custom_field_values', [
+            'custom_field_id' => $field->id,
+            'custom_fieldable_type' => Vendor::class,
+            'custom_fieldable_id' => $vendor->id,
+            'event_id' => $eventB->id,
+            'value_text' => '20x20',
+        ]);
+        $this->assertSame(2, $vendor->customFieldValues()->count());
+    }
+
+    public function test_vendor_update_syncs_custom_fields(): void
+    {
+        [$user, $event] = $this->context();
+        $field = CustomField::query()->create([
+            'target' => CustomField::TARGET_VENDOR,
+            'label' => 'Power needs',
+            'key' => 'power_needs',
+            'type' => 'text',
+            'sort_order' => 1,
+        ]);
+
+        $this->actingAs($user)->post(route('vendors.store', $event), [
+            'name' => 'North Catering',
+            'custom_fields' => [$field->id => '120V'],
+        ])->assertRedirect();
+
+        $engagement = VendorEngagement::query()->firstOrFail();
+
+        $this->actingAs($user)->put(route('vendors.update', $engagement), [
+            'name' => 'North Catering',
+            'status' => 'confirmed',
+            'custom_fields' => [$field->id => '240V'],
+        ])->assertRedirect(route('vendors.view', $engagement));
+
+        $this->assertDatabaseHas('custom_field_values', [
+            'custom_field_id' => $field->id,
+            'event_id' => $event->id,
+            'value_text' => '240V',
         ]);
     }
 }

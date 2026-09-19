@@ -3,7 +3,6 @@
 namespace Tests\Feature\Settings;
 
 use App\Models\Event;
-use App\Models\Organization;
 use App\Models\User;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -48,7 +47,6 @@ class CustomFieldControllerTest extends TestCase
     public function test_authenticated_user_can_create_a_user_custom_field(): void
     {
         $user = $this->userWithCompletedSetup();
-        $organization = Organization::query()->firstOrFail();
 
         $this->actingAs($user)->post(route('settings.custom-fields.store'), [
             'target' => 'user',
@@ -59,7 +57,6 @@ class CustomFieldControllerTest extends TestCase
         ])->assertRedirect();
 
         $this->assertDatabaseHas('custom_fields', [
-            'organization_id' => $organization->id,
             'target' => 'user',
             'label' => 'Wristband',
             'key' => 'wristband',
@@ -85,7 +82,7 @@ class CustomFieldControllerTest extends TestCase
     {
         $user = $this->userWithCompletedSetup();
 
-        foreach (['artist', 'vendor', 'patron', 'team_member', 'user'] as $target) {
+        foreach (['vendor', 'user'] as $target) {
             $this->actingAs($user)->post(route('settings.custom-fields.store'), [
                 'target' => $target,
                 'label' => "{$target} identifier",
@@ -114,5 +111,16 @@ class CustomFieldControllerTest extends TestCase
         $user->setCurrentEvent($event);
 
         return $user;
+    }
+
+    public function test_unwired_custom_field_targets_are_rejected(): void
+    {
+        $user = $this->userWithCompletedSetup();
+
+        $this->actingAs($user)->post(route('settings.custom-fields.store'), [
+            'target' => 'artist',
+            'label' => 'Rider notes',
+            'type' => 'text',
+        ])->assertSessionHasErrors('target');
     }
 }

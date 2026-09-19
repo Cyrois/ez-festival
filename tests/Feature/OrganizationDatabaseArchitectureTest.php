@@ -29,7 +29,7 @@ class OrganizationDatabaseArchitectureTest extends TestCase
         $this->assertFalse(Schema::hasTable('organization_artists'));
         $this->assertTrue(Schema::hasTable('artists'));
 
-        foreach (['events', 'vendor_types', 'artist_types', 'artists', 'artist_labels'] as $table) {
+        foreach (['events', 'vendor_types', 'artist_types', 'artists', 'artist_labels', 'custom_fields'] as $table) {
             $this->assertFalse(Schema::hasColumn($table, 'organization_id'));
         }
     }
