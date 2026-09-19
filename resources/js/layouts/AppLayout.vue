@@ -102,6 +102,29 @@ const navItems = computed(() => [
         icon: ['fas', 'users'],
         enabled: features.value.crew ?? true,
     },
+    {
+        key: 'credentials',
+        href: '/credentials/passes',
+        icon: ['fas', 'id-card'],
+        enabled: true,
+        children: [
+            {
+                key: 'credentials.products',
+                href: null,
+                enabled: false,
+            },
+            {
+                key: 'credentials.passes',
+                href: '/credentials/passes',
+                enabled: true,
+            },
+            {
+                key: 'credentials.entitlements',
+                href: null,
+                enabled: false,
+            },
+        ],
+    },
 ]);
 
 const settingsActive = computed(
