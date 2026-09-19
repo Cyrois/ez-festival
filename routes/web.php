@@ -3,8 +3,10 @@
 use App\Http\Controllers\ArtistController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\CrewController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\PatronController;
 use App\Http\Controllers\Settings\AccountController;
 use App\Http\Controllers\Settings\ArtistTypeController as SettingsArtistTypeController;
 use App\Http\Controllers\Settings\CustomFieldController;
@@ -50,6 +52,7 @@ Route::middleware('auth')->group(function () {
         Route::get('dashboard', DashboardController::class)->name('dashboard');
 
         Route::get('artists/advancing', [ArtistController::class, 'index'])->name('artists.index');
+        Route::get('artists/check-in', [ArtistController::class, 'checkIn'])->name('artists.check-in');
         Route::get('artists/create', [ArtistController::class, 'create'])->name('artists.create');
         Route::get('artists/engagements/{engagement}', [ArtistController::class, 'view'])->name('artists.view');
         Route::put('artists/engagements/{engagement}', [ArtistController::class, 'update'])
@@ -59,8 +62,12 @@ Route::middleware('auth')->group(function () {
         Route::post('events/{event}/artists', [ArtistController::class, 'store'])
             ->middleware('event.writable')->name('artists.store');
 
+        Route::get('patrons', [PatronController::class, 'index'])->name('patrons.index');
+        Route::get('crew', [CrewController::class, 'index'])->name('crew.index');
+
         Route::redirect('vendors', '/vendors/advancing')->name('vendors.index');
         Route::get('vendors/advancing', [VendorController::class, 'index'])->name('vendors.advancing');
+        Route::get('vendors/check-in', [VendorController::class, 'checkIn'])->name('vendors.check-in');
         Route::get('vendors/engagements/{engagement}', [VendorController::class, 'view'])->name('vendors.view');
         Route::put('vendors/engagements/{engagement}', [VendorController::class, 'update'])
             ->middleware('event.writable')->name('vendors.update');

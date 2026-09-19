@@ -42,6 +42,11 @@ class VendorController extends Controller
         ]);
     }
 
+    public function checkIn(): Response
+    {
+        return Inertia::render('Vendors/CheckIn');
+    }
+
     public function create(Request $request): Response
     {
         $event = $this->eventContext->requireWritable($request->user());

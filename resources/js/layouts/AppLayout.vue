@@ -58,6 +58,18 @@ const navItems = [
         href: '/artists/advancing',
         icon: ['fas', 'music'],
         enabled: true,
+        children: [
+            {
+                key: 'artists.advancing',
+                href: '/artists/advancing',
+                enabled: true,
+            },
+            {
+                key: 'artists.check_in',
+                href: '/artists/check-in',
+                enabled: true,
+            },
+        ],
     },
     {
         key: 'vendors',
@@ -72,22 +84,22 @@ const navItems = [
             },
             {
                 key: 'vendors.check_in',
-                href: null,
-                enabled: false,
+                href: '/vendors/check-in',
+                enabled: true,
             },
         ],
     },
     {
         key: 'patrons',
-        href: null,
+        href: '/patrons',
         icon: ['fas', 'address-book'],
-        enabled: false,
+        enabled: true,
     },
     {
         key: 'crew',
-        href: null,
+        href: '/crew',
         icon: ['fas', 'users'],
-        enabled: false,
+        enabled: true,
     },
 ];
 
@@ -111,7 +123,11 @@ const isActive = (href) => {
     }
 
     if (href === '/artists/advancing') {
-        return currentPath.value.startsWith('/artists/');
+        return (
+            currentPath.value === href ||
+            currentPath.value === '/artists/create' ||
+            currentPath.value.startsWith('/artists/engagements/')
+        );
     }
 
     return (
