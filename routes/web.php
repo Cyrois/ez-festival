@@ -3,6 +3,7 @@
 use App\Http\Controllers\ArtistController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\CredentialPassController;
 use App\Http\Controllers\CrewController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventController;
@@ -69,6 +70,9 @@ Route::middleware('auth')->group(function () {
         Route::get('crew', [CrewController::class, 'index'])
             ->middleware('feature:crew')
             ->name('crew.index');
+
+        Route::get('credentials/passes', CredentialPassController::class)
+            ->name('credentials.passes');
 
         Route::redirect('vendors', '/vendors/advancing')->name('vendors.index');
         Route::get('vendors/advancing', [VendorController::class, 'index'])->name('vendors.advancing');
