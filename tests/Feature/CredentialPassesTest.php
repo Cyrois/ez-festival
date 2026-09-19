@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\CredentialPass;
+use App\Models\CredentialPassLabel;
+use App\Models\CustomField;
 use App\Models\Event;
 use App\Models\User;
 use App\Support\OrganizationContext;
@@ -22,6 +25,7 @@ class CredentialPassesTest extends TestCase
     public function test_guests_must_sign_in(): void
     {
         $this->get(route('credentials.passes'))->assertRedirect(route('login'));
+        $this->get(route('credentials.passes.create'))->assertRedirect(route('login'));
     }
 
     public function test_passes_page_renders_for_a_user_with_completed_setup(): void
@@ -44,5 +48,127 @@ class CredentialPassesTest extends TestCase
                 ->where('activeEvent.id', $event->id)
                 ->where('activeEvent.name', 'Sunrise Folk Fest 2026'),
         );
+    }
+
+    public function test_create_page_renders_labels_and_pass_custom_fields(): void
+    {
+        [$user, $event] = $this->createEventContext();
+        $label = CredentialPassLabel::query()->create([
+            'name' => 'All-access',
+            'color' => 'secondary',
+        ]);
+        $field = CustomField::query()->create([
+            'target' => CustomField::TARGET_CREDENTIAL_PASS,
+            'label' => 'Print name',
+            'key' => 'print_name',
+            'type' => 'text',
+            'required' => false,
+            'sort_order' => 1,
+            'active' => true,
+        ]);
+
+        $this->actingAs($user)->get(route('credentials.passes.create'))->assertInertia(
+            fn (Assert $page) => $page
+                ->component('Credentials/CreatePass')
+                ->where('event.id', $event->id)
+                ->where('labels.0.id', $label->id)
+                ->where('customFields.0.id', $field->id),
+        );
+    }
+
+    public function test_user_can_create_an_event_pass_with_labels_and_custom_fields(): void
+    {
+        [$user, $event] = $this->createEventContext();
+        $existingLabel = CredentialPassLabel::query()->create([
+            'name' => 'Wristband',
+            'color' => 'warning',
+        ]);
+        $field = CustomField::query()->create([
+            'target' => CustomField::TARGET_CREDENTIAL_PASS,
+            'label' => 'Access tier',
+            'key' => 'access_tier',
+            'type' => 'select',
+            'required' => true,
+            'options' => ['Standard', 'Backstage'],
+            'sort_order' => 1,
+            'active' => true,
+        ]);
+
+        $response = $this->actingAs($user)->post(route('credentials.passes.store', $event), [
+            'name' => 'Artist',
+            'max_assignments' => 50,
+            'label_ids' => [$existingLabel->id],
+            'new_labels' => [
+                ['name' => 'Guest', 'color' => 'primary'],
+            ],
+            'custom_fields' => [
+                $field->id => 'Backstage',
+            ],
+        ]);
+
+        $response->assertRedirect(route('credentials.passes'));
+        $response->assertSessionHas('success', 'Pass created.');
+
+        $pass = CredentialPass::query()->sole();
+        $this->assertSame($event->id, $pass->event_id);
+        $this->assertSame('Artist', $pass->name);
+        $this->assertSame(50, $pass->max_assignments);
+        $this->assertEqualsCanonicalizing(
+            ['Guest', 'Wristband'],
+            $pass->labels()->pluck('name')->all(),
+        );
+        $this->assertDatabaseHas('custom_field_values', [
+            'custom_field_id' => $field->id,
+            'event_id' => $event->id,
+            'custom_fieldable_type' => CredentialPass::class,
+            'custom_fieldable_id' => $pass->id,
+            'value_text' => 'Backstage',
+        ]);
+    }
+
+    public function test_pass_name_is_unique_within_an_event_ignoring_case(): void
+    {
+        [$user, $event] = $this->createEventContext();
+        $event->credentialPasses()->create(['name' => 'Artist']);
+
+        $this->actingAs($user)->post(route('credentials.passes.store', $event), [
+            'name' => ' artist ',
+        ])->assertSessionHasErrors('name');
+
+        $this->assertSame(1, CredentialPass::query()->count());
+    }
+
+    public function test_locked_event_cannot_open_or_submit_the_create_pass_flow(): void
+    {
+        [$user, $event] = $this->createEventContext();
+        $event->lock();
+
+        $this->actingAs($user)
+            ->get(route('credentials.passes.create'))
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->post(route('credentials.passes.store', $event), ['name' => 'Artist'])
+            ->assertForbidden();
+    }
+
+    /**
+     * @return array{User, Event}
+     */
+    private function createEventContext(): array
+    {
+        $user = User::factory()->create();
+        $event = Event::query()->create([
+            'name' => 'Sunrise Folk Fest 2026',
+            'starts_on' => '2026-07-10',
+            'ends_on' => '2026-07-12',
+            'timezone' => 'America/Vancouver',
+        ]);
+        $organization = app(OrganizationContext::class);
+        $organization->setDefaultEvent($event);
+        $organization->markSetupComplete();
+        $user->setCurrentEvent($event);
+
+        return [$user, $event];
     }
 }

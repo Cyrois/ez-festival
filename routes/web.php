@@ -73,6 +73,11 @@ Route::middleware('auth')->group(function () {
 
         Route::get('credentials/passes', [CredentialPassController::class, 'index'])
             ->name('credentials.passes');
+        Route::get('credentials/passes/create', [CredentialPassController::class, 'create'])
+            ->name('credentials.passes.create');
+        Route::post('events/{event}/credentials/passes', [CredentialPassController::class, 'store'])
+            ->middleware('event.writable')
+            ->name('credentials.passes.store');
 
         Route::redirect('vendors', '/vendors/advancing')->name('vendors.index');
         Route::get('vendors/advancing', [VendorController::class, 'index'])->name('vendors.advancing');

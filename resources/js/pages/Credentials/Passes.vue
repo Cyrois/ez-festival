@@ -2,10 +2,16 @@
 import AppLayout from '../../layouts/AppLayout.vue';
 import PassRow from '../../components/credentials/PassRow.vue';
 import { Button } from '../../components/ui/button';
+import { EmptyState } from '../../components/ui/empty-state';
 import { Icon } from '../../components/ui/icon';
 import { usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+
+const props = defineProps({
+    passes: { type: Array, default: () => [] },
+    canWrite: { type: Boolean, default: false },
+});
 
 const page = usePage();
 const eventName = computed(() => page.props.activeEvent?.name ?? '');
@@ -17,30 +23,16 @@ const breadcrumbs = computed(() => [
 const lead = computed(() =>
     trans('credentials.passes.lead', { event: eventName.value }),
 );
-const samplePasses = computed(() => [
-    {
-        name: trans('credentials.passes.samples.artist'),
-        usage: trans('credentials.passes.usage.limited', {
-            assigned: 12,
-            capacity: 50,
-        }),
-    },
-    {
-        name: trans('credentials.passes.samples.guest'),
-        usage: trans('credentials.passes.usage.unlimited', { assigned: 8 }),
-    },
-    {
-        name: trans('credentials.passes.samples.vendor_staff'),
-        usage: trans('credentials.passes.usage.limited', {
-            assigned: 24,
-            capacity: 40,
-        }),
-    },
-    {
-        name: trans('credentials.passes.samples.vip'),
-        usage: trans('credentials.passes.usage.unlimited', { assigned: 3 }),
-    },
-]);
+
+const usageFor = (pass) =>
+    pass.max_assignments === null
+        ? trans('credentials.passes.usage.unlimited', {
+              assigned: pass.assigned_count,
+          })
+        : trans('credentials.passes.usage.limited', {
+              assigned: pass.assigned_count,
+              capacity: pass.max_assignments,
+          });
 </script>
 
 <template>
@@ -59,6 +51,8 @@ const samplePasses = computed(() => [
                     </p>
                 </div>
                 <Button
+                    v-if="canWrite"
+                    href="/credentials/passes/create"
                     variant="primary"
                     class="min-h-10"
                 >
@@ -72,12 +66,44 @@ const samplePasses = computed(() => [
 
             <div class="space-y-2.5">
                 <PassRow
-                    v-for="pass in samplePasses"
-                    :key="pass.name"
+                    v-for="pass in props.passes"
+                    :key="pass.id"
                     :name="pass.name"
-                    :usage="pass.usage"
+                    :usage="usageFor(pass)"
                 />
             </div>
+
+            <EmptyState
+                v-if="props.passes.length === 0"
+                class="mt-5"
+                :title="$t('credentials.passes.empty.title')"
+                :description="$t('credentials.passes.empty.description')"
+            >
+                <template #icon>
+                    <Icon
+                        :name="['fas', 'id-card']"
+                        size="lg"
+                    />
+                </template>
+                <Button
+                    v-if="canWrite"
+                    href="/credentials/passes/create"
+                    variant="outline"
+                >
+                    <Icon
+                        :name="['fas', 'plus']"
+                        size="sm"
+                    />
+                    {{ $t('credentials.passes.create') }}
+                </Button>
+            </EmptyState>
+
+            <p
+                v-if="!canWrite"
+                class="mt-3 mb-0 text-xs leading-5 text-muted"
+            >
+                {{ $t('credentials.passes.read_only') }}
+            </p>
 
             <p class="mt-3 mb-0 text-xs leading-5 text-muted">
                 {{ $t('credentials.passes.note') }}

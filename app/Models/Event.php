@@ -42,6 +42,11 @@ class Event extends Model
         return $this->hasMany(VendorEngagement::class);
     }
 
+    public function credentialPasses(): HasMany
+    {
+        return $this->hasMany(CredentialPass::class);
+    }
+
     public function isPast(?Carbon $on = null): bool
     {
         $on ??= now();
