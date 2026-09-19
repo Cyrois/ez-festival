@@ -46,6 +46,11 @@ class ArtistController extends Controller
         ]);
     }
 
+    public function checkIn(): Response
+    {
+        return Inertia::render('Artists/CheckIn');
+    }
+
     public function create(CreateArtistRequest $request): Response
     {
         $event = $this->eventContext->requireWritable($request->user());
