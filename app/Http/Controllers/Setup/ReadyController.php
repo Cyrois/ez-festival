@@ -7,6 +7,7 @@ use App\Http\Controllers\Setup\Concerns\InteractsWithSetup;
 use App\Http\Requests\Setup\CompleteSetupRequest;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 

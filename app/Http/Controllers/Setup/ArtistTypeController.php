@@ -10,6 +10,7 @@ use App\Http\Requests\Setup\StoreTypeRequest;
 use App\Http\Requests\Setup\UpdateTypeRequest;
 use App\Models\ArtistType;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 

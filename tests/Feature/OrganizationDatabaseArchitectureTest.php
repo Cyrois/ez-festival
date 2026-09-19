@@ -92,6 +92,16 @@ class OrganizationDatabaseArchitectureTest extends TestCase
         $this->assertTrue(app(OrganizationContext::class)->defaultEvent()->is($event));
         $this->assertSame($event->id, $user->fresh()->current_event_id);
 
+        $this->get(route('setup.locations'))->assertInertia(fn (Assert $page) => $page
+            ->component('Setup/Locations')
+            ->where('event.id', $event->id));
+
+        $this->get(route('setup.artist-types'))->assertInertia(fn (Assert $page) => $page
+            ->component('Setup/ArtistTypes'));
+
+        $this->get(route('setup.ready'))->assertInertia(fn (Assert $page) => $page
+            ->component('Setup/Ready'));
+
         $this->post(route('setup.ready.complete'))->assertRedirect(route('dashboard'));
         $this->assertTrue(app(OrganizationContext::class)->setupIsComplete());
         $this->assertNotNull(Organization::query()->sole()->setup_completed_at);
