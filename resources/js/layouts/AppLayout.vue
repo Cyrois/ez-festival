@@ -120,8 +120,8 @@ const navItems = computed(() => [
             },
             {
                 key: 'credentials.entitlements',
-                href: null,
-                enabled: false,
+                href: '/credentials/entitlements',
+                enabled: true,
             },
         ],
     },

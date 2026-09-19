@@ -1,11 +1,14 @@
 <?php
 
 use App\Http\Controllers\ArtistController;
+use App\Http\Controllers\ArtistEngagementPersonController;
+use App\Http\Controllers\ArtistPassAssignmentController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\CrewController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\PassAssignmentController;
 use App\Http\Controllers\PassController;
 use App\Http\Controllers\PatronController;
 use App\Http\Controllers\Settings\AccountController;
@@ -25,6 +28,8 @@ use App\Http\Controllers\Setup\ReadyController;
 use App\Http\Controllers\Setup\VendorTypeController;
 use App\Http\Controllers\UiKitController;
 use App\Http\Controllers\VendorController;
+use App\Http\Controllers\VendorEngagementPersonController;
+use App\Http\Controllers\VendorPassAssignmentController;
 use App\Support\PostLoginRedirect;
 use Illuminate\Support\Facades\Route;
 
@@ -61,6 +66,14 @@ Route::middleware('auth')->group(function () {
             ->middleware('event.writable')->name('artists.update');
         Route::post('artists/engagements/{engagement}/notes', [ArtistController::class, 'storeNote'])
             ->middleware('event.writable')->name('artists.notes.store');
+        Route::post('artists/engagements/{engagement}/people', [ArtistEngagementPersonController::class, 'store'])
+            ->middleware('event.writable')->name('artists.people.store');
+        Route::put('artists/engagements/{engagement}/people/{person}', [ArtistEngagementPersonController::class, 'update'])
+            ->middleware('event.writable')->name('artists.people.update');
+        Route::delete('artists/engagements/{engagement}/people/{person}', [ArtistEngagementPersonController::class, 'destroy'])
+            ->middleware('event.writable')->name('artists.people.destroy');
+        Route::post('artists/engagements/{engagement}/pass-assignments', [ArtistPassAssignmentController::class, 'store'])
+            ->middleware('event.writable')->name('artists.pass-assignments.store');
         Route::post('events/{event}/artists', [ArtistController::class, 'store'])
             ->middleware('event.writable')->name('artists.store');
 
@@ -75,9 +88,16 @@ Route::middleware('auth')->group(function () {
             ->name('credentials.passes');
         Route::get('credentials/passes/create', [PassController::class, 'create'])
             ->name('credentials.passes.create');
+        Route::get('credentials/passes/{pass}/edit', [PassController::class, 'edit'])
+            ->name('credentials.passes.edit');
         Route::post('events/{event}/credentials/passes', [PassController::class, 'store'])
             ->middleware('event.writable')
             ->name('credentials.passes.store');
+        Route::put('events/{event}/credentials/passes/{pass}', [PassController::class, 'update'])
+            ->middleware('event.writable')
+            ->name('credentials.passes.update');
+        Route::get('credentials/entitlements', [PassController::class, 'entitlements'])
+            ->name('credentials.entitlements');
 
         Route::redirect('vendors', '/vendors/advancing')->name('vendors.index');
         Route::get('vendors/advancing', [VendorController::class, 'index'])->name('vendors.advancing');
@@ -87,9 +107,22 @@ Route::middleware('auth')->group(function () {
             ->middleware('event.writable')->name('vendors.update');
         Route::post('vendors/engagements/{engagement}/notes', [VendorController::class, 'storeNote'])
             ->middleware('event.writable')->name('vendors.notes.store');
+        Route::post('vendors/engagements/{engagement}/people', [VendorEngagementPersonController::class, 'store'])
+            ->middleware('event.writable')->name('vendors.people.store');
+        Route::put('vendors/engagements/{engagement}/people/{person}', [VendorEngagementPersonController::class, 'update'])
+            ->middleware('event.writable')->name('vendors.people.update');
+        Route::delete('vendors/engagements/{engagement}/people/{person}', [VendorEngagementPersonController::class, 'destroy'])
+            ->middleware('event.writable')->name('vendors.people.destroy');
+        Route::post('vendors/engagements/{engagement}/pass-assignments', [VendorPassAssignmentController::class, 'store'])
+            ->middleware('event.writable')->name('vendors.pass-assignments.store');
         Route::get('vendors/create', [VendorController::class, 'create'])->name('vendors.create');
         Route::post('events/{event}/vendors', [VendorController::class, 'store'])
             ->middleware('event.writable')->name('vendors.store');
+
+        Route::put('pass-assignments/{assignment}', [PassAssignmentController::class, 'update'])
+            ->middleware('event.writable')->name('pass-assignments.update');
+        Route::delete('pass-assignments/{assignment}', [PassAssignmentController::class, 'destroy'])
+            ->middleware('event.writable')->name('pass-assignments.destroy');
 
         Route::get('events', [EventController::class, 'index'])->name('events.index');
         Route::get('events/{event}', [EventController::class, 'show'])->name('events.show');

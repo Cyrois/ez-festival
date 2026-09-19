@@ -14,12 +14,40 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'phone', 'password'])]
+#[Fillable(['person_id', 'name', 'email', 'phone', 'password'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    protected static function booted(): void
+    {
+        static::saving(function (User $user): void {
+            if ($user->person_id === null || ! $user->isDirty('person_id')) {
+                return;
+            }
+
+            $person = Person::query()->find($user->person_id);
+            if ($person !== null && $person->email !== null) {
+                $user->email = $person->email;
+            }
+        });
+
+        static::created(function (User $user): void {
+            if ($user->person_id !== null) {
+                return;
+            }
+
+            $person = Person::query()->create([
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+            ]);
+
+            $user->forceFill(['person_id' => $person->id])->saveQuietly();
+        });
+    }
 
     /**
      * Get the attributes that should be cast.
@@ -65,6 +93,11 @@ class User extends Authenticatable
     public function currentEvent(): BelongsTo
     {
         return $this->belongsTo(Event::class, 'current_event_id');
+    }
+
+    public function person(): BelongsTo
+    {
+        return $this->belongsTo(Person::class);
     }
 
     public function customFieldValues(): MorphMany

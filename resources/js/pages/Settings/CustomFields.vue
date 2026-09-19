@@ -8,6 +8,7 @@ import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
 import { Select } from '../../components/ui/select';
 import { Textarea } from '../../components/ui/textarea';
+import { Tab, TabList, Tabs } from '../../components/ui/tabs';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { fieldError, toastFormErrors } from '../../lib/fieldError';
 import { router, useForm } from '@inertiajs/vue3';
@@ -25,6 +26,7 @@ const breadcrumbs = computed(() => [
 ]);
 
 const targets = ['vendor', 'user', 'pass'];
+const activeTarget = ref('vendor');
 
 const { showError, showFormError, showSuccess } = useFlashToast();
 const editing = ref(null);
@@ -58,11 +60,13 @@ const resetForm = () => {
 
 const beginCreate = (target) => {
     resetForm();
+    activeTarget.value = target;
     form.target = target;
     editing.value = 'new';
 };
 
 const beginEdit = (field) => {
+    activeTarget.value = field.target;
     editing.value = field;
     form.target = field.target;
     form.label = field.label;
@@ -133,13 +137,23 @@ const remove = (field) => {
                 </p>
             </div>
 
+            <Tabs v-model="activeTarget">
+                <TabList>
+                    <Tab
+                        v-for="target in targets"
+                        :key="target"
+                        :value="target"
+                    >
+                        {{ $t(`settings.custom_fields.target.${target}`) }}
+                    </Tab>
+                </TabList>
+            </Tabs>
+
             <section
                 v-for="(target, index) in targets"
+                v-show="activeTarget === target"
                 :key="target"
-                :class="[
-                    'flex flex-col gap-4',
-                    index > 0 && 'border-t border-line pt-8',
-                ]"
+                :class="['flex flex-col gap-4', index > 0 && 'pt-0']"
             >
                 <div class="flex items-center justify-between gap-4">
                     <h2 class="m-0 text-lg font-semibold text-charcoal">

@@ -78,7 +78,14 @@ class ArtistController extends Controller
     {
         $event = $this->resolveEventContext($request, $engagement, writable: false);
 
-        $engagement->load(['artist', 'labels' => fn ($query) => $query->orderBy('name'), 'artistType']);
+        $engagement->load([
+            'artist',
+            'labels' => fn ($query) => $query->orderBy('name'),
+            'artistType',
+            'people' => fn ($query) => $query->orderByDesc('artist_engagement_people.is_primary')->orderBy('people.name'),
+            'passAssignments.pass',
+            'passAssignments.person',
+        ]);
 
         $notes = $engagement->notes()
             ->with('user:id,name,email')
@@ -94,6 +101,7 @@ class ArtistController extends Controller
             'labels' => ArtistLabel::query()->orderBy('name')->get(['id', 'name', 'color']),
             'statuses' => ArtistEngagement::STATUSES,
             'labelColors' => ArtistLabel::COLORS,
+            'passes' => $event->passes()->withCount('assignments')->orderBy('name')->get(['id', 'name', 'max_assignments']),
             'canWrite' => ! $event->isLocked(),
         ]);
     }

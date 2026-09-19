@@ -3,6 +3,8 @@ import AppLayout from '../../layouts/AppLayout.vue';
 import { Avatar } from '../../components/ui/avatar';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
+import EngagementPeoplePanel from '../../components/people/EngagementPeoplePanel.vue';
+import PassAssignmentsPanel from '../../components/credentials/PassAssignmentsPanel.vue';
 import { Checkbox } from '../../components/ui/checkbox';
 import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
@@ -24,6 +26,7 @@ const props = defineProps({
     labels: { type: Array, required: true },
     statuses: { type: Array, required: true },
     labelColors: { type: Array, required: true },
+    passes: { type: Array, default: () => [] },
     canWrite: { type: Boolean, required: true },
 });
 
@@ -337,6 +340,18 @@ const formatNoteTime = (iso) => {
                             {{ $t('artists.custom_fields_shell') }}
                         </div>
                     </div>
+                    <EngagementPeoplePanel
+                        :people="engagement.people"
+                        :base-path="`/artists/engagements/${engagement.id}`"
+                        :can-write="canWrite"
+                    />
+                    <PassAssignmentsPanel
+                        :assignments="engagement.pass_assignments"
+                        :people="engagement.people"
+                        :passes="passes"
+                        :base-path="`/artists/engagements/${engagement.id}`"
+                        :can-write="canWrite"
+                    />
                     <p
                         class="m-0 text-[11px] font-bold tracking-wider text-muted uppercase"
                     >

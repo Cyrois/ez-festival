@@ -170,6 +170,56 @@ class PassesTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_user_can_edit_a_pass_and_load_existing_custom_values(): void
+    {
+        [$user, $event] = $this->createEventContext();
+        $label = PassLabel::query()->create(['name' => 'All-access', 'color' => 'primary']);
+        $field = CustomField::query()->create([
+            'target' => CustomField::TARGET_PASS,
+            'label' => 'Print name',
+            'key' => 'print_name',
+            'type' => 'text',
+            'required' => false,
+            'sort_order' => 1,
+            'active' => true,
+        ]);
+        $pass = $event->passes()->create(['name' => 'Artist', 'max_assignments' => 10]);
+        $pass->labels()->attach($label);
+        $pass->customFieldValues()->create([
+            'custom_field_id' => $field->id,
+            'event_id' => $event->id,
+            'value_text' => 'Artist name',
+            'value_search' => 'artist name',
+        ]);
+
+        $this->actingAs($user)->get(route('credentials.passes.edit', $pass))->assertInertia(
+            fn (Assert $page) => $page
+                ->component('Credentials/CreatePass')
+                ->where('pass.id', $pass->id)
+                ->where('pass.label_ids.0', $label->id)
+                ->where("pass.custom_fields.{$field->id}", 'Artist name'),
+        );
+
+        $this->actingAs($user)->put(route('credentials.passes.update', [$event, $pass]), [
+            'name' => 'Artist Plus',
+            'max_assignments' => 12,
+            'label_ids' => [],
+            'custom_fields' => [$field->id => 'Headline artist'],
+        ])->assertRedirect(route('credentials.passes'));
+
+        $this->assertDatabaseHas('passes', ['id' => $pass->id, 'name' => 'Artist Plus', 'max_assignments' => 12]);
+        $this->assertDatabaseHas('custom_field_values', ['custom_field_id' => $field->id, 'value_text' => 'Headline artist']);
+    }
+
+    public function test_entitlements_page_is_an_empty_stub(): void
+    {
+        [$user] = $this->createEventContext();
+
+        $this->actingAs($user)->get(route('credentials.entitlements'))->assertInertia(
+            fn (Assert $page) => $page->component('Credentials/Entitlements'),
+        );
+    }
+
     /**
      * @return array{User, Event}
      */
