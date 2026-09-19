@@ -12,6 +12,7 @@ use App\Http\Controllers\Settings\ArtistTypeController as SettingsArtistTypeCont
 use App\Http\Controllers\Settings\CustomFieldController;
 use App\Http\Controllers\Settings\EventController as SettingsEventController;
 use App\Http\Controllers\Settings\EventLocationController;
+use App\Http\Controllers\Settings\FeatureFlagController;
 use App\Http\Controllers\Settings\LabelController;
 use App\Http\Controllers\Settings\PrimaryEventSettingsController;
 use App\Http\Controllers\Settings\TeamController;
@@ -62,8 +63,12 @@ Route::middleware('auth')->group(function () {
         Route::post('events/{event}/artists', [ArtistController::class, 'store'])
             ->middleware('event.writable')->name('artists.store');
 
-        Route::get('patrons', [PatronController::class, 'index'])->name('patrons.index');
-        Route::get('crew', [CrewController::class, 'index'])->name('crew.index');
+        Route::get('patrons', [PatronController::class, 'index'])
+            ->middleware('feature:patrons')
+            ->name('patrons.index');
+        Route::get('crew', [CrewController::class, 'index'])
+            ->middleware('feature:crew')
+            ->name('crew.index');
 
         Route::redirect('vendors', '/vendors/advancing')->name('vendors.index');
         Route::get('vendors/advancing', [VendorController::class, 'index'])->name('vendors.advancing');
@@ -107,6 +112,8 @@ Route::middleware('auth')->group(function () {
             Route::post('custom-fields', [CustomFieldController::class, 'store'])->name('custom-fields.store');
             Route::put('custom-fields/{customField}', [CustomFieldController::class, 'update'])->name('custom-fields.update');
             Route::delete('custom-fields/{customField}', [CustomFieldController::class, 'destroy'])->name('custom-fields.destroy');
+            Route::get('feature-flags', [FeatureFlagController::class, 'index'])->name('feature-flags');
+            Route::put('feature-flags/{flag}', [FeatureFlagController::class, 'update'])->name('feature-flags.update');
             Route::get('labels', LabelController::class)->name('labels');
             Route::get('events/{event}/edit', [SettingsEventController::class, 'edit'])->name('events.edit');
             Route::post('events/{event}/set-primary', [SettingsEventController::class, 'setPrimary'])->name('events.set-primary');
