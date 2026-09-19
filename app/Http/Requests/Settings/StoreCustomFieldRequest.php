@@ -19,7 +19,7 @@ class StoreCustomFieldRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'target' => ['required', 'string', Rule::in(CustomField::TARGETS)],
+            'target' => ['required', 'string', Rule::in(CustomField::WIRED_TARGETS)],
             'label' => ['required', 'string', 'max:255'],
             'type' => ['required', 'string', Rule::in(CustomField::TYPES)],
             'required' => ['boolean'],
@@ -34,7 +34,7 @@ class StoreCustomFieldRequest extends FormRequest
             $options = $this->input('options');
 
             if ($this->input('type') === 'select' && (! is_array($options) || count($options) === 0)) {
-                $validator->errors()->add('options', 'At least one choice is required.');
+                $validator->errors()->add('options', __('settings.custom_fields.validation.options_required'));
             }
         });
     }

@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['artist_id', 'event_id', 'artist_type_id', 'status', 'notes'])]
+#[Fillable(['artist_id', 'event_id', 'artist_type_id', 'status'])]
 class ArtistEngagement extends Model
 {
     use HasFactory;

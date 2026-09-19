@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\CustomField;
 use App\Models\Event;
 use App\Models\User;
 use App\Models\Vendor;
@@ -54,6 +55,7 @@ class VendorService
                     $vendor->customFieldValues(),
                     $customFields,
                     $data['custom_fields'] ?? [],
+                    $event->id,
                 );
 
                 return $engagement;
@@ -65,10 +67,13 @@ class VendorService
         });
     }
 
-    /** @param array<string, mixed> $data */
-    public function updateEngagement(VendorEngagement $engagement, array $data): void
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  Collection<int, CustomField>|null  $customFields
+     */
+    public function updateEngagement(VendorEngagement $engagement, array $data, ?Collection $customFields = null): void
     {
-        DB::transaction(function () use ($engagement, $data): void {
+        DB::transaction(function () use ($engagement, $data, $customFields): void {
             $event = Event::query()->lockForUpdate()->findOrFail($engagement->event_id);
             $event->ensureWritable();
             $vendor = Vendor::query()->lockForUpdate()->findOrFail($engagement->vendor_id);
@@ -85,6 +90,15 @@ class VendorService
                     'status' => $data['status'],
                     'vendor_type_id' => $data['vendor_type_id'] ?? null,
                 ]);
+
+                if ($customFields !== null) {
+                    $this->customFieldValueService->sync(
+                        $vendor->customFieldValues(),
+                        $customFields,
+                        $data['custom_fields'] ?? [],
+                        $event->id,
+                    );
+                }
             } catch (UniqueConstraintViolationException) {
                 throw ValidationException::withMessages(['name' => __('vendors.errors.name_taken')]);
             }

@@ -34,7 +34,7 @@ class UpdateCustomFieldRequest extends FormRequest
             $options = $this->input('options');
 
             if ($this->input('type') === 'select' && (! is_array($options) || count($options) === 0)) {
-                $validator->errors()->add('options', 'At least one choice is required.');
+                $validator->errors()->add('options', __('settings.custom_fields.validation.options_required'));
             }
         });
     }

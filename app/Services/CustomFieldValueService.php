@@ -15,25 +15,32 @@ class CustomFieldValueService
      * @param  Collection<int, CustomField>  $customFields
      * @param  array<int|string, mixed>  $values
      */
-    public function sync(MorphMany $customFieldValues, Collection $customFields, array $values): void
-    {
+    public function sync(
+        MorphMany $customFieldValues,
+        Collection $customFields,
+        array $values,
+        ?int $eventId = null,
+    ): void {
         foreach ($customFields as $field) {
             if (! array_key_exists($field->id, $values)) {
                 continue;
             }
 
             $value = $values[$field->id];
+            $scope = [
+                'custom_field_id' => $field->id,
+                'event_id' => $eventId,
+            ];
             $fieldValues = clone $customFieldValues;
 
             if ($field->type !== 'checkbox' && ($value === null || $value === '')) {
-                $fieldValues->where('custom_field_id', $field->id)->delete();
+                $fieldValues->where($scope)->delete();
 
                 continue;
             }
 
-            $fieldValue = $fieldValues->firstOrNew([
-                'custom_field_id' => $field->id,
-            ]);
+            $fieldValue = $fieldValues->firstOrNew($scope);
+            $fieldValue->event_id = $eventId;
             $fieldValue->setTypedValue($field, $value);
             $fieldValue->save();
         }

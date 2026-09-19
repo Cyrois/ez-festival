@@ -143,8 +143,6 @@ class ArtistAdvancingTest extends TestCase
             'artist_type_id' => $type->id,
             'label_ids' => [$vip->id],
             'new_labels' => [['name' => 'Headliner', 'color' => 'warning']],
-            'organization_id' => 9999,
-            'notes' => 'Not a writable field',
         ])->assertRedirect(route('artists.index'))->assertSessionHas('success', __('artists.toast.created'));
 
         $artist = Artist::query()->sole();
@@ -156,10 +154,8 @@ class ArtistAdvancingTest extends TestCase
             'event_id' => $event->id,
             'artist_type_id' => $type->id,
             'status' => 'outreach',
-            'notes' => null,
         ]);
         $this->assertSame(['Headliner', 'VIP'], $engagement->labels()->orderBy('name')->pluck('name')->all());
-        $this->assertDatabaseCount('artist_label_assignments', 0);
         $this->assertDatabaseHas('artist_labels', [
             'name' => 'Headliner',
             'name_key' => 'headliner',
@@ -202,7 +198,6 @@ class ArtistAdvancingTest extends TestCase
         $past = $this->event('Previous year');
         $history = ArtistEngagement::factory()->for($artist)->for($past)->create([
             'status' => 'confirmed',
-            'notes' => 'Past notes',
         ]);
         $label = ArtistLabel::factory()->create(['name' => 'VIP', 'color' => 'secondary']);
         $history->labels()->attach($label);
@@ -215,13 +210,11 @@ class ArtistAdvancingTest extends TestCase
         $this->assertDatabaseCount('artists', 1);
         $this->assertDatabaseCount('artist_engagements', 2);
         $this->assertDatabaseCount('artist_labels', 1);
-        $this->assertDatabaseCount('artist_label_assignments', 0);
         $current = ArtistEngagement::query()->where('event_id', $event->id)->sole();
         $this->assertSame(['VIP'], $history->fresh()->labels()->pluck('name')->all());
         $this->assertSame(['VIP'], $current->labels()->pluck('name')->all());
         $this->assertSame('secondary', $label->fresh()->color);
         $this->assertSame('confirmed', $history->fresh()->status);
-        $this->assertSame('Past notes', $history->fresh()->notes);
     }
 
     public function test_new_label_names_must_be_distinct_ignoring_case(): void

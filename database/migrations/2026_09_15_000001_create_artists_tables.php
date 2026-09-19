@@ -21,7 +21,6 @@ return new class extends Migration
             $table->foreignId('event_id')->constrained()->cascadeOnDelete();
             $table->foreignId('artist_type_id')->nullable()->constrained()->nullOnDelete();
             $table->string('status')->default('idea');
-            $table->text('notes')->nullable();
             $table->timestamps();
 
             $table->unique(['artist_id', 'event_id']);
@@ -36,14 +35,6 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // Legacy artist-scoped pivot retained for model relations / regression asserts;
-        // engagement-scoped labels are canonical and are what the app writes.
-        Schema::create('artist_label_assignments', function (Blueprint $table) {
-            $table->foreignId('artist_id')->constrained('artists')->cascadeOnDelete();
-            $table->foreignId('artist_label_id')->constrained()->cascadeOnDelete();
-            $table->primary(['artist_id', 'artist_label_id']);
-        });
-
         Schema::create('artist_engagement_label_assignments', function (Blueprint $table) {
             $table->foreignId('artist_engagement_id')->constrained('artist_engagements')->cascadeOnDelete();
             $table->foreignId('artist_label_id')->constrained('artist_labels')->cascadeOnDelete();
@@ -54,7 +45,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('artist_engagement_label_assignments');
-        Schema::dropIfExists('artist_label_assignments');
         Schema::dropIfExists('artist_labels');
         Schema::dropIfExists('artist_engagements');
         Schema::dropIfExists('artists');

@@ -29,7 +29,7 @@ class OrganizationDatabaseArchitectureTest extends TestCase
         $this->assertFalse(Schema::hasTable('organization_artists'));
         $this->assertTrue(Schema::hasTable('artists'));
 
-        foreach (['events', 'vendor_types', 'artist_types', 'artists', 'artist_labels'] as $table) {
+        foreach (['events', 'vendor_types', 'artist_types', 'artists', 'artist_labels', 'custom_fields'] as $table) {
             $this->assertFalse(Schema::hasColumn($table, 'organization_id'));
         }
     }
@@ -91,6 +91,16 @@ class OrganizationDatabaseArchitectureTest extends TestCase
         $event = Event::query()->sole();
         $this->assertTrue(app(OrganizationContext::class)->defaultEvent()->is($event));
         $this->assertSame($event->id, $user->fresh()->current_event_id);
+
+        $this->get(route('setup.locations'))->assertInertia(fn (Assert $page) => $page
+            ->component('Setup/Locations')
+            ->where('event.id', $event->id));
+
+        $this->get(route('setup.artist-types'))->assertInertia(fn (Assert $page) => $page
+            ->component('Setup/ArtistTypes'));
+
+        $this->get(route('setup.ready'))->assertInertia(fn (Assert $page) => $page
+            ->component('Setup/Ready'));
 
         $this->post(route('setup.ready.complete'))->assertRedirect(route('dashboard'));
         $this->assertTrue(app(OrganizationContext::class)->setupIsComplete());

@@ -7,10 +7,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        foreach (['Food & Beverage', 'Artisan'] as $name) {
+        foreach (['Food & Beverage' => 0, 'Artisan' => 1] as $name => $sortOrder) {
             if (! DB::table('vendor_types')->where('name', $name)->exists()) {
                 DB::table('vendor_types')->insert([
                     'name' => $name,
+                    'sort_order' => $sortOrder,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);

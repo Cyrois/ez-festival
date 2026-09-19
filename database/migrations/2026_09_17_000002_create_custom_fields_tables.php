@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -10,7 +11,6 @@ return new class extends Migration
     {
         Schema::create('custom_fields', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
             $table->string('target');
             $table->string('label');
             $table->string('key');
@@ -21,13 +21,14 @@ return new class extends Migration
             $table->boolean('active')->default(true);
             $table->timestamps();
 
-            $table->unique(['organization_id', 'target', 'key']);
-            $table->index(['organization_id', 'target', 'active', 'sort_order']);
+            $table->unique(['target', 'key']);
+            $table->index(['target', 'active', 'sort_order']);
         });
 
         Schema::create('custom_field_values', function (Blueprint $table) {
             $table->id();
             $table->foreignId('custom_field_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('event_id')->nullable()->constrained()->cascadeOnDelete();
             $table->morphs('custom_fieldable');
             $table->text('value_text')->nullable();
             $table->string('value_search', 255)->nullable();
@@ -36,15 +37,20 @@ return new class extends Migration
             $table->boolean('value_boolean')->nullable();
             $table->timestamps();
 
-            $table->unique(
-                ['custom_field_id', 'custom_fieldable_type', 'custom_fieldable_id'],
-                'custom_field_value_owner_unique',
-            );
+            $table->index(['event_id', 'custom_field_id']);
             $table->index(['custom_field_id', 'value_search']);
             $table->index(['custom_field_id', 'value_number']);
             $table->index(['custom_field_id', 'value_date']);
             $table->index(['custom_field_id', 'value_boolean']);
         });
+
+        // Nullable-safe unique: treat null event_id as 0 so org-global values stay unique on SQLite/Postgres.
+        $driver = Schema::getConnection()->getDriverName();
+        $coalesce = $driver === 'pgsql' ? 'COALESCE(event_id, 0)' : 'IFNULL(event_id, 0)';
+
+        DB::statement(
+            "CREATE UNIQUE INDEX custom_field_value_owner_unique ON custom_field_values (custom_field_id, custom_fieldable_type, custom_fieldable_id, {$coalesce})"
+        );
     }
 
     public function down(): void
