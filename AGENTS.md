@@ -82,3 +82,79 @@ Boost replaces these bootstrap instructions with guidelines tailored to the appl
 - No `.claude/` / CLAUDE.md.
 
 JSON locale files live at repo-root `lang/` (e.g. `lang/en.json`), not `resources/lang`. Wire `i18nVue` in `resources/js/app.js` with `import.meta.glob('../../lang/*.json')`.
+
+## Process / HARD STOP
+
+- Only build what Calvin explicitly locked for the current slice. No hasty pages, interim nav, unsigned UI, or invented navigation.
+- If unclear whether something is locked, stop and ask — do not invent product behavior.
+- Keep PRs small enough to review in a few minutes; stack branches when useful. Large PRs only for necessary structuring/refactors.
+- After every new PR or meaningful update on Cyrois/ez-festival, the human workflow pings Artist-Tree Code Reviewer with PR number, URL, branch, one-line summary (agents should leave a clear PR body for that).
+- Do not merge unless Calvin explicitly says to merge.
+- Before PRs: `vendor/bin/pint`, `npm run format`, `npm run lint`, relevant tests.
+
+## Tenancy / data model
+
+- Product is one Artist Tree app for music-festival back office; each festival company is a client/organization.
+- **DB-per-client isolation:** one database = one organization. Do not put `organization_id` on child tables (events, types, artists, labels, vendors, custom_fields, custom_field_values, etc.). Do not join `organizations` into ordinary list/detail queries for scoping — the DB connection is the wall.
+- Keep the `organizations` table (name, `active_event_id` / default event, `setup_completed_at`). Keep `organization_user` for org-level membership.
+- Do not use an `application_state` table — setup/default event live on the organization row.
+- Control-plane (org directory, DB routing across clients) is outside this tenant DB — do not build it unless locked.
+- Event-level user access (who can open which event) is **parked** — do not build allow/deny event ACL until Calvin locks that slice. Org membership is enough for now.
+- Per-user current/primary event: `users.current_event_id` (fallback to org active/default event). Primary is only the default open event on login — not a write gate.
+
+## Write / lock gates
+
+- An event does **not** have to be the user’s primary to be writable.
+- Writes blocked only when the event is **locked** (or user not in org).
+- Source of truth: `Event::isLocked()` / `Event::ensureWritable()` (throws when locked). Inertia may expose `is_locked`, `is_read_only` (same as locked), and page `canWrite` as `! $event->isLocked()` — do not invent a separate primary-based write flag.
+- Locked/archived events are read-only for audit; Owner can lock for now.
+
+## Settings IA
+
+- On Settings pages: hide main App sidebar; show only Settings sidebar.
+- Groups: Organization Settings, Event Settings.
+- Top of Settings sidebar: Back to Dashboard.
+- Event Settings: Events list + Locations / Roles / Users for the **primary** event; pages must state they edit the primary event and that Events is where you change primary.
+- Event create/edit lives in the Settings shell (not regular AppLayout).
+- Do not invent Settings nav items beyond what is locked/shipped.
+
+## Setup wizard
+
+- First-run setup: focused shell (no app sidebar + top breadcrumbs). Wordmark + step pills + form ~max-w 720px centered.
+- Event step is required (no Skip until a saved event exists). Locations / Vendor types / Artist types may skip.
+- Suggested defaults show as “Suggested · not saved until Continue”; persist only on Save and continue — do not seed on page load/event create.
+- Required labels: red *. Empty required → red input + error Toast.
+- Ready step: big green check, “You’re all set…”, note configs under Settings, Next → dashboard.
+
+## Artists
+
+- Advancing list + create + **View** (not “Edit”) for engagement details.
+- Route/page naming: View (`artists.view`, `Artists/View.vue`).
+- Details | Note log split; Back left of breadcrumbs; Cancel/Save on Details when writable.
+- Name is on the reusable artist; Status + Type on the engagement; **labels are engagement-scoped** (not org-artist-wide sync).
+- Statuses: `idea|outreach|negotiating|contract_sent|confirmed|declined`.
+- Notes: append-only, newest first; `user_id` nullable `nullOnDelete`; no fee in this phase; contracts phase-2 label only.
+- Artist Advancing = full artist-flow access via event role (not notes-only) — formal role gate waits on People; do not build People assign UI yet.
+- Case-insensitive artist/label uniqueness via `name_key` in the tenant DB.
+
+## Patrons / vendors / crew (domain locks)
+
+- Patrons: never backoffice login. Fields name*, email*, phone, do_not_contact, custom fields. Not tickets. Access/invite/roles live on people/membership, not patrons.
+- Artists/vendors: no login for now unless a later lock says otherwise.
+- Tickets/credentials/orders: schema may exist in docs/locks but checkout is not first build unless Calvin locks a slice — do not invent checkout.
+
+## Permissions (general)
+
+- A screen, button, or stored file (contract, fee, etc.) only opens if the person’s role includes the permission. New features get a permission from the start. Do not ship gated features without a permission hook when roles exist.
+- Org role = org-scoped (Settings, types, create event, People). Event work uses event roles — required for event access when that system lands.
+
+## Frontend error handling
+
+- Inertia forms: use `toastFormErrors` / `useFlashToast` (`showError` + `showFormError`) for validation failures (see Setup pages and Artists/View).
+- App shells already use `useInertiaErrorToast` for flash + invalid responses — do not duplicate carelessly.
+
+## Naming
+
+- Product brand spelling in docs and UI copy: **Artist Tree** (two words). Use hyphenated **Artist-Tree** only for agent/team names (e.g. Artist-Tree Code Reviewer), not the product.
+- Wall is called **organization**, not client (client retired in product language).
+- Prefer existing i18n keys; don’t hardcode strings.

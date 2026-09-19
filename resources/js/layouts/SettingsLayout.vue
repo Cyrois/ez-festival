@@ -24,6 +24,7 @@ const organizationItems = [
     { key: 'artist_types', href: '/settings/artist-types', enabled: true },
     { key: 'vendor_types', href: '/settings/vendor-types', enabled: true },
     { key: 'custom_fields', href: '/settings/custom-fields', enabled: true },
+    { key: 'feature_flags', href: '/settings/feature-flags', enabled: true },
 ];
 
 const personalItems = [
@@ -78,7 +79,8 @@ const isOrganizationNavActive = (key) => {
         (key === 'team' && path === '/settings/team') ||
         (key === 'artist_types' && path === '/settings/artist-types') ||
         (key === 'vendor_types' && path === '/settings/vendor-types') ||
-        (key === 'custom_fields' && path === '/settings/custom-fields')
+        (key === 'custom_fields' && path === '/settings/custom-fields') ||
+        (key === 'feature_flags' && path === '/settings/feature-flags')
     );
 };
 
