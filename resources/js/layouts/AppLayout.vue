@@ -522,7 +522,7 @@ const railClass = computed(() => {
             </header>
 
             <main class="flex-1 px-4 py-6 md:px-6 md:py-8">
-                <div class="mx-auto w-full max-w-[1200px]">
+                <div class="container mx-auto">
                     <slot />
                 </div>
             </main>

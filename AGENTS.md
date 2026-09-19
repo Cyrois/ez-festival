@@ -56,6 +56,7 @@ Boost replaces these bootstrap instructions with guidelines tailored to the appl
 - Check without writing: `./vendor/bin/pint --test`.
 - **Never inline `$request->validate([...])` in controllers.** Always use Laravel Form Request classes for incoming validation (e.g. `App\Http\Requests\Setup\StoreEventRequest`, `ContinueLocationsRequest` with `suggestions.*` rules). Controllers call `$request->validated()` only.
 - **Response contracts:** JSON endpoints return API Resources (`JsonResource`) or dedicated response classes — do not hand-build ad-hoc JSON arrays in controllers. Inertia redirects may keep `RedirectResponse`, but validation still goes through a Form Request.
+- Use conventional named controller actions such as `index`, `show`, `store`, `update`, and `destroy`. Do not use invokable controllers or define `__invoke()` methods.
 
 ### Vue / JavaScript
 

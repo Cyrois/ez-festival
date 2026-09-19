@@ -24,7 +24,7 @@ const breadcrumbs = computed(() => [
     { label: trans('settings.custom_fields.title') },
 ]);
 
-const targets = ['vendor', 'user'];
+const targets = ['vendor', 'user', 'pass'];
 
 const { showError, showFormError, showSuccess } = useFlashToast();
 const editing = ref(null);

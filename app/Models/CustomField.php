@@ -20,18 +20,22 @@ class CustomField extends Model
 
     public const TARGET_TEAM_MEMBER = 'team_member';
 
+    public const TARGET_PASS = 'pass';
+
     public const TARGETS = [
         self::TARGET_ARTIST,
         self::TARGET_VENDOR,
         self::TARGET_PATRON,
         self::TARGET_TEAM_MEMBER,
         self::TARGET_USER,
+        self::TARGET_PASS,
     ];
 
     /** Targets with working create/edit forms. */
     public const WIRED_TARGETS = [
         self::TARGET_VENDOR,
         self::TARGET_USER,
+        self::TARGET_PASS,
     ];
 
     public const TYPES = ['text', 'textarea', 'number', 'date', 'select', 'checkbox'];
