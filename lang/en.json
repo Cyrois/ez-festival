@@ -581,5 +581,7 @@
     "vendors.toast.note_posted": "Note posted.",
     "vendors.errors.name_taken": "That vendor name is already in use.",
     "vendors.errors.already_added": "This vendor is already in this event.",
-    "vendors.not_set": "—"
+    "vendors.not_set": "—",
+    "validation.custom_fields.unavailable": "One or more custom fields are unavailable.",
+    "settings.custom_fields.validation.options_required": "At least one choice is required."
 }

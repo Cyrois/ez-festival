@@ -5,10 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['organization_id', 'target', 'label', 'key', 'type', 'required', 'options', 'sort_order', 'active'])]
+#[Fillable(['target', 'label', 'key', 'type', 'required', 'options', 'sort_order', 'active'])]
 class CustomField extends Model
 {
     public const TARGET_USER = 'user';
@@ -29,6 +28,12 @@ class CustomField extends Model
         self::TARGET_USER,
     ];
 
+    /** Targets with working create/edit forms. */
+    public const WIRED_TARGETS = [
+        self::TARGET_VENDOR,
+        self::TARGET_USER,
+    ];
+
     public const TYPES = ['text', 'textarea', 'number', 'date', 'select', 'checkbox'];
 
     /**
@@ -41,11 +46,6 @@ class CustomField extends Model
             'active' => 'boolean',
             'options' => 'array',
         ];
-    }
-
-    public function organization(): BelongsTo
-    {
-        return $this->belongsTo(Organization::class);
     }
 
     public function values(): HasMany

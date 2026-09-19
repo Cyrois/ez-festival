@@ -4,7 +4,6 @@ namespace Tests\Feature\Settings;
 
 use App\Models\CustomField;
 use App\Models\Event;
-use App\Models\Organization;
 use App\Models\User;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -80,7 +79,6 @@ class AccountControllerTest extends TestCase
     {
         $user = $this->userWithCompletedSetup();
         $field = CustomField::query()->create([
-            'organization_id' => Organization::query()->firstOrFail()->id,
             'target' => CustomField::TARGET_USER,
             'label' => 'Wristband',
             'key' => 'wristband',
@@ -115,7 +113,6 @@ class AccountControllerTest extends TestCase
     {
         $user = $this->userWithCompletedSetup();
         $field = CustomField::query()->create([
-            'organization_id' => Organization::query()->firstOrFail()->id,
             'target' => CustomField::TARGET_USER,
             'label' => 'Wristband',
             'key' => 'wristband',
@@ -176,5 +173,33 @@ class AccountControllerTest extends TestCase
         $user->setCurrentEvent($event);
 
         return $user;
+    }
+
+    public function test_user_custom_fields_stay_global_across_events(): void
+    {
+        $user = $this->userWithCompletedSetup();
+        $field = CustomField::query()->create([
+            'target' => CustomField::TARGET_USER,
+            'label' => 'Shirt size',
+            'key' => 'shirt_size',
+            'type' => 'text',
+            'sort_order' => 1,
+        ]);
+
+        $this->actingAs($user)->put(route('settings.account.update'), [
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => '',
+            'custom_fields' => [$field->id => 'M'],
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('custom_field_values', [
+            'custom_field_id' => $field->id,
+            'custom_fieldable_type' => User::class,
+            'custom_fieldable_id' => $user->id,
+            'event_id' => null,
+            'value_text' => 'M',
+        ]);
+        $this->assertSame(1, $user->customFieldValues()->count());
     }
 }

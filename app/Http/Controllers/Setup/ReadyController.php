@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Setup;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Setup\Concerns\InteractsWithSetup;
+use App\Http\Requests\Setup\CompleteSetupRequest;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,7 +27,7 @@ class ReadyController extends Controller
         ]);
     }
 
-    public function complete(Request $request): RedirectResponse
+    public function complete(CompleteSetupRequest $request): RedirectResponse
     {
         /** @var User $user */
         $user = $request->user();

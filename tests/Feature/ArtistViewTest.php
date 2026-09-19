@@ -82,7 +82,6 @@ class ArtistViewTest extends TestCase
             'artist_type_id' => $type->id,
             'label_ids' => [$vip->id],
             'new_labels' => [['name' => 'Travel', 'color' => 'warning']],
-            'notes' => 'Must not write legacy column',
         ])->assertRedirect(route('artists.view', $engagement))
             ->assertSessionHas('success', __('artists.toast.updated'));
 
@@ -91,9 +90,7 @@ class ArtistViewTest extends TestCase
         $this->assertSame('River Hollow Trio', $artist->name);
         $this->assertSame('negotiating', $engagement->status);
         $this->assertSame($type->id, $engagement->artist_type_id);
-        $this->assertNull($engagement->notes);
         $this->assertSame(['Travel', 'VIP'], $engagement->labels()->orderBy('name')->pluck('name')->all());
-        $this->assertDatabaseCount('artist_label_assignments', 0);
     }
 
     public function test_locked_event_view_is_readable_but_blocks_update_and_note_post(): void

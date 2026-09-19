@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Setup;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Setup\Concerns\InteractsWithSetup;
 use App\Http\Requests\Setup\ContinueArtistTypesRequest;
+use App\Http\Requests\Setup\DestroyArtistTypeRequest;
 use App\Http\Requests\Setup\StoreTypeRequest;
 use App\Http\Requests\Setup\UpdateTypeRequest;
 use App\Models\ArtistType;
@@ -53,7 +54,7 @@ class ArtistTypeController extends Controller
         return redirect()->route('setup.artist-types');
     }
 
-    public function destroy(Request $request, ArtistType $artistType): RedirectResponse
+    public function destroy(DestroyArtistTypeRequest $request, ArtistType $artistType): RedirectResponse
     {
         $artistType->delete();
 

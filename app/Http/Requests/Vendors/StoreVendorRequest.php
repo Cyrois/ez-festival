@@ -4,7 +4,7 @@ namespace App\Http\Requests\Vendors;
 
 use App\Models\CustomField;
 use App\Models\VendorEngagement;
-use App\Support\OrganizationContext;
+use App\Support\CustomFieldValueRules;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -42,14 +42,14 @@ class StoreVendorRequest extends FormRequest
             $knownIds = $fields->pluck('id')->all();
 
             if (array_diff($providedIds, $knownIds) !== []) {
-                $validator->errors()->add('custom_fields', 'One or more custom fields are unavailable.');
+                $validator->errors()->add('custom_fields', __('validation.custom_fields.unavailable'));
             }
         });
 
         $rules = [];
 
         foreach ($fields as $field) {
-            $rules["custom_fields.{$field->id}"] = $this->valueRules($field);
+            $rules["custom_fields.{$field->id}"] = CustomFieldValueRules::for($field);
         }
 
         $validator->addRules($rules);
@@ -61,27 +61,9 @@ class StoreVendorRequest extends FormRequest
     public function customFields(): Collection
     {
         return CustomField::query()
-            ->where('organization_id', app(OrganizationContext::class)->organization()->id)
             ->forTarget(CustomField::TARGET_VENDOR)
             ->where('active', true)
             ->orderBy('sort_order')
             ->get();
-    }
-
-    /**
-     * @return array<int, mixed>
-     */
-    private function valueRules(CustomField $field): array
-    {
-        $presence = $field->required ? ['required'] : ['nullable'];
-
-        return match ($field->type) {
-            'textarea' => [...$presence, 'string', 'max:5000'],
-            'number' => [...$presence, 'numeric'],
-            'date' => [...$presence, 'date'],
-            'select' => [...$presence, 'string', Rule::in($field->options ?? [])],
-            'checkbox' => ['required', 'boolean'],
-            default => [...$presence, 'string', 'max:255'],
-        };
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Setup;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Setup\Concerns\InteractsWithSetup;
 use App\Http\Requests\Setup\ContinueLocationsRequest;
+use App\Http\Requests\Setup\DestroyLocationRequest;
 use App\Http\Requests\Setup\StoreLocationRequest;
 use App\Http\Requests\Setup\UpdateLocationRequest;
 use App\Models\Location;
@@ -72,7 +73,7 @@ class LocationController extends Controller
         return redirect()->route('setup.locations');
     }
 
-    public function destroy(Request $request, Location $location): RedirectResponse
+    public function destroy(DestroyLocationRequest $request, Location $location): RedirectResponse
     {
         $event = $this->organization()->defaultEvent();
 

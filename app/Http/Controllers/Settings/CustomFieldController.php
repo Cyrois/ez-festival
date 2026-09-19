@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\DestroyCustomFieldRequest;
 use App\Http\Requests\Settings\StoreCustomFieldRequest;
 use App\Http\Requests\Settings\UpdateCustomFieldRequest;
 use App\Models\CustomField;
@@ -36,7 +37,7 @@ class CustomFieldController extends Controller
         return back();
     }
 
-    public function destroy(CustomField $customField, CustomFieldService $customFieldService): RedirectResponse
+    public function destroy(DestroyCustomFieldRequest $request, CustomField $customField, CustomFieldService $customFieldService): RedirectResponse
     {
         $customFieldService->delete($customField);
 
