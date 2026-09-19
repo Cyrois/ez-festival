@@ -1,7 +1,7 @@
 <script setup>
 import AppLayout from '../../layouts/AppLayout.vue';
+import PassRow from '../../components/credentials/PassRow.vue';
 import { Button } from '../../components/ui/button';
-import { Card } from '../../components/ui/card';
 import { Icon } from '../../components/ui/icon';
 import { usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
@@ -59,9 +59,8 @@ const samplePasses = computed(() => [
                     </p>
                 </div>
                 <Button
-                    disabled
-                    class="min-h-10 disabled:opacity-100"
-                    :title="$t('credentials.passes.stub_action')"
+                    variant="primary"
+                    class="min-h-10"
                 >
                     <Icon
                         :name="['fas', 'plus']"
@@ -72,56 +71,12 @@ const samplePasses = computed(() => [
             </div>
 
             <div class="space-y-2.5">
-                <Card
+                <PassRow
                     v-for="pass in samplePasses"
                     :key="pass.name"
-                    class="flex min-h-[60px] items-center justify-between gap-4 rounded-xl px-3.5 py-2.5"
-                >
-                    <div class="min-w-0">
-                        <h2 class="m-0 truncate text-sm font-semibold">
-                            {{ pass.name }}
-                        </h2>
-                        <p class="mt-0.5 mb-0 text-xs text-muted">
-                            {{ pass.usage }}
-                        </p>
-                    </div>
-                    <div class="flex shrink-0 items-center gap-2">
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            disabled
-                            class="h-8 w-8 cursor-default disabled:opacity-100"
-                            :aria-label="
-                                $t('credentials.passes.edit', {
-                                    pass: pass.name,
-                                })
-                            "
-                            :title="$t('credentials.passes.stub_action')"
-                        >
-                            <Icon
-                                :name="['fas', 'pen']"
-                                size="sm"
-                            />
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            disabled
-                            class="h-8 w-8 cursor-default disabled:opacity-100"
-                            :aria-label="
-                                $t('credentials.passes.delete', {
-                                    pass: pass.name,
-                                })
-                            "
-                            :title="$t('credentials.passes.stub_action')"
-                        >
-                            <Icon
-                                :name="['fas', 'trash-can']"
-                                size="sm"
-                            />
-                        </Button>
-                    </div>
-                </Card>
+                    :name="pass.name"
+                    :usage="pass.usage"
+                />
             </div>
 
             <p class="mt-3 mb-0 text-xs leading-5 text-muted">

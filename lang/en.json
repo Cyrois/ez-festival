@@ -37,7 +37,6 @@
     "credentials.passes.create": "Create pass",
     "credentials.passes.edit": "Edit :pass",
     "credentials.passes.delete": "Delete :pass",
-    "credentials.passes.stub_action": "Pass management is not available in this UI stub.",
     "credentials.passes.note": "Passes are this event’s catalog. Assignments are created when you give them to an artist, vendor, or patron.",
     "credentials.passes.usage.limited": ":assigned / :capacity",
     "credentials.passes.usage.unlimited": ":assigned · Unlimited",
