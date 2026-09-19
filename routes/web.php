@@ -71,7 +71,7 @@ Route::middleware('auth')->group(function () {
             ->middleware('feature:crew')
             ->name('crew.index');
 
-        Route::get('credentials/passes', CredentialPassController::class)
+        Route::get('credentials/passes', [CredentialPassController::class, 'index'])
             ->name('credentials.passes');
 
         Route::redirect('vendors', '/vendors/advancing')->name('vendors.index');

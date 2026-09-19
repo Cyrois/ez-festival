@@ -8,7 +8,7 @@ use Inertia\Response;
 
 class CredentialPassController extends Controller
 {
-    public function __invoke(): Response
+    public function index(): Response
     {
         Gate::authorize('view-credentials');
 
