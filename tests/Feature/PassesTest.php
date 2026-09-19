@@ -50,6 +50,24 @@ class PassesTest extends TestCase
         );
     }
 
+    public function test_passes_page_renders_pass_labels_for_filtering(): void
+    {
+        [$user, $event] = $this->createEventContext();
+        $label = PassLabel::query()->create([
+            'name' => 'Wristband',
+            'color' => 'warning',
+        ]);
+        $pass = $event->passes()->create(['name' => 'Artist']);
+        $pass->labels()->attach($label);
+
+        $this->actingAs($user)->get(route('credentials.passes'))->assertInertia(
+            fn (Assert $page) => $page
+                ->component('Credentials/Passes')
+                ->where('labels.0.id', $label->id)
+                ->where('passes.0.labels.0.id', $label->id),
+        );
+    }
+
     public function test_create_page_renders_labels_and_pass_custom_fields(): void
     {
         [$user, $event] = $this->createEventContext();

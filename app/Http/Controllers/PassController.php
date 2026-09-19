@@ -27,8 +27,11 @@ class PassController extends Controller
 
         return Inertia::render('Credentials/Passes', [
             'passes' => PassResource::collection(
-                $event->passes()->orderBy('name')->get(),
+                $event->passes()->with('labels')->orderBy('name')->get(),
             )->resolve(),
+            'labels' => PassLabel::query()
+                ->orderBy('name')
+                ->get(['id', 'name', 'color']),
             'canWrite' => ! $event->isLocked(),
         ]);
     }

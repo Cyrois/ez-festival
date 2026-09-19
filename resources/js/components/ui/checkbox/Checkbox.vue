@@ -8,8 +8,12 @@ defineOptions({
 
 const props = defineProps({
     modelValue: {
-        type: Boolean,
+        type: [Boolean, Array],
         default: false,
+    },
+    value: {
+        type: [String, Number],
+        default: undefined,
     },
     label: {
         type: String,
@@ -41,8 +45,25 @@ const boxClass = computed(() =>
     ),
 );
 
+const isChecked = computed(() =>
+    Array.isArray(props.modelValue)
+        ? props.modelValue.includes(props.value)
+        : props.modelValue,
+);
+
 const onChange = (event) => {
-    emit('update:modelValue', event.target.checked);
+    if (!Array.isArray(props.modelValue)) {
+        emit('update:modelValue', event.target.checked);
+
+        return;
+    }
+
+    emit(
+        'update:modelValue',
+        event.target.checked
+            ? [...props.modelValue, props.value]
+            : props.modelValue.filter((value) => value !== props.value),
+    );
 };
 </script>
 
@@ -57,14 +78,18 @@ const onChange = (event) => {
     >
         <input
             type="checkbox"
-            :checked="modelValue"
+            :checked="isChecked"
             :disabled="disabled"
             :class="boxClass"
             :aria-invalid="invalid ? 'true' : undefined"
+            :value="value"
             v-bind="attrs"
             @change="onChange"
         />
-        <span v-if="label || $slots.default">
+        <span
+            v-if="label || $slots.default"
+            class="flex items-center"
+        >
             <slot>{{ label }}</slot>
         </span>
     </label>
