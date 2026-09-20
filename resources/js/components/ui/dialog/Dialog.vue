@@ -135,7 +135,7 @@ onUnmounted(() => {
                 >
                     <Button
                         type="button"
-                        variant="outline"
+                        variant="cancel"
                         class="min-h-11 w-full sm:w-auto"
                         :disabled="busy"
                         @click="close"

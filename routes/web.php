@@ -28,8 +28,6 @@ use App\Http\Controllers\Setup\ReadyController;
 use App\Http\Controllers\Setup\VendorTypeController;
 use App\Http\Controllers\UiKitController;
 use App\Http\Controllers\VendorController;
-use App\Http\Controllers\VendorEngagementPersonController;
-use App\Http\Controllers\VendorPassAssignmentController;
 use App\Support\PostLoginRedirect;
 use Illuminate\Support\Facades\Route;
 
@@ -105,16 +103,6 @@ Route::middleware('auth')->group(function () {
         Route::get('vendors/engagements/{engagement}', [VendorController::class, 'view'])->name('vendors.view');
         Route::put('vendors/engagements/{engagement}', [VendorController::class, 'update'])
             ->middleware('event.writable')->name('vendors.update');
-        Route::post('vendors/engagements/{engagement}/notes', [VendorController::class, 'storeNote'])
-            ->middleware('event.writable')->name('vendors.notes.store');
-        Route::post('vendors/engagements/{engagement}/people', [VendorEngagementPersonController::class, 'store'])
-            ->middleware('event.writable')->name('vendors.people.store');
-        Route::put('vendors/engagements/{engagement}/people/{person}', [VendorEngagementPersonController::class, 'update'])
-            ->middleware('event.writable')->name('vendors.people.update');
-        Route::delete('vendors/engagements/{engagement}/people/{person}', [VendorEngagementPersonController::class, 'destroy'])
-            ->middleware('event.writable')->name('vendors.people.destroy');
-        Route::post('vendors/engagements/{engagement}/pass-assignments', [VendorPassAssignmentController::class, 'store'])
-            ->middleware('event.writable')->name('vendors.pass-assignments.store');
         Route::get('vendors/create', [VendorController::class, 'create'])->name('vendors.create');
         Route::post('events/{event}/vendors', [VendorController::class, 'store'])
             ->middleware('event.writable')->name('vendors.store');
