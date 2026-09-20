@@ -116,7 +116,7 @@ const remove = (assignment) => {
                     required
                 />
             </FormField>
-            <div class="flex items-end">
+            <div class="flex items-start sm:pt-5">
                 <Button
                     type="submit"
                     :loading="form.processing"

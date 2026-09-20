@@ -8,6 +8,7 @@ import PassAssignmentsPanel from '../../components/credentials/PassAssignmentsPa
 import { Checkbox } from '../../components/ui/checkbox';
 import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
+import { IconButton } from '../../components/ui/icon-button';
 import { Input } from '../../components/ui/input';
 import { Select } from '../../components/ui/select';
 import { Tag } from '../../components/ui/tag';
@@ -349,9 +350,16 @@ const formatNoteTime = (iso) => {
             </div>
 
             <Card class="mt-4">
-                <h2 class="m-0 text-xl font-bold text-muted">
-                    {{ $t('artists.custom_fields') }}
-                </h2>
+                <div class="flex items-start justify-between gap-3">
+                    <h2 class="m-0 text-xl font-bold text-muted">
+                        {{ $t('artists.custom_fields') }}
+                    </h2>
+                    <IconButton
+                        href="/settings/custom-fields"
+                        :icon="['fas', 'gear']"
+                        :label="$t('artists.custom_fields_manage')"
+                    />
+                </div>
                 <div
                     class="mt-3 rounded-lg border border-dashed border-line bg-page p-5 text-center text-sm text-muted"
                 >
