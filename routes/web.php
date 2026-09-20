@@ -28,6 +28,7 @@ use App\Http\Controllers\Setup\ReadyController;
 use App\Http\Controllers\Setup\VendorTypeController;
 use App\Http\Controllers\UiKitController;
 use App\Http\Controllers\VendorController;
+use App\Http\Controllers\VendorEngagementPersonController;
 use App\Support\PostLoginRedirect;
 use Illuminate\Support\Facades\Route;
 
@@ -103,6 +104,12 @@ Route::middleware('auth')->group(function () {
         Route::get('vendors/engagements/{engagement}', [VendorController::class, 'view'])->name('vendors.view');
         Route::put('vendors/engagements/{engagement}', [VendorController::class, 'update'])
             ->middleware('event.writable')->name('vendors.update');
+        Route::post('vendors/engagements/{engagement}/people', [VendorEngagementPersonController::class, 'store'])
+            ->middleware('event.writable')->name('vendors.people.store');
+        Route::put('vendors/engagements/{engagement}/people/{person}', [VendorEngagementPersonController::class, 'update'])
+            ->middleware('event.writable')->name('vendors.people.update');
+        Route::delete('vendors/engagements/{engagement}/people/{person}', [VendorEngagementPersonController::class, 'destroy'])
+            ->middleware('event.writable')->name('vendors.people.destroy');
         Route::get('vendors/create', [VendorController::class, 'create'])->name('vendors.create');
         Route::post('events/{event}/vendors', [VendorController::class, 'store'])
             ->middleware('event.writable')->name('vendors.store');

@@ -3,9 +3,9 @@ import AppLayout from '../../layouts/AppLayout.vue';
 import { Avatar } from '../../components/ui/avatar';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
+import EngagementPeoplePanel from '../../components/people/EngagementPeoplePanel.vue';
 import { Checkbox } from '../../components/ui/checkbox';
 import { CustomDropdown } from '../../components/ui/custom-dropdown';
-import { Popup } from '../../components/ui/popup';
 import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
 import { IconButton } from '../../components/ui/icon-button';
@@ -39,7 +39,6 @@ const form = useForm({
                 (field.type === 'checkbox' ? false : ''),
         ]),
     ),
-    people: props.engagement.people.map((person) => ({ ...person })),
     pass_assignments: props.engagement.pass_assignments.map((assignment) => ({
         id: assignment.id,
         pass_id: assignment.pass_id,
@@ -49,8 +48,6 @@ const form = useForm({
 });
 const composing = ref(false);
 const draftNote = ref('');
-const contactEditor = ref(false);
-const contact = ref({ name: '', email: '', phone: '', is_primary: false });
 const { showError, showFormError } = useFlashToast();
 const readOnly = computed(() => !props.canWrite);
 const breadcrumbs = computed(() => [
@@ -79,7 +76,7 @@ const contactItems = computed(() => [
         value: null,
         title: trans('credentials.assignments.unassigned'),
     },
-    ...form.people.map((person) => ({
+    ...props.engagement.people.map((person) => ({
         value: person.id,
         title: person.name,
     })),
@@ -101,35 +98,6 @@ const stageNote = () => {
         draftNote.value = '';
         composing.value = false;
     }
-};
-const editContact = (person = null, index = null) => {
-    contactEditor.value = index;
-    contact.value = person
-        ? { ...person }
-        : {
-              name: '',
-              email: '',
-              phone: '',
-              is_primary: form.people.length === 0,
-          };
-};
-const saveContact = () => {
-    if (!contact.value.name.trim()) return;
-    if (contact.value.is_primary)
-        form.people.forEach((person) => (person.is_primary = false));
-    if (contactEditor.value === null)
-        form.people.push({ ...contact.value, name: contact.value.name.trim() });
-    else Object.assign(form.people[contactEditor.value], contact.value);
-    contactEditor.value = false;
-};
-const closeContact = () => {
-    contactEditor.value = false;
-    contact.value = { name: '', email: '', phone: '', is_primary: false };
-};
-const removeContact = (index) => {
-    const primary = form.people[index].is_primary;
-    form.people.splice(index, 1);
-    if (primary && form.people[0]) form.people[0].is_primary = true;
 };
 const addPass = () => {
     if (props.passes[0])
@@ -241,71 +209,13 @@ const noteTime = (iso) =>
                             >
                         </div></Card
                     >
-                    <Card class="flex flex-col"
-                        ><div class="flex items-start justify-between gap-3">
-                            <div>
-                                <h2 class="m-0 text-xl font-bold text-muted">
-                                    {{ $t('people.title') }}
-                                </h2>
-                                <p class="mt-1 mb-4 text-xs text-muted">
-                                    {{ $t('people.lead') }}
-                                </p>
-                            </div>
-                            <Button
-                                v-if="!readOnly && contactEditor === false"
-                                type="button"
-                                size="sm"
-                                @click="editContact()"
-                                ><Icon
-                                    :name="['fas', 'plus']"
-                                    class="mr-1.5"
-                                    size="sm"
-                                />{{ $t('people.actions.add') }}</Button
-                            >
-                        </div>
-                        <div class="flex flex-1 flex-col space-y-2">
-                            <div
-                                v-for="(person, index) in form.people"
-                                :key="person.id ?? `new-${index}`"
-                                class="flex items-center justify-between gap-3 rounded-lg border border-line p-3"
-                            >
-                                <div>
-                                    <p class="m-0 text-sm font-semibold">
-                                        {{ person.name }}
-                                    </p>
-                                    <p class="mt-0.5 mb-0 text-xs text-muted">
-                                        {{
-                                            [person.email, person.phone]
-                                                .filter(Boolean)
-                                                .join(' · ')
-                                        }}
-                                    </p>
-                                </div>
-                                <div class="flex gap-2">
-                                    <IconButton
-                                        v-if="!readOnly"
-                                        :icon="['fas', 'pencil']"
-                                        :label="$t('people.actions.edit')"
-                                        tone="edit"
-                                        @click="editContact(person, index)"
-                                    />
-                                    <IconButton
-                                        v-if="!readOnly"
-                                        :icon="['fas', 'circle-minus']"
-                                        :label="$t('people.actions.remove')"
-                                        tone="delete"
-                                        @click="removeContact(index)"
-                                    />
-                                </div>
-                            </div>
-                            <p
-                                v-if="!form.people.length"
-                                class="m-auto text-sm text-muted"
-                            >
-                                {{ $t('people.empty') }}
-                            </p>
-                        </div></Card
-                    >
+                    <Card class="flex flex-col">
+                        <EngagementPeoplePanel
+                            :people="engagement.people"
+                            :base-path="`/vendors/engagements/${engagement.id}`"
+                            :can-write="canWrite"
+                        />
+                    </Card>
                 </div>
                 <Card v-if="customFields.length"
                     ><h2 class="m-0 text-xl font-bold text-muted">
@@ -539,56 +449,6 @@ const noteTime = (iso) =>
                     </div>
                 </div>
             </form>
-            <Popup
-                :open="contactEditor !== false"
-                :title="
-                    contactEditor === null
-                        ? $t('people.actions.add')
-                        : $t('people.actions.edit')
-                "
-                :description="$t('people.lead')"
-                :confirm-label="$t('people.actions.save')"
-                class="max-w-2xl"
-                @update:open="closeContact"
-                @cancel="closeContact"
-                @accept="saveContact"
-            >
-                <div class="mt-5 grid gap-4">
-                    <FormField
-                        v-slot="{ id }"
-                        :label="$t('people.fields.name')"
-                        required
-                    >
-                        <Input
-                            :id="id"
-                            v-model="contact.name"
-                            required
-                        />
-                    </FormField>
-                    <FormField
-                        v-slot="{ id }"
-                        :label="$t('people.fields.email')"
-                    >
-                        <Input
-                            :id="id"
-                            v-model="contact.email"
-                            type="email"
-                        />
-                    </FormField>
-                    <FormField
-                        v-slot="{ id }"
-                        :label="$t('people.fields.phone')"
-                    >
-                        <Input
-                            :id="id"
-                            v-model="contact.phone"
-                        />
-                    </FormField>
-                    <Checkbox v-model="contact.is_primary">
-                        {{ $t('people.fields.primary') }}
-                    </Checkbox>
-                </div>
-            </Popup>
         </div>
     </AppLayout>
 </template>

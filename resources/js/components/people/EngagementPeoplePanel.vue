@@ -2,6 +2,7 @@
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
 import { FormField } from '../ui/form-field';
+import { IconButton } from '../ui/icon-button';
 import { Input } from '../ui/input';
 import { Popup } from '../ui/popup';
 import { useFlashToast } from '../../composables/useFlashToast';
@@ -122,22 +123,20 @@ const remove = (person) => {
                     >
                         {{ $t('people.actions.make_primary') }}
                     </Button>
-                    <Button
+                    <IconButton
                         v-if="canWrite"
-                        size="sm"
-                        variant="ghost"
+                        :icon="['fas', 'pencil']"
+                        :label="$t('people.actions.edit')"
+                        tone="edit"
                         @click="beginEdit(person)"
-                    >
-                        {{ $t('people.actions.edit') }}
-                    </Button>
-                    <Button
+                    />
+                    <IconButton
                         v-if="canWrite"
-                        size="sm"
-                        variant="ghost"
+                        :icon="['fas', 'circle-minus']"
+                        :label="$t('people.actions.remove')"
+                        tone="delete"
                         @click="remove(person)"
-                    >
-                        {{ $t('people.actions.remove') }}
-                    </Button>
+                    />
                 </div>
             </div>
             <p

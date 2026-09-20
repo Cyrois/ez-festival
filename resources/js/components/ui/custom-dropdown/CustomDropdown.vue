@@ -76,6 +76,10 @@ const toggle = () => {
 };
 
 const select = (item) => {
+    if (item.disabled) {
+        return;
+    }
+
     emit('update:modelValue', item.value);
     close();
 };
@@ -170,8 +174,12 @@ onUnmounted(() => {
                 ref="optionRefs"
                 type="button"
                 class="flex w-full flex-col px-3 py-2 text-left outline-none hover:bg-page focus:bg-page"
-                :class="item.value === modelValue && 'bg-primary/10'"
+                :class="[
+                    item.value === modelValue && 'bg-primary/10',
+                    item.disabled && 'cursor-not-allowed opacity-45',
+                ]"
                 :aria-selected="item.value === modelValue"
+                :disabled="item.disabled"
                 role="option"
                 @click="select(item)"
                 @keydown="onOptionKeydown($event, item, index)"
