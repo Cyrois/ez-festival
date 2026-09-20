@@ -23,7 +23,9 @@ class VendorResource extends JsonResource
             'pass_assignments' => $this->relationLoaded('passAssignments')
                 ? PassAssignmentResource::collection($this->passAssignments)->resolve()
                 : [],
-            'custom' => [],
+            'custom' => $this->vendor->relationLoaded('customFieldValues')
+                ? $this->vendor->customFieldValues->mapWithKeys(fn ($value) => [$value->custom_field_id => $value->value])->all()
+                : [],
         ];
     }
 }

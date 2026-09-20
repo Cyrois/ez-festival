@@ -3,10 +3,12 @@ import AppLayout from '../../layouts/AppLayout.vue';
 import { Avatar } from '../../components/ui/avatar';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
-import EngagementPeoplePanel from '../../components/people/EngagementPeoplePanel.vue';
-import PassAssignmentsPanel from '../../components/credentials/PassAssignmentsPanel.vue';
+import { Checkbox } from '../../components/ui/checkbox';
+import { CustomDropdown } from '../../components/ui/custom-dropdown';
+import { Popup } from '../../components/ui/popup';
 import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
+import { IconButton } from '../../components/ui/icon-button';
 import { Input } from '../../components/ui/input';
 import { Select } from '../../components/ui/select';
 import { Textarea } from '../../components/ui/textarea';
@@ -23,68 +25,130 @@ const props = defineProps({
     types: { type: Array, required: true },
     statuses: { type: Array, required: true },
     passes: { type: Array, default: () => [] },
+    customFields: { type: Array, default: () => [] },
     canWrite: { type: Boolean, required: true },
 });
 const form = useForm({
     name: props.engagement.name,
     status: props.engagement.status,
     vendor_type_id: props.engagement.vendor_type_id ?? '',
+    custom_fields: Object.fromEntries(
+        props.customFields.map((field) => [
+            field.id,
+            props.engagement.custom?.[field.id] ??
+                (field.type === 'checkbox' ? false : ''),
+        ]),
+    ),
+    people: props.engagement.people.map((person) => ({ ...person })),
+    pass_assignments: props.engagement.pass_assignments.map((assignment) => ({
+        id: assignment.id,
+        pass_id: assignment.pass_id,
+        person_id: assignment.person?.id ?? null,
+    })),
+    notes: [],
 });
-const noteForm = useForm({ body: '' });
 const composing = ref(false);
+const draftNote = ref('');
+const contactEditor = ref(false);
+const contact = ref({ name: '', email: '', phone: '', is_primary: false });
 const { showError, showFormError } = useFlashToast();
 const readOnly = computed(() => !props.canWrite);
 const breadcrumbs = computed(() => [
     { label: trans('app.name'), href: '/dashboard' },
     { label: trans('nav.vendors'), href: '/vendors/advancing' },
+    { label: trans('nav.vendors.advancing'), href: '/vendors/advancing' },
     { label: trans('vendors.view') },
 ]);
-const submit = () => {
-    if (!readOnly.value) {
-        form.put(`/vendors/engagements/${props.engagement.id}`, {
-            onError: (errors) =>
-                toastFormErrors(form, errors, { showError, showFormError }),
-        });
-    }
-};
-const openCompose = async () => {
-    if (readOnly.value) return;
+const allNotes = computed(() => [
+    ...form.notes.map((note, index) => ({
+        ...note,
+        id: `draft-${index}`,
+        author: trans('vendors.notes_pending_author'),
+        created_at: null,
+    })),
+    ...props.notes,
+]);
+const passItems = computed(() =>
+    props.passes.map((pass) => ({
+        value: pass.id,
+        title: pass.name,
+    })),
+);
+const contactItems = computed(() => [
+    {
+        value: null,
+        title: trans('credentials.assignments.unassigned'),
+    },
+    ...form.people.map((person) => ({
+        value: person.id,
+        title: person.name,
+    })),
+]);
+const save = () =>
+    !readOnly.value &&
+    form.put(`/vendors/engagements/${props.engagement.id}`, {
+        onError: (errors) =>
+            toastFormErrors(form, errors, { showError, showFormError }),
+    });
+const addNote = async () => {
     composing.value = true;
     await nextTick();
     document.querySelector('[data-note-compose]')?.focus();
 };
-const cancelCompose = () => {
-    composing.value = false;
-    noteForm.reset('body');
-    noteForm.clearErrors();
-};
-const postNote = () => {
-    if (readOnly.value) return;
-    noteForm.post(`/vendors/engagements/${props.engagement.id}/notes`, {
-        preserveScroll: true,
-        onError: (errors) =>
-            toastFormErrors(noteForm, errors, { showError, showFormError }),
-        onSuccess: () => {
-            noteForm.reset('body');
-            composing.value = false;
-        },
-    });
-};
-const formatNoteTime = (iso) => {
-    if (!iso) return '';
-    try {
-        return new Intl.DateTimeFormat('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            timeZone: props.event.timezone || 'America/Vancouver',
-        }).format(new Date(iso));
-    } catch {
-        return iso;
+const stageNote = () => {
+    if (draftNote.value.trim()) {
+        form.notes.unshift({ body: draftNote.value.trim() });
+        draftNote.value = '';
+        composing.value = false;
     }
 };
+const editContact = (person = null, index = null) => {
+    contactEditor.value = index;
+    contact.value = person
+        ? { ...person }
+        : {
+              name: '',
+              email: '',
+              phone: '',
+              is_primary: form.people.length === 0,
+          };
+};
+const saveContact = () => {
+    if (!contact.value.name.trim()) return;
+    if (contact.value.is_primary)
+        form.people.forEach((person) => (person.is_primary = false));
+    if (contactEditor.value === null)
+        form.people.push({ ...contact.value, name: contact.value.name.trim() });
+    else Object.assign(form.people[contactEditor.value], contact.value);
+    contactEditor.value = false;
+};
+const closeContact = () => {
+    contactEditor.value = false;
+    contact.value = { name: '', email: '', phone: '', is_primary: false };
+};
+const removeContact = (index) => {
+    const primary = form.people[index].is_primary;
+    form.people.splice(index, 1);
+    if (primary && form.people[0]) form.people[0].is_primary = true;
+};
+const addPass = () => {
+    if (props.passes[0])
+        form.pass_assignments.push({
+            pass_id: props.passes[0].id,
+            person_id: null,
+        });
+};
+const noteTime = (iso) =>
+    iso
+        ? new Intl.DateTimeFormat('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+              timeZone: props.event.timezone || 'America/Vancouver',
+          }).format(new Date(iso))
+        : trans('vendors.notes_pending');
 </script>
 
 <template>
@@ -94,238 +158,437 @@ const formatNoteTime = (iso) => {
         back-href="/vendors/advancing"
         :back-label="$t('vendors.back_to_advancing')"
     >
-        <div class="mb-5 flex flex-wrap items-center gap-3.5">
-            <Avatar
-                :name="engagement.name"
-                size="lg"
-            />
-            <h1 class="m-0 text-[26px] font-bold tracking-tight">
-                {{ engagement.name }}
-            </h1>
-        </div>
-        <p class="mt-0 mb-4.5 text-sm text-muted">
-            {{ $t('vendors.view_lead', { name: event.name }) }}
-        </p>
-        <p
-            v-if="readOnly"
-            class="mb-4 flex items-center gap-2 rounded-lg border border-warning/20 bg-warning/10 p-3 text-sm text-charcoal"
-            role="status"
-        >
-            <Icon :name="['fas', 'lock']" />
-            {{ $t('vendors.view_locked') }}
-        </p>
-        <div class="grid items-start gap-4.5 lg:grid-cols-2">
-            <Card class="flex min-h-[32rem] flex-col">
-                <h2
-                    class="mt-0 mb-1 text-xl font-bold tracking-tight text-muted"
-                >
-                    {{ $t('vendors.details') }}
-                </h2>
-                <p class="mt-0 mb-3.5 text-xs text-muted">
-                    {{ $t('vendors.details_hint') }}
-                </p>
-                <form
-                    class="flex flex-1 flex-col space-y-5"
-                    @submit.prevent="submit"
-                >
-                    <FormField
-                        v-slot="{ id, invalid }"
-                        :label="$t('vendors.name')"
-                        :error="form.errors.name"
-                        required
-                    >
-                        <Input
-                            :id="id"
-                            v-model="form.name"
-                            :invalid="invalid"
-                            :disabled="readOnly || form.processing"
-                            maxlength="255"
-                            required
-                        />
-                    </FormField>
-                    <div class="grid gap-5 sm:grid-cols-2">
-                        <FormField
-                            v-slot="{ id, invalid }"
-                            :label="$t('vendors.columns.status')"
-                            :error="form.errors.status"
-                        >
-                            <Select
-                                :id="id"
-                                v-model="form.status"
-                                :invalid="invalid"
-                                :disabled="readOnly || form.processing"
-                            >
-                                <option
-                                    v-for="status in statuses"
-                                    :key="status"
-                                    :value="status"
-                                >
-                                    {{ $t(`vendors.status.${status}`) }}
-                                </option>
-                            </Select>
-                        </FormField>
-                        <FormField
-                            v-slot="{ id, invalid }"
-                            :label="$t('vendors.columns.type')"
-                            :error="form.errors.vendor_type_id"
-                        >
-                            <Select
-                                :id="id"
-                                v-model="form.vendor_type_id"
-                                :invalid="invalid"
-                                :disabled="readOnly || form.processing"
-                            >
-                                <option value="">
-                                    {{ $t('vendors.type_optional') }}
-                                </option>
-                                <option
-                                    v-for="type in types"
-                                    :key="type.id"
-                                    :value="type.id"
-                                >
-                                    {{ type.name }}
-                                </option>
-                            </Select>
-                        </FormField>
-                    </div>
-                    <EngagementPeoplePanel
-                        :people="engagement.people"
-                        :base-path="`/vendors/engagements/${engagement.id}`"
-                        :can-write="canWrite"
-                    />
-                    <PassAssignmentsPanel
-                        :assignments="engagement.pass_assignments"
-                        :people="engagement.people"
-                        :passes="passes"
-                        :base-path="`/vendors/engagements/${engagement.id}`"
-                        :can-write="canWrite"
-                    />
-                    <p
-                        class="m-0 text-[11px] font-bold tracking-wider text-muted uppercase"
-                    >
-                        {{ $t('vendors.contracts_phase') }}
-                    </p>
-                    <div
-                        class="mt-auto flex justify-end gap-2.5 border-t border-line pt-4"
-                    >
-                        <Button
-                            href="/vendors/advancing"
-                            variant="outline"
-                            :disabled="form.processing"
-                            >{{ $t('setup.actions.cancel') }}</Button
-                        >
-                        <Button
-                            v-if="!readOnly"
-                            type="submit"
-                            :loading="form.processing"
-                            >{{ $t('vendors.save_details') }}</Button
-                        >
-                    </div>
-                </form>
-            </Card>
-            <Card class="flex min-h-[32rem] flex-col">
-                <div class="mb-1 flex items-start justify-between gap-3">
-                    <h2 class="m-0 text-xl font-bold tracking-tight text-muted">
-                        {{ $t('vendors.note_log') }}
-                    </h2>
-                    <Button
-                        v-if="!readOnly"
-                        size="sm"
-                        :disabled="composing || noteForm.processing"
-                        @click="openCompose"
-                    >
-                        <Icon
-                            :name="['fas', 'plus']"
-                            class="mr-1.5"
-                            size="sm"
-                        />{{ $t('vendors.new_note') }}
-                    </Button>
-                </div>
-                <p class="mt-0 mb-3.5 text-xs text-muted">
-                    {{ $t('vendors.note_log_hint') }}
-                </p>
-                <div class="flex min-h-0 flex-1 flex-col">
-                    <div
-                        v-if="composing"
-                        class="mb-3 rounded-[10px] border border-primary bg-primary/10 p-3"
-                    >
-                        <FormField
-                            v-slot="{ id, invalid }"
-                            :label="$t('vendors.new_note')"
-                            :error="noteForm.errors.body"
-                        >
-                            <div
-                                class="flex flex-col gap-2 sm:flex-row sm:items-end"
-                            >
-                                <Textarea
+        <div class="mx-auto max-w-6xl pb-24">
+            <div class="mb-5 flex items-center gap-3.5">
+                <Avatar
+                    :name="engagement.name"
+                    size="lg"
+                />
+                <h1 class="m-0 text-[26px] font-bold tracking-tight">
+                    {{ engagement.name }}
+                </h1>
+            </div>
+            <p class="mt-0 mb-5 text-sm text-muted">
+                {{ $t('vendors.view_lead', { name: event.name }) }}
+            </p>
+            <p
+                v-if="readOnly"
+                class="mb-4 flex items-center gap-2 rounded-lg border border-warning/20 bg-warning/10 p-3 text-sm text-charcoal"
+            >
+                <Icon :name="['fas', 'lock']" />{{ $t('vendors.view_locked') }}
+            </p>
+            <form
+                class="space-y-4"
+                @submit.prevent="save"
+            >
+                <div class="grid items-stretch gap-4 lg:grid-cols-2">
+                    <Card
+                        ><h2 class="m-0 text-xl font-bold text-muted">
+                            {{ $t('vendors.details') }}
+                        </h2>
+                        <p class="mt-1 mb-4 text-xs text-muted">
+                            {{ $t('vendors.details_hint') }}
+                        </p>
+                        <div class="space-y-4">
+                            <FormField
+                                v-slot="{ id, invalid }"
+                                :label="$t('vendors.name')"
+                                :error="form.errors.name"
+                                required
+                                ><Input
                                     :id="id"
-                                    v-model="noteForm.body"
-                                    class="min-h-16 flex-1 bg-ground"
-                                    data-note-compose
+                                    v-model="form.name"
                                     :invalid="invalid"
-                                    :disabled="noteForm.processing"
-                                    :placeholder="
-                                        $t('vendors.note_placeholder')
-                                    "
-                                    maxlength="5000"
-                                    required
-                                />
-                                <div class="flex flex-col gap-1.5 sm:shrink-0">
-                                    <Button
-                                        size="sm"
-                                        class="w-full sm:w-auto"
-                                        :loading="noteForm.processing"
-                                        @click="postNote"
-                                        >{{ $t('vendors.post_note') }}</Button
+                                    :disabled="readOnly"
+                                    required /></FormField
+                            ><FormField
+                                v-slot="{ id, invalid }"
+                                :label="$t('vendors.columns.status')"
+                                :error="form.errors.status"
+                                ><Select
+                                    :id="id"
+                                    v-model="form.status"
+                                    :invalid="invalid"
+                                    :disabled="readOnly"
+                                    ><option
+                                        v-for="status in statuses"
+                                        :key="status"
+                                        :value="status"
                                     >
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        class="w-full sm:w-auto"
-                                        :disabled="noteForm.processing"
-                                        @click="cancelCompose"
-                                        >{{
-                                            $t('setup.actions.cancel')
-                                        }}</Button
+                                        {{ $t(`vendors.status.${status}`) }}
+                                    </option></Select
+                                ></FormField
+                            ><FormField
+                                v-slot="{ id, invalid }"
+                                :label="$t('vendors.columns.type')"
+                                :error="form.errors.vendor_type_id"
+                                ><Select
+                                    :id="id"
+                                    v-model="form.vendor_type_id"
+                                    :invalid="invalid"
+                                    :disabled="readOnly"
+                                    ><option value="">
+                                        {{ $t('vendors.type_optional') }}
+                                    </option>
+                                    <option
+                                        v-for="type in types"
+                                        :key="type.id"
+                                        :value="type.id"
                                     >
+                                        {{ type.name }}
+                                    </option></Select
+                                ></FormField
+                            >
+                        </div></Card
+                    >
+                    <Card class="flex flex-col"
+                        ><div class="flex items-start justify-between gap-3">
+                            <div>
+                                <h2 class="m-0 text-xl font-bold text-muted">
+                                    {{ $t('people.title') }}
+                                </h2>
+                                <p class="mt-1 mb-4 text-xs text-muted">
+                                    {{ $t('people.lead') }}
+                                </p>
+                            </div>
+                            <Button
+                                v-if="!readOnly && contactEditor === false"
+                                type="button"
+                                size="sm"
+                                @click="editContact()"
+                                ><Icon
+                                    :name="['fas', 'plus']"
+                                    class="mr-1.5"
+                                    size="sm"
+                                />{{ $t('people.actions.add') }}</Button
+                            >
+                        </div>
+                        <div class="flex flex-1 flex-col space-y-2">
+                            <div
+                                v-for="(person, index) in form.people"
+                                :key="person.id ?? `new-${index}`"
+                                class="flex items-center justify-between gap-3 rounded-lg border border-line p-3"
+                            >
+                                <div>
+                                    <p class="m-0 text-sm font-semibold">
+                                        {{ person.name }}
+                                    </p>
+                                    <p class="mt-0.5 mb-0 text-xs text-muted">
+                                        {{
+                                            [person.email, person.phone]
+                                                .filter(Boolean)
+                                                .join(' · ')
+                                        }}
+                                    </p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <IconButton
+                                        v-if="!readOnly"
+                                        :icon="['fas', 'pencil']"
+                                        :label="$t('people.actions.edit')"
+                                        tone="edit"
+                                        @click="editContact(person, index)"
+                                    />
+                                    <IconButton
+                                        v-if="!readOnly"
+                                        :icon="['fas', 'circle-minus']"
+                                        :label="$t('people.actions.remove')"
+                                        tone="delete"
+                                        @click="removeContact(index)"
+                                    />
                                 </div>
                             </div>
-                        </FormField>
+                            <p
+                                v-if="!form.people.length"
+                                class="m-auto text-sm text-muted"
+                            >
+                                {{ $t('people.empty') }}
+                            </p>
+                        </div></Card
+                    >
+                </div>
+                <Card v-if="customFields.length"
+                    ><h2 class="m-0 text-xl font-bold text-muted">
+                        {{ $t('vendors.custom_fields.title') }}
+                    </h2>
+                    <p class="mt-1 mb-4 text-xs text-muted">
+                        {{ $t('vendors.custom_fields.lead') }}
+                    </p>
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <FormField
+                            v-for="field in customFields"
+                            :key="field.id"
+                            v-slot="{ id, invalid }"
+                            :label="field.label"
+                            :error="form.errors[`custom_fields.${field.id}`]"
+                            :required="field.required"
+                            ><Checkbox
+                                v-if="field.type === 'checkbox'"
+                                :id="id"
+                                v-model="form.custom_fields[field.id]"
+                                :disabled="readOnly" /><Textarea
+                                v-else-if="field.type === 'textarea'"
+                                :id="id"
+                                v-model="form.custom_fields[field.id]"
+                                :invalid="invalid"
+                                :disabled="readOnly" /><Select
+                                v-else-if="field.type === 'select'"
+                                :id="id"
+                                v-model="form.custom_fields[field.id]"
+                                :invalid="invalid"
+                                :disabled="readOnly"
+                                ><option value="">
+                                    {{ $t('ui.select.placeholder') }}
+                                </option>
+                                <option
+                                    v-for="option in field.options"
+                                    :key="option"
+                                    :value="option"
+                                >
+                                    {{ option }}
+                                </option></Select
+                            ><Input
+                                v-else
+                                :id="id"
+                                v-model="form.custom_fields[field.id]"
+                                :type="
+                                    field.type === 'text' ? 'text' : field.type
+                                "
+                                :invalid="invalid"
+                                :disabled="readOnly"
+                        /></FormField></div
+                ></Card>
+                <Card
+                    ><div class="flex items-start justify-between gap-3">
+                        <div>
+                            <h2 class="m-0 text-xl font-bold text-muted">
+                                {{ $t('credentials.assignments.title') }}
+                            </h2>
+                            <p class="mt-1 mb-4 text-xs text-muted">
+                                {{ $t('credentials.assignments.lead') }}
+                            </p>
+                        </div>
+                        <Button
+                            v-if="!readOnly"
+                            type="button"
+                            size="sm"
+                            @click="addPass"
+                            ><Icon
+                                :name="['fas', 'plus']"
+                                class="mr-1.5"
+                                size="sm"
+                            />{{
+                                $t('credentials.assignments.actions.give')
+                            }}</Button
+                        >
+                    </div>
+                    <div class="space-y-2">
+                        <div
+                            v-for="(assignment, index) in form.pass_assignments"
+                            :key="assignment.id ?? `new-${index}`"
+                            class="grid items-center gap-2 rounded-lg border border-line p-3 sm:grid-cols-[1fr_1fr_auto]"
+                        >
+                            <CustomDropdown
+                                v-model="assignment.pass_id"
+                                :items="passItems"
+                                :disabled="readOnly"
+                            />
+                            <CustomDropdown
+                                v-model="assignment.person_id"
+                                :items="contactItems"
+                                :disabled="readOnly"
+                            />
+                            <IconButton
+                                v-if="!readOnly"
+                                :icon="['fas', 'circle-minus']"
+                                :label="
+                                    $t('credentials.assignments.actions.remove')
+                                "
+                                tone="delete"
+                                @click="form.pass_assignments.splice(index, 1)"
+                            />
+                        </div>
+                        <p
+                            v-if="!form.pass_assignments.length"
+                            class="m-0 py-3 text-sm text-muted"
+                        >
+                            {{ $t('credentials.assignments.empty') }}
+                        </p>
+                    </div></Card
+                >
+                <Card
+                    ><h2 class="m-0 text-xl font-bold text-muted">
+                        {{ $t('vendors.contracts_phase') }}
+                    </h2>
+                    <div
+                        class="mt-3 rounded-lg border border-dashed border-line bg-page p-5 text-center text-sm text-muted"
+                    >
+                        {{ $t('vendors.contracts_phase') }}
+                    </div></Card
+                >
+                <Card
+                    ><div class="flex items-start justify-between gap-3">
+                        <div>
+                            <h2 class="m-0 text-xl font-bold text-muted">
+                                {{ $t('vendors.note_log') }}
+                            </h2>
+                            <p class="mt-1 mb-4 text-xs text-muted">
+                                {{ $t('vendors.note_log_hint') }}
+                            </p>
+                        </div>
+                        <Button
+                            v-if="!readOnly && !composing"
+                            type="button"
+                            size="sm"
+                            @click="addNote"
+                            ><Icon
+                                :name="['fas', 'plus']"
+                                class="mr-1.5"
+                                size="sm"
+                            />{{ $t('vendors.new_note') }}</Button
+                        >
                     </div>
                     <div
-                        class="flex max-h-[25rem] flex-1 flex-col gap-3 overflow-y-auto"
+                        v-if="composing"
+                        class="mb-3 rounded-lg border border-primary bg-primary/10 p-3"
                     >
-                        <div
-                            v-for="note in notes"
-                            :key="note.id"
-                            class="rounded-[10px] border border-line bg-page p-3"
-                        >
-                            <div
-                                class="mb-1.5 flex flex-wrap items-baseline justify-between gap-2 text-xs"
+                        <Textarea
+                            v-model="draftNote"
+                            data-note-compose
+                            :placeholder="$t('vendors.note_placeholder')"
+                        />
+                        <div class="mt-2 flex justify-end gap-2">
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="cancel"
+                                @click="
+                                    composing = false;
+                                    draftNote = '';
+                                "
+                                >{{ $t('setup.actions.cancel') }}</Button
+                            ><Button
+                                type="button"
+                                size="sm"
+                                @click="stageNote"
+                                >{{ $t('vendors.post_note') }}</Button
                             >
-                                <strong class="font-bold">{{
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <div
+                            v-for="(note, index) in allNotes"
+                            :key="note.id"
+                            class="rounded-lg border border-line bg-page p-3"
+                        >
+                            <div class="flex justify-between gap-3 text-xs">
+                                <strong>{{
                                     note.author ||
                                     $t('vendors.notes_author_unknown')
                                 }}</strong
                                 ><span class="text-muted">{{
-                                    formatNoteTime(note.created_at)
+                                    noteTime(note.created_at)
                                 }}</span>
                             </div>
-                            <p
-                                class="m-0 text-[13px] leading-snug whitespace-pre-wrap"
-                            >
+                            <p class="mt-1 mb-0 text-sm whitespace-pre-wrap">
                                 {{ note.body }}
                             </p>
+                            <Button
+                                v-if="
+                                    String(note.id).startsWith('draft-') &&
+                                    !readOnly
+                                "
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                class="mt-1"
+                                @click="form.notes.splice(index, 1)"
+                                >{{ $t('people.actions.remove') }}</Button
+                            >
                         </div>
                         <p
-                            v-if="!notes.length"
-                            class="m-0 py-8 text-center text-sm text-muted"
+                            v-if="!allNotes.length"
+                            class="m-0 py-3 text-sm text-muted"
                         >
                             {{ $t('vendors.notes_empty') }}
                         </p>
+                    </div></Card
+                >
+                <div
+                    v-if="!readOnly"
+                    class="fixed right-0 bottom-0 left-0 z-30 border-t border-line bg-ground/95 py-3 backdrop-blur lg:left-56"
+                >
+                    <div class="container mx-auto px-4 md:px-6">
+                        <div
+                            class="mx-auto flex max-w-6xl items-center justify-between"
+                        >
+                            <Button
+                                href="/vendors/advancing"
+                                variant="cancel"
+                                :disabled="form.processing"
+                            >
+                                {{ $t('setup.actions.cancel') }}
+                            </Button>
+                            <Button
+                                type="submit"
+                                :loading="form.processing"
+                            >
+                                {{ $t('vendors.save_details') }}
+                            </Button>
+                        </div>
                     </div>
                 </div>
-            </Card>
+            </form>
+            <Popup
+                :open="contactEditor !== false"
+                :title="
+                    contactEditor === null
+                        ? $t('people.actions.add')
+                        : $t('people.actions.edit')
+                "
+                :description="$t('people.lead')"
+                :confirm-label="$t('people.actions.save')"
+                class="max-w-2xl"
+                @update:open="closeContact"
+                @cancel="closeContact"
+                @accept="saveContact"
+            >
+                <div class="mt-5 grid gap-4">
+                    <FormField
+                        v-slot="{ id }"
+                        :label="$t('people.fields.name')"
+                        required
+                    >
+                        <Input
+                            :id="id"
+                            v-model="contact.name"
+                            required
+                        />
+                    </FormField>
+                    <FormField
+                        v-slot="{ id }"
+                        :label="$t('people.fields.email')"
+                    >
+                        <Input
+                            :id="id"
+                            v-model="contact.email"
+                            type="email"
+                        />
+                    </FormField>
+                    <FormField
+                        v-slot="{ id }"
+                        :label="$t('people.fields.phone')"
+                    >
+                        <Input
+                            :id="id"
+                            v-model="contact.phone"
+                        />
+                    </FormField>
+                    <Checkbox v-model="contact.is_primary">
+                        {{ $t('people.fields.primary') }}
+                    </Checkbox>
+                </div>
+            </Popup>
         </div>
     </AppLayout>
 </template>

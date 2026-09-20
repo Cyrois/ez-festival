@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Vendors\CreateVendorRequest;
 use App\Http\Requests\Vendors\IndexVendorsRequest;
-use App\Http\Requests\Vendors\StoreVendorNoteRequest;
 use App\Http\Requests\Vendors\StoreVendorRequest;
 use App\Http\Requests\Vendors\UpdateVendorRequest;
 use App\Http\Resources\VendorEngagementNoteResource;
@@ -83,6 +82,7 @@ class VendorController extends Controller
         $engagement->load([
             'vendor',
             'vendorType',
+            'vendor.customFieldValues' => fn ($query) => $query->where('event_id', $event->id),
             'people' => fn ($query) => $query->orderByDesc('vendor_engagement_people.is_primary')->orderBy('people.name'),
             'passAssignments.pass',
             'passAssignments.person',
@@ -94,6 +94,12 @@ class VendorController extends Controller
             'notes' => VendorEngagementNoteResource::collection($notes)->resolve(),
             'event' => $event->only('id', 'name', 'locked', 'timezone'),
             'types' => VendorType::query()->orderBy('name')->get(['id', 'name']),
+            'customFields' => CustomField::query()
+                ->forTarget(CustomField::TARGET_VENDOR)
+                ->where('active', true)
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get(['id', 'label', 'type', 'required', 'options']),
             'statuses' => VendorEngagement::STATUSES,
             'passes' => $event->passes()->withCount('assignments')->orderBy('name')->get(['id', 'name', 'max_assignments']),
             'canWrite' => ! $event->isLocked(),
@@ -107,20 +113,11 @@ class VendorController extends Controller
             $engagement,
             $request->validated(),
             $request->customFields(),
+            $request->user(),
         );
 
         return redirect()->route('vendors.view', $engagement)
             ->with('success', __('vendors.toast.updated'))
-            ->with('success_title', __('toast.saved_title'));
-    }
-
-    public function storeNote(StoreVendorNoteRequest $request, VendorEngagement $engagement): RedirectResponse
-    {
-        $this->resolveEventContext($engagement, writable: true);
-        $this->vendorService->addNote($engagement, $request->user(), $request->validated('body'));
-
-        return redirect()->route('vendors.view', $engagement)
-            ->with('success', __('vendors.toast.note_posted'))
             ->with('success_title', __('toast.saved_title'));
     }
 

@@ -30,6 +30,18 @@ class UpdateVendorRequest extends FormRequest
             'status' => ['required', Rule::in(VendorEngagement::STATUSES)],
             'vendor_type_id' => ['nullable', 'integer', Rule::exists('vendor_types', 'id')],
             'custom_fields' => ['nullable', 'array'],
+            'people' => ['nullable', 'array'],
+            'people.*.id' => ['nullable', 'integer', Rule::exists('people', 'id')],
+            'people.*.name' => ['required', 'string', 'max:255'],
+            'people.*.email' => ['nullable', 'email', 'max:255'],
+            'people.*.phone' => ['nullable', 'string', 'max:255'],
+            'people.*.is_primary' => ['sometimes', 'boolean'],
+            'notes' => ['nullable', 'array'],
+            'notes.*.body' => ['required', 'string', 'max:5000'],
+            'pass_assignments' => ['nullable', 'array'],
+            'pass_assignments.*.id' => ['nullable', 'integer', Rule::exists('pass_assignments', 'id')],
+            'pass_assignments.*.pass_id' => ['required', 'integer', Rule::exists('passes', 'id')],
+            'pass_assignments.*.person_id' => ['nullable', 'integer', Rule::exists('people', 'id')],
         ];
     }
 
@@ -53,6 +65,16 @@ class UpdateVendorRequest extends FormRequest
         }
 
         $validator->addRules($rules);
+
+        $validator->after(function ($validator): void {
+            $primaryContacts = collect($this->input('people', []))
+                ->where('is_primary', true)
+                ->count();
+
+            if ($primaryContacts > 1) {
+                $validator->errors()->add('people', __('validation.primary_contact'));
+            }
+        });
     }
 
     /**

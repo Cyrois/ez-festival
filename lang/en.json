@@ -679,6 +679,8 @@
     "vendors.post_note": "Post",
     "vendors.notes_empty": "No notes yet. Post the first update for this vendor.",
     "vendors.notes_author_unknown": "Former user",
+    "vendors.notes_pending_author": "You",
+    "vendors.notes_pending": "Will be saved",
     "vendors.toast.updated": "Vendor details saved.",
     "vendors.toast.note_posted": "Note posted.",
     "vendors.errors.name_taken": "That vendor name is already in use.",

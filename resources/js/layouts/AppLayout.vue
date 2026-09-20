@@ -178,7 +178,7 @@ const railClass = computed(() => {
 
     return [
         'fixed inset-y-0 left-0 z-50 flex w-[min(18rem,85vw)] flex-col border-r border-line bg-ground shadow-lg transition-transform duration-200',
-        'lg:static lg:z-auto lg:w-56 lg:shrink-0 lg:translate-x-0 lg:shadow-none',
+        'lg:relative lg:z-40 lg:w-56 lg:shrink-0 lg:translate-x-0 lg:shadow-none',
         open,
     ].join(' ');
 });

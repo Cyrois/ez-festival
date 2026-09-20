@@ -43,7 +43,7 @@ class VendorEditTest extends TestCase
             ->where('canWrite', true));
     }
 
-    public function test_vendor_update_and_note_are_event_scoped(): void
+    public function test_vendor_update_saves_staged_notes_with_the_vendor(): void
     {
         [$user, $event] = $this->context();
         $type = VendorType::query()->create(['name' => 'Food']);
@@ -54,17 +54,16 @@ class VendorEditTest extends TestCase
             'name' => ' North Catering Updated ',
             'status' => 'confirmed',
             'vendor_type_id' => $type->id,
+            'notes' => [['body' => '  Booth confirmed. ']],
         ])->assertRedirect(route('vendors.view', $engagement));
 
         $this->assertDatabaseHas('vendors', ['id' => $vendor->id, 'name' => 'North Catering Updated', 'name_key' => 'north catering updated']);
         $this->assertDatabaseHas('vendor_engagements', ['id' => $engagement->id, 'status' => 'confirmed', 'vendor_type_id' => $type->id]);
 
-        $this->actingAs($user)->post(route('vendors.notes.store', $engagement), ['body' => '  Booth confirmed. '])
-            ->assertRedirect(route('vendors.view', $engagement));
         $this->assertDatabaseHas('vendor_engagement_notes', ['vendor_engagement_id' => $engagement->id, 'body' => 'Booth confirmed.']);
     }
 
-    public function test_locked_event_blocks_vendor_update_and_note(): void
+    public function test_locked_event_blocks_vendor_update(): void
     {
         [$user, $event] = $this->context();
         $vendor = Vendor::query()->create(['name' => 'North Catering', 'name_key' => 'north catering']);
@@ -72,7 +71,6 @@ class VendorEditTest extends TestCase
         $event->lock();
 
         $this->actingAs($user)->put(route('vendors.update', $engagement), ['name' => 'Changed', 'status' => 'confirmed'])->assertForbidden();
-        $this->actingAs($user)->post(route('vendors.notes.store', $engagement), ['body' => 'Blocked'])->assertForbidden();
         $this->assertDatabaseCount('vendor_engagement_notes', 0);
     }
 
