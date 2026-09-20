@@ -3,6 +3,7 @@ import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
 import { FormField } from '../ui/form-field';
 import { Input } from '../ui/input';
+import { Popup } from '../ui/popup';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { router, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
@@ -90,73 +91,6 @@ const remove = (person) => {
             </Button>
         </div>
 
-        <form
-            v-if="adding || editingId !== null"
-            class="mt-4 grid gap-3 rounded-lg border border-line bg-page p-3 sm:grid-cols-2"
-            @submit.prevent="submit"
-        >
-            <FormField
-                v-slot="{ id, invalid }"
-                :label="$t('people.fields.name')"
-                :error="form.errors.name"
-                required
-            >
-                <Input
-                    :id="id"
-                    v-model="form.name"
-                    :invalid="invalid"
-                    required
-                />
-            </FormField>
-            <FormField
-                v-slot="{ id, invalid }"
-                :label="$t('people.fields.email')"
-                :error="form.errors.email"
-            >
-                <Input
-                    :id="id"
-                    v-model="form.email"
-                    :invalid="invalid"
-                    type="email"
-                />
-            </FormField>
-            <FormField
-                v-slot="{ id, invalid }"
-                :label="$t('people.fields.phone')"
-                :error="form.errors.phone"
-            >
-                <Input
-                    :id="id"
-                    v-model="form.phone"
-                    :invalid="invalid"
-                />
-            </FormField>
-            <div class="flex items-end gap-2">
-                <Checkbox
-                    v-if="editingId !== null"
-                    v-model="form.is_primary"
-                >
-                    {{ $t('people.fields.primary') }}
-                </Checkbox>
-                <Button
-                    type="submit"
-                    size="sm"
-                    :loading="form.processing"
-                >
-                    {{ $t('people.actions.save') }}
-                </Button>
-                <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    :disabled="form.processing"
-                    @click="reset"
-                >
-                    {{ $t('setup.actions.cancel') }}
-                </Button>
-            </div>
-        </form>
-
         <div class="mt-4 space-y-2">
             <div
                 v-for="person in people"
@@ -213,5 +147,70 @@ const remove = (person) => {
                 {{ $t('people.empty') }}
             </p>
         </div>
+
+        <Popup
+            :open="adding || editingId !== null"
+            :title="
+                editingId === null
+                    ? $t('people.actions.add')
+                    : $t('people.actions.edit')
+            "
+            :description="$t('people.lead')"
+            :accept-label="$t('people.actions.save')"
+            :busy="form.processing"
+            class="max-w-2xl"
+            @update:open="(open) => !open && reset()"
+            @cancel="reset"
+            @accept="submit"
+        >
+            <div class="mt-5 grid gap-4">
+                <FormField
+                    v-slot="{ id, invalid }"
+                    :label="$t('people.fields.name')"
+                    :error="form.errors.name"
+                    required
+                >
+                    <Input
+                        :id="id"
+                        v-model="form.name"
+                        :invalid="invalid"
+                        :disabled="form.processing"
+                        required
+                    />
+                </FormField>
+                <FormField
+                    v-slot="{ id, invalid }"
+                    :label="$t('people.fields.email')"
+                    :error="form.errors.email"
+                >
+                    <Input
+                        :id="id"
+                        v-model="form.email"
+                        :invalid="invalid"
+                        :disabled="form.processing"
+                        type="email"
+                    />
+                </FormField>
+                <FormField
+                    v-slot="{ id, invalid }"
+                    :label="$t('people.fields.phone')"
+                    :error="form.errors.phone"
+                >
+                    <Input
+                        :id="id"
+                        v-model="form.phone"
+                        :invalid="invalid"
+                        :disabled="form.processing"
+                    />
+                </FormField>
+                <Checkbox
+                    v-if="editingId !== null"
+                    v-model="form.is_primary"
+                    :disabled="form.processing"
+                >
+                    {{ $t('people.fields.primary') }}
+                </Checkbox>
+            </div>
+        </Popup>
     </section>
 </template>
