@@ -614,6 +614,7 @@
     "artists.details": "Details",
     "artists.details_hint": "Name is shared across this festival. Status, type, and labels are for this event.",
     "artists.custom_fields": "Custom fields",
+    "artists.custom_fields_manage": "Manage custom fields",
     "artists.custom_fields_shell": "Shell until Settings definitions exist. No fee.",
     "artists.contracts_phase": "Contracts — phase 2 (not MVP)",
     "artists.save_details": "Save",

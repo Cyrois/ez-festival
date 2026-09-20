@@ -1,11 +1,12 @@
 <script setup>
 import { Button } from '../ui/button';
+import { CustomDropdown } from '../ui/custom-dropdown';
 import { FormField } from '../ui/form-field';
 import { Input } from '../ui/input';
-import { Select } from '../ui/select';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { router, useForm } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
+import { computed } from 'vue';
 
 const props = defineProps({
     assignments: { type: Array, default: () => [] },
@@ -25,6 +26,28 @@ const capacityLabel = (pass) =>
               count: Math.max(0, pass.max_assignments - pass.assignments_count),
           });
 
+const passItems = computed(() =>
+    props.passes.map((pass) => ({
+        value: pass.id,
+        title: pass.name,
+        description: capacityLabel(pass),
+        disabled:
+            pass.max_assignments !== null &&
+            pass.assignments_count >= pass.max_assignments,
+    })),
+);
+
+const personItems = computed(() => [
+    {
+        value: '',
+        title: trans('credentials.assignments.actions.assign'),
+    },
+    ...props.people.map((person) => ({
+        value: person.id,
+        title: person.name,
+    })),
+]);
+
 const give = () => {
     form.post(`${props.basePath}/pass-assignments`, {
         preserveScroll: true,
@@ -33,8 +56,7 @@ const give = () => {
     });
 };
 
-const assign = (assignment, event) => {
-    const personId = event.target.value;
+const assign = (assignment, personId) => {
     if (!personId) return;
     router.put(
         `/pass-assignments/${assignment.id}`,
@@ -51,7 +73,7 @@ const remove = (assignment) => {
 </script>
 
 <template>
-    <section class="border-t border-line pt-5">
+    <section>
         <h2 class="m-0 text-lg font-semibold text-charcoal">
             {{ $t('credentials.assignments.title') }}
         </h2>
@@ -70,25 +92,13 @@ const remove = (assignment) => {
                 :error="form.errors.pass_id"
                 required
             >
-                <Select
+                <CustomDropdown
                     :id="id"
                     v-model="form.pass_id"
                     :invalid="invalid"
-                    required
-                >
-                    <option value="">{{ $t('ui.select.placeholder') }}</option>
-                    <option
-                        v-for="pass in passes"
-                        :key="pass.id"
-                        :value="pass.id"
-                        :disabled="
-                            pass.max_assignments !== null &&
-                            pass.assignments_count >= pass.max_assignments
-                        "
-                    >
-                        {{ pass.name }} · {{ capacityLabel(pass) }}
-                    </option>
-                </Select>
+                    :items="passItems"
+                    :placeholder="$t('ui.select.placeholder')"
+                />
             </FormField>
             <FormField
                 v-slot="{ id, invalid }"
@@ -106,7 +116,7 @@ const remove = (assignment) => {
                     required
                 />
             </FormField>
-            <div class="flex items-end">
+            <div class="flex items-start sm:pt-5">
                 <Button
                     type="submit"
                     :loading="form.processing"
@@ -140,22 +150,12 @@ const remove = (assignment) => {
                     v-if="canWrite"
                     class="flex items-center gap-2"
                 >
-                    <Select
+                    <CustomDropdown
                         class="w-44"
                         :model-value="assignment.person?.id ?? ''"
-                        @change="assign(assignment, $event)"
-                    >
-                        <option value="">
-                            {{ $t('credentials.assignments.actions.assign') }}
-                        </option>
-                        <option
-                            v-for="person in people"
-                            :key="person.id"
-                            :value="person.id"
-                        >
-                            {{ person.name }}
-                        </option>
-                    </Select>
+                        :items="personItems"
+                        @update:model-value="assign(assignment, $event)"
+                    />
                     <Button
                         size="sm"
                         variant="ghost"
