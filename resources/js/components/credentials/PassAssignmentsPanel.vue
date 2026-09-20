@@ -51,7 +51,7 @@ const remove = (assignment) => {
 </script>
 
 <template>
-    <section class="border-t border-line pt-5">
+    <section>
         <h2 class="m-0 text-lg font-semibold text-charcoal">
             {{ $t('credentials.assignments.title') }}
         </h2>

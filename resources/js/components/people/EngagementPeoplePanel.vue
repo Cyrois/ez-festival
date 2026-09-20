@@ -71,7 +71,7 @@ const remove = (person) => {
 </script>
 
 <template>
-    <section class="border-t border-line pt-5">
+    <section>
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
                 <h2 class="m-0 text-lg font-semibold text-charcoal">
