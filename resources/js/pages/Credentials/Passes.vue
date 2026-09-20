@@ -247,15 +247,7 @@ onUnmounted(() => {
                                         })
                                     "
                                     tone="edit"
-                                />
-                                <IconButton
-                                    :icon="['fas', 'trash-can']"
-                                    :label="
-                                        $t('credentials.passes.delete', {
-                                            pass: pass.name,
-                                        })
-                                    "
-                                    tone="delete"
+                                    :href="`/credentials/passes/${pass.id}/edit`"
                                 />
                             </div>
                         </TableCell>

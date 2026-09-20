@@ -3,6 +3,8 @@ import AppLayout from '../../layouts/AppLayout.vue';
 import { Avatar } from '../../components/ui/avatar';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
+import EngagementPeoplePanel from '../../components/people/EngagementPeoplePanel.vue';
+import PassAssignmentsPanel from '../../components/credentials/PassAssignmentsPanel.vue';
 import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
@@ -20,6 +22,7 @@ const props = defineProps({
     event: { type: Object, required: true },
     types: { type: Array, required: true },
     statuses: { type: Array, required: true },
+    passes: { type: Array, default: () => [] },
     canWrite: { type: Boolean, required: true },
 });
 const form = useForm({
@@ -185,6 +188,18 @@ const formatNoteTime = (iso) => {
                             </Select>
                         </FormField>
                     </div>
+                    <EngagementPeoplePanel
+                        :people="engagement.people"
+                        :base-path="`/vendors/engagements/${engagement.id}`"
+                        :can-write="canWrite"
+                    />
+                    <PassAssignmentsPanel
+                        :assignments="engagement.pass_assignments"
+                        :people="engagement.people"
+                        :passes="passes"
+                        :base-path="`/vendors/engagements/${engagement.id}`"
+                        :can-write="canWrite"
+                    />
                     <p
                         class="m-0 text-[11px] font-bold tracking-wider text-muted uppercase"
                     >

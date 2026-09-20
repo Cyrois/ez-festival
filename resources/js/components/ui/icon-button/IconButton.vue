@@ -26,6 +26,10 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    href: {
+        type: String,
+        default: null,
+    },
     class: {
         type: [String, Object, Array],
         default: '',
@@ -57,6 +61,7 @@ const classes = computed(() => cn('h-8 w-8', props.class));
         :aria-label="label"
         :title="label"
         :class="classes"
+        :href="href"
     >
         <Icon
             :name="icon"

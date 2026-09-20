@@ -80,7 +80,13 @@ class VendorController extends Controller
     public function view(VendorEngagement $engagement): Response
     {
         $event = $this->resolveEventContext($engagement);
-        $engagement->load(['vendor', 'vendorType']);
+        $engagement->load([
+            'vendor',
+            'vendorType',
+            'people' => fn ($query) => $query->orderByDesc('vendor_engagement_people.is_primary')->orderBy('people.name'),
+            'passAssignments.pass',
+            'passAssignments.person',
+        ]);
         $notes = $engagement->notes()->with('user:id,name,email')->latest('created_at')->latest('id')->get();
 
         return Inertia::render('Vendors/View', [
@@ -89,6 +95,7 @@ class VendorController extends Controller
             'event' => $event->only('id', 'name', 'locked', 'timezone'),
             'types' => VendorType::query()->orderBy('name')->get(['id', 'name']),
             'statuses' => VendorEngagement::STATUSES,
+            'passes' => $event->passes()->withCount('assignments')->orderBy('name')->get(['id', 'name', 'max_assignments']),
             'canWrite' => ! $event->isLocked(),
         ]);
     }

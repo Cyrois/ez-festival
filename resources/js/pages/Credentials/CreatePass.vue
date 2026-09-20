@@ -19,17 +19,19 @@ const props = defineProps({
     labels: { type: Array, default: () => [] },
     labelColors: { type: Array, required: true },
     customFields: { type: Array, default: () => [] },
+    pass: { type: Object, default: null },
 });
 
 const form = useForm({
-    name: '',
-    max_assignments: '',
-    label_ids: [],
+    name: props.pass?.name ?? '',
+    max_assignments: props.pass?.max_assignments ?? '',
+    label_ids: props.pass?.label_ids ?? [],
     new_labels: [],
     custom_fields: Object.fromEntries(
         props.customFields.map((field) => [
             field.id,
-            field.type === 'checkbox' ? false : '',
+            props.pass?.custom_fields?.[field.id] ??
+                (field.type === 'checkbox' ? false : ''),
         ]),
     ),
 });
@@ -38,8 +40,19 @@ const { showFormError } = useFlashToast();
 const breadcrumbs = computed(() => [
     { label: trans('nav.credentials'), href: '/credentials/passes' },
     { label: trans('credentials.passes.title'), href: '/credentials/passes' },
-    { label: trans('credentials.passes.create_crumb') },
+    {
+        label: props.pass
+            ? trans('credentials.passes.edit_crumb')
+            : trans('credentials.passes.create_crumb'),
+    },
 ]);
+
+const isEditing = computed(() => props.pass !== null);
+const pageTitle = computed(() =>
+    isEditing.value
+        ? trans('credentials.passes.edit_title')
+        : trans('credentials.passes.create'),
+);
 
 const toggleLabel = (id) => {
     form.label_ids = form.label_ids.includes(id)
@@ -57,15 +70,24 @@ const removeLabel = (index) => {
     addingLabel.value = form.new_labels.length > 0;
 };
 
-const submit = () =>
-    form.post(`/events/${props.event.id}/credentials/passes`, {
-        onError: showFormError,
-    });
+const submit = () => {
+    const options = { onError: showFormError };
+
+    if (isEditing.value) {
+        form.put(
+            `/events/${props.event.id}/credentials/passes/${props.pass.id}`,
+            options,
+        );
+        return;
+    }
+
+    form.post(`/events/${props.event.id}/credentials/passes`, options);
+};
 </script>
 
 <template>
     <AppLayout
-        :title="$t('credentials.passes.create')"
+        :title="pageTitle"
         :breadcrumbs="breadcrumbs"
         back-href="/credentials/passes"
         :back-label="$t('credentials.passes.back')"
@@ -73,10 +95,14 @@ const submit = () =>
         <div class="w-full">
             <div class="mb-6">
                 <h1 class="m-0 text-2xl font-bold tracking-tight">
-                    {{ $t('credentials.passes.create') }}
+                    {{ pageTitle }}
                 </h1>
                 <p class="mt-1 mb-0 text-sm leading-5 text-muted">
-                    {{ $t('credentials.passes.create_lead') }}
+                    {{
+                        isEditing
+                            ? $t('credentials.passes.edit_lead')
+                            : $t('credentials.passes.create_lead')
+                    }}
                 </p>
             </div>
 
@@ -434,7 +460,11 @@ const submit = () =>
                             type="submit"
                             :loading="form.processing"
                         >
-                            {{ $t('credentials.passes.actions.create') }}
+                            {{
+                                isEditing
+                                    ? $t('credentials.passes.actions.save')
+                                    : $t('credentials.passes.actions.create')
+                            }}
                         </Button>
                     </div>
                 </Card>

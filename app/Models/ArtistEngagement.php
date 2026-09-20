@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 #[Fillable(['artist_id', 'event_id', 'artist_type_id', 'status'])]
 class ArtistEngagement extends Model
@@ -39,5 +40,17 @@ class ArtistEngagement extends Model
     public function labels(): BelongsToMany
     {
         return $this->belongsToMany(ArtistLabel::class, 'artist_engagement_label_assignments');
+    }
+
+    public function people(): BelongsToMany
+    {
+        return $this->belongsToMany(Person::class, 'artist_engagement_people')
+            ->withPivot('is_primary')
+            ->withTimestamps();
+    }
+
+    public function passAssignments(): MorphMany
+    {
+        return $this->morphMany(PassAssignment::class, 'assignable');
     }
 }

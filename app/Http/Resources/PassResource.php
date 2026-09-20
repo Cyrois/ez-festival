@@ -13,7 +13,7 @@ class PassResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'max_assignments' => $this->max_assignments,
-            'assigned_count' => 0,
+            'assigned_count' => $this->assignments_count ?? 0,
             'labels' => $this->whenLoaded('labels', fn (): array => $this->labels
                 ->map(fn ($label): array => $label->only('id', 'name', 'color'))
                 ->values()

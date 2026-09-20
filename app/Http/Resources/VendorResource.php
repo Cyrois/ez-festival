@@ -17,6 +17,12 @@ class VendorResource extends JsonResource
             'vendor_type_id' => $this->vendor_type_id,
             'type' => $this->vendorType?->name,
             'labels' => [],
+            'people' => $this->relationLoaded('people')
+                ? PersonResource::collection($this->people)->resolve()
+                : [],
+            'pass_assignments' => $this->relationLoaded('passAssignments')
+                ? PassAssignmentResource::collection($this->passAssignments)->resolve()
+                : [],
             'custom' => [],
         ];
     }
