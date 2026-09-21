@@ -60,6 +60,8 @@ class PassAssignmentService
 
             if ($owner instanceof ArtistEngagement || $owner instanceof VendorEngagement) {
                 abort_unless($owner->people()->whereKey($person->id)->exists(), 422);
+            } elseif ($owner instanceof EventPatron) {
+                abort_unless((int) $owner->person_id === (int) $person->id, 422);
             }
 
             $assignment->update(['person_id' => $person->id]);

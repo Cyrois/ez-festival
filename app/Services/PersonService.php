@@ -9,21 +9,35 @@ class PersonService
     /** @param array{name: string, email: string, phone?: string|null} $data */
     public function findOrCreateByEmail(array $data): Person
     {
-        $email = mb_strtolower(trim($data['email']));
+        $person = Person::query()->firstOrNew([
+            'email' => $this->normalizeEmail($data['email']),
+        ]);
 
-        return Person::query()->firstOrCreate(
-            ['email' => $email],
-            ['name' => $data['name'], 'phone' => $data['phone'] ?? null],
-        );
+        $this->fillNameAndPhone($person, $data);
+        $person->save();
+
+        return $person;
     }
 
     /** @param array{name: string, email: string, phone?: string|null} $data */
     public function updateProfile(Person $person, array $data): void
     {
-        $person->update([
+        $person->email = $this->normalizeEmail($data['email']);
+        $this->fillNameAndPhone($person, $data);
+        $person->save();
+    }
+
+    /** @param array{name: string, phone?: string|null} $data */
+    private function fillNameAndPhone(Person $person, array $data): void
+    {
+        $person->fill([
             'name' => $data['name'],
-            'email' => mb_strtolower(trim($data['email'])),
             'phone' => $data['phone'] ?? null,
         ]);
+    }
+
+    private function normalizeEmail(string $email): string
+    {
+        return mb_strtolower(trim($email));
     }
 }

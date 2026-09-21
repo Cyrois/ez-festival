@@ -126,6 +126,47 @@ class PassAssignmentsTest extends TestCase
         ]);
     }
 
+    public function test_event_patron_assignment_requires_the_patrons_person(): void
+    {
+        [$user, $event] = $this->artistContext();
+        $patron = EventPatron::query()->create([
+            'event_id' => $event->id,
+            'person_id' => $user->person_id,
+        ]);
+        $passType = $event->passTypes()->create(['name' => 'Patron']);
+        $assignment = $patron->passAssignments()->create(['pass_type_id' => $passType->id]);
+        $other = Person::query()->create(['name' => 'Other', 'email' => 'other@example.com']);
+
+        $this->actingAs($user)
+            ->put(route('pass-assignments.update', $assignment), ['person_id' => $other->id])
+            ->assertStatus(422);
+
+        $this->assertDatabaseHas('pass_assignments', [
+            'id' => $assignment->id,
+            'person_id' => null,
+        ]);
+    }
+
+    public function test_event_patron_assignment_can_use_the_patrons_person(): void
+    {
+        [$user, $event] = $this->artistContext();
+        $patron = EventPatron::query()->create([
+            'event_id' => $event->id,
+            'person_id' => $user->person_id,
+        ]);
+        $passType = $event->passTypes()->create(['name' => 'Patron']);
+        $assignment = $patron->passAssignments()->create(['pass_type_id' => $passType->id]);
+
+        $this->actingAs($user)
+            ->put(route('pass-assignments.update', $assignment), ['person_id' => $user->person_id])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('pass_assignments', [
+            'id' => $assignment->id,
+            'person_id' => $user->person_id,
+        ]);
+    }
+
     /** @return array{User, Event, ArtistEngagement} */
     private function artistContext(): array
     {
