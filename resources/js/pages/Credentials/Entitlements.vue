@@ -86,6 +86,10 @@ const toggleFilter = (id) => {
         ? selectedLabelIds.value.filter((value) => value !== id)
         : [...selectedLabelIds.value, id];
 };
+const clearFilters = () => {
+    search.value = '';
+    selectedLabelIds.value = [];
+};
 const toggleFormLabel = (form, id) => {
     form.label_ids = form.label_ids.includes(id)
         ? form.label_ids.filter((value) => value !== id)
@@ -172,7 +176,7 @@ const adjustItem = () => {
         :title="$t('credentials.entitlements.title')"
         :breadcrumbs="breadcrumbs"
     >
-        <div class="container mx-auto max-w-5xl">
+        <div class="container mx-auto">
             <div class="mb-7">
                 <h1 class="m-0 text-2xl font-bold tracking-tight">
                     {{ $t('credentials.entitlements.title') }}
@@ -211,48 +215,63 @@ const adjustItem = () => {
                     </Button>
                 </div>
 
-                <div class="mb-3 w-full max-w-[420px]">
-                    <label
-                        class="sr-only"
-                        for="entitlement-search"
+                <div class="mb-3 flex flex-wrap items-center gap-2">
+                    <form
+                        class="relative w-full sm:w-64"
+                        role="search"
+                        @submit.prevent
                     >
-                        {{ $t('credentials.entitlements.items.search') }}
-                    </label>
-                    <Input
-                        id="entitlement-search"
-                        v-model="search"
-                        type="search"
-                        :placeholder="
-                            $t(
-                                'credentials.entitlements.items.search_placeholder',
-                            )
-                        "
-                    />
-                </div>
-
-                <div
-                    v-if="labels.length"
-                    class="mb-3 flex flex-wrap gap-2"
-                >
-                    <button
-                        v-for="label in labels"
-                        :key="label.id"
-                        type="button"
-                        class="rounded-full focus-visible:ring-[3px] focus-visible:ring-primary/35 focus-visible:outline-none"
-                        :class="
-                            selectedLabelIds.includes(label.id)
-                                ? 'ring-2 ring-primary ring-offset-2'
-                                : ''
-                        "
-                        :aria-pressed="selectedLabelIds.includes(label.id)"
-                        @click="toggleFilter(label.id)"
-                    >
-                        <Tag
-                            :name="label.name"
-                            :color="label.color"
-                            class="cursor-pointer"
+                        <Icon
+                            :name="['fas', 'magnifying-glass']"
+                            class="pointer-events-none absolute top-3.5 left-3 z-10 text-muted"
+                            size="sm"
                         />
-                    </button>
+                        <Input
+                            id="entitlement-search"
+                            v-model="search"
+                            type="search"
+                            class="min-h-11 pl-9"
+                            :aria-label="
+                                $t('credentials.entitlements.items.search')
+                            "
+                            :placeholder="
+                                $t('credentials.entitlements.items.search')
+                            "
+                        />
+                    </form>
+                    <div
+                        v-if="labels.length"
+                        class="flex flex-wrap gap-2"
+                    >
+                        <button
+                            v-for="label in labels"
+                            :key="label.id"
+                            type="button"
+                            class="rounded-full focus-visible:ring-[3px] focus-visible:ring-primary/35 focus-visible:outline-none"
+                            :class="
+                                selectedLabelIds.includes(label.id)
+                                    ? 'ring-2 ring-primary ring-offset-2'
+                                    : ''
+                            "
+                            :aria-pressed="selectedLabelIds.includes(label.id)"
+                            @click="toggleFilter(label.id)"
+                        >
+                            <Tag
+                                :name="label.name"
+                                :color="label.color"
+                                class="cursor-pointer"
+                            />
+                        </button>
+                    </div>
+                    <Button
+                        v-if="hasFilters"
+                        type="button"
+                        variant="ghost"
+                        @click="clearFilters"
+                        >{{
+                            $t('credentials.entitlements.items.clear_filters')
+                        }}</Button
+                    >
                 </div>
 
                 <Table>
@@ -260,6 +279,11 @@ const adjustItem = () => {
                         <TableRow variant="header">
                             <TableHead>{{
                                 $t('credentials.entitlements.items.table.name')
+                            }}</TableHead>
+                            <TableHead>{{
+                                $t(
+                                    'credentials.entitlements.items.table.labels',
+                                )
                             }}</TableHead>
                             <TableHead class="w-32 text-right">{{
                                 $t(
@@ -278,9 +302,11 @@ const adjustItem = () => {
                             v-for="item in filteredItems"
                             :key="item.id"
                         >
-                            <TableCell class="font-semibold">
-                                {{ item.name }}
-                                <div class="mt-1 flex flex-wrap gap-1.5">
+                            <TableCell class="font-semibold">{{
+                                item.name
+                            }}</TableCell>
+                            <TableCell>
+                                <div class="flex flex-wrap gap-1.5">
                                     <Tag
                                         v-for="label in item.labels"
                                         :key="label.id"
@@ -328,7 +354,7 @@ const adjustItem = () => {
                         </TableRow>
                         <TableRow v-if="filteredItems.length === 0">
                             <TableCell
-                                colspan="3"
+                                colspan="4"
                                 class="py-8 text-center text-muted"
                             >
                                 {{
