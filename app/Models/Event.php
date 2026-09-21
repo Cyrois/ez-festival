@@ -57,6 +57,11 @@ class Event extends Model
         return $this->hasMany(EventPatron::class);
     }
 
+    public function entitlementItemLabels(): HasMany
+    {
+        return $this->hasMany(EntitlementItemLabel::class);
+    }
+
     public function isPast(?Carbon $on = null): bool
     {
         $on ??= now();

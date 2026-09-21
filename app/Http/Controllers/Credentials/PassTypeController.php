@@ -8,10 +8,10 @@ use App\Http\Requests\Credentials\EditPassRequest;
 use App\Http\Requests\Credentials\StorePassRequest;
 use App\Http\Requests\Credentials\UpdatePassRequest;
 use App\Http\Resources\PassTypeResource;
-use App\Models\ArtistLabel;
 use App\Models\CustomField;
 use App\Models\Event;
 use App\Models\PassType;
+use App\Models\PassTypeLabel;
 use App\Services\PassTypeService;
 use App\Support\EventContext;
 use Illuminate\Http\RedirectResponse;
@@ -35,7 +35,7 @@ class PassTypeController extends Controller
             'passes' => PassTypeResource::collection(
                 $event->passTypes()->with('labels')->withCount('assignments')->orderBy('name')->get(),
             )->resolve(),
-            'labels' => ArtistLabel::query()->orderBy('name')->get(['id', 'name', 'color']),
+            'labels' => PassTypeLabel::query()->orderBy('name')->get(['id', 'name', 'color']),
             'canWrite' => ! $event->isLocked(),
         ]);
     }
@@ -99,8 +99,8 @@ class PassTypeController extends Controller
     {
         return [
             'event' => $event->only('id', 'name'),
-            'labels' => ArtistLabel::query()->orderBy('name')->get(['id', 'name', 'color']),
-            'labelColors' => ArtistLabel::COLORS,
+            'labels' => PassTypeLabel::query()->orderBy('name')->get(['id', 'name', 'color']),
+            'labelColors' => PassTypeLabel::COLORS,
             'entitlementItems' => $event->entitlementItems()->orderBy('name')->get(['id', 'name']),
             'customFields' => CustomField::query()
                 ->forTarget(CustomField::TARGET_PASS)

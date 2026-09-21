@@ -27,7 +27,7 @@ class PassType extends Model
     public function labels(): BelongsToMany
     {
         return $this->belongsToMany(
-            ArtistLabel::class,
+            PassTypeLabel::class,
             'pass_type_label_assignments',
         );
     }

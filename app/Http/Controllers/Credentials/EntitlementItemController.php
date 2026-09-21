@@ -8,7 +8,6 @@ use App\Http\Requests\Credentials\StoreEntitlementItemRequest;
 use App\Http\Requests\Credentials\UpdateEntitlementItemRequest;
 use App\Http\Resources\EntitlementItemResource;
 use App\Http\Resources\IssuedEntitlementResource;
-use App\Models\ArtistLabel;
 use App\Models\EntitlementItem;
 use App\Models\Event;
 use App\Models\IssuedEntitlement;
@@ -39,7 +38,7 @@ class EntitlementItemController extends Controller
                     ->orderBy('name')
                     ->get(),
             )->resolve(),
-            'labels' => ArtistLabel::query()->orderBy('name')->get(['id', 'name', 'color']),
+            'labels' => $event->entitlementItemLabels()->orderBy('name')->get(['id', 'name', 'color']),
             'canWrite' => ! $event->isLocked(),
         ]);
     }

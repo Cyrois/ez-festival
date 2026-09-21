@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\ArtistLabel;
 use App\Models\CustomField;
 use App\Models\EntitlementItem;
 use App\Models\Event;
 use App\Models\PassType;
+use App\Models\PassTypeLabel;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -87,8 +87,8 @@ class PassTypeService
     {
         $labelIds = $data['label_ids'] ?? [];
         foreach ($data['new_labels'] ?? [] as $label) {
-            $savedLabel = ArtistLabel::query()->firstOrCreate(
-                ['name_key' => ArtistLabel::normalizeName($label['name'])],
+            $savedLabel = PassTypeLabel::query()->firstOrCreate(
+                ['name_key' => PassTypeLabel::normalizeName($label['name'])],
                 ['name' => $label['name'], 'color' => $label['color']],
             );
             $labelIds[] = $savedLabel->id;

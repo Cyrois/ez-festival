@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\ArtistLabel;
 use App\Models\EntitlementItem;
+use App\Models\EntitlementItemLabel;
 use App\Models\Event;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -27,7 +27,7 @@ class EntitlementItemService
                 ]);
             }
 
-            $this->syncLabels($item, $data);
+            $this->syncLabels($item, $data, $event);
 
             return $item;
         });
@@ -42,18 +42,18 @@ class EntitlementItemService
             $event->ensureWritable();
 
             $item->update(['name' => $data['name']]);
-            $this->syncLabels($item, $data);
+            $this->syncLabels($item, $data, $event);
         });
     }
 
     /** @param array<string, mixed> $data */
-    private function syncLabels(EntitlementItem $item, array $data): void
+    private function syncLabels(EntitlementItem $item, array $data, Event $event): void
     {
         $labelIds = $data['label_ids'] ?? [];
 
         foreach ($data['new_labels'] ?? [] as $label) {
-            $saved = ArtistLabel::query()->firstOrCreate(
-                ['name_key' => ArtistLabel::normalizeName($label['name'])],
+            $saved = $event->entitlementItemLabels()->firstOrCreate(
+                ['name_key' => EntitlementItemLabel::normalizeName($label['name'])],
                 ['name' => $label['name'], 'color' => $label['color']],
             );
             $labelIds[] = $saved->id;

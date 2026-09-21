@@ -23,7 +23,7 @@ class EntitlementItem extends Model
 
     public function labels(): BelongsToMany
     {
-        return $this->belongsToMany(ArtistLabel::class, 'entitlement_item_label_assignments');
+        return $this->belongsToMany(EntitlementItemLabel::class, 'entitlement_item_label_assignments');
     }
 
     public function passTypeEntitlements(): HasMany

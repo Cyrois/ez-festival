@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\Credentials;
 
-use App\Models\ArtistLabel;
 use App\Models\CustomField;
+use App\Models\PassTypeLabel;
 use App\Support\CustomFieldValueRules;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Http\FormRequest;
@@ -42,11 +42,11 @@ class StorePassRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'max_assignments' => ['nullable', 'integer', 'min:1', 'max:4294967295'],
             'label_ids' => ['sometimes', 'array', 'max:50'],
-            'label_ids.*' => ['integer', 'distinct', Rule::exists('artist_labels', 'id')],
+            'label_ids.*' => ['integer', 'distinct', Rule::exists('pass_type_labels', 'id')],
             'new_labels' => ['sometimes', 'array', 'max:20'],
             'new_labels.*' => ['array:name,color'],
             'new_labels.*.name' => ['required', 'string', 'max:255', 'distinct:ignore_case'],
-            'new_labels.*.color' => ['required', Rule::in(ArtistLabel::COLORS)],
+            'new_labels.*.color' => ['required', Rule::in(PassTypeLabel::COLORS)],
             'entitlement_item_ids' => ['sometimes', 'array', 'max:100'],
             'entitlement_item_ids.*' => ['integer', Rule::exists('entitlement_items', 'id')],
             'custom_fields' => ['nullable', 'array'],

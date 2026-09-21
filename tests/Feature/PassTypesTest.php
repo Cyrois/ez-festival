@@ -3,10 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Artist;
-use App\Models\ArtistLabel;
 use App\Models\CustomField;
 use App\Models\Event;
 use App\Models\PassType;
+use App\Models\PassTypeLabel;
 use App\Models\User;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -23,10 +23,10 @@ class PassTypesTest extends TestCase
         $this->withoutVite();
     }
 
-    public function test_catalog_uses_the_shared_artist_label_taxonomy(): void
+    public function test_catalog_uses_its_own_pass_type_label_taxonomy(): void
     {
         [$user, $event] = $this->createEventContext();
-        $label = ArtistLabel::query()->create(['name' => 'All access', 'color' => 'primary']);
+        $label = PassTypeLabel::query()->create(['name' => 'All access', 'color' => 'primary']);
         $passType = $event->passTypes()->create(['name' => 'Artist']);
         $passType->labels()->attach($label);
 
@@ -41,7 +41,7 @@ class PassTypesTest extends TestCase
     public function test_create_persists_custom_fields_and_real_entitlement_lines(): void
     {
         [$user, $event] = $this->createEventContext();
-        $label = ArtistLabel::query()->create(['name' => 'Backstage', 'color' => 'secondary']);
+        $label = PassTypeLabel::query()->create(['name' => 'Backstage', 'color' => 'secondary']);
         $item = $event->entitlementItems()->create(['name' => 'Artist wristband']);
         $field = CustomField::query()->create([
             'target' => CustomField::TARGET_PASS,

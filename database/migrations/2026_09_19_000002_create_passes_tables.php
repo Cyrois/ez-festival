@@ -16,11 +16,19 @@ return new class extends Migration
             $table->timestamps();
         });
 
+        Schema::create('pass_type_labels', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('name_key')->unique();
+            $table->string('color')->default('neutral');
+            $table->timestamps();
+        });
+
         Schema::create('pass_type_label_assignments', function (Blueprint $table) {
             $table->foreignId('pass_type_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('artist_label_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('pass_type_label_id')->constrained()->cascadeOnDelete();
             $table->primary(
-                ['pass_type_id', 'artist_label_id'],
+                ['pass_type_id', 'pass_type_label_id'],
                 'pass_type_label_assignment_primary',
             );
         });
@@ -29,6 +37,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('pass_type_label_assignments');
+        Schema::dropIfExists('pass_type_labels');
         Schema::dropIfExists('pass_types');
     }
 };

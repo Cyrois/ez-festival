@@ -146,6 +146,7 @@
     "credentials.entitlements.toast.deleted": "Entitlement item deleted.",
     "credentials.entitlements.errors.insufficient_stock": "This removal exceeds the available balance.",
     "credentials.entitlements.errors.delete_blocked": "An entitlement item with a non-zero balance or credential references cannot be deleted.",
+    "credentials.entitlements.errors.label_unavailable": "One or more labels are not available for this event.",
     "credentials.entitlements.errors.already_consumed": "This entitlement has already been consumed.",
     "credentials.entitlements.view.title": "Entitlement activity",
     "credentials.entitlements.view.back": "Back to entitlements",

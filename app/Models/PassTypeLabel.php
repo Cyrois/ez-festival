@@ -4,19 +4,18 @@ namespace App\Models;
 
 use App\Models\Concerns\HasNormalizedName;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-#[Fillable(['name', 'color'])]
-class ArtistLabel extends Model
+#[Fillable(['name', 'name_key', 'color'])]
+class PassTypeLabel extends Model
 {
-    use HasFactory, HasNormalizedName;
+    use HasNormalizedName;
 
     public const COLORS = ['primary', 'secondary', 'success', 'warning', 'danger', 'neutral'];
 
-    public function engagements(): BelongsToMany
+    public function passTypes(): BelongsToMany
     {
-        return $this->belongsToMany(ArtistEngagement::class, 'artist_engagement_label_assignments');
+        return $this->belongsToMany(PassType::class, 'pass_type_label_assignments');
     }
 }

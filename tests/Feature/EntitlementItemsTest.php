@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\ArtistLabel;
 use App\Models\EntitlementItem;
 use App\Models\Event;
 use App\Models\User;
@@ -40,10 +39,10 @@ class EntitlementItemsTest extends TestCase
         );
     }
 
-    public function test_create_writes_an_opening_adjustment_and_reuses_artist_labels(): void
+    public function test_create_writes_an_opening_adjustment_and_uses_event_item_labels(): void
     {
         [$user, $event] = $this->createEventContext();
-        $label = ArtistLabel::query()->create(['name' => 'Artist', 'color' => 'primary']);
+        $label = $event->entitlementItemLabels()->create(['name' => 'Artist', 'color' => 'primary']);
 
         $this->actingAs($user)->post(route('credentials.entitlements.store', $event), [
             'name' => ' Artist wristband ',
