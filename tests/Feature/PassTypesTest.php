@@ -10,6 +10,7 @@ use App\Models\PassTypeLabel;
 use App\Models\User;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -106,6 +107,37 @@ class PassTypesTest extends TestCase
         $this->actingAs($user)
             ->delete(route('credentials.passes.destroy', [$event, $passType]))
             ->assertSessionHasErrors('pass_type');
+    }
+
+    public function test_destroy_without_manage_credentials_is_unauthorized(): void
+    {
+        [$user, $event] = $this->createEventContext();
+        $passType = $event->passTypes()->create(['name' => 'Artist']);
+
+        Gate::define('manage-credentials', fn (): bool => false);
+
+        $this->actingAs($user)
+            ->delete(route('credentials.passes.destroy', [$event, $passType]))
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('pass_types', ['id' => $passType->id]);
+    }
+
+    public function test_entitlement_item_ids_must_belong_to_the_route_event(): void
+    {
+        [$user, $event] = $this->createEventContext();
+        $other = Event::query()->create([
+            'name' => 'Other Fest',
+            'starts_on' => '2026-08-01',
+            'ends_on' => '2026-08-02',
+            'timezone' => 'America/Vancouver',
+        ]);
+        $foreign = $other->entitlementItems()->create(['name' => 'Foreign wristband']);
+
+        $this->actingAs($user)->post(route('credentials.passes.store', $event), [
+            'name' => 'Artist',
+            'entitlement_item_ids' => [$foreign->id],
+        ])->assertSessionHasErrors('entitlement_item_ids.0');
     }
 
     /** @return array{User, Event} */

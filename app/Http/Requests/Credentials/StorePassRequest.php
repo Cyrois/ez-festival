@@ -48,7 +48,10 @@ class StorePassRequest extends FormRequest
             'new_labels.*.name' => ['required', 'string', 'max:255', 'distinct:ignore_case'],
             'new_labels.*.color' => ['required', Rule::in(PassTypeLabel::COLORS)],
             'entitlement_item_ids' => ['sometimes', 'array', 'max:100'],
-            'entitlement_item_ids.*' => ['integer', Rule::exists('entitlement_items', 'id')],
+            'entitlement_item_ids.*' => [
+                'integer',
+                Rule::exists('entitlement_items', 'id')->where('event_id', $this->route('event')->id),
+            ],
             'custom_fields' => ['nullable', 'array'],
         ];
     }

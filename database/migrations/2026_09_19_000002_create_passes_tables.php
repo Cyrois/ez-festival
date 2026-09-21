@@ -12,8 +12,11 @@ return new class extends Migration
             $table->id();
             $table->foreignId('event_id')->constrained()->cascadeOnDelete();
             $table->string('name');
+            $table->string('name_key');
             $table->unsignedInteger('max_assignments')->nullable();
             $table->timestamps();
+
+            $table->unique(['event_id', 'name_key']);
         });
 
         Schema::create('pass_type_labels', function (Blueprint $table) {

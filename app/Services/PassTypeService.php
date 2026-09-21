@@ -8,6 +8,7 @@ use App\Models\Event;
 use App\Models\PassType;
 use App\Models\PassTypeLabel;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -25,14 +26,20 @@ class PassTypeService
             $event = Event::query()->lockForUpdate()->findOrFail($event->id);
             $event->ensureWritable();
 
-            $passType = $event->passTypes()->create([
-                'name' => $data['name'],
-                'max_assignments' => $data['max_assignments'] ?? null,
-            ]);
+            try {
+                $passType = $event->passTypes()->create([
+                    'name' => $data['name'],
+                    'max_assignments' => $data['max_assignments'] ?? null,
+                ]);
 
-            $this->syncDetails($passType, $data, $customFields, $event);
+                $this->syncDetails($passType, $data, $customFields, $event);
 
-            return $passType;
+                return $passType;
+            } catch (UniqueConstraintViolationException) {
+                throw ValidationException::withMessages([
+                    'name' => __('credentials.passes.errors.name_taken'),
+                ]);
+            }
         });
     }
 
@@ -54,11 +61,17 @@ class PassTypeService
                 ]);
             }
 
-            $passType->update([
-                'name' => $data['name'],
-                'max_assignments' => $maxAssignments,
-            ]);
-            $this->syncDetails($passType, $data, $customFields, $event);
+            try {
+                $passType->update([
+                    'name' => $data['name'],
+                    'max_assignments' => $maxAssignments,
+                ]);
+                $this->syncDetails($passType, $data, $customFields, $event);
+            } catch (UniqueConstraintViolationException) {
+                throw ValidationException::withMessages([
+                    'name' => __('credentials.passes.errors.name_taken'),
+                ]);
+            }
         });
     }
 
@@ -101,6 +114,8 @@ class PassTypeService
                 'entitlement_item_ids' => __('credentials.passes.errors.entitlement_unavailable'),
             ]);
         }
+        // Editing pass_type_entitlements does not rewrite existing assignment
+        // expected_entitlements — those stay as the snapshot taken at Give.
         $passType->entitlements()->delete();
         $passType->entitlements()->createMany(
             array_map(

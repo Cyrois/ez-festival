@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Credentials;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Credentials\CreatePassRequest;
+use App\Http\Requests\Credentials\DestroyPassRequest;
 use App\Http\Requests\Credentials\EditPassRequest;
 use App\Http\Requests\Credentials\StorePassRequest;
 use App\Http\Requests\Credentials\UpdatePassRequest;
@@ -85,9 +86,9 @@ class PassTypeController extends Controller
         return $this->redirectWithSuccess('credentials.passes.toast.updated');
     }
 
-    public function destroy(Event $event, PassType $passType): RedirectResponse
+    public function destroy(DestroyPassRequest $request, Event $event, PassType $passType): RedirectResponse
     {
-        $this->eventContext->requireCurrentEvent(request()->user(), $event, writable: true);
+        $this->eventContext->requireCurrentEvent($request->user(), $event, writable: true);
         abort_unless($passType->event_id === $event->id, 404);
         $this->passTypes->destroy($passType);
 

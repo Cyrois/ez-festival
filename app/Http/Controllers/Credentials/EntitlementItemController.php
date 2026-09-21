@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Credentials;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Credentials\AdjustEntitlementItemRequest;
+use App\Http\Requests\Credentials\DestroyEntitlementItemRequest;
 use App\Http\Requests\Credentials\StoreEntitlementItemRequest;
 use App\Http\Requests\Credentials\UpdateEntitlementItemRequest;
 use App\Http\Resources\EntitlementItemResource;
@@ -96,9 +97,9 @@ class EntitlementItemController extends Controller
         return $this->redirectWithSuccess('credentials.entitlements.toast.adjusted');
     }
 
-    public function destroy(Event $event, EntitlementItem $entitlementItem): RedirectResponse
+    public function destroy(DestroyEntitlementItemRequest $request, Event $event, EntitlementItem $entitlementItem): RedirectResponse
     {
-        $this->ensureCurrentItem(request()->user(), $event, $entitlementItem);
+        $this->ensureCurrentItem($request->user(), $event, $entitlementItem);
         $this->items->destroy($entitlementItem);
 
         return $this->redirectWithSuccess('credentials.entitlements.toast.deleted');

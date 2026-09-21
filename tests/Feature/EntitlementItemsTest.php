@@ -7,6 +7,7 @@ use App\Models\Event;
 use App\Models\User;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -90,6 +91,20 @@ class EntitlementItemsTest extends TestCase
             'direction' => 'add',
             'quantity' => 1,
         ])->assertForbidden();
+    }
+
+    public function test_destroy_without_manage_credentials_is_unauthorized(): void
+    {
+        [$user, $event] = $this->createEventContext();
+        $item = $event->entitlementItems()->create(['name' => 'Guest wristband']);
+
+        Gate::define('manage-credentials', fn (): bool => false);
+
+        $this->actingAs($user)
+            ->delete(route('credentials.entitlements.destroy', [$event, $item]))
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('entitlement_items', ['id' => $item->id]);
     }
 
     /** @return array{User, Event} */
