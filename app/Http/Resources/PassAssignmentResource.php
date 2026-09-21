@@ -11,8 +11,8 @@ class PassAssignmentResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'pass_id' => $this->pass_id,
-            'pass_name' => $this->whenLoaded('pass', fn (): string => $this->pass->name),
+            'pass_type_id' => $this->pass_type_id,
+            'pass_name' => $this->whenLoaded('passType', fn (): string => $this->passType->name),
             'person' => $this->whenLoaded('person', fn (): ?array => $this->person === null
                 ? null
                 : (new PersonResource($this->person))->resolve()),

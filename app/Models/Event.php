@@ -42,19 +42,19 @@ class Event extends Model
         return $this->hasMany(VendorEngagement::class);
     }
 
-    public function passes(): HasMany
+    public function passTypes(): HasMany
     {
-        return $this->hasMany(Pass::class);
+        return $this->hasMany(PassType::class);
     }
 
-    public function stockItems(): HasMany
+    public function entitlementItems(): HasMany
     {
-        return $this->hasMany(EventStockItem::class);
+        return $this->hasMany(EntitlementItem::class);
     }
 
-    public function stockItemLabels(): HasMany
+    public function patrons(): HasMany
     {
-        return $this->hasMany(EventStockItemLabel::class);
+        return $this->hasMany(EventPatron::class);
     }
 
     public function isPast(?Carbon $on = null): bool

@@ -76,6 +76,7 @@ class EventController extends Controller
 
     public function destroy(DestroyEventRequest $request, Event $event): RedirectResponse
     {
+        $event->ensureWritable();
         $event->delete();
 
         return redirect()

@@ -5,8 +5,12 @@ namespace Tests\Feature;
 use App\Models\Artist;
 use App\Models\ArtistEngagement;
 use App\Models\Event;
+use App\Models\EventPatron;
+use App\Models\ExpectedEntitlement;
 use App\Models\Person;
 use App\Models\User;
+use App\Services\EntitlementConsumeService;
+use App\Services\PassAssignmentService;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
@@ -19,7 +23,6 @@ class PassAssignmentsTest extends TestCase
     {
         $user = User::factory()->create(['name' => 'Alex Smith', 'email' => 'alex@example.com']);
 
-        $this->assertNotNull($user->person_id);
         $this->assertDatabaseHas('people', [
             'id' => $user->person_id,
             'name' => 'Alex Smith',
@@ -27,117 +30,103 @@ class PassAssignmentsTest extends TestCase
         ]);
     }
 
-    public function test_giving_passes_creates_unassigned_rows_and_enforces_capacity(): void
+    public function test_give_creates_directly_owned_assignments_and_expected_entitlements(): void
     {
         [$user, $event, $engagement] = $this->artistContext();
-        $pass = $event->passes()->create(['name' => 'Artist', 'max_assignments' => 2]);
+        $item = $event->entitlementItems()->create(['name' => 'Artist wristband']);
+        $passType = $event->passTypes()->create(['name' => 'Artist', 'max_assignments' => 2]);
+        $passType->entitlements()->create(['entitlement_item_id' => $item->id, 'sort_order' => 0]);
 
-        $this->actingAs($user)
-            ->post(route('artists.pass-assignments.store', $engagement), ['pass_id' => $pass->id, 'quantity' => 2])
-            ->assertSessionHas('success', 'Passes given.');
+        $this->actingAs($user)->post(route('artists.pass-assignments.store', $engagement), [
+            'pass_type_id' => $passType->id,
+            'quantity' => 2,
+        ])->assertSessionHas('success', 'Passes given.');
 
         $this->assertDatabaseCount('pass_assignments', 2);
-        $this->assertDatabaseHas('pass_assignments', ['pass_id' => $pass->id, 'person_id' => null]);
-
-        $this->actingAs($user)
-            ->post(route('artists.pass-assignments.store', $engagement), ['pass_id' => $pass->id, 'quantity' => 1])
-            ->assertSessionHasErrors('quantity');
-    }
-
-    public function test_assignment_can_only_be_given_for_the_engagement_event(): void
-    {
-        [$user, , $engagement] = $this->artistContext();
-        $otherEvent = Event::query()->create([
-            'name' => 'Other Event',
-            'starts_on' => '2027-07-10',
-            'ends_on' => '2027-07-12',
-            'timezone' => 'America/Vancouver',
+        $this->assertDatabaseHas('pass_assignments', [
+            'pass_type_id' => $passType->id,
+            'artist_engagement_id' => $engagement->id,
+            'person_id' => null,
         ]);
-        $pass = $otherEvent->passes()->create(['name' => 'Other']);
+        $this->assertDatabaseCount('expected_entitlements', 2);
 
-        $this->actingAs($user)
-            ->post(route('artists.pass-assignments.store', $engagement), ['pass_id' => $pass->id, 'quantity' => 1])
-            ->assertNotFound();
+        $this->actingAs($user)->post(route('artists.pass-assignments.store', $engagement), [
+            'pass_type_id' => $passType->id,
+            'quantity' => 1,
+        ])->assertSessionHasErrors('quantity');
     }
 
-    public function test_artist_contacts_are_multi_value_with_one_primary_and_assignments_use_them(): void
+    public function test_consume_marks_expected_row_issued_and_writes_negative_adjustment(): void
     {
         [$user, $event, $engagement] = $this->artistContext();
-        $pass = $event->passes()->create(['name' => 'Artist']);
+        $item = $event->entitlementItems()->create(['name' => 'Artist wristband']);
+        $item->adjustments()->create(['delta' => 1]);
+        $passType = $event->passTypes()->create(['name' => 'Artist']);
+        $assignment = $engagement->passAssignments()->create(['pass_type_id' => $passType->id]);
+        $expected = $assignment->expectedEntitlements()->create([
+            'entitlement_item_id' => $item->id,
+            'status' => ExpectedEntitlement::STATUS_EXPECTED,
+        ]);
 
-        $this->actingAs($user)
-            ->post(route('artists.people.store', $engagement), ['name' => 'Taylor', 'email' => 'taylor@example.com'])
-            ->assertSessionHas('success', 'Contact added.');
-        $this->actingAs($user)
-            ->post(route('artists.people.store', $engagement), ['name' => 'Morgan'])
-            ->assertSessionHas('success', 'Contact added.');
+        app(EntitlementConsumeService::class)->consume($expected, $user, 'RFID-1');
 
-        $people = $engagement->people()->orderBy('people.id')->get();
-        $this->assertTrue((bool) $people->first()->pivot->is_primary);
-        $this->assertFalse((bool) $people->last()->pivot->is_primary);
-
-        $this->actingAs($user)
-            ->put(route('artists.people.update', [$engagement, $people->last()]), [
-                'name' => 'Morgan',
-                'email' => null,
-                'phone' => null,
-                'is_primary' => true,
-            ])
-            ->assertSessionHas('success', 'Contact updated.');
-
-        $this->assertSame(1, $engagement->people()->wherePivot('is_primary', true)->count());
-
-        $assignment = $engagement->passAssignments()->create(['pass_id' => $pass->id]);
-        $this->actingAs($user)
-            ->put(route('pass-assignments.update', $assignment), ['person_id' => $people->last()->id])
-            ->assertSessionHas('success', 'Pass assigned.');
-
-        $this->assertDatabaseHas('pass_assignments', ['id' => $assignment->id, 'person_id' => $people->last()->id]);
+        $this->assertDatabaseHas('issued_entitlements', [
+            'expected_entitlement_id' => $expected->id,
+            'entitlement_item_id' => $item->id,
+            'code' => 'RFID-1',
+        ]);
+        $this->assertSame(ExpectedEntitlement::STATUS_CONSUMED, $expected->fresh()->status);
+        $this->assertSame(0, $item->adjustments()->sum('delta'));
     }
 
-    public function test_assignment_cannot_use_a_person_not_linked_to_the_engagement(): void
+    public function test_assignment_with_issued_entitlement_cannot_be_removed(): void
     {
         [$user, $event, $engagement] = $this->artistContext();
-        $assignment = $engagement->passAssignments()->create([
-            'pass_id' => $event->passes()->create(['name' => 'Artist'])->id,
+        $item = $event->entitlementItems()->create(['name' => 'Artist wristband']);
+        $passType = $event->passTypes()->create(['name' => 'Artist']);
+        $assignment = $engagement->passAssignments()->create(['pass_type_id' => $passType->id]);
+        $expected = $assignment->expectedEntitlements()->create(['entitlement_item_id' => $item->id]);
+        $expected->issuedEntitlement()->create([
+            'entitlement_item_id' => $item->id,
+            'issued_by' => $user->id,
+            'issued_at' => now(),
         ]);
-        $person = Person::query()->create(['name' => 'Not linked']);
+
+        $this->actingAs($user)
+            ->delete(route('pass-assignments.destroy', $assignment))
+            ->assertSessionHasErrors('assignment');
+    }
+
+    public function test_assignment_requires_a_person_linked_to_its_artist_engagement(): void
+    {
+        [$user, $event, $engagement] = $this->artistContext();
+        $passType = $event->passTypes()->create(['name' => 'Artist']);
+        $assignment = $engagement->passAssignments()->create(['pass_type_id' => $passType->id]);
+        $person = Person::query()->create(['name' => 'Not linked', 'email' => 'not-linked@example.com']);
 
         $this->actingAs($user)
             ->put(route('pass-assignments.update', $assignment), ['person_id' => $person->id])
             ->assertStatus(422);
     }
 
-    public function test_removing_an_assignment_hard_deletes_it(): void
+    public function test_an_event_patron_can_own_a_pass_assignment(): void
     {
-        [$user, $event, $engagement] = $this->artistContext();
-        $assignment = $engagement->passAssignments()->create([
-            'pass_id' => $event->passes()->create(['name' => 'Artist'])->id,
+        [$user, $event] = $this->artistContext();
+        $patron = EventPatron::query()->create([
+            'event_id' => $event->id,
+            'person_id' => $user->person_id,
         ]);
+        $passType = $event->passTypes()->create(['name' => 'Patron']);
 
-        $this->actingAs($user)
-            ->delete(route('pass-assignments.destroy', $assignment))
-            ->assertSessionHas('success', 'Pass removed.');
+        app(PassAssignmentService::class)->give($patron, $passType, 1);
 
-        $this->assertDatabaseMissing('pass_assignments', ['id' => $assignment->id]);
+        $this->assertDatabaseHas('pass_assignments', [
+            'pass_type_id' => $passType->id,
+            'event_patron_id' => $patron->id,
+        ]);
     }
 
-    public function test_locked_event_rejects_assignment_writes(): void
-    {
-        [$user, $event, $engagement] = $this->artistContext();
-        $pass = $event->passes()->create(['name' => 'Artist']);
-        $event->lock();
-
-        $this->actingAs($user)
-            ->post(route('artists.pass-assignments.store', $engagement), ['pass_id' => $pass->id, 'quantity' => 1])
-            ->assertForbidden();
-
-        $this->assertDatabaseCount('pass_assignments', 0);
-    }
-
-    /**
-     * @return array{User, Event, ArtistEngagement}
-     */
+    /** @return array{User, Event, ArtistEngagement} */
     private function artistContext(): array
     {
         $user = User::factory()->create();

@@ -16,7 +16,7 @@ const props = defineProps({
     canWrite: { type: Boolean, required: true },
 });
 
-const form = useForm({ pass_id: '', quantity: 1 });
+const form = useForm({ pass_type_id: '', quantity: 1 });
 const { showFormError } = useFlashToast();
 
 const capacityLabel = (pass) =>
@@ -52,7 +52,7 @@ const give = () => {
     form.post(`${props.basePath}/pass-assignments`, {
         preserveScroll: true,
         onError: showFormError,
-        onSuccess: () => form.reset('pass_id', 'quantity'),
+        onSuccess: () => form.reset('pass_type_id', 'quantity'),
     });
 };
 
@@ -89,12 +89,12 @@ const remove = (assignment) => {
             <FormField
                 v-slot="{ id, invalid }"
                 :label="$t('credentials.assignments.fields.pass')"
-                :error="form.errors.pass_id"
+                :error="form.errors.pass_type_id"
                 required
             >
                 <CustomDropdown
                     :id="id"
-                    v-model="form.pass_id"
+                    v-model="form.pass_type_id"
                     :invalid="invalid"
                     :items="passItems"
                     :placeholder="$t('ui.select.placeholder')"

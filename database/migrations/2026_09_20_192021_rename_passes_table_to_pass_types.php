@@ -1,23 +1,14 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::rename('passes', 'pass_types');
+        // pass_types is created under its final name in the original schema migration.
+        // This migration is retained for already-ordered development databases.
     }
 
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
-    {
-        Schema::rename('pass_types', 'passes');
-    }
+    public function down(): void {}
 };

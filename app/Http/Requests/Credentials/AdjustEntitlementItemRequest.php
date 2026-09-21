@@ -6,7 +6,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
-class AdjustEventStockItemRequest extends FormRequest
+class AdjustEntitlementItemRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -25,7 +25,7 @@ class AdjustEventStockItemRequest extends FormRequest
         return [
             'direction' => ['required', Rule::in(['add', 'remove'])],
             'quantity' => ['required', 'integer', 'min:1', 'max:4294967295'],
-            'reason' => ['required', 'string', 'max:500'],
+            'reason' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

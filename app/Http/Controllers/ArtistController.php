@@ -83,7 +83,7 @@ class ArtistController extends Controller
             'labels' => fn ($query) => $query->orderBy('name'),
             'artistType',
             'people' => fn ($query) => $query->orderByDesc('artist_engagement_people.is_primary')->orderBy('people.name'),
-            'passAssignments.pass',
+            'passAssignments.passType',
             'passAssignments.person',
         ]);
 
@@ -101,7 +101,7 @@ class ArtistController extends Controller
             'labels' => ArtistLabel::query()->orderBy('name')->get(['id', 'name', 'color']),
             'statuses' => ArtistEngagement::STATUSES,
             'labelColors' => ArtistLabel::COLORS,
-            'passes' => $event->passes()->withCount('assignments')->orderBy('name')->get(['id', 'name', 'max_assignments']),
+            'passes' => $event->passTypes()->withCount('assignments')->orderBy('name')->get(['id', 'name', 'max_assignments']),
             'canWrite' => ! $event->isLocked(),
         ]);
     }

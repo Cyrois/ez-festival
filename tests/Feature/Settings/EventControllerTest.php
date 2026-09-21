@@ -94,8 +94,8 @@ class EventControllerTest extends TestCase
             'starts_on' => '2027-07-10',
             'ends_on' => '2027-07-12',
             'timezone' => 'America/Vancouver',
-            'locked' => true,
         ]);
+        $event->lock();
 
         $this->actingAs($user)
             ->delete(route('settings.events.destroy', $event))

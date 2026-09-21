@@ -33,14 +33,14 @@ class UpdateVendorRequest extends FormRequest
             'people' => ['nullable', 'array'],
             'people.*.id' => ['nullable', 'integer', Rule::exists('people', 'id')],
             'people.*.name' => ['required', 'string', 'max:255'],
-            'people.*.email' => ['nullable', 'email', 'max:255'],
+            'people.*.email' => ['required', 'email', 'max:255'],
             'people.*.phone' => ['nullable', 'string', 'max:255'],
             'people.*.is_primary' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'array'],
             'notes.*.body' => ['required', 'string', 'max:5000'],
             'pass_assignments' => ['nullable', 'array'],
             'pass_assignments.*.id' => ['nullable', 'integer', Rule::exists('pass_assignments', 'id')],
-            'pass_assignments.*.pass_id' => ['required', 'integer', Rule::exists('passes', 'id')],
+            'pass_assignments.*.pass_type_id' => ['required', 'integer', Rule::exists('pass_types', 'id')],
             'pass_assignments.*.person_id' => ['nullable', 'integer', Rule::exists('people', 'id')],
         ];
     }

@@ -2,12 +2,12 @@
 
 namespace App\Http\Requests\Credentials;
 
-use App\Models\EventStockItemLabel;
+use App\Models\ArtistLabel;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
-class StoreEventStockItemRequest extends FormRequest
+class StoreEntitlementItemRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -27,24 +27,18 @@ class StoreEventStockItemRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'opening_balance' => ['required', 'integer', 'min:0', 'max:4294967295'],
             'label_ids' => ['sometimes', 'array', 'max:50'],
-            'label_ids.*' => ['integer', 'distinct', Rule::exists('event_stock_item_labels', 'id')],
+            'label_ids.*' => ['integer', 'distinct', Rule::exists('artist_labels', 'id')],
             'new_labels' => ['sometimes', 'array', 'max:20'],
             'new_labels.*' => ['array:name,color'],
             'new_labels.*.name' => ['required', 'string', 'max:255', 'distinct:ignore_case'],
-            'new_labels.*.color' => ['required', Rule::in(EventStockItemLabel::COLORS)],
+            'new_labels.*.color' => ['required', Rule::in(ArtistLabel::COLORS)],
         ];
     }
 
     public function withValidator($validator): void
     {
         $validator->after(function ($validator): void {
-            $event = $this->route('event');
-            $ids = $this->input('label_ids', []);
-
-            if ($event !== null && is_array($ids) && EventStockItemLabel::query()
-                ->whereIn('id', $ids)->where('event_id', '!=', $event->id)->exists()) {
-                $validator->errors()->add('label_ids', __('credentials.entitlements.errors.label_unavailable'));
-            }
+            // artist_labels are the shared label taxonomy used by engagements, passes, and entitlements.
         });
     }
 }

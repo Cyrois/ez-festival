@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests\Credentials;
 
-class UpdateEventStockItemRequest extends StoreEventStockItemRequest
+class UpdateEntitlementItemRequest extends StoreEntitlementItemRequest
 {
     public function rules(): array
     {

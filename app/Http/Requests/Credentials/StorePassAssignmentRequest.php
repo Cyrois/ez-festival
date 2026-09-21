@@ -16,7 +16,7 @@ class StorePassAssignmentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'pass_id' => ['required', 'integer', Rule::exists('passes', 'id')],
+            'pass_type_id' => ['required', 'integer', Rule::exists('pass_types', 'id')],
             'quantity' => ['required', 'integer', 'min:1', 'max:100'],
         ];
     }

@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\DB;
 
 class EngagementPersonService
 {
+    public function __construct(private readonly PersonService $people) {}
+
     /**
      * @param  array<string, mixed>  $data
      */
@@ -20,7 +22,7 @@ class EngagementPersonService
             $event = Event::query()->lockForUpdate()->findOrFail($engagement->event_id);
             $event->ensureWritable();
 
-            $person = Person::query()->create($data);
+            $person = $this->people->findOrCreateByEmail($data);
             $relation = $this->peopleRelation($engagement);
             $isFirst = ! $relation->exists();
             $relation->attach($person->id, ['is_primary' => $isFirst]);
@@ -40,7 +42,7 @@ class EngagementPersonService
 
             $relation = $this->peopleRelation($engagement);
             abort_unless($relation->whereKey($person->id)->exists(), 404);
-            $person->update($data);
+            $this->people->updateProfile($person, $data);
 
             if (($data['is_primary'] ?? false) === true) {
                 $relation->updateExistingPivot($relation->allRelatedIds(), ['is_primary' => false]);

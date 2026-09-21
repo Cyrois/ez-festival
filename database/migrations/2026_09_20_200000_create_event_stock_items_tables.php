@@ -8,40 +8,58 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('event_stock_items', function (Blueprint $table) {
+        Schema::create('entitlement_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('event_id')->constrained()->cascadeOnDelete();
             $table->string('name');
-            $table->string('name_key');
-            $table->unsignedInteger('balance')->default(0);
             $table->timestamps();
 
-            $table->unique(['event_id', 'name_key']);
             $table->index(['event_id', 'name']);
         });
 
-        Schema::create('event_stock_item_movements', function (Blueprint $table) {
+        Schema::create('entitlement_adjustments', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('event_stock_item_id')->constrained()->cascadeOnDelete();
-            $table->string('kind');
-            $table->integer('quantity_delta');
-            $table->unsignedInteger('balance_after');
-            $table->string('reason', 500)->nullable();
-            $table->foreignId('created_by_user_id')->nullable()->constrained('users')->nullOnDelete();
-            $table->nullableMorphs('source');
-            $table->foreignId('issued_to_person_id')->nullable()->constrained('people')->nullOnDelete();
-            $table->nullableMorphs('contextable');
-            $table->string('credential_code')->nullable();
-            $table->timestamps();
+            $table->foreignId('entitlement_item_id')->constrained()->cascadeOnDelete();
+            $table->integer('delta');
+            $table->string('reason')->nullable();
+            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
+            $table->timestamp('created_at')->useCurrent();
 
-            $table->index(['event_stock_item_id', 'created_at']);
-            $table->index('issued_to_person_id');
+            $table->index(['entitlement_item_id', 'created_at']);
+        });
+
+        Schema::create('pass_type_entitlements', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('pass_type_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('entitlement_item_id')->constrained()->restrictOnDelete();
+            $table->integer('sort_order');
+            $table->timestamps();
+        });
+
+        Schema::create('expected_entitlements', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('pass_assignment_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('entitlement_item_id')->constrained()->restrictOnDelete();
+            $table->string('status')->default('expected');
+            $table->timestamps();
+        });
+
+        Schema::create('issued_entitlements', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('expected_entitlement_id')->unique()->constrained()->cascadeOnDelete();
+            $table->foreignId('entitlement_item_id')->constrained()->restrictOnDelete();
+            $table->string('code')->nullable();
+            $table->foreignId('issued_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->timestamp('issued_at')->useCurrent();
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('event_stock_item_movements');
-        Schema::dropIfExists('event_stock_items');
+        Schema::dropIfExists('issued_entitlements');
+        Schema::dropIfExists('expected_entitlements');
+        Schema::dropIfExists('pass_type_entitlements');
+        Schema::dropIfExists('entitlement_adjustments');
+        Schema::dropIfExists('entitlement_items');
     }
 };

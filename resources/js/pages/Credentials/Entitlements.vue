@@ -302,9 +302,14 @@ const adjustItem = () => {
                             v-for="item in filteredItems"
                             :key="item.id"
                         >
-                            <TableCell class="font-semibold">{{
-                                item.name
-                            }}</TableCell>
+                            <TableCell class="font-semibold">
+                                <a
+                                    :href="`/credentials/entitlements/${item.id}`"
+                                    class="text-secondary hover:underline"
+                                >
+                                    {{ item.name }}
+                                </a>
+                            </TableCell>
                             <TableCell>
                                 <div class="flex flex-wrap gap-1.5">
                                     <Tag

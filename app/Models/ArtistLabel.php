@@ -19,4 +19,14 @@ class ArtistLabel extends Model
     {
         return $this->belongsToMany(ArtistEngagement::class, 'artist_engagement_label_assignments');
     }
+
+    public function passTypes(): BelongsToMany
+    {
+        return $this->belongsToMany(PassType::class, 'pass_type_label_assignments');
+    }
+
+    public function entitlementItems(): BelongsToMany
+    {
+        return $this->belongsToMany(EntitlementItem::class, 'entitlement_item_label_assignments');
+    }
 }

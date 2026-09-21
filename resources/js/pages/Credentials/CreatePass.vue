@@ -18,6 +18,7 @@ const props = defineProps({
     event: { type: Object, required: true },
     labels: { type: Array, default: () => [] },
     labelColors: { type: Array, required: true },
+    entitlementItems: { type: Array, default: () => [] },
     customFields: { type: Array, default: () => [] },
     pass: { type: Object, default: null },
 });
@@ -27,6 +28,7 @@ const form = useForm({
     max_assignments: props.pass?.max_assignments ?? '',
     label_ids: props.pass?.label_ids ?? [],
     new_labels: [],
+    entitlement_item_ids: props.pass?.entitlement_item_ids ?? [],
     custom_fields: Object.fromEntries(
         props.customFields.map((field) => [
             field.id,
@@ -68,6 +70,16 @@ const beginLabel = () => {
 const removeLabel = (index) => {
     form.new_labels.splice(index, 1);
     addingLabel.value = form.new_labels.length > 0;
+};
+
+const addEntitlement = () => {
+    if (props.entitlementItems[0]) {
+        form.entitlement_item_ids.push(props.entitlementItems[0].id);
+    }
+};
+
+const removeEntitlement = (index) => {
+    form.entitlement_item_ids.splice(index, 1);
 };
 
 const submit = () => {
@@ -410,20 +422,70 @@ const submit = () => {
                         <h2 class="m-0 text-lg font-semibold text-muted">
                             {{ $t('credentials.passes.entitlements.title') }}
                         </h2>
-                        <div
-                            class="mt-2 rounded-xl border border-dashed border-line bg-page px-6 py-5 text-center"
-                        >
-                            <p class="m-0 text-xs font-bold text-muted">
-                                {{ $t('credentials.passes.coming_later') }}
-                            </p>
-                            <p class="mt-1 mb-0 text-xs text-muted">
+                        <p class="mt-1 mb-3 text-xs text-muted">
+                            {{
+                                $t(
+                                    'credentials.passes.entitlements.description',
+                                )
+                            }}
+                        </p>
+                        <div class="space-y-2">
+                            <div
+                                v-for="(
+                                    itemId, index
+                                ) in form.entitlement_item_ids"
+                                :key="`${itemId}-${index}`"
+                                class="flex items-center gap-2"
+                            >
+                                <Select
+                                    v-model="form.entitlement_item_ids[index]"
+                                    class="flex-1"
+                                    :aria-label="
+                                        $t(
+                                            'credentials.passes.entitlements.item',
+                                        )
+                                    "
+                                >
+                                    <option
+                                        v-for="item in entitlementItems"
+                                        :key="item.id"
+                                        :value="item.id"
+                                    >
+                                        {{ item.name }}
+                                    </option>
+                                </Select>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    @click="removeEntitlement(index)"
+                                >
+                                    {{
+                                        $t(
+                                            'credentials.passes.entitlements.remove',
+                                        )
+                                    }}
+                                </Button>
+                            </div>
+                            <p
+                                v-if="form.entitlement_item_ids.length === 0"
+                                class="m-0 text-sm text-muted"
+                            >
                                 {{
-                                    $t(
-                                        'credentials.passes.entitlements.description',
-                                    )
+                                    $t('credentials.passes.entitlements.empty')
                                 }}
                             </p>
                         </div>
+                        <Button
+                            v-if="entitlementItems.length > 0"
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            class="mt-3"
+                            @click="addEntitlement"
+                        >
+                            {{ $t('credentials.passes.entitlements.add') }}
+                        </Button>
                     </section>
 
                     <section class="mt-5 border-t border-line pt-5">
