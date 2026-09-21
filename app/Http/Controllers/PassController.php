@@ -116,14 +116,4 @@ class PassController extends Controller
             ->with('success', __('credentials.passes.toast.updated'))
             ->with('success_title', __('toast.saved_title'));
     }
-
-    public function entitlements(): Response
-    {
-        Gate::authorize('view-credentials');
-        $event = $this->eventContext->requireCurrent(request()->user());
-
-        return Inertia::render('Credentials/Entitlements', [
-            'event' => $event->only('id', 'name'),
-        ]);
-    }
 }

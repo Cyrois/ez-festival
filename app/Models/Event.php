@@ -47,6 +47,16 @@ class Event extends Model
         return $this->hasMany(Pass::class);
     }
 
+    public function stockItems(): HasMany
+    {
+        return $this->hasMany(EventStockItem::class);
+    }
+
+    public function stockItemLabels(): HasMany
+    {
+        return $this->hasMany(EventStockItemLabel::class);
+    }
+
     public function isPast(?Carbon $on = null): bool
     {
         $on ??= now();

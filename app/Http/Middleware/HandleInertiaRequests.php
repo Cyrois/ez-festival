@@ -67,6 +67,7 @@ class HandleInertiaRequests extends Middleware
                 ? [
                     'id' => $event->id,
                     'name' => $event->name,
+                    'timezone' => $event->timezone,
                     'is_locked' => $event->isLocked(),
                 ]
                 : null,

@@ -8,6 +8,7 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\CrewController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\EventStockItemController;
 use App\Http\Controllers\PassAssignmentController;
 use App\Http\Controllers\PassController;
 use App\Http\Controllers\PatronController;
@@ -95,8 +96,17 @@ Route::middleware('auth')->group(function () {
         Route::put('events/{event}/credentials/passes/{pass}', [PassController::class, 'update'])
             ->middleware('event.writable')
             ->name('credentials.passes.update');
-        Route::get('credentials/entitlements', [PassController::class, 'entitlements'])
+        Route::get('credentials/entitlements', [EventStockItemController::class, 'index'])
             ->name('credentials.entitlements');
+        Route::post('events/{event}/credentials/entitlements', [EventStockItemController::class, 'store'])
+            ->middleware('event.writable')
+            ->name('credentials.entitlements.store');
+        Route::put('events/{event}/credentials/entitlements/{stockItem}', [EventStockItemController::class, 'update'])
+            ->middleware('event.writable')
+            ->name('credentials.entitlements.update');
+        Route::post('events/{event}/credentials/entitlements/{stockItem}/adjustments', [EventStockItemController::class, 'adjust'])
+            ->middleware('event.writable')
+            ->name('credentials.entitlements.adjustments.store');
 
         Route::redirect('vendors', '/vendors/advancing')->name('vendors.index');
         Route::get('vendors/advancing', [VendorController::class, 'index'])->name('vendors.advancing');
