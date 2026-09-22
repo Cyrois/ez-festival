@@ -66,16 +66,12 @@ const breadcrumbs = computed(() => [
     },
     { label: props.item.name },
 ]);
-const adjustLocationItems = computed(() => [
-    {
-        value: '',
-        title: trans('credentials.entitlements.locations.unassigned'),
-    },
-    ...props.locations_for_adjust.map((location) => ({
+const adjustLocationItems = computed(() =>
+    props.locations_for_adjust.map((location) => ({
         value: location.id,
         title: location.name,
     })),
-]);
+);
 const directionOptions = computed(() => [
     {
         value: 'add',
@@ -92,17 +88,13 @@ const directionOptions = computed(() => [
 ]);
 const selectedLocation = computed(() => {
     if (adjustForm.location_id === '' || adjustForm.location_id === null) {
-        return (
-            props.locations.find((location) => location.id === null) ?? {
-                id: null,
-                name: trans('credentials.entitlements.locations.unassigned'),
-                in_stock: 0,
-            }
-        );
+        return null;
     }
 
-    return props.locations.find(
-        (location) => location.id === Number(adjustForm.location_id),
+    return (
+        props.locations.find(
+            (location) => location.id === Number(adjustForm.location_id),
+        ) ?? null
     );
 });
 const signedAdjustment = computed(() => {
@@ -144,7 +136,7 @@ const submit = () => {
 const openAdjust = (locationId = '') => {
     adjustForm.reset();
     adjustForm.clearErrors();
-    adjustForm.location_id = locationId ?? '';
+    adjustForm.location_id = locationId || '';
     adjustForm.direction = 'add';
     adjustForm.quantity = 1;
     adjustForm.reason = '';
@@ -152,21 +144,26 @@ const openAdjust = (locationId = '') => {
 };
 
 const submitAdjustment = () => {
-    adjustForm
-        .transform((data) => ({
-            ...data,
-            location_id: data.location_id === '' ? null : data.location_id,
-        }))
-        .post(
-            `/events/${props.event.id}/credentials/entitlements/${props.item.id}/adjustments`,
-            {
-                preserveScroll: true,
-                onError: showFormError,
-                onSuccess: () => {
-                    adjustOpen.value = false;
-                },
-            },
+    if (adjustForm.location_id === '' || adjustForm.location_id === null) {
+        adjustForm.setError(
+            'location_id',
+            trans('credentials.entitlements.errors.location_required'),
         );
+        showFormError(adjustForm.errors);
+
+        return;
+    }
+
+    adjustForm.post(
+        `/events/${props.event.id}/credentials/entitlements/${props.item.id}/adjustments`,
+        {
+            preserveScroll: true,
+            onError: showFormError,
+            onSuccess: () => {
+                adjustOpen.value = false;
+            },
+        },
+    );
 };
 
 const formatWhen = (value) =>
@@ -476,7 +473,7 @@ const formatWhen = (value) =>
                             </TableCell>
                             <TableCell class="text-right">
                                 <Button
-                                    v-if="!is_read_only"
+                                    v-if="!is_read_only && location.id !== null"
                                     type="button"
                                     size="sm"
                                     variant="outline-secondary"
@@ -621,6 +618,7 @@ const formatWhen = (value) =>
                 <FormField
                     :label="$t('credentials.entitlements.fields.location')"
                     :error="adjustForm.errors.location_id"
+                    required
                 >
                     <template #default="{ id, invalid }">
                         <CustomDropdown

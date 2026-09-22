@@ -151,7 +151,7 @@ class EntitlementItemsTest extends TestCase
         ])->assertSessionHasErrors('quantity');
     }
 
-    public function test_adjustment_without_a_location_creates_unassigned_inventory(): void
+    public function test_adjustment_without_a_location_is_rejected(): void
     {
         [$user, $event] = $this->createEventContext();
         $item = $event->entitlementItems()->create(['name' => 'Guest wristband']);
@@ -161,37 +161,71 @@ class EntitlementItemsTest extends TestCase
             'direction' => 'add',
             'quantity' => 10,
             'reason' => 'Initial stock',
+        ])->assertSessionHasErrors('location_id');
+
+        $this->actingAs($user)->post(route('credentials.entitlements.adjustments.store', [$event, $item]), [
+            'direction' => 'add',
+            'quantity' => 10,
+        ])->assertSessionHasErrors('location_id');
+
+        $this->assertDatabaseCount('entitlement_adjustments', 0);
+    }
+
+    public function test_adjustment_with_a_location_adds_stock(): void
+    {
+        [$user, $event] = $this->createEventContext();
+        $location = $event->locations()->create(['name' => 'Main stage']);
+        $item = $event->entitlementItems()->create(['name' => 'Guest wristband']);
+
+        $this->actingAs($user)->post(route('credentials.entitlements.adjustments.store', [$event, $item]), [
+            'location_id' => $location->id,
+            'direction' => 'add',
+            'quantity' => 10,
+            'reason' => 'Initial stock',
         ])->assertRedirect(route('credentials.entitlements.edit', $item));
 
         $this->assertDatabaseHas('entitlement_adjustments', [
             'entitlement_item_id' => $item->id,
-            'location_id' => null,
+            'location_id' => $location->id,
             'delta' => 10,
             'reason' => 'Initial stock',
             'user_id' => $user->id,
         ]);
-
-        $this->actingAs($user)->get(route('credentials.entitlements.edit', $item))->assertInertia(
-            fn (Assert $page) => $page
-                ->where('stats.in_stock', 10)
-                ->where('locations.0.id', null)
-                ->where('locations.0.name', 'Unassigned')
-                ->where('locations.0.in_stock', 10),
-        );
     }
 
-    public function test_unassigned_inventory_cannot_be_overdrawn(): void
+    public function test_create_with_opening_balance_requires_a_location(): void
     {
         [$user, $event] = $this->createEventContext();
-        $item = $event->entitlementItems()->create(['name' => 'Guest wristband']);
-        $item->adjustments()->create(['location_id' => null, 'delta' => 3]);
 
-        $this->actingAs($user)->post(route('credentials.entitlements.adjustments.store', [$event, $item]), [
-            'direction' => 'remove',
-            'quantity' => 4,
-        ])->assertSessionHasErrors('quantity');
+        $this->actingAs($user)->post(route('credentials.entitlements.store', $event), [
+            'name' => 'Guest wristband',
+            'opening_balance' => 10,
+            'location_id' => '',
+        ])->assertSessionHasErrors('location_id');
 
-        $this->assertSame(3, $item->adjustments()->sum('delta'));
+        $this->assertDatabaseCount('entitlement_items', 0);
+        $this->assertDatabaseCount('entitlement_adjustments', 0);
+    }
+
+    public function test_create_rejects_a_location_from_another_event(): void
+    {
+        [$user, $event] = $this->createEventContext();
+        $otherEvent = Event::query()->create([
+            'name' => 'Other festival',
+            'starts_on' => '2026-08-10',
+            'ends_on' => '2026-08-12',
+            'timezone' => 'America/Vancouver',
+        ]);
+        $foreignLocation = $otherEvent->locations()->create(['name' => 'Other stage']);
+
+        $this->actingAs($user)->post(route('credentials.entitlements.store', $event), [
+            'name' => 'Guest wristband',
+            'opening_balance' => 10,
+            'location_id' => $foreignLocation->id,
+        ])->assertSessionHasErrors('location_id');
+
+        $this->assertDatabaseCount('entitlement_items', 0);
+        $this->assertDatabaseCount('entitlement_adjustments', 0);
     }
 
     public function test_adjustment_cannot_use_stock_from_another_location(): void

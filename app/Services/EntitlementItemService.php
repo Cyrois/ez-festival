@@ -65,24 +65,22 @@ class EntitlementItemService
         $item->labels()->sync(array_values(array_unique($labelIds)));
     }
 
-    public function adjust(EntitlementItem $item, ?int $locationId, int $delta, ?string $reason, User $actor): void
+    public function adjust(EntitlementItem $item, int $locationId, int $delta, ?string $reason, User $actor): void
     {
         DB::transaction(function () use ($item, $locationId, $delta, $reason, $actor): void {
             $item = EntitlementItem::query()->lockForUpdate()->findOrFail($item->id);
             $event = Event::query()->lockForUpdate()->findOrFail($item->event_id);
             $event->ensureWritable();
 
-            if ($locationId !== null) {
-                $location = Location::query()
-                    ->where('event_id', $event->id)
-                    ->lockForUpdate()
-                    ->find($locationId);
+            $location = Location::query()
+                ->where('event_id', $event->id)
+                ->lockForUpdate()
+                ->find($locationId);
 
-                if ($location === null) {
-                    throw ValidationException::withMessages([
-                        'location_id' => __('credentials.entitlements.errors.location_unavailable'),
-                    ]);
-                }
+            if ($location === null) {
+                throw ValidationException::withMessages([
+                    'location_id' => __('credentials.entitlements.errors.location_unavailable'),
+                ]);
             }
 
             if ($this->balanceForLocation($item, $locationId) + $delta < 0) {

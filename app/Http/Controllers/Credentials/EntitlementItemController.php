@@ -97,7 +97,7 @@ class EntitlementItemController extends Controller
 
         $this->items->adjust(
             $entitlementItem,
-            $data['location_id'] ?? null,
+            (int) $data['location_id'],
             $delta,
             $data['reason'] ?? null,
             $request->user(),
@@ -128,7 +128,7 @@ class EntitlementItemController extends Controller
     {
         $item->load('labels');
         $balances = $this->items->balanceByLocation($item);
-        $inStock = $this->items->balanceTotal($item);
+        $inStock = $this->items->balance($item);
         $eventLocations = $event->locations()
             ->orderBy('name')
             ->get(['id', 'name']);
