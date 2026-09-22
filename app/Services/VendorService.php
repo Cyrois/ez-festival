@@ -4,8 +4,9 @@ namespace App\Services;
 
 use App\Models\CustomField;
 use App\Models\Event;
-use App\Models\Pass;
+use App\Models\ExpectedEntitlement;
 use App\Models\PassAssignment;
+use App\Models\PassType;
 use App\Models\Person;
 use App\Models\User;
 use App\Models\Vendor;
@@ -164,7 +165,7 @@ class VendorService
     /** @param array<int, array<string, mixed>> $assignments */
     private function syncPassAssignments(VendorEngagement $engagement, array $assignments): void
     {
-        $existing = $engagement->passAssignments()->get();
+        $existing = $engagement->passAssignments()->with('expectedEntitlements.issuedEntitlement')->get();
         $existingIds = $existing->pluck('id')->map(fn ($id) => (int) $id)->all();
         $submittedIds = collect($assignments)->pluck('id')->filter()->map(fn ($id) => (int) $id)->all();
 
@@ -177,29 +178,64 @@ class VendorService
             abort_unless($assignment['person_id'] === null || in_array($assignment['person_id'], $personIds), 422);
         }
 
-        $passIds = collect($assignments)->pluck('pass_id')->unique()->all();
-        foreach ($passIds as $passId) {
-            $pass = Pass::query()->lockForUpdate()->findOrFail($passId);
-            abort_unless($pass->event_id === $engagement->event_id, 404);
-            $otherAssignments = $pass->assignments()
+        $passTypes = [];
+        $passTypeIds = collect($assignments)->pluck('pass_type_id')->unique()->all();
+        foreach ($passTypeIds as $passTypeId) {
+            $passType = PassType::query()->lockForUpdate()->with('entitlements')->findOrFail($passTypeId);
+            abort_unless($passType->event_id === $engagement->event_id, 404);
+            $passTypes[$passType->id] = $passType;
+            $otherAssignments = $passType->assignments()
                 ->where(function ($query) use ($engagement): void {
-                    $query->where('assignable_type', '!=', $engagement->getMorphClass())
-                        ->orWhere('assignable_id', '!=', $engagement->id);
+                    $query->where('vendor_engagement_id', '!=', $engagement->id)
+                        ->orWhereNull('vendor_engagement_id');
                 })
                 ->count();
-            $requestedCount = collect($assignments)->where('pass_id', $passId)->count();
-            if ($pass->max_assignments !== null && $otherAssignments + $requestedCount > $pass->max_assignments) {
+            $requestedCount = collect($assignments)->where('pass_type_id', $passTypeId)->count();
+            if ($passType->max_assignments !== null && $otherAssignments + $requestedCount > $passType->max_assignments) {
                 throw ValidationException::withMessages(['pass_assignments' => __('credentials.assignments.errors.capacity')]);
             }
         }
 
-        $engagement->passAssignments()->whereKey(array_diff($existingIds, $submittedIds))->delete();
+        $removed = $existing->whereIn('id', array_diff($existingIds, $submittedIds));
+        if ($removed->contains(fn (PassAssignment $assignment): bool => $assignment->expectedEntitlements->contains(
+            fn (ExpectedEntitlement $expected): bool => $expected->issuedEntitlement !== null,
+        ))) {
+            throw ValidationException::withMessages([
+                'pass_assignments' => __('credentials.assignments.errors.remove_issued'),
+            ]);
+        }
+
+        $engagement->passAssignments()->whereKey($removed->pluck('id'))->delete();
         foreach ($assignments as $data) {
-            $assignment = isset($data['id'])
-                ? PassAssignment::query()->findOrFail($data['id'])
-                : $engagement->passAssignments()->make();
-            $assignment->fill(['pass_id' => $data['pass_id'], 'person_id' => $data['person_id']]);
+            $assignment = isset($data['id']) ? $existing->find($data['id']) : null;
+            $isNew = $assignment === null;
+            $needsExpected = $isNew;
+            $assignment ??= $engagement->passAssignments()->make();
+
+            if (! $isNew && $assignment->pass_type_id !== (int) $data['pass_type_id']) {
+                if ($assignment->expectedEntitlements->contains(
+                    fn (ExpectedEntitlement $expected): bool => $expected->issuedEntitlement !== null,
+                )) {
+                    throw ValidationException::withMessages([
+                        'pass_assignments' => __('credentials.assignments.errors.remove_issued'),
+                    ]);
+                }
+
+                $assignment->expectedEntitlements()->delete();
+                $needsExpected = true;
+            }
+
+            $assignment->fill(['pass_type_id' => $data['pass_type_id'], 'person_id' => $data['person_id']]);
             $assignment->save();
+
+            if ($needsExpected || (! $assignment->relationLoaded('expectedEntitlements') || $assignment->expectedEntitlements->isEmpty())) {
+                $assignment->expectedEntitlements()->createMany(
+                    $passTypes[$assignment->pass_type_id]->entitlements->map(fn ($line): array => [
+                        'entitlement_item_id' => $line->entitlement_item_id,
+                        'status' => ExpectedEntitlement::STATUS_EXPECTED,
+                    ])->all(),
+                );
+            }
         }
     }
 

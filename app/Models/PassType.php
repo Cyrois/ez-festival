@@ -10,8 +10,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
-#[Fillable(['event_id', 'name', 'name_key', 'max_assignments'])]
-class Pass extends Model
+#[Fillable(['event_id', 'name', 'max_assignments'])]
+class PassType extends Model
 {
     use HasNormalizedName;
 
@@ -30,8 +30,8 @@ class Pass extends Model
     public function labels(): BelongsToMany
     {
         return $this->belongsToMany(
-            PassLabel::class,
-            'pass_label_assignments',
+            PassTypeLabel::class,
+            'pass_type_label_assignments',
         );
     }
 
@@ -43,5 +43,10 @@ class Pass extends Model
     public function assignments(): HasMany
     {
         return $this->hasMany(PassAssignment::class);
+    }
+
+    public function entitlements(): HasMany
+    {
+        return $this->hasMany(PassTypeEntitlement::class);
     }
 }

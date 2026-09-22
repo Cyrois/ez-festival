@@ -5,11 +5,13 @@ use App\Http\Controllers\ArtistEngagementPersonController;
 use App\Http\Controllers\ArtistPassAssignmentController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\Credentials\EntitlementItemController;
+use App\Http\Controllers\Credentials\PassTypeController;
+use App\Http\Controllers\Credentials\ProductsController;
 use App\Http\Controllers\CrewController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\PassAssignmentController;
-use App\Http\Controllers\PassController;
 use App\Http\Controllers\PatronController;
 use App\Http\Controllers\Settings\AccountController;
 use App\Http\Controllers\Settings\ArtistTypeController as SettingsArtistTypeController;
@@ -83,20 +85,39 @@ Route::middleware('auth')->group(function () {
             ->middleware('feature:crew')
             ->name('crew.index');
 
-        Route::get('credentials/passes', [PassController::class, 'index'])
+        Route::get('credentials/passes', [PassTypeController::class, 'index'])
             ->name('credentials.passes');
-        Route::get('credentials/passes/create', [PassController::class, 'create'])
+        Route::get('credentials/products', [ProductsController::class, 'index'])
+            ->name('credentials.products');
+        Route::get('credentials/passes/create', [PassTypeController::class, 'create'])
             ->name('credentials.passes.create');
-        Route::get('credentials/passes/{pass}/edit', [PassController::class, 'edit'])
+        Route::get('credentials/passes/{passType}/edit', [PassTypeController::class, 'edit'])
             ->name('credentials.passes.edit');
-        Route::post('events/{event}/credentials/passes', [PassController::class, 'store'])
+        Route::post('events/{event}/credentials/passes', [PassTypeController::class, 'store'])
             ->middleware('event.writable')
             ->name('credentials.passes.store');
-        Route::put('events/{event}/credentials/passes/{pass}', [PassController::class, 'update'])
+        Route::put('events/{event}/credentials/passes/{passType}', [PassTypeController::class, 'update'])
             ->middleware('event.writable')
             ->name('credentials.passes.update');
-        Route::get('credentials/entitlements', [PassController::class, 'entitlements'])
+        Route::delete('events/{event}/credentials/passes/{passType}', [PassTypeController::class, 'destroy'])
+            ->middleware('event.writable')
+            ->name('credentials.passes.destroy');
+        Route::get('credentials/entitlements', [EntitlementItemController::class, 'index'])
             ->name('credentials.entitlements');
+        Route::get('credentials/entitlements/{entitlementItem}', [EntitlementItemController::class, 'show'])
+            ->name('credentials.entitlements.show');
+        Route::post('events/{event}/credentials/entitlements', [EntitlementItemController::class, 'store'])
+            ->middleware('event.writable')
+            ->name('credentials.entitlements.store');
+        Route::put('events/{event}/credentials/entitlements/{entitlementItem}', [EntitlementItemController::class, 'update'])
+            ->middleware('event.writable')
+            ->name('credentials.entitlements.update');
+        Route::post('events/{event}/credentials/entitlements/{entitlementItem}/adjustments', [EntitlementItemController::class, 'adjust'])
+            ->middleware('event.writable')
+            ->name('credentials.entitlements.adjustments.store');
+        Route::delete('events/{event}/credentials/entitlements/{entitlementItem}', [EntitlementItemController::class, 'destroy'])
+            ->middleware('event.writable')
+            ->name('credentials.entitlements.destroy');
 
         Route::redirect('vendors', '/vendors/advancing')->name('vendors.index');
         Route::get('vendors/advancing', [VendorController::class, 'index'])->name('vendors.advancing');

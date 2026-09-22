@@ -28,4 +28,9 @@ class Person extends Model
     {
         return $this->hasMany(PassAssignment::class);
     }
+
+    public function eventPatrons(): HasMany
+    {
+        return $this->hasMany(EventPatron::class);
+    }
 }

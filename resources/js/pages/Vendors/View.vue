@@ -41,7 +41,7 @@ const form = useForm({
     ),
     pass_assignments: props.engagement.pass_assignments.map((assignment) => ({
         id: assignment.id,
-        pass_id: assignment.pass_id,
+        pass_type_id: assignment.pass_type_id,
         person_id: assignment.person?.id ?? null,
     })),
     notes: [],
@@ -102,7 +102,7 @@ const stageNote = () => {
 const addPass = () => {
     if (props.passes[0])
         form.pass_assignments.push({
-            pass_id: props.passes[0].id,
+            pass_type_id: props.passes[0].id,
             person_id: null,
         });
 };
@@ -299,7 +299,7 @@ const noteTime = (iso) =>
                             class="grid items-center gap-2 rounded-lg border border-line p-3 sm:grid-cols-[1fr_1fr_auto]"
                         >
                             <CustomDropdown
-                                v-model="assignment.pass_id"
+                                v-model="assignment.pass_type_id"
                                 :items="passItems"
                                 :disabled="readOnly"
                             />

@@ -84,7 +84,7 @@ class VendorController extends Controller
             'vendorType',
             'vendor.customFieldValues' => fn ($query) => $query->where('event_id', $event->id),
             'people' => fn ($query) => $query->orderByDesc('vendor_engagement_people.is_primary')->orderBy('people.name'),
-            'passAssignments.pass',
+            'passAssignments.passType',
             'passAssignments.person',
         ]);
         $notes = $engagement->notes()->with('user:id,name,email')->latest('created_at')->latest('id')->get();
@@ -101,7 +101,7 @@ class VendorController extends Controller
                 ->orderBy('id')
                 ->get(['id', 'label', 'type', 'required', 'options']),
             'statuses' => VendorEngagement::STATUSES,
-            'passes' => $event->passes()->withCount('assignments')->orderBy('name')->get(['id', 'name', 'max_assignments']),
+            'passes' => $event->passTypes()->withCount('assignments')->orderBy('name')->get(['id', 'name', 'max_assignments']),
             'canWrite' => ! $event->isLocked(),
         ]);
     }

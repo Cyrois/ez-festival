@@ -29,8 +29,10 @@ class User extends Authenticatable
             }
 
             $person = Person::query()->find($user->person_id);
-            if ($person !== null && $person->email !== null) {
+            if ($person !== null) {
+                $user->name = $person->name;
                 $user->email = $person->email;
+                $user->phone = $person->phone;
             }
         });
 

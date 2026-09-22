@@ -8,17 +8,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 #[Fillable(['name', 'name_key', 'color'])]
-class PassLabel extends Model
+class PassTypeLabel extends Model
 {
     use HasNormalizedName;
 
     public const COLORS = ['primary', 'secondary', 'success', 'warning', 'danger', 'neutral'];
 
-    public function passes(): BelongsToMany
+    public function passTypes(): BelongsToMany
     {
-        return $this->belongsToMany(
-            Pass::class,
-            'pass_label_assignments',
-        );
+        return $this->belongsToMany(PassType::class, 'pass_type_label_assignments');
     }
 }

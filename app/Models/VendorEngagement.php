@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 #[Fillable(['vendor_id', 'event_id', 'vendor_type_id', 'status'])]
 class VendorEngagement extends Model
@@ -44,8 +43,8 @@ class VendorEngagement extends Model
             ->withTimestamps();
     }
 
-    public function passAssignments(): MorphMany
+    public function passAssignments(): HasMany
     {
-        return $this->morphMany(PassAssignment::class, 'assignable');
+        return $this->hasMany(PassAssignment::class);
     }
 }
