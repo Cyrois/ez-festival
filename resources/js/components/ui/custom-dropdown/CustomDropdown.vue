@@ -20,6 +20,10 @@ const props = defineProps({
         type: String,
         default: '',
     },
+    emptyText: {
+        type: String,
+        default: '',
+    },
     invalid: {
         type: Boolean,
         default: false,
@@ -168,32 +172,40 @@ onUnmounted(() => {
             class="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-line bg-ground py-1 shadow-toast"
             role="listbox"
         >
-            <button
-                v-for="(item, index) in items"
-                :key="item.value"
-                ref="optionRefs"
-                type="button"
-                class="flex w-full flex-col px-3 py-2 text-left outline-none hover:bg-page focus:bg-page"
-                :class="[
-                    item.value === modelValue && 'bg-primary/10',
-                    item.disabled && 'cursor-not-allowed opacity-45',
-                ]"
-                :aria-selected="item.value === modelValue"
-                :disabled="item.disabled"
-                role="option"
-                @click="select(item)"
-                @keydown="onOptionKeydown($event, item, index)"
-            >
-                <span class="text-sm font-medium text-charcoal">
-                    {{ item.title }}
-                </span>
-                <span
-                    v-if="item.description"
-                    class="mt-0.5 text-xs text-muted"
+            <template v-if="items.length">
+                <button
+                    v-for="(item, index) in items"
+                    :key="item.value"
+                    ref="optionRefs"
+                    type="button"
+                    class="flex w-full flex-col px-3 py-2 text-left outline-none hover:bg-page focus:bg-page"
+                    :class="[
+                        item.value === modelValue && 'bg-primary/10',
+                        item.disabled && 'cursor-not-allowed opacity-45',
+                    ]"
+                    :aria-selected="item.value === modelValue"
+                    :disabled="item.disabled"
+                    role="option"
+                    @click="select(item)"
+                    @keydown="onOptionKeydown($event, item, index)"
                 >
-                    {{ item.description }}
-                </span>
-            </button>
+                    <span class="text-sm font-medium text-charcoal">
+                        {{ item.title }}
+                    </span>
+                    <span
+                        v-if="item.description"
+                        class="mt-0.5 text-xs text-muted"
+                    >
+                        {{ item.description }}
+                    </span>
+                </button>
+            </template>
+            <p
+                v-else-if="emptyText"
+                class="m-0 px-3 py-2 text-sm text-muted"
+            >
+                {{ emptyText }}
+            </p>
         </div>
     </div>
 </template>

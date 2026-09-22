@@ -7,7 +7,7 @@ class UpdateEntitlementItemRequest extends StoreEntitlementItemRequest
     public function rules(): array
     {
         $rules = parent::rules();
-        unset($rules['opening_balance']);
+        unset($rules['opening_balance'], $rules['location_id']);
 
         return $rules;
     }

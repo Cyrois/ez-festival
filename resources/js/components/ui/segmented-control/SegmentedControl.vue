@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, ref } from 'vue';
+import { Icon } from '../icon';
 import { cn } from '../../../lib/utils';
 
 const props = defineProps({
@@ -23,6 +24,14 @@ const props = defineProps({
         type: [String, Object, Array],
         default: '',
     },
+    equal: {
+        type: Boolean,
+        default: false,
+    },
+    unselectedClass: {
+        type: String,
+        default: 'bg-transparent text-muted hover:text-charcoal',
+    },
 });
 
 const emit = defineEmits(['update:modelValue']);
@@ -39,13 +48,30 @@ const trackClass = computed(() =>
     ),
 );
 
-const optionClass = (optionValue) =>
+const selectedOptionClass = (option) => {
+    if (option.selectedClass) {
+        return option.selectedClass;
+    }
+
+    if (option.variant === 'danger') {
+        return 'bg-danger text-white shadow-sm';
+    }
+
+    if (option.variant === 'primary') {
+        return 'bg-primary text-white shadow-sm';
+    }
+
+    return 'bg-ground text-primary ring-1 ring-line';
+};
+
+const optionClass = (option) =>
     cn(
-        'inline-flex cursor-pointer items-center justify-center rounded-md px-3 py-1.5 text-sm font-bold transition-colors',
+        'inline-flex cursor-pointer items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-bold transition-colors',
+        props.equal && 'flex-1',
         'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/35',
-        props.modelValue === optionValue
-            ? 'bg-ground text-primary ring-1 ring-line'
-            : 'bg-transparent text-muted hover:text-charcoal',
+        props.modelValue === option.value
+            ? selectedOptionClass(option)
+            : props.unselectedClass,
     );
 
 const onSelect = (value) => {
@@ -112,9 +138,14 @@ const onKeydown = (event) => {
             :aria-checked="modelValue === option.value ? 'true' : 'false'"
             :tabindex="modelValue === option.value ? 0 : -1"
             :disabled="disabled"
-            :class="optionClass(option.value)"
+            :class="optionClass(option)"
             @click="onSelect(option.value)"
         >
+            <Icon
+                v-if="option.icon"
+                :name="option.icon"
+                size="sm"
+            />
             {{ option.label }}
         </button>
     </div>

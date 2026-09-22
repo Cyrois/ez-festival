@@ -59,8 +59,9 @@ class PassAssignmentsTest extends TestCase
     public function test_consume_marks_expected_row_issued_and_writes_negative_adjustment(): void
     {
         [$user, $event, $engagement] = $this->artistContext();
+        $location = $event->locations()->create(['name' => 'Main stage']);
         $item = $event->entitlementItems()->create(['name' => 'Artist wristband']);
-        $item->adjustments()->create(['delta' => 1]);
+        $item->adjustments()->create(['location_id' => $location->id, 'delta' => 1]);
         $passType = $event->passTypes()->create(['name' => 'Artist']);
         $assignment = $engagement->passAssignments()->create(['pass_type_id' => $passType->id]);
         $expected = $assignment->expectedEntitlements()->create([
@@ -68,7 +69,7 @@ class PassAssignmentsTest extends TestCase
             'status' => ExpectedEntitlement::STATUS_EXPECTED,
         ]);
 
-        app(EntitlementConsumeService::class)->consume($expected, $user, 'RFID-1');
+        app(EntitlementConsumeService::class)->consume($expected, $user, $location->id, 'RFID-1');
 
         $this->assertDatabaseHas('issued_entitlements', [
             'expected_entitlement_id' => $expected->id,
@@ -77,6 +78,33 @@ class PassAssignmentsTest extends TestCase
         ]);
         $this->assertSame(ExpectedEntitlement::STATUS_CONSUMED, $expected->fresh()->status);
         $this->assertSame(0, $item->adjustments()->sum('delta'));
+        $this->assertDatabaseHas('entitlement_adjustments', [
+            'entitlement_item_id' => $item->id,
+            'location_id' => $location->id,
+            'delta' => -1,
+            'user_id' => $user->id,
+        ]);
+        $this->assertSame(0, $item->adjustments()->whereNull('location_id')->count());
+    }
+
+    public function test_consume_decrements_the_picked_location_without_unassigned_orphan(): void
+    {
+        [$user, $event, $engagement] = $this->artistContext();
+        $location = $event->locations()->create(['name' => 'Main stage']);
+        $item = $event->entitlementItems()->create(['name' => 'Artist wristband']);
+        $item->adjustments()->create(['location_id' => $location->id, 'delta' => 10, 'user_id' => $user->id]);
+        $passType = $event->passTypes()->create(['name' => 'Artist']);
+        $assignment = $engagement->passAssignments()->create(['pass_type_id' => $passType->id]);
+        $expected = $assignment->expectedEntitlements()->create([
+            'entitlement_item_id' => $item->id,
+            'status' => ExpectedEntitlement::STATUS_EXPECTED,
+        ]);
+
+        app(EntitlementConsumeService::class)->consume($expected, $user, $location->id);
+
+        $this->assertSame(9, (int) $item->adjustments()->where('location_id', $location->id)->sum('delta'));
+        $this->assertSame(0, $item->adjustments()->whereNull('location_id')->count());
+        $this->assertSame(9, (int) $item->adjustments()->sum('delta'));
     }
 
     public function test_assignment_with_issued_entitlement_cannot_be_removed(): void

@@ -6,7 +6,7 @@ import { Icon } from '../../components/ui/icon';
 import { IconButton } from '../../components/ui/icon-button';
 import { Input } from '../../components/ui/input';
 import { Popup } from '../../components/ui/popup';
-import { SegmentedControl } from '../../components/ui/segmented-control';
+import { Select } from '../../components/ui/select';
 import { Tag } from '../../components/ui/tag';
 import {
     Table,
@@ -16,7 +16,6 @@ import {
     TableHeader,
     TableRow,
 } from '../../components/ui/table';
-import { Textarea } from '../../components/ui/textarea';
 import { useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { trans } from 'laravel-vue-i18n';
@@ -24,6 +23,7 @@ import { trans } from 'laravel-vue-i18n';
 const props = defineProps({
     items: { type: Array, default: () => [] },
     labels: { type: Array, default: () => [] },
+    locations: { type: Array, default: () => [] },
     canWrite: { type: Boolean, default: false },
 });
 
@@ -35,32 +35,16 @@ const breadcrumbs = computed(() => [
     { label: trans('nav.credentials.entitlements') },
 ]);
 const addOpen = ref(false);
-const editOpen = ref(false);
-const adjustOpen = ref(false);
-const selectedItem = ref(null);
 const selectedLabelIds = ref([]);
 const search = ref('');
 const newLabelName = ref('');
 const createForm = useForm({
     name: '',
     opening_balance: 0,
+    location_id: '',
     label_ids: [],
     new_labels: [],
 });
-const editForm = useForm({ name: '', label_ids: [], new_labels: [] });
-const adjustForm = useForm({ direction: 'add', quantity: 1, reason: '' });
-const directionOptions = computed(() => [
-    { value: 'add', label: trans('credentials.entitlements.adjust.add') },
-    { value: 'remove', label: trans('credentials.entitlements.adjust.remove') },
-]);
-const adjustmentConfirmation = computed(() =>
-    trans('credentials.entitlements.adjust.confirmation', {
-        direction: trans(
-            `credentials.entitlements.adjust.${adjustForm.direction}`,
-        ),
-        quantity: adjustForm.quantity || 0,
-    }),
-);
 const filteredItems = computed(() => {
     const query = search.value.trim().toLocaleLowerCase();
 
@@ -106,27 +90,9 @@ const openAdd = () => {
     createForm.reset();
     createForm.clearErrors();
     createForm.opening_balance = 0;
+    createForm.location_id = '';
     newLabelName.value = '';
     addOpen.value = true;
-};
-
-const openEdit = (item) => {
-    selectedItem.value = item;
-    editForm.clearErrors();
-    editForm.name = item.name;
-    editForm.label_ids = item.labels.map((label) => label.id);
-    editForm.new_labels = [];
-    newLabelName.value = '';
-    editOpen.value = true;
-};
-
-const openAdjust = (item) => {
-    selectedItem.value = item;
-    adjustForm.reset();
-    adjustForm.clearErrors();
-    adjustForm.direction = 'add';
-    adjustForm.quantity = 1;
-    adjustOpen.value = true;
 };
 
 const createItem = () => {
@@ -136,38 +102,6 @@ const createItem = () => {
             addOpen.value = false;
         },
     });
-};
-
-const updateItem = () => {
-    if (!selectedItem.value) {
-        return;
-    }
-
-    editForm.put(
-        `/events/${event.value.id}/credentials/entitlements/${selectedItem.value.id}`,
-        {
-            preserveScroll: true,
-            onSuccess: () => {
-                editOpen.value = false;
-            },
-        },
-    );
-};
-
-const adjustItem = () => {
-    if (!selectedItem.value) {
-        return;
-    }
-
-    adjustForm.post(
-        `/events/${event.value.id}/credentials/entitlements/${selectedItem.value.id}/adjustments`,
-        {
-            preserveScroll: true,
-            onSuccess: () => {
-                adjustOpen.value = false;
-            },
-        },
-    );
 };
 </script>
 
@@ -330,30 +264,26 @@ const adjustItem = () => {
                                     class="flex justify-end gap-2"
                                 >
                                     <IconButton
+                                        :href="`/credentials/entitlements/${item.id}/edit`"
                                         :icon="['fas', 'pencil']"
                                         :label="
                                             $t(
                                                 'credentials.entitlements.actions.edit',
-                                                {
-                                                    item: item.name,
-                                                },
+                                                { item: item.name },
                                             )
                                         "
                                         tone="edit"
-                                        @click="openEdit(item)"
                                     />
-                                    <Button
-                                        type="button"
-                                        variant="outline-secondary"
-                                        size="sm"
-                                        @click="openAdjust(item)"
-                                    >
-                                        {{
+                                    <IconButton
+                                        :icon="['fas', 'scale-balanced']"
+                                        :label="
                                             $t(
                                                 'credentials.entitlements.actions.adjust',
                                             )
-                                        }}
-                                    </Button>
+                                        "
+                                        tone="edit"
+                                        :href="`/credentials/entitlements/${item.id}/edit?adjust=1`"
+                                    />
                                 </div>
                             </TableCell>
                         </TableRow>
@@ -485,128 +415,37 @@ const adjustItem = () => {
                         />
                     </template>
                 </FormField>
-            </div>
-        </Popup>
-
-        <Popup
-            v-model:open="editOpen"
-            :title="$t('credentials.entitlements.edit.title')"
-            :description="$t('credentials.entitlements.edit.lead')"
-            :accept-label="$t('credentials.entitlements.actions.save')"
-            :cancel-label="$t('ui.dialog.cancel')"
-            :busy="editForm.processing"
-            @accept="updateItem"
-        >
-            <div class="mt-5 space-y-4">
                 <FormField
-                    :label="$t('credentials.entitlements.fields.name')"
-                    :error="editForm.errors.name"
-                    required
+                    :label="$t('credentials.entitlements.fields.location')"
+                    :error="createForm.errors.location_id"
+                    :hint="
+                        $t(
+                            'credentials.entitlements.fields.opening_location_hint',
+                        )
+                    "
+                    :required="Number(createForm.opening_balance) > 0"
                 >
                     <template #default="{ id, invalid }">
-                        <Input
+                        <Select
                             :id="id"
-                            v-model="editForm.name"
+                            v-model="createForm.location_id"
                             :invalid="invalid"
-                            autocomplete="off"
-                        />
-                    </template>
-                </FormField>
-                <div>
-                    <p class="m-0 text-xs font-bold text-charcoal">
-                        {{ $t('credentials.entitlements.labels.title') }}
-                    </p>
-                    <div class="mt-2 flex flex-wrap gap-2">
-                        <button
-                            v-for="label in labels"
-                            :key="label.id"
-                            type="button"
-                            class="rounded-full focus-visible:ring-[3px] focus-visible:ring-primary/35 focus-visible:outline-none"
-                            :class="
-                                editForm.label_ids.includes(label.id)
-                                    ? 'ring-2 ring-primary ring-offset-2'
-                                    : ''
-                            "
-                            @click="toggleFormLabel(editForm, label.id)"
                         >
-                            <Tag
-                                :name="label.name"
-                                :color="label.color"
-                            />
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </Popup>
-
-        <Popup
-            v-model:open="adjustOpen"
-            :title="$t('credentials.entitlements.adjust.title')"
-            :description="
-                $t('credentials.entitlements.adjust.lead', {
-                    balance: selectedItem?.balance ?? 0,
-                })
-            "
-            :accept-label="
-                $t('credentials.entitlements.actions.apply_adjustment')
-            "
-            :cancel-label="$t('ui.dialog.cancel')"
-            :busy="adjustForm.processing"
-            @accept="adjustItem"
-        >
-            <div class="mt-5 space-y-4">
-                <p class="m-0 text-sm text-muted">
-                    {{ adjustmentConfirmation }}
-                </p>
-                <FormField
-                    :label="$t('credentials.entitlements.fields.direction')"
-                    :error="adjustForm.errors.direction"
-                    required
-                >
-                    <template #default="{ id }">
-                        <SegmentedControl
-                            :id="id"
-                            v-model="adjustForm.direction"
-                            :options="directionOptions"
-                            :aria-label="
-                                $t('credentials.entitlements.fields.direction')
-                            "
-                        />
-                    </template>
-                </FormField>
-                <FormField
-                    :label="$t('credentials.entitlements.fields.quantity')"
-                    :error="adjustForm.errors.quantity"
-                    required
-                >
-                    <template #default="{ id, invalid }">
-                        <Input
-                            :id="id"
-                            v-model="adjustForm.quantity"
-                            :invalid="invalid"
-                            type="number"
-                            min="1"
-                            step="1"
-                        />
-                    </template>
-                </FormField>
-                <FormField
-                    :label="$t('credentials.entitlements.fields.reason')"
-                    :error="adjustForm.errors.reason"
-                    required
-                >
-                    <template #default="{ id, invalid }">
-                        <Textarea
-                            :id="id"
-                            v-model="adjustForm.reason"
-                            :invalid="invalid"
-                            :placeholder="
-                                $t(
-                                    'credentials.entitlements.fields.reason_placeholder',
-                                )
-                            "
-                            maxlength="500"
-                        />
+                            <option value="">
+                                {{
+                                    $t(
+                                        'credentials.entitlements.fields.location_placeholder',
+                                    )
+                                }}
+                            </option>
+                            <option
+                                v-for="location in locations"
+                                :key="location.id"
+                                :value="location.id"
+                            >
+                                {{ location.name }}
+                            </option>
+                        </Select>
                     </template>
                 </FormField>
             </div>

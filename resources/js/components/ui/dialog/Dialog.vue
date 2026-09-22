@@ -42,7 +42,7 @@ const emit = defineEmits(['update:open', 'confirm', 'cancel']);
 
 const panelClass = computed(() =>
     cn(
-        'relative z-10 flex max-h-[min(90vh,40rem)] w-full max-w-md flex-col overflow-hidden rounded-t-xl border border-line bg-ground p-5 text-charcoal shadow-toast max-md:rounded-b-none sm:rounded-xl',
+        'relative z-10 flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-t-xl border border-line bg-ground p-5 text-charcoal shadow-toast max-md:rounded-b-none sm:rounded-xl',
         props.class,
     ),
 );
@@ -129,7 +129,9 @@ onUnmounted(() => {
                     />
                     <template v-else>{{ description }}</template>
                 </p>
-                <slot />
+                <div class="min-h-0 overflow-y-auto">
+                    <slot />
+                </div>
                 <div
                     class="mt-5 flex shrink-0 flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3"
                 >

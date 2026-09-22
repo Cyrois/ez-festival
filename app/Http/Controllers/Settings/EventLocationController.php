@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Settings\Concerns\InteractsWithSettings;
+use App\Http\Requests\Settings\DestroyEventLocationRequest;
 use App\Http\Requests\Settings\StoreEventLocationRequest;
 use App\Http\Requests\Settings\UpdateEventLocationRequest;
 use App\Models\Event;
@@ -56,7 +57,7 @@ class EventLocationController extends Controller
             ->with('success_title', __('toast.saved_title'));
     }
 
-    public function destroy(Request $request, Event $event, Location $location): RedirectResponse
+    public function destroy(DestroyEventLocationRequest $request, Event $event, Location $location): RedirectResponse
     {
         abort_unless((int) $location->event_id === (int) $event->id, 404);
 

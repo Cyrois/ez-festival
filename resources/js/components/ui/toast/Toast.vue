@@ -33,7 +33,7 @@ const role = computed(() => (variant.value === 'error' ? 'alert' : 'status'));
         v-if="visible"
         :class="
             cn(
-                'fixed top-3 right-3 left-3 z-50 flex w-auto max-w-none items-start gap-2.5 rounded-lg border border-line bg-ground px-3.5 py-3 text-charcoal shadow-toast sm:left-auto sm:w-full sm:max-w-sm',
+                'fixed top-3 right-3 left-3 z-[60] flex w-auto max-w-none items-start gap-2.5 rounded-lg border border-line bg-ground px-3.5 py-3 text-charcoal shadow-toast sm:left-auto sm:w-full sm:max-w-sm',
             )
         "
         :role="role"
