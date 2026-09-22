@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Credentials;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Credentials\AdjustEntitlementItemRequest;
 use App\Http\Requests\Credentials\DestroyEntitlementItemRequest;
+use App\Http\Requests\Credentials\EditEntitlementItemRequest;
 use App\Http\Requests\Credentials\StoreEntitlementItemRequest;
 use App\Http\Requests\Credentials\UpdateEntitlementItemRequest;
 use App\Http\Resources\EntitlementItemResource;
@@ -61,6 +62,18 @@ class EntitlementItemController extends Controller
                     ->latest('issued_at')
                     ->get(),
             )->resolve(),
+        ]);
+    }
+
+    public function edit(EditEntitlementItemRequest $request, EntitlementItem $entitlementItem): Response
+    {
+        $event = $this->eventContext->requireWritable($request->user());
+        abort_unless($entitlementItem->event_id === $event->id, 404);
+
+        return Inertia::render('Credentials/EditEntitlement', [
+            'event' => $event->only('id', 'name'),
+            'item' => (new EntitlementItemResource($entitlementItem->load('labels')))->resolve(),
+            'labels' => $event->entitlementItemLabels()->orderBy('name')->get(['id', 'name', 'color']),
         ]);
     }
 

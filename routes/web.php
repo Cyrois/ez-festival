@@ -106,6 +106,8 @@ Route::middleware('auth')->group(function () {
             ->name('credentials.entitlements');
         Route::get('credentials/entitlements/{entitlementItem}', [EntitlementItemController::class, 'show'])
             ->name('credentials.entitlements.show');
+        Route::get('credentials/entitlements/{entitlementItem}/edit', [EntitlementItemController::class, 'edit'])
+            ->name('credentials.entitlements.edit');
         Route::post('events/{event}/credentials/entitlements', [EntitlementItemController::class, 'store'])
             ->middleware('event.writable')
             ->name('credentials.entitlements.store');

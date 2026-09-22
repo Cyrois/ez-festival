@@ -35,7 +35,6 @@ const breadcrumbs = computed(() => [
     { label: trans('nav.credentials.entitlements') },
 ]);
 const addOpen = ref(false);
-const editOpen = ref(false);
 const adjustOpen = ref(false);
 const selectedItem = ref(null);
 const selectedLabelIds = ref([]);
@@ -47,7 +46,6 @@ const createForm = useForm({
     label_ids: [],
     new_labels: [],
 });
-const editForm = useForm({ name: '', label_ids: [], new_labels: [] });
 const adjustForm = useForm({ direction: 'add', quantity: 1, reason: '' });
 const directionOptions = computed(() => [
     { value: 'add', label: trans('credentials.entitlements.adjust.add') },
@@ -110,16 +108,6 @@ const openAdd = () => {
     addOpen.value = true;
 };
 
-const openEdit = (item) => {
-    selectedItem.value = item;
-    editForm.clearErrors();
-    editForm.name = item.name;
-    editForm.label_ids = item.labels.map((label) => label.id);
-    editForm.new_labels = [];
-    newLabelName.value = '';
-    editOpen.value = true;
-};
-
 const openAdjust = (item) => {
     selectedItem.value = item;
     adjustForm.reset();
@@ -136,22 +124,6 @@ const createItem = () => {
             addOpen.value = false;
         },
     });
-};
-
-const updateItem = () => {
-    if (!selectedItem.value) {
-        return;
-    }
-
-    editForm.put(
-        `/events/${event.value.id}/credentials/entitlements/${selectedItem.value.id}`,
-        {
-            preserveScroll: true,
-            onSuccess: () => {
-                editOpen.value = false;
-            },
-        },
-    );
 };
 
 const adjustItem = () => {
@@ -330,30 +302,26 @@ const adjustItem = () => {
                                     class="flex justify-end gap-2"
                                 >
                                     <IconButton
+                                        :href="`/credentials/entitlements/${item.id}/edit`"
                                         :icon="['fas', 'pencil']"
                                         :label="
                                             $t(
                                                 'credentials.entitlements.actions.edit',
-                                                {
-                                                    item: item.name,
-                                                },
+                                                { item: item.name },
                                             )
                                         "
                                         tone="edit"
-                                        @click="openEdit(item)"
                                     />
-                                    <Button
-                                        type="button"
-                                        variant="outline-secondary"
-                                        size="sm"
-                                        @click="openAdjust(item)"
-                                    >
-                                        {{
+                                    <IconButton
+                                        :icon="['fas', 'scale-balanced']"
+                                        :label="
                                             $t(
                                                 'credentials.entitlements.actions.adjust',
                                             )
-                                        }}
-                                    </Button>
+                                        "
+                                        tone="edit"
+                                        @click="openAdjust(item)"
+                                    />
                                 </div>
                             </TableCell>
                         </TableRow>
@@ -485,57 +453,6 @@ const adjustItem = () => {
                         />
                     </template>
                 </FormField>
-            </div>
-        </Popup>
-
-        <Popup
-            v-model:open="editOpen"
-            :title="$t('credentials.entitlements.edit.title')"
-            :description="$t('credentials.entitlements.edit.lead')"
-            :accept-label="$t('credentials.entitlements.actions.save')"
-            :cancel-label="$t('ui.dialog.cancel')"
-            :busy="editForm.processing"
-            @accept="updateItem"
-        >
-            <div class="mt-5 space-y-4">
-                <FormField
-                    :label="$t('credentials.entitlements.fields.name')"
-                    :error="editForm.errors.name"
-                    required
-                >
-                    <template #default="{ id, invalid }">
-                        <Input
-                            :id="id"
-                            v-model="editForm.name"
-                            :invalid="invalid"
-                            autocomplete="off"
-                        />
-                    </template>
-                </FormField>
-                <div>
-                    <p class="m-0 text-xs font-bold text-charcoal">
-                        {{ $t('credentials.entitlements.labels.title') }}
-                    </p>
-                    <div class="mt-2 flex flex-wrap gap-2">
-                        <button
-                            v-for="label in labels"
-                            :key="label.id"
-                            type="button"
-                            class="rounded-full focus-visible:ring-[3px] focus-visible:ring-primary/35 focus-visible:outline-none"
-                            :class="
-                                editForm.label_ids.includes(label.id)
-                                    ? 'ring-2 ring-primary ring-offset-2'
-                                    : ''
-                            "
-                            @click="toggleFormLabel(editForm, label.id)"
-                        >
-                            <Tag
-                                :name="label.name"
-                                :color="label.color"
-                            />
-                        </button>
-                    </div>
-                </div>
             </div>
         </Popup>
 

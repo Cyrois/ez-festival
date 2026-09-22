@@ -71,6 +71,7 @@
     "credentials.passes.products.description": "Link catalog products to this pass later.",
     "credentials.passes.coming_later": "Coming later",
     "credentials.passes.actions.create": "Create pass",
+    "credentials.passes.actions.save": "Save pass",
     "credentials.passes.toast.created": "Pass created.",
     "credentials.passes.toast.updated": "Pass updated.",
     "credentials.passes.toast.deleted": "Pass deleted.",

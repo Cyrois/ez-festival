@@ -40,6 +40,23 @@ class EntitlementItemsTest extends TestCase
         );
     }
 
+    public function test_edit_page_exposes_the_item_and_event_labels(): void
+    {
+        [$user, $event] = $this->createEventContext();
+        $label = $event->entitlementItemLabels()->create(['name' => 'Artist', 'color' => 'primary']);
+        $item = $event->entitlementItems()->create(['name' => 'Meal voucher']);
+        $item->labels()->attach($label);
+
+        $this->actingAs($user)->get(route('credentials.entitlements.edit', $item))->assertInertia(
+            fn (Assert $page) => $page
+                ->component('Credentials/EditEntitlement')
+                ->where('event.id', $event->id)
+                ->where('item.name', 'Meal voucher')
+                ->where('item.labels.0.id', $label->id)
+                ->where('labels.0.id', $label->id),
+        );
+    }
+
     public function test_create_writes_an_opening_adjustment_and_uses_event_item_labels(): void
     {
         [$user, $event] = $this->createEventContext();
