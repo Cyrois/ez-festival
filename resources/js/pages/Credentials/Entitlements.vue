@@ -6,7 +6,7 @@ import { Icon } from '../../components/ui/icon';
 import { IconButton } from '../../components/ui/icon-button';
 import { Input } from '../../components/ui/input';
 import { Popup } from '../../components/ui/popup';
-import { SegmentedControl } from '../../components/ui/segmented-control';
+import { Select } from '../../components/ui/select';
 import { Tag } from '../../components/ui/tag';
 import {
     Table,
@@ -16,7 +16,6 @@ import {
     TableHeader,
     TableRow,
 } from '../../components/ui/table';
-import { Textarea } from '../../components/ui/textarea';
 import { useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { trans } from 'laravel-vue-i18n';
@@ -24,6 +23,7 @@ import { trans } from 'laravel-vue-i18n';
 const props = defineProps({
     items: { type: Array, default: () => [] },
     labels: { type: Array, default: () => [] },
+    locations: { type: Array, default: () => [] },
     canWrite: { type: Boolean, default: false },
 });
 
@@ -35,30 +35,16 @@ const breadcrumbs = computed(() => [
     { label: trans('nav.credentials.entitlements') },
 ]);
 const addOpen = ref(false);
-const adjustOpen = ref(false);
-const selectedItem = ref(null);
 const selectedLabelIds = ref([]);
 const search = ref('');
 const newLabelName = ref('');
 const createForm = useForm({
     name: '',
     opening_balance: 0,
+    location_id: '',
     label_ids: [],
     new_labels: [],
 });
-const adjustForm = useForm({ direction: 'add', quantity: 1, reason: '' });
-const directionOptions = computed(() => [
-    { value: 'add', label: trans('credentials.entitlements.adjust.add') },
-    { value: 'remove', label: trans('credentials.entitlements.adjust.remove') },
-]);
-const adjustmentConfirmation = computed(() =>
-    trans('credentials.entitlements.adjust.confirmation', {
-        direction: trans(
-            `credentials.entitlements.adjust.${adjustForm.direction}`,
-        ),
-        quantity: adjustForm.quantity || 0,
-    }),
-);
 const filteredItems = computed(() => {
     const query = search.value.trim().toLocaleLowerCase();
 
@@ -104,17 +90,9 @@ const openAdd = () => {
     createForm.reset();
     createForm.clearErrors();
     createForm.opening_balance = 0;
+    createForm.location_id = '';
     newLabelName.value = '';
     addOpen.value = true;
-};
-
-const openAdjust = (item) => {
-    selectedItem.value = item;
-    adjustForm.reset();
-    adjustForm.clearErrors();
-    adjustForm.direction = 'add';
-    adjustForm.quantity = 1;
-    adjustOpen.value = true;
 };
 
 const createItem = () => {
@@ -124,22 +102,6 @@ const createItem = () => {
             addOpen.value = false;
         },
     });
-};
-
-const adjustItem = () => {
-    if (!selectedItem.value) {
-        return;
-    }
-
-    adjustForm.post(
-        `/events/${event.value.id}/credentials/entitlements/${selectedItem.value.id}/adjustments`,
-        {
-            preserveScroll: true,
-            onSuccess: () => {
-                adjustOpen.value = false;
-            },
-        },
-    );
 };
 </script>
 
@@ -320,7 +282,7 @@ const adjustItem = () => {
                                             )
                                         "
                                         tone="edit"
-                                        @click="openAdjust(item)"
+                                        :href="`/credentials/entitlements/${item.id}/edit?adjust=1`"
                                     />
                                 </div>
                             </TableCell>
@@ -453,77 +415,37 @@ const adjustItem = () => {
                         />
                     </template>
                 </FormField>
-            </div>
-        </Popup>
-
-        <Popup
-            v-model:open="adjustOpen"
-            :title="$t('credentials.entitlements.adjust.title')"
-            :description="
-                $t('credentials.entitlements.adjust.lead', {
-                    balance: selectedItem?.balance ?? 0,
-                })
-            "
-            :accept-label="
-                $t('credentials.entitlements.actions.apply_adjustment')
-            "
-            :cancel-label="$t('ui.dialog.cancel')"
-            :busy="adjustForm.processing"
-            @accept="adjustItem"
-        >
-            <div class="mt-5 space-y-4">
-                <p class="m-0 text-sm text-muted">
-                    {{ adjustmentConfirmation }}
-                </p>
                 <FormField
-                    :label="$t('credentials.entitlements.fields.direction')"
-                    :error="adjustForm.errors.direction"
-                    required
-                >
-                    <template #default="{ id }">
-                        <SegmentedControl
-                            :id="id"
-                            v-model="adjustForm.direction"
-                            :options="directionOptions"
-                            :aria-label="
-                                $t('credentials.entitlements.fields.direction')
-                            "
-                        />
-                    </template>
-                </FormField>
-                <FormField
-                    :label="$t('credentials.entitlements.fields.quantity')"
-                    :error="adjustForm.errors.quantity"
-                    required
+                    :label="$t('credentials.entitlements.fields.location')"
+                    :error="createForm.errors.location_id"
+                    :hint="
+                        $t(
+                            'credentials.entitlements.fields.opening_location_hint',
+                        )
+                    "
+                    :required="Number(createForm.opening_balance) > 0"
                 >
                     <template #default="{ id, invalid }">
-                        <Input
+                        <Select
                             :id="id"
-                            v-model="adjustForm.quantity"
+                            v-model="createForm.location_id"
                             :invalid="invalid"
-                            type="number"
-                            min="1"
-                            step="1"
-                        />
-                    </template>
-                </FormField>
-                <FormField
-                    :label="$t('credentials.entitlements.fields.reason')"
-                    :error="adjustForm.errors.reason"
-                    required
-                >
-                    <template #default="{ id, invalid }">
-                        <Textarea
-                            :id="id"
-                            v-model="adjustForm.reason"
-                            :invalid="invalid"
-                            :placeholder="
-                                $t(
-                                    'credentials.entitlements.fields.reason_placeholder',
-                                )
-                            "
-                            maxlength="500"
-                        />
+                        >
+                            <option value="">
+                                {{
+                                    $t(
+                                        'credentials.entitlements.fields.location_placeholder',
+                                    )
+                                }}
+                            </option>
+                            <option
+                                v-for="location in locations"
+                                :key="location.id"
+                                :value="location.id"
+                            >
+                                {{ location.name }}
+                            </option>
+                        </Select>
                     </template>
                 </FormField>
             </div>

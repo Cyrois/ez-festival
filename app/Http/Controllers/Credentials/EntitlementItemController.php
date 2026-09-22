@@ -11,6 +11,7 @@ use App\Http\Requests\Credentials\UpdateEntitlementItemRequest;
 use App\Http\Resources\EntitlementItemResource;
 use App\Http\Resources\IssuedEntitlementResource;
 use App\Models\EntitlementItem;
+use App\Models\EntitlementItemLabel;
 use App\Models\Event;
 use App\Models\IssuedEntitlement;
 use App\Services\EntitlementItemService;
@@ -41,6 +42,7 @@ class EntitlementItemController extends Controller
                     ->get(),
             )->resolve(),
             'labels' => $event->entitlementItemLabels()->orderBy('name')->get(['id', 'name', 'color']),
+            'locations' => $event->locations()->orderBy('name')->get(['id', 'name']),
             'canWrite' => ! $event->isLocked(),
         ]);
     }
@@ -51,30 +53,15 @@ class EntitlementItemController extends Controller
         $event = $this->eventContext->requireCurrent(request()->user());
         abort_unless($entitlementItem->event_id === $event->id, 404);
 
-        return Inertia::render('Credentials/EntitlementView', [
-            'item' => (new EntitlementItemResource(
-                $entitlementItem->load('labels')->loadSum('adjustments as balance', 'delta'),
-            ))->resolve(),
-            'issued' => IssuedEntitlementResource::collection(
-                IssuedEntitlement::query()
-                    ->where('entitlement_item_id', $entitlementItem->id)
-                    ->with(['expectedEntitlement.passAssignment.passType', 'issuedBy'])
-                    ->latest('issued_at')
-                    ->get(),
-            )->resolve(),
-        ]);
+        return Inertia::render('Credentials/EditEntitlement', $this->pageProps($event, $entitlementItem));
     }
 
     public function edit(EditEntitlementItemRequest $request, EntitlementItem $entitlementItem): Response
     {
-        $event = $this->eventContext->requireWritable($request->user());
+        $event = $this->eventContext->requireCurrent($request->user());
         abort_unless($entitlementItem->event_id === $event->id, 404);
 
-        return Inertia::render('Credentials/EditEntitlement', [
-            'event' => $event->only('id', 'name'),
-            'item' => (new EntitlementItemResource($entitlementItem->load('labels')))->resolve(),
-            'labels' => $event->entitlementItemLabels()->orderBy('name')->get(['id', 'name', 'color']),
-        ]);
+        return Inertia::render('Credentials/EditEntitlement', $this->pageProps($event, $entitlementItem));
     }
 
     public function store(StoreEntitlementItemRequest $request, Event $event): RedirectResponse
@@ -105,9 +92,18 @@ class EntitlementItemController extends Controller
         $data = $request->validated();
         $delta = $data['direction'] === 'remove' ? -(int) $data['quantity'] : (int) $data['quantity'];
 
-        $this->items->adjust($entitlementItem, $delta, $data['reason'] ?? null, $request->user());
+        $this->items->adjust(
+            $entitlementItem,
+            isset($data['location_id']) ? (int) $data['location_id'] : null,
+            $delta,
+            $data['reason'] ?? null,
+            $request->user(),
+        );
 
-        return $this->redirectWithSuccess('credentials.entitlements.toast.adjusted');
+        return $this->redirectWithSuccess(
+            'credentials.entitlements.toast.adjusted',
+            route('credentials.entitlements.edit', $entitlementItem),
+        );
     }
 
     public function destroy(DestroyEntitlementItemRequest $request, Event $event, EntitlementItem $entitlementItem): RedirectResponse
@@ -124,9 +120,69 @@ class EntitlementItemController extends Controller
         abort_unless($item->event_id === $event->id, 404);
     }
 
-    private function redirectWithSuccess(string $message): RedirectResponse
+    /** @return array<string, mixed> */
+    private function pageProps(Event $event, EntitlementItem $item): array
     {
-        return redirect()->route('credentials.entitlements')
+        $item->load('labels');
+        $balances = $this->items->balanceByLocation($item);
+        $inStock = $this->items->balanceTotal($item);
+        $eventLocations = $event->locations()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+        $locations = $eventLocations
+            ->map(fn ($location): array => [
+                'id' => $location->id,
+                'name' => $location->name,
+                'in_stock' => $balances[$location->id] ?? 0,
+            ]);
+        $hasUnassignedInventory = $item->adjustments()->whereNull('location_id')->exists();
+
+        if ($hasUnassignedInventory) {
+            $unassignedBalance = $this->items->balanceForLocation($item, null);
+            $locations->push([
+                'id' => null,
+                'name' => __('credentials.entitlements.locations.unassigned'),
+                'in_stock' => $unassignedBalance,
+            ]);
+        }
+        $requestedLocationId = request()->integer('loc');
+
+        return [
+            'event' => $event->only('id', 'name'),
+            'item' => (new EntitlementItemResource($item))->resolve(),
+            'labels' => $event->entitlementItemLabels()->orderBy('name')->get(['id', 'name', 'color']),
+            'labelColors' => EntitlementItemLabel::COLORS,
+            'stats' => [
+                'in_stock' => $inStock,
+                'expected' => $this->items->expectedCount($item),
+                'issued' => $this->items->issuedCount($item),
+            ],
+            'locations' => $locations,
+            'issued_log' => IssuedEntitlementResource::collection(
+                IssuedEntitlement::query()
+                    ->where('entitlement_item_id', $item->id)
+                    ->with(['expectedEntitlement.passAssignment.passType', 'issuedBy'])
+                    ->latest('issued_at')
+                    ->get(),
+            )->resolve(),
+            'pass_usage' => $this->items->passLineUsage($item),
+            'locations_for_adjust' => $eventLocations
+                ->map(fn ($location): array => [
+                    'id' => $location->id,
+                    'name' => $location->name,
+                ])
+                ->values(),
+            'adjust_location_id' => $locations->contains('id', $requestedLocationId)
+                ? $requestedLocationId
+                : null,
+            'open_adjust' => request()->boolean('adjust') || $requestedLocationId > 0,
+            'is_read_only' => $event->isLocked(),
+        ];
+    }
+
+    private function redirectWithSuccess(string $message, ?string $destination = null): RedirectResponse
+    {
+        return redirect($destination ?? route('credentials.entitlements'))
             ->with('success', __($message))
             ->with('success_title', __('toast.saved_title'));
     }

@@ -15,6 +15,10 @@ class AdjustEntitlementItemRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        if (! $this->filled('location_id')) {
+            $this->merge(['location_id' => null]);
+        }
+
         if ($this->has('reason')) {
             $this->merge(['reason' => trim((string) $this->input('reason'))]);
         }
@@ -23,6 +27,11 @@ class AdjustEntitlementItemRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'location_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('locations', 'id')->where('event_id', $this->route('event')->id),
+            ],
             'direction' => ['required', Rule::in(['add', 'remove'])],
             'quantity' => ['required', 'integer', 'min:1', 'max:4294967295'],
             'reason' => ['nullable', 'string', 'max:255'],

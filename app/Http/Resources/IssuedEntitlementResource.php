@@ -12,7 +12,7 @@ class IssuedEntitlementResource extends JsonResource
         return [
             'id' => $this->id,
             'code' => $this->code,
-            'issued_at' => $this->issued_at,
+            'when' => $this->issued_at,
             'issued_by' => $this->whenLoaded('issuedBy', fn (): ?array => $this->issuedBy?->only('id', 'name')),
             'pass_name' => $this->whenLoaded(
                 'expectedEntitlement',

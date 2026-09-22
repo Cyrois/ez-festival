@@ -14,6 +14,7 @@ export const buttonVariants = cva(
                 'outline-secondary':
                     'border-secondary/30 bg-ground text-secondary hover:bg-secondary-soft',
                 ghost: 'bg-transparent text-primary hover:bg-primary-soft',
+                success: 'bg-success text-white hover:bg-success/90',
                 danger: 'bg-danger text-white hover:bg-danger/90',
                 'outline-danger':
                     'border-danger/30 bg-transparent text-danger hover:bg-danger/5',
