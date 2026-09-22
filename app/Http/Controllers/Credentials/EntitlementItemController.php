@@ -43,7 +43,7 @@ class EntitlementItemController extends Controller
             )->resolve(),
             'labels' => $event->entitlementItemLabels()->orderBy('name')->get(['id', 'name', 'color']),
             'locations' => $event->locations()->orderBy('name')->get(['id', 'name']),
-            'canWrite' => ! $event->isLocked(),
+            'canWrite' => ! $event->isLocked() && Gate::allows('manage-credentials'),
         ]);
     }
 
@@ -80,7 +80,10 @@ class EntitlementItemController extends Controller
         $this->ensureCurrentItem($request->user(), $event, $entitlementItem);
         $this->items->update($entitlementItem, $request->validated());
 
-        return $this->redirectWithSuccess('credentials.entitlements.toast.updated');
+        return $this->redirectWithSuccess(
+            'credentials.entitlements.toast.updated',
+            route('credentials.entitlements.edit', $entitlementItem),
+        );
     }
 
     public function adjust(
@@ -94,7 +97,7 @@ class EntitlementItemController extends Controller
 
         $this->items->adjust(
             $entitlementItem,
-            isset($data['location_id']) ? (int) $data['location_id'] : null,
+            $data['location_id'] ?? null,
             $delta,
             $data['reason'] ?? null,
             $request->user(),
@@ -176,7 +179,7 @@ class EntitlementItemController extends Controller
                 ? $requestedLocationId
                 : null,
             'open_adjust' => request()->boolean('adjust') || $requestedLocationId > 0,
-            'is_read_only' => $event->isLocked(),
+            'is_read_only' => $event->isLocked() || ! Gate::allows('manage-credentials'),
         ];
     }
 

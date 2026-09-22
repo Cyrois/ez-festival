@@ -19,6 +19,10 @@ class StoreEntitlementItemRequest extends FormRequest
         if ($this->has('name')) {
             $this->merge(['name' => trim((string) $this->input('name'))]);
         }
+
+        if (! $this->filled('location_id')) {
+            $this->merge(['location_id' => null]);
+        }
     }
 
     public function rules(): array
@@ -32,7 +36,7 @@ class StoreEntitlementItemRequest extends FormRequest
                 Rule::exists('locations', 'id')->where('event_id', $this->route('event')->id),
             ],
             'label_ids' => ['sometimes', 'array', 'max:50'],
-            'label_ids.*' => ['integer', 'distinct', Rule::exists('entitlement_item_labels', 'id')],
+            'label_ids.*' => ['integer', 'distinct', Rule::exists('entitlement_item_labels', 'id')->where('event_id', $this->route('event')->id)],
             'new_labels' => ['sometimes', 'array', 'max:20'],
             'new_labels.*' => ['array:name,color'],
             'new_labels.*.name' => ['required', 'string', 'max:255', 'distinct:ignore_case'],

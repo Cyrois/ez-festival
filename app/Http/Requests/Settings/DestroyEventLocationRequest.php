@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Http\Requests\Setup;
+namespace App\Http\Requests\Settings;
 
 use App\Models\EntitlementAdjustment;
 use App\Models\Location;
 use Illuminate\Foundation\Http\FormRequest;
 
-class DestroyLocationRequest extends FormRequest
+class DestroyEventLocationRequest extends FormRequest
 {
     public function authorize(): bool
     {

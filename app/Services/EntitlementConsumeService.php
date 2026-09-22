@@ -14,9 +14,9 @@ class EntitlementConsumeService
 {
     public function __construct(private readonly EntitlementItemService $items) {}
 
-    public function consume(ExpectedEntitlement $expected, User $actor, ?string $code = null): IssuedEntitlement
+    public function consume(ExpectedEntitlement $expected, User $actor, int $locationId, ?string $code = null): IssuedEntitlement
     {
-        return DB::transaction(function () use ($expected, $actor, $code): IssuedEntitlement {
+        return DB::transaction(function () use ($expected, $actor, $locationId, $code): IssuedEntitlement {
             $expected = ExpectedEntitlement::query()
                 ->with('passAssignment.passType')
                 ->lockForUpdate()
@@ -31,11 +31,6 @@ class EntitlementConsumeService
             }
 
             $item = EntitlementItem::query()->lockForUpdate()->findOrFail($expected->entitlement_item_id);
-            if ($this->items->balance($item) < 1) {
-                throw ValidationException::withMessages([
-                    'expected_entitlement' => __('credentials.entitlements.errors.insufficient_stock'),
-                ]);
-            }
 
             $issued = $expected->issuedEntitlement()->create([
                 'entitlement_item_id' => $item->id,
@@ -44,10 +39,7 @@ class EntitlementConsumeService
                 'issued_at' => now(),
             ]);
             $expected->update(['status' => ExpectedEntitlement::STATUS_CONSUMED]);
-            $item->adjustments()->create([
-                'delta' => -1,
-                'user_id' => $actor->id,
-            ]);
+            $this->items->adjust($item, $locationId, -1, null, $actor);
 
             return $issued;
         });

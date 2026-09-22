@@ -478,6 +478,7 @@
     "setup.artist_types.delete_body": "Remove “:name” from this festival. You can add it again later.",
     "setup.actions.delete": "Delete",
     "setup.toast.location_deleted": "Location deleted.",
+    "setup.locations.errors.delete_blocked": "This location has inventory adjustments and cannot be deleted.",
     "setup.toast.artist_type_deleted": "Artist type deleted.",
     "setup.locations.suggested_label": "Suggested · not saved until Continue",
     "setup.locations.delete_suggested_body": "Remove “:name” from suggestions. It will not be saved on Continue.",
