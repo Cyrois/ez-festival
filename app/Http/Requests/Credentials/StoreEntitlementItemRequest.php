@@ -47,14 +47,6 @@ class StoreEntitlementItemRequest extends FormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator): void {
-            $event = $this->route('event');
-            $ids = $this->input('label_ids', []);
-
-            if ($event !== null && is_array($ids) && EntitlementItemLabel::query()
-                ->whereIn('id', $ids)->where('event_id', '!=', $event->id)->exists()) {
-                $validator->errors()->add('label_ids', __('credentials.entitlements.errors.label_unavailable'));
-            }
-
             if ((int) $this->input('opening_balance', 0) > 0 && ! $this->filled('location_id')) {
                 $validator->errors()->add('location_id', __('credentials.entitlements.errors.location_required'));
             }

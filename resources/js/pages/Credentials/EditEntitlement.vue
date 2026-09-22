@@ -66,12 +66,16 @@ const breadcrumbs = computed(() => [
     },
     { label: props.item.name },
 ]);
-const adjustLocationItems = computed(() =>
-    props.locations_for_adjust.map((location) => ({
+const adjustLocationItems = computed(() => [
+    {
+        value: '',
+        title: trans('credentials.entitlements.locations.unassigned'),
+    },
+    ...props.locations_for_adjust.map((location) => ({
         value: location.id,
         title: location.name,
     })),
-);
+]);
 const directionOptions = computed(() => [
     {
         value: 'add',
@@ -113,7 +117,12 @@ const newLocationStock = computed(() =>
 );
 const passUsage = computed(() =>
     props.pass_usage
-        .map((usage) => `${usage.pass_type_name} ×${usage.line_count}`)
+        .map((usage) =>
+            trans('credentials.entitlements.details.pass_usage_item', {
+                name: usage.pass_type_name,
+                count: usage.line_count,
+            }),
+        )
         .join(', '),
 );
 
@@ -135,7 +144,7 @@ const submit = () => {
 const openAdjust = (locationId = '') => {
     adjustForm.reset();
     adjustForm.clearErrors();
-    adjustForm.location_id = locationId;
+    adjustForm.location_id = locationId ?? '';
     adjustForm.direction = 'add';
     adjustForm.quantity = 1;
     adjustForm.reason = '';
