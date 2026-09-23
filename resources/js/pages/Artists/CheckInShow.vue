@@ -5,6 +5,7 @@ import { Avatar } from '../../components/ui/avatar';
 import { Badge } from '../../components/ui/badge';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Icon } from '../../components/ui/icon';
+import { Tag } from '../../components/ui/tag';
 import PeopleRail from '../../components/check-in/PeopleRail.vue';
 import EntitlementRows from '../../components/check-in/EntitlementRows.vue';
 import EntitlementDetailsDialog from '../../components/check-in/EntitlementDetailsDialog.vue';
@@ -94,6 +95,9 @@ const breadcrumbs = computed(() => [
                                         : $t('artists.check_in.contact')
                                 }}
                             </p>
+                            <p class="mt-1 mb-0 text-xs text-muted">
+                                {{ $t('artists.check_in.consume_hint') }}
+                            </p>
                         </div>
                         <Badge
                             :variant="
@@ -104,6 +108,24 @@ const breadcrumbs = computed(() => [
                                 $t(`artists.check_in.status.${status}`)
                             }}</Badge
                         >
+                    </div>
+                    <div
+                        v-if="person.passes.length || person.pass_labels.length"
+                        class="mb-4 flex flex-wrap items-center gap-2 rounded-lg bg-primary-soft px-3 py-2"
+                    >
+                        <strong class="text-sm text-primary">
+                            {{
+                                $t('artists.check_in.pass_summary', {
+                                    passes: person.passes.join(', '),
+                                })
+                            }}
+                        </strong>
+                        <Tag
+                            v-for="label in person.pass_labels"
+                            :key="label.name"
+                            :name="label.name"
+                            :color="label.color"
+                        />
                     </div>
                     <EntitlementRows
                         v-if="person.entitlements.length"

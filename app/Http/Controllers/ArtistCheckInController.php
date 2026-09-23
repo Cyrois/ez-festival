@@ -49,7 +49,7 @@ class ArtistCheckInController extends Controller
         $engagement->load([
             'artist',
             'people' => fn ($query) => $query->orderBy('people.name'),
-            'passAssignments.passType',
+            'passAssignments.passType.labels',
             'passAssignments.expectedEntitlements.entitlementItem.adjustments.location',
             'passAssignments.expectedEntitlements.issuedEntitlement.location',
         ]);

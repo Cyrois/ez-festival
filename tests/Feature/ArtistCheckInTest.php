@@ -6,10 +6,12 @@ use App\Models\Artist;
 use App\Models\ArtistEngagement;
 use App\Models\Event;
 use App\Models\ExpectedEntitlement;
+use App\Models\PassTypeLabel;
 use App\Models\Person;
 use App\Models\User;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -92,6 +94,8 @@ class ArtistCheckInTest extends TestCase
             'delta' => 2,
             'user_id' => $user->id,
         ]);
+        $label = PassTypeLabel::query()->create(['name' => 'Wristband', 'color' => 'teal']);
+        $expected->passAssignment->passType->labels()->attach($label);
         $unassigned = $engagement->passAssignments()->create([
             'pass_type_id' => $expected->passAssignment->pass_type_id,
         ]);
@@ -109,6 +113,7 @@ class ArtistCheckInTest extends TestCase
             ->where('engagement.people.0.expected', 1)
             ->where('engagement.people.0.entitlements.0.status', 'pending')
             ->where('engagement.people.0.entitlements.0.locations.0.name', 'Main stage')
+            ->where('engagement.people.0.pass_labels.0.name', 'Wristband')
             ->where('engagement.people.1.name', $riley->name)
             ->where('engagement.people.1.expected', 0));
     }
@@ -215,6 +220,22 @@ class ArtistCheckInTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Artists/CheckInShow')
                 ->where('canWrite', false));
+    }
+
+    public function test_artist_permissions_protect_list_and_consume_routes(): void
+    {
+        [$user, $event] = $this->context();
+        [$engagement, , $expected] = $this->heldEntitlement($event, 'River Hollow');
+        $location = $event->locations()->create(['name' => 'Main stage']);
+
+        Gate::define('view-artists', fn (): bool => false);
+        $this->actingAs($user)->get(route('artists.check-in'))->assertForbidden();
+        $this->get(route('artists.check-in.show', $engagement))->assertForbidden();
+
+        Gate::define('manage-artists', fn (): bool => false);
+        $this->post(route('artists.check-in.issues.store', $expected), [
+            'location_id' => $location->id,
+        ])->assertForbidden();
     }
 
     /** @return array{User, Event} */

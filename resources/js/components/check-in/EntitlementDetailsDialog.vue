@@ -1,5 +1,6 @@
 <script setup>
 import { Dialog } from '../ui/dialog';
+import { Badge } from '../ui/badge';
 
 const props = defineProps({
     open: { type: Boolean, default: false },
@@ -46,11 +47,18 @@ const formatWhen = (value) => {
                 {{ $t('artists.check_in.status_label') }}
             </dt>
             <dd class="m-0">
-                {{
-                    $t(
-                        `artists.check_in.entitlement_status.${entitlement.status}`,
-                    )
-                }}
+                <Badge
+                    :variant="
+                        entitlement.status === 'issued' ? 'success' : 'warning'
+                    "
+                    pill
+                >
+                    {{
+                        $t(
+                            `artists.check_in.entitlement_status.${entitlement.status}`,
+                        )
+                    }}
+                </Badge>
             </dd>
             <dt class="font-semibold text-muted">
                 {{ $t('artists.check_in.quantity') }}
@@ -68,7 +76,7 @@ const formatWhen = (value) => {
             <dt class="font-semibold text-muted">
                 {{ $t('artists.check_in.code') }}
             </dt>
-            <dd class="m-0">
+            <dd class="m-0 font-mono text-xs">
                 {{ entitlement.issued?.code || $t('artists.check_in.not_set') }}
             </dd>
             <dt class="font-semibold text-muted">
