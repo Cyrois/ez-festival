@@ -32,6 +32,14 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    showCancel: {
+        type: Boolean,
+        default: true,
+    },
+    showConfirm: {
+        type: Boolean,
+        default: true,
+    },
     class: {
         type: [String, Object, Array],
         default: '',
@@ -133,9 +141,11 @@ onUnmounted(() => {
                     <slot />
                 </div>
                 <div
+                    v-if="showCancel || showConfirm"
                     class="mt-5 flex shrink-0 flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3"
                 >
                     <Button
+                        v-if="showCancel"
                         type="button"
                         variant="cancel"
                         class="min-h-11 w-full sm:w-auto"
@@ -145,6 +155,7 @@ onUnmounted(() => {
                         {{ cancelLabel || $t('ui.dialog.cancel') }}
                     </Button>
                     <Button
+                        v-if="showConfirm"
                         type="button"
                         class="min-h-11 w-full sm:w-auto"
                         :variant="confirmVariant"
