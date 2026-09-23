@@ -85,7 +85,7 @@ const dotClass = computed(() =>
         <button
             v-if="removable"
             type="button"
-            class="-mr-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-current hover:bg-charcoal/10 focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:outline-none"
+            class="-mr-1 inline-flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-current hover:bg-charcoal/10 focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:outline-none"
             :aria-label="removeLabel"
             @click.stop="emit('remove')"
         >
