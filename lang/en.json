@@ -275,6 +275,7 @@
     "artists.check_in.code_optional": "Code (optional)",
     "artists.check_in.no_entitlements": "No entitlements",
     "artists.check_in.no_entitlements_description": "This person has no assigned entitlements.",
+    "artists.check_in.locked": "This event is locked. You can view check-in details, but cannot consume entitlements.",
     "artists.check_in.toast.consumed": "Entitlement consumed.",
     "patrons.title": "Patrons",
     "patrons.lead": "Manage the people attending your festival.",

@@ -102,6 +102,8 @@ class ArtistCheckInTest extends TestCase
         $this->actingAs($user)->get(route('artists.check-in.show', $engagement))->assertInertia(fn (Assert $page) => $page
             ->component('Artists/CheckInShow')
             ->where('engagement.name', 'River Hollow')
+            ->where('canWrite', true)
+            ->where('event.timezone', 'America/Vancouver')
             ->has('engagement.people', 2)
             ->where('engagement.people.0.name', $maya->name)
             ->where('engagement.people.0.expected', 1)
@@ -109,6 +111,81 @@ class ArtistCheckInTest extends TestCase
             ->where('engagement.people.0.entitlements.0.locations.0.name', 'Main stage')
             ->where('engagement.people.1.name', $riley->name)
             ->where('engagement.people.1.expected', 0));
+    }
+
+    public function test_show_rejects_wrong_event_and_unconfirmed_engagements(): void
+    {
+        [$user, $event] = $this->context();
+        [$confirmed] = $this->heldEntitlement($event, 'River Hollow');
+        $other = ArtistEngagement::factory()
+            ->for($this->event('Other'))
+            ->for(Artist::factory())
+            ->create(['status' => 'confirmed']);
+        $unconfirmed = ArtistEngagement::factory()
+            ->for($event)
+            ->for(Artist::factory())
+            ->create(['status' => 'idea']);
+
+        $this->actingAs($user)
+            ->get(route('artists.check-in.show', $other))
+            ->assertNotFound();
+        $this->get(route('artists.check-in.show', $unconfirmed))
+            ->assertNotFound();
+        $this->get(route('artists.check-in.show', $confirmed))
+            ->assertOk();
+    }
+
+    public function test_consume_rejects_detached_person_wrong_event_unconfirmed_and_already_consumed(): void
+    {
+        [$user, $event] = $this->context();
+        [$engagement, $person, $expected] = $this->heldEntitlement($event, 'River Hollow');
+        $location = $event->locations()->create(['name' => 'Main stage']);
+        $expected->entitlementItem->adjustments()->create([
+            'location_id' => $location->id,
+            'delta' => 3,
+            'user_id' => $user->id,
+        ]);
+
+        $engagement->people()->detach($person);
+        $this->actingAs($user)->post(route('artists.check-in.issues.store', $expected), [
+            'location_id' => $location->id,
+        ])->assertNotFound();
+        $engagement->people()->attach($person, ['is_primary' => true]);
+
+        $otherEngagement = ArtistEngagement::factory()
+            ->for($this->event('Other Fest'))
+            ->for(Artist::factory())
+            ->create(['status' => 'confirmed']);
+        $otherPerson = Person::query()->create(['name' => 'Other', 'email' => 'other@example.com']);
+        $otherEngagement->people()->attach($otherPerson, ['is_primary' => true]);
+        $otherItem = $otherEngagement->event->entitlementItems()->create(['name' => 'Other band']);
+        $otherPass = $otherEngagement->event->passTypes()->create(['name' => 'Other pass']);
+        $otherAssignment = $otherEngagement->passAssignments()->create([
+            'pass_type_id' => $otherPass->id,
+            'person_id' => $otherPerson->id,
+        ]);
+        $otherExpected = $otherAssignment->expectedEntitlements()->create([
+            'entitlement_item_id' => $otherItem->id,
+            'status' => ExpectedEntitlement::STATUS_EXPECTED,
+        ]);
+
+        $this->post(route('artists.check-in.issues.store', $otherExpected), [
+            'location_id' => $location->id,
+        ])->assertNotFound();
+
+        $engagement->update(['status' => 'idea']);
+        $this->post(route('artists.check-in.issues.store', $expected), [
+            'location_id' => $location->id,
+        ])->assertNotFound();
+        $engagement->update(['status' => 'confirmed']);
+
+        $this->post(route('artists.check-in.issues.store', $expected), [
+            'location_id' => $location->id,
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $this->post(route('artists.check-in.issues.store', $expected), [
+            'location_id' => $location->id,
+        ])->assertSessionHasErrors('expected_entitlement');
     }
 
     public function test_consume_rejects_invalid_stock_event_and_lock_states(): void
@@ -133,6 +210,11 @@ class ArtistCheckInTest extends TestCase
         $this->post(route('artists.check-in.issues.store', $expected), [
             'location_id' => $location->id,
         ])->assertForbidden();
+
+        $this->get(route('artists.check-in.show', ArtistEngagement::query()->first()))
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Artists/CheckInShow')
+                ->where('canWrite', false));
     }
 
     /** @return array{User, Event} */

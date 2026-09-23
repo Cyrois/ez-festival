@@ -1,20 +1,29 @@
 <script setup>
 import { Dialog } from '../ui/dialog';
 
-defineProps({
+const props = defineProps({
     open: { type: Boolean, default: false },
     entitlement: { type: Object, default: null },
+    timezone: { type: String, default: 'America/Vancouver' },
 });
 
 defineEmits(['update:open']);
 
-const formatWhen = (value) =>
-    value
-        ? new Intl.DateTimeFormat(undefined, {
-              dateStyle: 'medium',
-              timeStyle: 'short',
-          }).format(new Date(value))
-        : null;
+const formatWhen = (value) => {
+    if (!value) {
+        return null;
+    }
+
+    try {
+        return new Intl.DateTimeFormat('en-US', {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+            timeZone: props.timezone || 'America/Vancouver',
+        }).format(new Date(value));
+    } catch {
+        return value;
+    }
+};
 </script>
 
 <template>
