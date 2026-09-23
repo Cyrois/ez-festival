@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ArtistCheckInController;
 use App\Http\Controllers\ArtistController;
 use App\Http\Controllers\ArtistEngagementPersonController;
 use App\Http\Controllers\ArtistPassAssignmentController;
@@ -60,7 +61,10 @@ Route::middleware('auth')->group(function () {
         Route::get('dashboard', DashboardController::class)->name('dashboard');
 
         Route::get('artists/advancing', [ArtistController::class, 'index'])->name('artists.index');
-        Route::get('artists/check-in', [ArtistController::class, 'checkIn'])->name('artists.check-in');
+        Route::get('artists/check-in', [ArtistCheckInController::class, 'index'])->name('artists.check-in');
+        Route::get('artists/check-in/{engagement}', [ArtistCheckInController::class, 'show'])->name('artists.check-in.show');
+        Route::post('artists/check-in/expected-entitlements/{expectedEntitlement}/issues', [ArtistCheckInController::class, 'store'])
+            ->middleware('event.writable')->name('artists.check-in.issues.store');
         Route::get('artists/create', [ArtistController::class, 'create'])->name('artists.create');
         Route::get('artists/engagements/{engagement}', [ArtistController::class, 'view'])->name('artists.view');
         Route::put('artists/engagements/{engagement}', [ArtistController::class, 'update'])

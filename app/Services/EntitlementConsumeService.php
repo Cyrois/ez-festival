@@ -34,6 +34,7 @@ class EntitlementConsumeService
 
             $issued = $expected->issuedEntitlement()->create([
                 'entitlement_item_id' => $item->id,
+                'location_id' => $locationId,
                 'code' => $code,
                 'issued_by' => $actor->id,
                 'issued_at' => now(),
