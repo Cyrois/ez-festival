@@ -55,6 +55,11 @@ class ArtistCheckInShowResource extends JsonResource
                 'email' => $person->email,
                 'is_primary' => (bool) $person->pivot->is_primary,
                 'passes' => $held->pluck('passType.name')->unique()->values(),
+                'pass_labels' => $held->flatMap(fn ($assignment) => $assignment->passType->labels)
+                    ->unique('id')
+                    ->sortBy('name')
+                    ->values()
+                    ->map->only('name', 'color'),
                 'issued' => $entitlements->where('status', 'issued')->count(),
                 'expected' => $entitlements->count(),
                 'entitlements' => $entitlements,

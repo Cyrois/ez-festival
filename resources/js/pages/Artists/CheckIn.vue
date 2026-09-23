@@ -14,6 +14,7 @@ import {
 } from '../../components/ui/table';
 import { computed, ref } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+import { filterArtistCheckIns } from './checkInFilters';
 
 const props = defineProps({
     engagements: { type: Array, required: true },
@@ -28,23 +29,9 @@ const variants = {
     complete: 'success',
 };
 const columns = ['artist', 'contact', 'entitlements', 'status', 'action'];
-const filtered = computed(() => {
-    const needle = search.value.trim().toLowerCase();
-    return props.engagements.filter((engagement) => {
-        const haystack = [
-            engagement.name,
-            engagement.contact?.name,
-            engagement.contact?.email,
-        ]
-            .filter(Boolean)
-            .join(' ')
-            .toLowerCase();
-        return (
-            (!needle || haystack.includes(needle)) &&
-            (!status.value || engagement.check_in_status === status.value)
-        );
-    });
-});
+const filtered = computed(() =>
+    filterArtistCheckIns(props.engagements, search.value, status.value),
+);
 const breadcrumbs = computed(() => [
     { label: trans('app.name'), href: '/dashboard' },
     { label: trans('nav.artists'), href: '/artists/advancing' },
