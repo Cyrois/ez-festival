@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests\Credentials;
 
-use App\Models\EntitlementItemLabel;
+use App\Support\LabelColors;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -40,7 +40,7 @@ class StoreEntitlementItemRequest extends FormRequest
             'new_labels' => ['sometimes', 'array', 'max:20'],
             'new_labels.*' => ['array:name,color'],
             'new_labels.*.name' => ['required', 'string', 'max:255', 'distinct:ignore_case'],
-            'new_labels.*.color' => ['required', Rule::in(EntitlementItemLabel::COLORS)],
+            'new_labels.*.color' => ['required', Rule::in(LabelColors::ALL)],
         ];
     }
 

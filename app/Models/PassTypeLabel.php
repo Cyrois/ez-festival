@@ -12,8 +12,6 @@ class PassTypeLabel extends Model
 {
     use HasNormalizedName;
 
-    public const COLORS = ['primary', 'secondary', 'success', 'warning', 'danger', 'neutral'];
-
     public function passTypes(): BelongsToMany
     {
         return $this->belongsToMany(PassType::class, 'pass_type_label_assignments');

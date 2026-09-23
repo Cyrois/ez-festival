@@ -13,8 +13,6 @@ class ArtistLabel extends Model
 {
     use HasFactory, HasNormalizedName;
 
-    public const COLORS = ['primary', 'secondary', 'success', 'warning', 'danger', 'neutral'];
-
     public function engagements(): BelongsToMany
     {
         return $this->belongsToMany(ArtistEngagement::class, 'artist_engagement_label_assignments');

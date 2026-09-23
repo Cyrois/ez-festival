@@ -5,6 +5,7 @@ import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
 import { IconButton } from '../../components/ui/icon-button';
 import { Input } from '../../components/ui/input';
+import { LabelCombobox } from '../../components/ui/label-combobox';
 import { Popup } from '../../components/ui/popup';
 import { Select } from '../../components/ui/select';
 import { Tag } from '../../components/ui/tag';
@@ -23,6 +24,7 @@ import { trans } from 'laravel-vue-i18n';
 const props = defineProps({
     items: { type: Array, default: () => [] },
     labels: { type: Array, default: () => [] },
+    labelColors: { type: Array, default: () => [] },
     locations: { type: Array, default: () => [] },
     canWrite: { type: Boolean, default: false },
 });
@@ -37,7 +39,6 @@ const breadcrumbs = computed(() => [
 const addOpen = ref(false);
 const selectedLabelIds = ref([]);
 const search = ref('');
-const newLabelName = ref('');
 const createForm = useForm({
     name: '',
     opening_balance: 0,
@@ -45,6 +46,14 @@ const createForm = useForm({
     label_ids: [],
     new_labels: [],
 });
+const createLabelError = computed(
+    () =>
+        createForm.errors.label_ids ||
+        Object.entries(createForm.errors).find(([key]) =>
+            key.startsWith('new_labels.'),
+        )?.[1] ||
+        '',
+);
 const filteredItems = computed(() => {
     const query = search.value.trim().toLocaleLowerCase();
 
@@ -65,33 +74,15 @@ const filteredItems = computed(() => {
 const hasFilters = computed(
     () => search.value.trim() !== '' || selectedLabelIds.value.length > 0,
 );
-const toggleFilter = (id) => {
-    selectedLabelIds.value = selectedLabelIds.value.includes(id)
-        ? selectedLabelIds.value.filter((value) => value !== id)
-        : [...selectedLabelIds.value, id];
-};
 const clearFilters = () => {
     search.value = '';
     selectedLabelIds.value = [];
 };
-const toggleFormLabel = (form, id) => {
-    form.label_ids = form.label_ids.includes(id)
-        ? form.label_ids.filter((value) => value !== id)
-        : [...form.label_ids, id];
-};
-const addNewLabel = (form) => {
-    const name = newLabelName.value.trim();
-    if (!name) return;
-    form.new_labels.push({ name, color: 'primary' });
-    newLabelName.value = '';
-};
-
 const openAdd = () => {
     createForm.reset();
     createForm.clearErrors();
     createForm.opening_balance = 0;
     createForm.location_id = '';
-    newLabelName.value = '';
     addOpen.value = true;
 };
 
@@ -173,29 +164,17 @@ const createItem = () => {
                             "
                         />
                     </form>
-                    <div
-                        v-if="labels.length"
-                        class="flex flex-wrap gap-2"
-                    >
-                        <button
-                            v-for="label in labels"
-                            :key="label.id"
-                            type="button"
-                            class="rounded-full focus-visible:ring-[3px] focus-visible:ring-primary/35 focus-visible:outline-none"
-                            :class="
-                                selectedLabelIds.includes(label.id)
-                                    ? 'ring-2 ring-primary ring-offset-2'
-                                    : ''
+                    <div class="w-full sm:w-72">
+                        <LabelCombobox
+                            v-model="selectedLabelIds"
+                            :labels="labels"
+                            :placeholder="
+                                $t('credentials.entitlements.labels.filter')
                             "
-                            :aria-pressed="selectedLabelIds.includes(label.id)"
-                            @click="toggleFilter(label.id)"
-                        >
-                            <Tag
-                                :name="label.name"
-                                :color="label.color"
-                                class="cursor-pointer"
-                            />
-                        </button>
+                            :aria-label="
+                                $t('credentials.entitlements.labels.filter')
+                            "
+                        />
                     </div>
                     <Button
                         v-if="hasFilters"
@@ -344,54 +323,20 @@ const createItem = () => {
                         />
                     </template>
                 </FormField>
-                <div>
-                    <p class="m-0 text-xs font-bold text-charcoal">
-                        {{ $t('credentials.entitlements.labels.title') }}
-                    </p>
-                    <div class="mt-2 flex flex-wrap gap-2">
-                        <button
-                            v-for="label in labels"
-                            :key="label.id"
-                            type="button"
-                            class="rounded-full focus-visible:ring-[3px] focus-visible:ring-primary/35 focus-visible:outline-none"
-                            :class="
-                                createForm.label_ids.includes(label.id)
-                                    ? 'ring-2 ring-primary ring-offset-2'
-                                    : ''
-                            "
-                            @click="toggleFormLabel(createForm, label.id)"
-                        >
-                            <Tag
-                                :name="label.name"
-                                :color="label.color"
-                            />
-                        </button>
-                        <Tag
-                            v-for="label in createForm.new_labels"
-                            :key="label.name"
-                            :name="label.name"
-                            :color="label.color"
-                        />
-                    </div>
-                    <div class="mt-2 flex gap-2">
-                        <Input
-                            v-model="newLabelName"
-                            :placeholder="
-                                $t(
-                                    'credentials.entitlements.labels.placeholder',
-                                )
-                            "
-                        />
-                        <Button
-                            type="button"
-                            variant="outline"
-                            @click="addNewLabel(createForm)"
-                            >{{
-                                $t('credentials.entitlements.labels.add')
-                            }}</Button
-                        >
-                    </div>
-                </div>
+                <FormField
+                    :label="$t('credentials.entitlements.labels.title')"
+                    :error="createLabelError"
+                >
+                    <LabelCombobox
+                        v-model="createForm.label_ids"
+                        v-model:new-labels="createForm.new_labels"
+                        :labels="labels"
+                        :colors="labelColors"
+                        :invalid="Boolean(createLabelError)"
+                        :disabled="createForm.processing"
+                        allow-create
+                    />
+                </FormField>
                 <FormField
                     :label="
                         $t('credentials.entitlements.fields.opening_balance')

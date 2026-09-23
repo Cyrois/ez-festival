@@ -27,7 +27,7 @@ class PassTypesTest extends TestCase
     public function test_catalog_uses_its_own_pass_type_label_taxonomy(): void
     {
         [$user, $event] = $this->createEventContext();
-        $label = PassTypeLabel::query()->create(['name' => 'All access', 'color' => 'primary']);
+        $label = PassTypeLabel::query()->create(['name' => 'All access', 'color' => 'teal']);
         $passType = $event->passTypes()->create(['name' => 'Artist']);
         $passType->labels()->attach($label);
 
@@ -42,7 +42,7 @@ class PassTypesTest extends TestCase
     public function test_create_persists_custom_fields_and_real_entitlement_lines(): void
     {
         [$user, $event] = $this->createEventContext();
-        $label = PassTypeLabel::query()->create(['name' => 'Backstage', 'color' => 'secondary']);
+        $label = PassTypeLabel::query()->create(['name' => 'Backstage', 'color' => 'soft_blue']);
         $item = $event->entitlementItems()->create(['name' => 'Artist wristband']);
         $field = CustomField::query()->create([
             'target' => CustomField::TARGET_PASS,
@@ -71,6 +71,22 @@ class PassTypesTest extends TestCase
             'custom_fieldable_id' => $passType->id,
             'value_text' => 'Artist name',
         ]);
+    }
+
+    public function test_create_accepts_a_new_label_from_the_locked_palette(): void
+    {
+        [$user, $event] = $this->createEventContext();
+
+        $this->actingAs($user)->post(route('credentials.passes.store', $event), [
+            'name' => 'Production',
+            'new_labels' => [['name' => 'Crew', 'color' => 'violet']],
+        ])->assertRedirect(route('credentials.passes'));
+
+        $this->assertDatabaseHas('pass_type_labels', [
+            'name_key' => 'crew',
+            'color' => 'violet',
+        ]);
+        $this->assertSame('Crew', PassType::query()->sole()->labels()->sole()->name);
     }
 
     public function test_edit_loads_and_replaces_entitlement_lines(): void

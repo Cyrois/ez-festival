@@ -3,7 +3,7 @@
 namespace App\Http\Requests\Artists;
 
 use App\Models\ArtistEngagement;
-use App\Models\ArtistLabel;
+use App\Support\LabelColors;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -44,7 +44,7 @@ class StoreArtistRequest extends FormRequest
             'new_labels' => ['sometimes', 'array', 'max:20'],
             'new_labels.*' => ['array:name,color'],
             'new_labels.*.name' => ['required', 'string', 'max:255', 'distinct:ignore_case'],
-            'new_labels.*.color' => ['required', Rule::in(ArtistLabel::COLORS)],
+            'new_labels.*.color' => ['required', Rule::in(LabelColors::ALL)],
         ];
     }
 }

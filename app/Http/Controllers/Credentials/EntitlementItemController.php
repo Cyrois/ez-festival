@@ -11,11 +11,11 @@ use App\Http\Requests\Credentials\UpdateEntitlementItemRequest;
 use App\Http\Resources\EntitlementItemResource;
 use App\Http\Resources\IssuedEntitlementResource;
 use App\Models\EntitlementItem;
-use App\Models\EntitlementItemLabel;
 use App\Models\Event;
 use App\Models\IssuedEntitlement;
 use App\Services\EntitlementItemService;
 use App\Support\EventContext;
+use App\Support\LabelColors;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -42,6 +42,7 @@ class EntitlementItemController extends Controller
                     ->get(),
             )->resolve(),
             'labels' => $event->entitlementItemLabels()->orderBy('name')->get(['id', 'name', 'color']),
+            'labelColors' => LabelColors::ALL,
             'locations' => $event->locations()->orderBy('name')->get(['id', 'name']),
             'canWrite' => ! $event->isLocked() && Gate::allows('manage-credentials'),
         ]);
@@ -154,7 +155,7 @@ class EntitlementItemController extends Controller
             'event' => $event->only('id', 'name'),
             'item' => (new EntitlementItemResource($item))->resolve(),
             'labels' => $event->entitlementItemLabels()->orderBy('name')->get(['id', 'name', 'color']),
-            'labelColors' => EntitlementItemLabel::COLORS,
+            'labelColors' => LabelColors::ALL,
             'stats' => [
                 'in_stock' => $inStock,
                 'expected' => $this->items->expectedCount($item),

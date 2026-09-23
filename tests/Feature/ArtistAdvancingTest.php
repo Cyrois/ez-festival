@@ -142,7 +142,7 @@ class ArtistAdvancingTest extends TestCase
             'status' => 'outreach',
             'artist_type_id' => $type->id,
             'label_ids' => [$vip->id],
-            'new_labels' => [['name' => 'Headliner', 'color' => 'warning']],
+            'new_labels' => [['name' => 'Headliner', 'color' => 'rose']],
         ])->assertRedirect(route('artists.index'))->assertSessionHas('success', __('artists.toast.created'));
 
         $artist = Artist::query()->sole();
@@ -159,7 +159,7 @@ class ArtistAdvancingTest extends TestCase
         $this->assertDatabaseHas('artist_labels', [
             'name' => 'Headliner',
             'name_key' => 'headliner',
-            'color' => 'warning',
+            'color' => 'rose',
         ]);
     }
 
@@ -199,7 +199,7 @@ class ArtistAdvancingTest extends TestCase
         $history = ArtistEngagement::factory()->for($artist)->for($past)->create([
             'status' => 'confirmed',
         ]);
-        $label = ArtistLabel::factory()->create(['name' => 'VIP', 'color' => 'secondary']);
+        $label = ArtistLabel::factory()->create(['name' => 'VIP', 'color' => 'soft_blue']);
         $history->labels()->attach($label);
 
         $this->actingAs($user)->post(route('artists.store', $event), [
@@ -213,7 +213,7 @@ class ArtistAdvancingTest extends TestCase
         $current = ArtistEngagement::query()->where('event_id', $event->id)->sole();
         $this->assertSame(['VIP'], $history->fresh()->labels()->pluck('name')->all());
         $this->assertSame(['VIP'], $current->labels()->pluck('name')->all());
-        $this->assertSame('secondary', $label->fresh()->color);
+        $this->assertSame('soft_blue', $label->fresh()->color);
         $this->assertSame('confirmed', $history->fresh()->status);
     }
 
@@ -224,7 +224,7 @@ class ArtistAdvancingTest extends TestCase
         $this->actingAs($user)->post(route('artists.store', $event), [
             'name' => 'River Hollow',
             'new_labels' => [
-                ['name' => ' VIP ', 'color' => 'primary'],
+                ['name' => ' VIP ', 'color' => 'teal'],
                 ['name' => 'vip', 'color' => 'warning'],
             ],
         ])->assertSessionHasErrors('new_labels.0.name');
@@ -240,7 +240,7 @@ class ArtistAdvancingTest extends TestCase
 
         $this->actingAs($user)->post(route('artists.store', $event), [
             'name' => 'River Hollow',
-            'new_labels' => [['name' => 'Unwanted label', 'color' => 'primary']],
+            'new_labels' => [['name' => 'Unwanted label', 'color' => 'teal']],
         ])->assertSessionHasErrors(['name' => __('artists.errors.already_added')]);
 
         $this->assertDatabaseCount('artists', 1);
@@ -307,7 +307,7 @@ class ArtistAdvancingTest extends TestCase
             'long name' => [['name' => str_repeat('a', 256)], 'name'],
             'obsolete status' => [['name' => 'Band', 'status' => 'contract_signed'], 'status'],
             'invalid color' => [['name' => 'Band', 'new_labels' => [['name' => 'VIP', 'color' => 'url(unsafe)']]], 'new_labels.0.color'],
-            'empty label' => [['name' => 'Band', 'new_labels' => [['name' => '', 'color' => 'primary']]], 'new_labels.0.name'],
+            'empty label' => [['name' => 'Band', 'new_labels' => [['name' => '', 'color' => 'teal']]], 'new_labels.0.name'],
         ];
     }
 
