@@ -177,22 +177,17 @@ const submit = () => {
                         <p class="mt-1 mb-4 text-xs text-muted">
                             {{ $t('credentials.passes.labels.lead') }}
                         </p>
-                        <LabelCombobox
-                            v-model="form.label_ids"
-                            v-model:new-labels="form.new_labels"
-                            :labels="labels"
-                            :colors="labelColors"
-                            :invalid="Boolean(labelError)"
-                            :disabled="form.processing"
-                            allow-create
-                        />
-                        <p
-                            v-if="labelError"
-                            class="mt-2 mb-0 text-xs text-danger"
-                            role="alert"
-                        >
-                            {{ labelError }}
-                        </p>
+                        <FormField :error="labelError">
+                            <LabelCombobox
+                                v-model="form.label_ids"
+                                v-model:new-labels="form.new_labels"
+                                :labels="labels"
+                                :colors="labelColors"
+                                :invalid="Boolean(labelError)"
+                                :disabled="form.processing"
+                                allow-create
+                            />
+                        </FormField>
                     </section>
 
                     <section class="mt-5 border-t border-line pt-5">

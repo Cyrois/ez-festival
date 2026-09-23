@@ -13,7 +13,7 @@ return new class extends Migration
             $table->foreignId('event_id')->constrained()->cascadeOnDelete();
             $table->string('name');
             $table->string('name_key');
-            $table->string('color')->default('teal');
+            $table->string('color')->default('primary');
             $table->timestamps();
 
             $table->unique(['event_id', 'name_key']);

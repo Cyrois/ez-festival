@@ -31,9 +31,6 @@ const search = ref(props.filters.search);
 const selectedLabels = ref([...props.filters.labels]);
 const busy = ref(false);
 const viewMode = ref('list');
-const selected = computed(() =>
-    props.labels.filter((label) => selectedLabels.value.includes(label.id)),
-);
 const viewOptions = computed(() => [
     {
         value: 'columns',
@@ -178,6 +175,9 @@ const clearFilters = () => {
                         :aria-label="$t('artists.filter_labels')"
                         @update:model-value="updateLabelFilters"
                     />
+                    <p class="mt-1 mb-0 text-xs text-muted">
+                        {{ $t('artists.filter_hint') }}
+                    </p>
                 </div>
                 <Button
                     v-if="search || selectedLabels.length"
@@ -196,37 +196,6 @@ const clearFilters = () => {
                         :aria-label="$t('artists.views.mode')"
                     />
                 </div>
-            </div>
-            <div
-                v-if="selected.length"
-                class="mb-4 flex flex-wrap gap-2"
-            >
-                <Button
-                    v-for="label in selected"
-                    :key="label.id"
-                    variant="ghost"
-                    size="sm"
-                    :aria-label="
-                        $t('artists.remove_label', { name: label.name })
-                    "
-                    @click="
-                        updateLabelFilters(
-                            selectedLabels.filter(
-                                (value) => value !== label.id,
-                            ),
-                        )
-                    "
-                >
-                    <Tag
-                        :name="label.name"
-                        :color="label.color"
-                    />
-                    <Icon
-                        :name="['fas', 'xmark']"
-                        class="ml-2"
-                        size="sm"
-                    />
-                </Button>
             </div>
             <div :aria-busy="busy">
                 <!-- Phone: card stack -->

@@ -1,10 +1,16 @@
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+import { labelTokens } from '../../../lib/labelTokens';
+import { cn } from '../../../lib/utils';
 import { Button } from '../button';
 import { Icon } from '../icon';
 import { Tag } from '../tag';
-import { cn } from '../../../lib/utils';
+import {
+    canCreateLabel,
+    normalizeLabelName,
+    resolveLabelEnterAction,
+} from './labelCombobox';
 
 const props = defineProps({
     modelValue: {
@@ -57,43 +63,29 @@ const open = ref(false);
 const query = ref('');
 const selectedColor = ref('');
 
-const normalize = (value) => value.trim().toLocaleLowerCase();
 const selectedIds = computed(() => new Set(props.modelValue.map(Number)));
 const selectedLabels = computed(() =>
     props.labels.filter((label) => selectedIds.value.has(Number(label.id))),
 );
 const filteredLabels = computed(() => {
-    const value = normalize(query.value);
+    const value = normalizeLabelName(query.value);
 
     if (!value) {
         return props.labels;
     }
 
     return props.labels.filter((label) =>
-        normalize(label.name).includes(value),
+        normalizeLabelName(label.name).includes(value),
     );
 });
-const exactExisting = computed(() => {
-    const value = normalize(query.value);
-
-    return value
-        ? props.labels.find((label) => normalize(label.name) === value)
-        : undefined;
-});
-const exactNew = computed(() => {
-    const value = normalize(query.value);
-
-    return value
-        ? props.newLabels.find((label) => normalize(label.name) === value)
-        : undefined;
-});
-const canCreateQuery = computed(
-    () =>
-        props.allowCreate &&
-        query.value.trim() !== '' &&
-        !exactExisting.value &&
-        !exactNew.value &&
-        props.newLabels.length < 20,
+const canCreateQuery = computed(() =>
+    canCreateLabel({
+        allowCreate: props.allowCreate,
+        colors: props.colors,
+        labels: props.labels,
+        newLabels: props.newLabels,
+        query: query.value,
+    }),
 );
 const fieldClasses = computed(() =>
     cn(
@@ -104,19 +96,6 @@ const fieldClasses = computed(() =>
         props.class,
     ),
 );
-const swatchClasses = {
-    teal: 'bg-label-teal',
-    soft_blue: 'bg-label-soft-blue',
-    success: 'bg-success',
-    warning: 'bg-warning',
-    danger: 'bg-danger',
-    violet: 'bg-label-violet',
-    sky: 'bg-label-sky',
-    rose: 'bg-label-rose',
-    slate: 'bg-label-slate',
-    charcoal: 'bg-charcoal',
-};
-
 const focusInput = () => {
     if (props.disabled) {
         return;
@@ -160,7 +139,7 @@ const createLabel = () => {
         ...props.newLabels,
         {
             name: query.value.trim(),
-            color: selectedColor.value || props.colors[0] || 'teal',
+            color: selectedColor.value,
         },
     ]);
     query.value = '';
@@ -168,22 +147,22 @@ const createLabel = () => {
 };
 
 const onEnter = () => {
-    if (exactExisting.value) {
-        if (!selectedIds.value.has(Number(exactExisting.value.id))) {
-            toggleExisting(exactExisting.value);
-        } else {
-            query.value = '';
-        }
+    const action = resolveLabelEnterAction({
+        allowCreate: props.allowCreate,
+        colors: props.colors,
+        labels: props.labels,
+        newLabels: props.newLabels,
+        query: query.value,
+        selectedIds: selectedIds.value,
+    });
 
-        return;
-    }
-
-    if (exactNew.value) {
+    if (action.type === 'toggle-existing') {
+        toggleExisting(action.label);
+    } else if (action.type === 'clear') {
         query.value = '';
-        return;
+    } else if (action.type === 'create') {
+        createLabel();
     }
-
-    createLabel();
 };
 
 const onBackspace = () => {
@@ -209,8 +188,17 @@ const onDocumentPointerDown = (event) => {
     }
 };
 
+watch(
+    () => props.colors,
+    (colors) => {
+        if (!colors.includes(selectedColor.value)) {
+            selectedColor.value = colors[0] ?? '';
+        }
+    },
+    { immediate: true },
+);
+
 onMounted(() => {
-    selectedColor.value = props.colors[0] || 'teal';
     document.addEventListener('pointerdown', onDocumentPointerDown);
 });
 
@@ -239,7 +227,7 @@ onUnmounted(() => {
             />
             <Tag
                 v-for="(label, index) in newLabels"
-                :key="`new-${normalize(label.name)}-${index}`"
+                :key="`new-${normalizeLabelName(label.name)}-${index}`"
                 :name="label.name"
                 :color="label.color"
                 :removable="!disabled"
@@ -330,7 +318,7 @@ onUnmounted(() => {
                         type="button"
                         class="h-6 w-6 rounded-full border-2 border-ground ring-1 ring-line focus-visible:ring-[3px] focus-visible:ring-primary/35 focus-visible:outline-none"
                         :class="[
-                            swatchClasses[color],
+                            labelTokens[color]?.swatch,
                             selectedColor === color &&
                                 'ring-2 ring-primary ring-offset-1',
                         ]"

@@ -127,6 +127,9 @@ const clearLabelFilters = () => {
                         :placeholder="$t('credentials.passes.filters.labels')"
                         :aria-label="$t('credentials.passes.filters.labels')"
                     />
+                    <p class="mt-1 mb-0 text-xs text-muted">
+                        {{ $t('credentials.passes.filters.labels_hint') }}
+                    </p>
                 </div>
                 <Button
                     v-if="selectedLabelIds.length"
