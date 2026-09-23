@@ -13,8 +13,6 @@ class EntitlementItemLabel extends Model
 {
     use HasNormalizedName;
 
-    public const COLORS = ['primary', 'secondary', 'success', 'warning', 'danger', 'neutral'];
-
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);

@@ -52,7 +52,7 @@ class EntitlementItemsTest extends TestCase
         $headquarters = $event->locations()->create(['name' => 'Headquarters']);
         $mainStage = $event->locations()->create(['name' => 'Main stage']);
         $event->locations()->create(['name' => 'Zero stock']);
-        $label = $event->entitlementItemLabels()->create(['name' => 'Artist', 'color' => 'primary']);
+        $label = $event->entitlementItemLabels()->create(['name' => 'Artist', 'color' => 'teal']);
         $item = $event->entitlementItems()->create(['name' => 'Meal voucher']);
         $item->labels()->attach($label);
         $item->adjustments()->createMany([
@@ -108,7 +108,7 @@ class EntitlementItemsTest extends TestCase
     {
         [$user, $event] = $this->createEventContext();
         $location = $event->locations()->create(['name' => 'Main stage']);
-        $label = $event->entitlementItemLabels()->create(['name' => 'Artist', 'color' => 'primary']);
+        $label = $event->entitlementItemLabels()->create(['name' => 'Artist', 'color' => 'teal']);
 
         $this->actingAs($user)->post(route('credentials.entitlements.store', $event), [
             'name' => ' Artist wristband ',
@@ -127,6 +127,24 @@ class EntitlementItemsTest extends TestCase
             'user_id' => $user->id,
         ]);
         $this->assertTrue($item->labels()->whereKey($label)->exists());
+    }
+
+    public function test_create_accepts_a_new_event_scoped_label_from_the_locked_palette(): void
+    {
+        [$user, $event] = $this->createEventContext();
+
+        $this->actingAs($user)->post(route('credentials.entitlements.store', $event), [
+            'name' => 'Parking placard',
+            'opening_balance' => 0,
+            'new_labels' => [['name' => 'Vehicle', 'color' => 'sky']],
+        ])->assertRedirect(route('credentials.entitlements'));
+
+        $this->assertDatabaseHas('entitlement_item_labels', [
+            'event_id' => $event->id,
+            'name_key' => 'vehicle',
+            'color' => 'sky',
+        ]);
+        $this->assertSame('Vehicle', EntitlementItem::query()->sole()->labels()->sole()->name);
     }
 
     public function test_adjustments_are_ledger_rows_and_cannot_overdraw(): void
@@ -285,7 +303,7 @@ class EntitlementItemsTest extends TestCase
     {
         [$user, $event] = $this->createEventContext();
         $location = $event->locations()->create(['name' => 'Main stage']);
-        $label = $event->entitlementItemLabels()->create(['name' => 'Artist', 'color' => 'primary']);
+        $label = $event->entitlementItemLabels()->create(['name' => 'Artist', 'color' => 'teal']);
         $item = $event->entitlementItems()->create(['name' => 'Guest wristband']);
         $item->adjustments()->create(['location_id' => $location->id, 'delta' => 10]);
 

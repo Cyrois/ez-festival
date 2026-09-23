@@ -15,6 +15,7 @@ use App\Models\PassType;
 use App\Models\PassTypeLabel;
 use App\Services\PassTypeService;
 use App\Support\EventContext;
+use App\Support\LabelColors;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -101,7 +102,7 @@ class PassTypeController extends Controller
         return [
             'event' => $event->only('id', 'name'),
             'labels' => PassTypeLabel::query()->orderBy('name')->get(['id', 'name', 'color']),
-            'labelColors' => PassTypeLabel::COLORS,
+            'labelColors' => LabelColors::ALL,
             'entitlementItems' => $event->entitlementItems()->orderBy('name')->get(['id', 'name']),
             'customFields' => CustomField::query()
                 ->forTarget(CustomField::TARGET_PASS)

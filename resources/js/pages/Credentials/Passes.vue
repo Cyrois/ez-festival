@@ -1,10 +1,10 @@
 <script setup>
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Button } from '../../components/ui/button';
-import { Checkbox } from '../../components/ui/checkbox';
 import { Icon } from '../../components/ui/icon';
 import { IconButton } from '../../components/ui/icon-button';
 import { Input } from '../../components/ui/input';
+import { LabelCombobox } from '../../components/ui/label-combobox';
 import {
     Table,
     TableBody,
@@ -15,7 +15,7 @@ import {
 } from '../../components/ui/table';
 import { Tag } from '../../components/ui/tag';
 import { usePage } from '@inertiajs/vue3';
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
 const props = defineProps({
@@ -27,8 +27,6 @@ const props = defineProps({
 const page = usePage();
 const search = ref('');
 const selectedLabelIds = ref([]);
-const isLabelFilterOpen = ref(false);
-const labelFilter = ref(null);
 const eventName = computed(() => page.props.activeEvent?.name ?? '');
 const breadcrumbs = computed(() => [
     { label: trans('app.name'), href: '/dashboard' },
@@ -64,32 +62,9 @@ const filteredPasses = computed(() => {
     });
 });
 
-const selectedLabelCount = computed(() => selectedLabelIds.value.length);
-const labelFilterLabel = computed(() =>
-    selectedLabelCount.value === 0
-        ? trans('credentials.passes.filters.labels')
-        : trans('credentials.passes.filters.labels_selected', {
-              count: selectedLabelCount.value,
-          }),
-);
-
 const clearLabelFilters = () => {
     selectedLabelIds.value = [];
 };
-
-const closeLabelFilter = (event) => {
-    if (!labelFilter.value?.contains(event.target)) {
-        isLabelFilterOpen.value = false;
-    }
-};
-
-onMounted(() => {
-    document.addEventListener('pointerdown', closeLabelFilter);
-});
-
-onUnmounted(() => {
-    document.removeEventListener('pointerdown', closeLabelFilter);
-});
 </script>
 
 <template>
@@ -145,58 +120,22 @@ onUnmounted(() => {
                     />
                 </div>
 
-                <div
-                    ref="labelFilter"
-                    class="relative"
-                >
-                    <Button
-                        type="button"
-                        variant="outline"
-                        :aria-expanded="isLabelFilterOpen"
-                        aria-haspopup="dialog"
-                        @click="isLabelFilterOpen = !isLabelFilterOpen"
-                    >
-                        {{ labelFilterLabel }}
-                        <Icon
-                            :name="['fas', 'chevron-down']"
-                            size="sm"
-                            :class="isLabelFilterOpen ? 'rotate-180' : ''"
-                        />
-                    </Button>
-
-                    <div
-                        v-if="isLabelFilterOpen"
-                        class="absolute z-20 mt-2 w-72 rounded-xl border border-line bg-ground p-3 shadow-toast"
-                        role="dialog"
+                <div class="w-full sm:w-72">
+                    <LabelCombobox
+                        v-model="selectedLabelIds"
+                        :labels="labels"
+                        :placeholder="$t('credentials.passes.filters.labels')"
                         :aria-label="$t('credentials.passes.filters.labels')"
-                    >
-                        <p class="m-0 text-xs text-muted">
-                            {{ $t('credentials.passes.filters.labels_hint') }}
-                        </p>
-                        <div class="mt-3 space-y-3">
-                            <Checkbox
-                                v-for="label in props.labels"
-                                :key="label.id"
-                                v-model="selectedLabelIds"
-                                :value="label.id"
-                            >
-                                <Tag
-                                    :name="label.name"
-                                    :color="label.color"
-                                />
-                            </Checkbox>
-                        </div>
-                        <div class="mt-3 border-t border-line pt-3 text-right">
-                            <button
-                                type="button"
-                                class="text-xs font-semibold text-secondary hover:underline focus-visible:ring-[3px] focus-visible:ring-primary/35 focus-visible:outline-none"
-                                @click="clearLabelFilters"
-                            >
-                                {{ $t('credentials.passes.filters.clear') }}
-                            </button>
-                        </div>
-                    </div>
+                    />
                 </div>
+                <Button
+                    v-if="selectedLabelIds.length"
+                    type="button"
+                    variant="ghost"
+                    @click="clearLabelFilters"
+                >
+                    {{ $t('credentials.passes.filters.clear') }}
+                </Button>
             </div>
 
             <Table>

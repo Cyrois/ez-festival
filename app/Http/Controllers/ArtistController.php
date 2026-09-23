@@ -17,6 +17,7 @@ use App\Models\Event;
 use App\Repositories\ArtistRepository;
 use App\Services\ArtistService;
 use App\Support\EventContext;
+use App\Support\LabelColors;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -60,7 +61,7 @@ class ArtistController extends Controller
             'types' => ArtistType::query()->orderBy('name')->get(['id', 'name']),
             'labels' => ArtistLabel::query()->orderBy('name')->get(['id', 'name', 'color']),
             'statuses' => ArtistEngagement::STATUSES,
-            'labelColors' => ArtistLabel::COLORS,
+            'labelColors' => LabelColors::ALL,
         ]);
     }
 
@@ -100,7 +101,7 @@ class ArtistController extends Controller
             'types' => ArtistType::query()->orderBy('name')->get(['id', 'name']),
             'labels' => ArtistLabel::query()->orderBy('name')->get(['id', 'name', 'color']),
             'statuses' => ArtistEngagement::STATUSES,
-            'labelColors' => ArtistLabel::COLORS,
+            'labelColors' => LabelColors::ALL,
             'passes' => $event->passTypes()->withCount('assignments')->orderBy('name')->get(['id', 'name', 'max_assignments']),
             'canWrite' => ! $event->isLocked(),
         ]);

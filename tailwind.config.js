@@ -42,6 +42,14 @@ export default {
                     soft: '#ECFCCB',
                 },
                 warning: '#CA8A04',
+                label: {
+                    teal: '#1F7A74',
+                    'soft-blue': '#3D6B8A',
+                    violet: '#7C3AED',
+                    sky: '#0284C7',
+                    rose: '#BE123C',
+                    slate: '#64748B',
+                },
             },
             borderRadius: {
                 lg: '0.5rem',

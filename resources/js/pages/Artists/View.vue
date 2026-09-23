@@ -5,13 +5,12 @@ import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import EngagementPeoplePanel from '../../components/people/EngagementPeoplePanel.vue';
 import PassAssignmentsPanel from '../../components/credentials/PassAssignmentsPanel.vue';
-import { Checkbox } from '../../components/ui/checkbox';
 import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
 import { IconButton } from '../../components/ui/icon-button';
 import { Input } from '../../components/ui/input';
+import { LabelCombobox } from '../../components/ui/label-combobox';
 import { Select } from '../../components/ui/select';
-import { Tag } from '../../components/ui/tag';
 import { Textarea } from '../../components/ui/textarea';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { toastFormErrors } from '../../lib/fieldError';
@@ -54,15 +53,14 @@ const breadcrumbs = computed(() => [
 ]);
 
 const readOnly = computed(() => !props.canWrite);
-
-const toggleLabel = (id) => {
-    if (readOnly.value || form.processing) {
-        return;
-    }
-    form.label_ids = form.label_ids.includes(id)
-        ? form.label_ids.filter((value) => value !== id)
-        : [...form.label_ids, id];
-};
+const labelError = computed(
+    () =>
+        form.errors.label_ids ||
+        Object.entries(form.errors).find(([key]) =>
+            key.startsWith('new_labels.'),
+        )?.[1] ||
+        '',
+);
 
 const submit = () => {
     if (readOnly.value) {
@@ -226,118 +224,23 @@ const formatNoteTime = (iso) => {
                                 </Select>
                             </FormField>
                         </div>
-                        <fieldset class="m-0 min-w-0 space-y-3 border-0 p-0">
-                            <legend class="mb-2 text-xs font-bold">
-                                {{ $t('artists.columns.labels') }}
-                            </legend>
-                            <p class="m-0 text-xs text-muted">
-                                {{ $t('artists.labels_hint') }}
-                            </p>
-                            <div class="flex flex-wrap gap-3">
-                                <Checkbox
-                                    v-for="label in labels"
-                                    :key="label.id"
-                                    :model-value="
-                                        form.label_ids.includes(label.id)
-                                    "
-                                    :disabled="readOnly || form.processing"
-                                    @update:model-value="toggleLabel(label.id)"
-                                >
-                                    <Tag
-                                        :name="label.name"
-                                        :color="label.color"
-                                    />
-                                </Checkbox>
-                            </div>
-                            <p
-                                v-if="form.errors.label_ids"
-                                class="text-xs text-danger"
-                                role="alert"
-                            >
-                                {{ form.errors.label_ids }}
-                            </p>
-                            <div
-                                v-for="(label, index) in form.new_labels"
-                                :key="index"
-                                class="grid items-start gap-3 rounded-lg border border-line bg-page p-3 sm:grid-cols-[1fr_10rem_auto]"
-                            >
-                                <FormField
-                                    v-slot="{ id, invalid }"
-                                    :label="$t('artists.label_name')"
-                                    :error="
-                                        form.errors[`new_labels.${index}.name`]
-                                    "
-                                >
-                                    <Input
-                                        :id="id"
-                                        v-model="label.name"
-                                        :invalid="invalid"
-                                        :disabled="readOnly || form.processing"
-                                        maxlength="255"
-                                        required
-                                    />
-                                </FormField>
-                                <FormField
-                                    v-slot="{ id, invalid }"
-                                    :label="$t('artists.label_color')"
-                                    :error="
-                                        form.errors[`new_labels.${index}.color`]
-                                    "
-                                >
-                                    <Select
-                                        :id="id"
-                                        v-model="label.color"
-                                        :invalid="invalid"
-                                        :disabled="readOnly || form.processing"
-                                    >
-                                        <option
-                                            v-for="color in labelColors"
-                                            :key="color"
-                                            :value="color"
-                                        >
-                                            {{ $t(`artists.colors.${color}`) }}
-                                        </option>
-                                    </Select>
-                                </FormField>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    class="sm:mt-5"
-                                    :aria-label="
-                                        $t('artists.remove_label', {
-                                            name: label.name,
-                                        })
-                                    "
-                                    :disabled="readOnly || form.processing"
-                                    @click="form.new_labels.splice(index, 1)"
-                                >
-                                    <Icon :name="['fas', 'trash']" />
-                                </Button>
-                            </div>
-                            <Button
-                                v-if="!readOnly"
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                :disabled="
-                                    form.processing ||
-                                    form.new_labels.length >= 20
-                                "
-                                @click="
-                                    form.new_labels.push({
-                                        name: '',
-                                        color: 'primary',
-                                    })
-                                "
-                            >
-                                <Icon
-                                    :name="['fas', 'plus']"
-                                    class="mr-2"
-                                    size="sm"
-                                />
-                                {{ $t('artists.create_label') }}
-                            </Button>
-                        </fieldset>
+                        <FormField
+                            v-slot="{ id, invalid }"
+                            :label="$t('artists.columns.labels')"
+                            :error="labelError"
+                            :hint="$t('artists.labels_hint')"
+                        >
+                            <LabelCombobox
+                                :id="id"
+                                v-model="form.label_ids"
+                                v-model:new-labels="form.new_labels"
+                                :labels="labels"
+                                :colors="labelColors"
+                                :invalid="invalid"
+                                :disabled="readOnly || form.processing"
+                                allow-create
+                            />
+                        </FormField>
                     </form>
                 </Card>
                 <Card class="flex flex-col">

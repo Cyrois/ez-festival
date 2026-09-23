@@ -6,12 +6,12 @@ import { Checkbox } from '../../components/ui/checkbox';
 import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
+import { LabelCombobox } from '../../components/ui/label-combobox';
 import { Select } from '../../components/ui/select';
-import { Tag } from '../../components/ui/tag';
 import { Textarea } from '../../components/ui/textarea';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { useForm } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
 const props = defineProps({
@@ -37,7 +37,6 @@ const form = useForm({
         ]),
     ),
 });
-const addingLabel = ref(false);
 const { showFormError } = useFlashToast();
 const breadcrumbs = computed(() => [
     { label: trans('nav.credentials'), href: '/credentials/passes' },
@@ -55,22 +54,14 @@ const pageTitle = computed(() =>
         ? trans('credentials.passes.edit_title')
         : trans('credentials.passes.create'),
 );
-
-const toggleLabel = (id) => {
-    form.label_ids = form.label_ids.includes(id)
-        ? form.label_ids.filter((value) => value !== id)
-        : [...form.label_ids, id];
-};
-
-const beginLabel = () => {
-    addingLabel.value = true;
-    form.new_labels.push({ name: '', color: 'primary' });
-};
-
-const removeLabel = (index) => {
-    form.new_labels.splice(index, 1);
-    addingLabel.value = form.new_labels.length > 0;
-};
+const labelError = computed(
+    () =>
+        form.errors.label_ids ||
+        Object.entries(form.errors).find(([key]) =>
+            key.startsWith('new_labels.'),
+        )?.[1] ||
+        '',
+);
 
 const addEntitlement = () => {
     if (props.entitlementItems[0]) {
@@ -186,119 +177,22 @@ const submit = () => {
                         <p class="mt-1 mb-4 text-xs text-muted">
                             {{ $t('credentials.passes.labels.lead') }}
                         </p>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <button
-                                v-for="label in labels"
-                                :key="label.id"
-                                type="button"
-                                class="rounded-full focus-visible:ring-[3px] focus-visible:ring-primary/35 focus-visible:outline-none"
-                                :class="
-                                    form.label_ids.includes(label.id)
-                                        ? 'ring-2 ring-primary ring-offset-2'
-                                        : ''
-                                "
-                                :aria-pressed="
-                                    form.label_ids.includes(label.id)
-                                "
-                                :disabled="form.processing"
-                                @click="toggleLabel(label.id)"
-                            >
-                                <Tag
-                                    :name="label.name"
-                                    :color="label.color"
-                                    class="cursor-pointer"
-                                />
-                            </button>
-                            <Button
-                                v-if="!addingLabel"
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                :disabled="form.processing"
-                                @click="beginLabel"
-                            >
-                                <Icon
-                                    :name="['fas', 'plus']"
-                                    size="sm"
-                                />
-                                {{ $t('credentials.passes.labels.add') }}
-                            </Button>
-                        </div>
+                        <LabelCombobox
+                            v-model="form.label_ids"
+                            v-model:new-labels="form.new_labels"
+                            :labels="labels"
+                            :colors="labelColors"
+                            :invalid="Boolean(labelError)"
+                            :disabled="form.processing"
+                            allow-create
+                        />
                         <p
-                            v-if="form.errors.label_ids"
+                            v-if="labelError"
                             class="mt-2 mb-0 text-xs text-danger"
                             role="alert"
                         >
-                            {{ form.errors.label_ids }}
+                            {{ labelError }}
                         </p>
-                        <div
-                            v-for="(label, index) in form.new_labels"
-                            :key="index"
-                            class="mt-3 grid items-start gap-3 rounded-lg border border-line bg-page p-3 sm:grid-cols-[1fr_10rem_auto]"
-                        >
-                            <FormField
-                                v-slot="{ id, invalid }"
-                                :label="$t('credentials.passes.labels.name')"
-                                :error="form.errors[`new_labels.${index}.name`]"
-                                required
-                            >
-                                <Input
-                                    :id="id"
-                                    v-model="label.name"
-                                    :invalid="invalid"
-                                    maxlength="255"
-                                    required
-                                />
-                            </FormField>
-                            <FormField
-                                v-slot="{ id, invalid }"
-                                :label="$t('credentials.passes.labels.color')"
-                                :error="
-                                    form.errors[`new_labels.${index}.color`]
-                                "
-                            >
-                                <Select
-                                    :id="id"
-                                    v-model="label.color"
-                                    :invalid="invalid"
-                                >
-                                    <option
-                                        v-for="color in labelColors"
-                                        :key="color"
-                                        :value="color"
-                                    >
-                                        {{ $t(`artists.colors.${color}`) }}
-                                    </option>
-                                </Select>
-                            </FormField>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                class="sm:mt-5"
-                                :aria-label="
-                                    $t('credentials.passes.labels.remove')
-                                "
-                                :disabled="form.processing"
-                                @click="removeLabel(index)"
-                            >
-                                <Icon :name="['fas', 'trash']" />
-                            </Button>
-                        </div>
-                        <Button
-                            v-if="addingLabel && form.new_labels.length < 20"
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            class="mt-2"
-                            :disabled="form.processing"
-                            @click="beginLabel"
-                        >
-                            <Icon
-                                :name="['fas', 'plus']"
-                                size="sm"
-                            />
-                            {{ $t('credentials.passes.labels.add_another') }}
-                        </Button>
                     </section>
 
                     <section class="mt-5 border-t border-line pt-5">

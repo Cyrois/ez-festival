@@ -3,8 +3,8 @@
 namespace App\Http\Requests\Credentials;
 
 use App\Models\CustomField;
-use App\Models\PassTypeLabel;
 use App\Support\CustomFieldValueRules;
+use App\Support\LabelColors;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
@@ -46,7 +46,7 @@ class StorePassRequest extends FormRequest
             'new_labels' => ['sometimes', 'array', 'max:20'],
             'new_labels.*' => ['array:name,color'],
             'new_labels.*.name' => ['required', 'string', 'max:255', 'distinct:ignore_case'],
-            'new_labels.*.color' => ['required', Rule::in(PassTypeLabel::COLORS)],
+            'new_labels.*.color' => ['required', Rule::in(LabelColors::ALL)],
             'entitlement_item_ids' => ['sometimes', 'array', 'max:100'],
             'entitlement_item_ids.*' => [
                 'integer',

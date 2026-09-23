@@ -10,7 +10,7 @@ class ArtistLabelFactory extends Factory
     {
         return [
             'name' => fake()->unique()->word(),
-            'color' => 'primary',
+            'color' => 'teal',
         ];
     }
 }

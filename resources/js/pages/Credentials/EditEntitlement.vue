@@ -6,10 +6,10 @@ import { CustomDropdown } from '../../components/ui/custom-dropdown';
 import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
+import { LabelCombobox } from '../../components/ui/label-combobox';
 import { Popup } from '../../components/ui/popup';
 import { Select } from '../../components/ui/select';
 import { SegmentedControl } from '../../components/ui/segmented-control';
-import { Tag } from '../../components/ui/tag';
 import {
     Table,
     TableBody,
@@ -117,14 +117,14 @@ const passUsage = computed(() =>
         )
         .join(', '),
 );
-
-const toggleLabel = (id) => {
-    if (props.is_read_only) return;
-
-    form.label_ids = form.label_ids.includes(id)
-        ? form.label_ids.filter((value) => value !== id)
-        : [...form.label_ids, id];
-};
+const labelError = computed(
+    () =>
+        form.errors.label_ids ||
+        Object.entries(form.errors).find(([key]) =>
+            key.startsWith('new_labels.'),
+        )?.[1] ||
+        '',
+);
 
 const submit = () => {
     form.put(
@@ -230,129 +230,21 @@ const formatWhen = (value) =>
                         </template>
                     </FormField>
 
-                    <fieldset class="mt-5 min-w-0 border-0 p-0">
-                        <legend class="mb-2 text-xs font-bold text-charcoal">
-                            {{ $t('credentials.entitlements.labels.title') }}
-                        </legend>
-                        <div class="flex flex-wrap gap-2">
-                            <button
-                                v-for="label in labels"
-                                :key="label.id"
-                                type="button"
-                                class="rounded-full focus-visible:ring-[3px] focus-visible:ring-primary/35 focus-visible:outline-none disabled:cursor-default"
-                                :class="
-                                    form.label_ids.includes(label.id)
-                                        ? 'ring-2 ring-primary ring-offset-2'
-                                        : 'opacity-60'
-                                "
-                                :aria-pressed="
-                                    form.label_ids.includes(label.id)
-                                "
-                                :disabled="is_read_only || form.processing"
-                                @click="toggleLabel(label.id)"
-                            >
-                                <Tag
-                                    :name="label.name"
-                                    :color="label.color"
-                                />
-                            </button>
-                        </div>
-                        <p
-                            v-if="form.errors.label_ids"
-                            class="mt-2 mb-0 text-xs text-danger"
-                            role="alert"
-                        >
-                            {{ form.errors.label_ids }}
-                        </p>
-
-                        <div
-                            v-for="(label, index) in form.new_labels"
-                            :key="index"
-                            class="mt-3 grid items-start gap-3 rounded-lg border border-line bg-page p-3 sm:grid-cols-[1fr_10rem_auto]"
-                        >
-                            <FormField
-                                v-slot="{ id, invalid }"
-                                :label="
-                                    $t('credentials.entitlements.labels.name')
-                                "
-                                :error="form.errors[`new_labels.${index}.name`]"
-                            >
-                                <Input
-                                    :id="id"
-                                    v-model="label.name"
-                                    :invalid="invalid"
-                                    :disabled="form.processing"
-                                    maxlength="255"
-                                    required
-                                />
-                            </FormField>
-                            <FormField
-                                v-slot="{ id, invalid }"
-                                :label="
-                                    $t('credentials.entitlements.labels.color')
-                                "
-                                :error="
-                                    form.errors[`new_labels.${index}.color`]
-                                "
-                            >
-                                <Select
-                                    :id="id"
-                                    v-model="label.color"
-                                    :invalid="invalid"
-                                    :disabled="form.processing"
-                                >
-                                    <option
-                                        v-for="color in labelColors"
-                                        :key="color"
-                                        :value="color"
-                                    >
-                                        {{
-                                            $t(
-                                                `credentials.entitlements.labels.colors.${color}`,
-                                            )
-                                        }}
-                                    </option>
-                                </Select>
-                            </FormField>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                class="sm:mt-5"
-                                :aria-label="
-                                    $t(
-                                        'credentials.entitlements.labels.remove',
-                                        { name: label.name },
-                                    )
-                                "
-                                :disabled="form.processing"
-                                @click="form.new_labels.splice(index, 1)"
-                            >
-                                <Icon :name="['fas', 'trash']" />
-                            </Button>
-                        </div>
-                        <Button
-                            v-if="!is_read_only"
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            class="mt-3"
-                            :disabled="
-                                form.processing || form.new_labels.length >= 20
-                            "
-                            @click="
-                                form.new_labels.push({
-                                    name: '',
-                                    color: 'primary',
-                                })
-                            "
-                        >
-                            <Icon
-                                :name="['fas', 'plus']"
-                                size="sm"
-                            />
-                            {{ $t('credentials.entitlements.labels.add') }}
-                        </Button>
-                    </fieldset>
+                    <FormField
+                        class="mt-5"
+                        :label="$t('credentials.entitlements.labels.title')"
+                        :error="labelError"
+                    >
+                        <LabelCombobox
+                            v-model="form.label_ids"
+                            v-model:new-labels="form.new_labels"
+                            :labels="labels"
+                            :colors="labelColors"
+                            :invalid="Boolean(labelError)"
+                            :disabled="is_read_only || form.processing"
+                            allow-create
+                        />
+                    </FormField>
 
                     <p class="mt-5 mb-0 text-xs text-muted">
                         {{

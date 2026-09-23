@@ -3,10 +3,10 @@ import AppLayout from '../../layouts/AppLayout.vue';
 import { Avatar } from '../../components/ui/avatar';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
-import { Checkbox } from '../../components/ui/checkbox';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
+import { LabelCombobox } from '../../components/ui/label-combobox';
 import { SegmentedControl } from '../../components/ui/segmented-control';
 import { Tag } from '../../components/ui/tag';
 import {
@@ -18,7 +18,7 @@ import {
     TableRow,
 } from '../../components/ui/table';
 import { Link, router } from '@inertiajs/vue3';
-import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
 const props = defineProps({
@@ -29,8 +29,6 @@ const props = defineProps({
 });
 const search = ref(props.filters.search);
 const selectedLabels = ref([...props.filters.labels]);
-const filterOpen = ref(false);
-const filterRoot = ref(null);
 const busy = ref(false);
 const viewMode = ref('list');
 const selected = computed(() =>
@@ -95,26 +93,11 @@ watch(viewMode, (value) => {
         viewMode.value = 'list';
     }
 });
-const onDocumentClick = (event) => {
-    if (
-        filterOpen.value &&
-        filterRoot.value &&
-        !filterRoot.value.contains(event.target)
-    ) {
-        filterOpen.value = false;
-    }
-};
-onMounted(() => {
-    document.addEventListener('click', onDocumentClick);
-});
 onUnmounted(() => {
     clearTimeout(searchTimer);
-    document.removeEventListener('click', onDocumentClick);
 });
-const toggleLabel = (id) => {
-    selectedLabels.value = selectedLabels.value.includes(id)
-        ? selectedLabels.value.filter((value) => value !== id)
-        : [...selectedLabels.value, id];
+const updateLabelFilters = (labels) => {
+    selectedLabels.value = labels;
     applyFilters();
 };
 const clearFilters = () => {
@@ -186,62 +169,15 @@ const clearFilters = () => {
                         maxlength="255"
                     />
                 </form>
-                <div
-                    ref="filterRoot"
-                    class="relative"
-                >
-                    <Button
-                        variant="outline"
+                <div class="w-full sm:w-72">
+                    <LabelCombobox
+                        :model-value="selectedLabels"
+                        :labels="labels"
+                        :placeholder="$t('artists.filter_labels')"
                         class="min-h-11"
-                        :aria-expanded="filterOpen"
-                        aria-controls="artist-label-filter"
-                        @click.stop="filterOpen = !filterOpen"
-                    >
-                        {{ $t('artists.columns.labels') }}
-                        <span
-                            v-if="selectedLabels.length"
-                            class="ml-2 text-primary"
-                            >{{ selectedLabels.length }}</span
-                        >
-                        <Icon
-                            :name="['fas', 'chevron-down']"
-                            size="sm"
-                            class="ml-2"
-                        />
-                    </Button>
-                    <div
-                        v-if="filterOpen"
-                        id="artist-label-filter"
-                        class="absolute top-full left-0 z-20 mt-2 w-64 rounded-lg border border-line bg-ground p-3 shadow-lg"
-                        @keydown.esc="filterOpen = false"
-                        @click.stop
-                    >
-                        <p class="mt-0 mb-2 text-xs text-muted">
-                            {{ $t('artists.filter_hint') }}
-                        </p>
-                        <div
-                            class="flex max-h-64 flex-col gap-2 overflow-y-auto"
-                        >
-                            <Checkbox
-                                v-for="label in labels"
-                                :key="label.id"
-                                :model-value="selectedLabels.includes(label.id)"
-                                class="min-h-5"
-                                @update:model-value="toggleLabel(label.id)"
-                            >
-                                <Tag
-                                    :name="label.name"
-                                    :color="label.color"
-                                />
-                            </Checkbox>
-                            <p
-                                v-if="!labels.length"
-                                class="m-0 text-sm text-muted"
-                            >
-                                {{ $t('artists.labels_empty') }}
-                            </p>
-                        </div>
-                    </div>
+                        :aria-label="$t('artists.filter_labels')"
+                        @update:model-value="updateLabelFilters"
+                    />
                 </div>
                 <Button
                     v-if="search || selectedLabels.length"
@@ -273,7 +209,13 @@ const clearFilters = () => {
                     :aria-label="
                         $t('artists.remove_label', { name: label.name })
                     "
-                    @click="toggleLabel(label.id)"
+                    @click="
+                        updateLabelFilters(
+                            selectedLabels.filter(
+                                (value) => value !== label.id,
+                            ),
+                        )
+                    "
                 >
                     <Tag
                         :name="label.name"

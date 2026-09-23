@@ -23,7 +23,7 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('name_key')->unique();
-            $table->string('color')->default('neutral');
+            $table->string('color')->default('slate');
             $table->timestamps();
         });
 
