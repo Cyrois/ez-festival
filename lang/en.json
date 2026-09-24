@@ -329,7 +329,7 @@
     "team.forms.title": "Team forms",
     "team.forms.empty.title": "Team forms are coming soon",
     "team.forms.empty.description": "Create and manage team forms from this workspace.",
-    "team.configure.title": "Configure team",
+    "team.configure.title": "Configure",
     "team.configure.lead": "Set up operational groups for :event. Groups are separate from shift locations and shift roles.",
     "team.configure.locked": "This event is locked. Groups are read-only.",
     "team.configure.groups.add": "New group",
