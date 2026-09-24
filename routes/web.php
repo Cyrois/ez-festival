@@ -9,7 +9,6 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Credentials\EntitlementItemController;
 use App\Http\Controllers\Credentials\PassTypeController;
 use App\Http\Controllers\Credentials\ProductsController;
-use App\Http\Controllers\CrewController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\PassAssignmentController;
@@ -29,6 +28,10 @@ use App\Http\Controllers\Setup\EventController as SetupEventController;
 use App\Http\Controllers\Setup\LocationController;
 use App\Http\Controllers\Setup\ReadyController;
 use App\Http\Controllers\Setup\VendorTypeController;
+use App\Http\Controllers\Team\AdvancementController as TeamAdvancementController;
+use App\Http\Controllers\Team\ConfigureController as TeamConfigureController;
+use App\Http\Controllers\Team\FormsController as TeamFormsController;
+use App\Http\Controllers\Team\SchedulingController as TeamSchedulingController;
 use App\Http\Controllers\UiKitController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\VendorEngagementPersonController;
@@ -93,9 +96,12 @@ Route::middleware('auth')->group(function () {
         Route::get('patrons', [PatronController::class, 'index'])
             ->middleware('feature:patrons')
             ->name('patrons.index');
-        Route::get('crew', [CrewController::class, 'index'])
-            ->middleware('feature:crew')
-            ->name('crew.index');
+        Route::middleware('feature:team')->prefix('team')->name('team.')->group(function () {
+            Route::get('advancement', [TeamAdvancementController::class, 'index'])->name('advancement');
+            Route::get('scheduling', [TeamSchedulingController::class, 'index'])->name('scheduling');
+            Route::get('forms', [TeamFormsController::class, 'index'])->name('forms');
+            Route::get('configure', [TeamConfigureController::class, 'index'])->name('configure');
+        });
 
         Route::get('credentials/passes', [PassTypeController::class, 'index'])
             ->name('credentials.passes');

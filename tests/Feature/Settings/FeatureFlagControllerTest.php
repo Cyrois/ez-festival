@@ -27,7 +27,7 @@ class FeatureFlagControllerTest extends TestCase
         $featureFlags = app(FeatureFlagService::class);
 
         $this->assertTrue($featureFlags->enabled('patrons'));
-        $this->assertTrue($featureFlags->enabled('crew'));
+        $this->assertTrue($featureFlags->enabled('team'));
         $this->assertDatabaseCount('app_config', 0);
     }
 
@@ -62,12 +62,12 @@ class FeatureFlagControllerTest extends TestCase
     {
         $user = $this->userWithCompletedSetup();
 
-        $this->actingAs($user)->put(route('settings.feature-flags.update', 'crew'), [
+        $this->actingAs($user)->put(route('settings.feature-flags.update', 'team'), [
             'enabled' => false,
         ])->assertRedirect();
 
         $this->assertDatabaseHas('app_config', [
-            'key' => 'crew',
+            'key' => 'team',
             'enabled' => false,
             'updated_by_user_id' => $user->id,
         ]);
@@ -91,9 +91,10 @@ class FeatureFlagControllerTest extends TestCase
             'key' => 'patrons',
             'enabled' => false,
         ]);
-        app(FeatureFlagService::class)->set('crew', true, $user);
+        app(FeatureFlagService::class)->set('team', false, $user);
 
         $this->actingAs($user)->get(route('patrons.index'))->assertNotFound();
+        $this->actingAs($user)->get(route('team.advancement'))->assertNotFound();
     }
 
     private function userWithCompletedSetup(): User

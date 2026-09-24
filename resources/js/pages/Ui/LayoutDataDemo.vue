@@ -96,8 +96,8 @@ const viewOptions = [
                 <Tab value="vendors">
                     {{ $t('ui.demo.tab.vendors') }}
                 </Tab>
-                <Tab value="crew">
-                    {{ $t('ui.demo.tab.crew') }}
+                <Tab value="team">
+                    {{ $t('ui.demo.tab.team') }}
                 </Tab>
             </TabList>
             <TabPanel value="artists">
@@ -106,8 +106,8 @@ const viewOptions = [
             <TabPanel value="vendors">
                 {{ $t('ui.demo.tab.vendors_body') }}
             </TabPanel>
-            <TabPanel value="crew">
-                {{ $t('ui.demo.tab.crew_body') }}
+            <TabPanel value="team">
+                {{ $t('ui.demo.tab.team_body') }}
             </TabPanel>
         </Tabs>
     </section>

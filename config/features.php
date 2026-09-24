@@ -6,9 +6,9 @@ return [
         'label' => 'settings.feature_flags.flags.patrons.label',
         'description' => 'settings.feature_flags.flags.patrons.description',
     ],
-    'crew' => [
+    'team' => [
         'default' => true,
-        'label' => 'settings.feature_flags.flags.crew.label',
-        'description' => 'settings.feature_flags.flags.crew.description',
+        'label' => 'settings.feature_flags.flags.team.label',
+        'description' => 'settings.feature_flags.flags.team.description',
     ],
 ];
