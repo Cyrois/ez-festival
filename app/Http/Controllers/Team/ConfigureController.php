@@ -27,7 +27,11 @@ class ConfigureController extends Controller
             ->withCount('teamEngagements')
             ->when(
                 $search !== '',
-                fn ($query) => $query->whereRaw("lower(name) like ? escape '!'", [$searchPattern]),
+                fn ($query) => $query->where(
+                    fn ($searchQuery) => $searchQuery
+                        ->whereRaw("lower(name) like ? escape '!'", [$searchPattern])
+                        ->orWhereRaw("lower(description) like ? escape '!'", [$searchPattern]),
+                ),
             )
             ->orderBy('name')
             ->paginate(25)
@@ -35,6 +39,7 @@ class ConfigureController extends Controller
             ->through(fn (Group $group): array => [
                 'id' => $group->id,
                 'name' => $group->name,
+                'description' => $group->description,
                 'team_engagements_count' => $group->team_engagements_count,
             ]);
 

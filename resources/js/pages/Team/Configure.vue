@@ -4,6 +4,7 @@ import { Dialog } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
+import { Textarea } from '../../components/ui/textarea';
 import {
     Table,
     TableBody,
@@ -32,7 +33,7 @@ const editorOpen = ref(false);
 const editing = ref(null);
 const deleting = ref(null);
 const deleteBusy = ref(false);
-const groupForm = useForm({ name: '' });
+const groupForm = useForm({ name: '', description: '' });
 let searchTimer;
 
 const canWrite = computed(() => props.canManage && !props.event.is_locked);
@@ -67,6 +68,7 @@ const openCreate = () => {
 const openEdit = (group) => {
     editing.value = group;
     groupForm.name = group.name;
+    groupForm.description = group.description ?? '';
     groupForm.clearErrors();
     editorOpen.value = true;
 };
@@ -224,6 +226,13 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                             </TableHead>
                             <TableHead>
                                 {{
+                                    $t(
+                                        'team.configure.groups.columns.description',
+                                    )
+                                }}
+                            </TableHead>
+                            <TableHead>
+                                {{
                                     $t('team.configure.groups.columns.members')
                                 }}
                             </TableHead>
@@ -241,6 +250,12 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                         >
                             <TableCell>
                                 <strong>{{ group.name }}</strong>
+                            </TableCell>
+                            <TableCell class="text-muted">
+                                {{
+                                    group.description ||
+                                    $t('team.configure.groups.no_description')
+                                }}
                             </TableCell>
                             <TableCell>
                                 {{
@@ -301,7 +316,7 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                         </TableRow>
                         <TableRow v-if="groups.data.length === 0">
                             <TableCell
-                                colspan="3"
+                                colspan="4"
                                 class="py-10 text-center text-muted"
                             >
                                 {{
@@ -365,6 +380,25 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                             "
                             :invalid="invalid"
                             autocomplete="off"
+                        />
+                    </template>
+                </FormField>
+                <FormField
+                    :label="$t('team.configure.groups.description')"
+                    :error="fieldError(groupForm, 'description')"
+                    class="mt-4"
+                >
+                    <template #default="{ id, invalid }">
+                        <Textarea
+                            :id="id"
+                            v-model="groupForm.description"
+                            :placeholder="
+                                $t(
+                                    'team.configure.groups.description_placeholder',
+                                )
+                            "
+                            :invalid="invalid"
+                            rows="3"
                         />
                     </template>
                 </FormField>

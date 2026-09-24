@@ -25,6 +25,7 @@ class StoreGroupRequest extends FormRequest
                 'max:255',
                 Rule::unique('groups')->where('event_id', $this->route('event')->id),
             ],
+            'description' => ['nullable', 'string', 'max:1000'],
         ];
     }
 }

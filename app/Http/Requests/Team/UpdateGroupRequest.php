@@ -31,6 +31,7 @@ class UpdateGroupRequest extends FormRequest
                     ->where('event_id', $this->route('event')->id)
                     ->ignore($group),
             ],
+            'description' => ['nullable', 'string', 'max:1000'],
         ];
     }
 }

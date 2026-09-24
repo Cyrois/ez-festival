@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -24,10 +25,19 @@ class TeamGroupsTest extends TestCase
         $this->withoutVite();
     }
 
+    public function test_groups_have_an_optional_description_column(): void
+    {
+        $this->assertTrue(Schema::hasColumn('groups', 'description'));
+    }
+
     public function test_configure_lists_paginated_event_groups_with_member_counts(): void
     {
         [$user, $event] = $this->userWithCompletedSetup();
-        $group = Group::query()->create(['event_id' => $event->id, 'name' => 'Parking']);
+        $group = Group::query()->create([
+            'event_id' => $event->id,
+            'name' => 'Parking',
+            'description' => 'Lot and shuttle operations',
+        ]);
         $engagement = $this->engagement($event, 'Taylor Team');
         $engagement->update(['group_id' => $group->id]);
 
@@ -36,25 +46,39 @@ class TeamGroupsTest extends TestCase
                 ->component('Team/Configure')
                 ->where('event.id', $event->id)
                 ->where('groups.data.0.name', 'Parking')
+                ->where('groups.data.0.description', 'Lot and shuttle operations')
                 ->where('groups.data.0.team_engagements_count', 1)
                 ->where('filters.search', '')
                 ->where('canManage', true),
         );
     }
 
-    public function test_configure_searches_group_names_case_insensitively(): void
+    public function test_configure_searches_group_names_and_descriptions_case_insensitively(): void
     {
         [$user, $event] = $this->userWithCompletedSetup();
-        Group::query()->create(['event_id' => $event->id, 'name' => 'Parking']);
-        Group::query()->create(['event_id' => $event->id, 'name' => 'Kitchen']);
+        Group::query()->create([
+            'event_id' => $event->id,
+            'name' => 'Parking',
+            'description' => 'Lot and shuttle operations',
+        ]);
+        Group::query()->create([
+            'event_id' => $event->id,
+            'name' => 'Kitchen',
+            'description' => 'Meal preparation and service',
+        ]);
+        Group::query()->create([
+            'event_id' => $this->event('Other Festival')->id,
+            'name' => 'Foreign Kitchen',
+            'description' => 'Meal service',
+        ]);
 
         $this->actingAs($user)
-            ->get(route('team.configure', ['search' => 'PARK']))
+            ->get(route('team.configure', ['search' => 'MEAL']))
             ->assertInertia(
                 fn (Assert $page) => $page
-                    ->where('filters.search', 'PARK')
+                    ->where('filters.search', 'MEAL')
                     ->has('groups.data', 1)
-                    ->where('groups.data.0.name', 'Parking'),
+                    ->where('groups.data.0.name', 'Kitchen'),
             );
     }
 
@@ -64,18 +88,21 @@ class TeamGroupsTest extends TestCase
 
         $this->actingAs($user)->post(route('team.groups.store', $event), [
             'name' => 'Parking',
+            'description' => 'Lot and shuttle operations',
         ])->assertRedirect(route('team.configure'));
 
         $group = Group::query()->where('event_id', $event->id)->sole();
 
         $this->actingAs($user)->put(route('team.groups.update', [$event, $group]), [
             'name' => 'Site Operations',
+            'description' => 'Parking, gates, and site logistics',
         ])->assertRedirect(route('team.configure'));
 
         $this->assertDatabaseHas('groups', [
             'id' => $group->id,
             'event_id' => $event->id,
             'name' => 'Site Operations',
+            'description' => 'Parking, gates, and site logistics',
         ]);
 
         $this->actingAs($user)
@@ -97,6 +124,27 @@ class TeamGroupsTest extends TestCase
         $this->actingAs($user)->post(route('team.groups.store', $event), [
             'name' => 'Kitchen',
         ])->assertSessionHasErrors('name');
+    }
+
+    public function test_group_description_is_optional_and_limited(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+
+        $this->actingAs($user)->post(route('team.groups.store', $event), [
+            'name' => 'Parking',
+            'description' => str_repeat('x', 1001),
+        ])->assertSessionHasErrors('description');
+
+        $this->actingAs($user)->post(route('team.groups.store', $event), [
+            'name' => 'Kitchen',
+            'description' => null,
+        ])->assertSessionDoesntHaveErrors();
+
+        $this->assertDatabaseHas('groups', [
+            'event_id' => $event->id,
+            'name' => 'Kitchen',
+            'description' => null,
+        ]);
     }
 
     public function test_group_with_assigned_members_cannot_be_deleted(): void
