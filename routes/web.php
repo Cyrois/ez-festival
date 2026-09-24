@@ -60,9 +60,14 @@ Route::middleware('auth')->group(function () {
     Route::middleware(['organization', 'setup.complete'])->group(function () {
         Route::get('dashboard', DashboardController::class)->name('dashboard');
 
+        Route::get('check-in', [ArtistCheckInController::class, 'index'])->name('check-in.index');
+        Route::get('check-in/artists/{engagement}', [ArtistCheckInController::class, 'show'])->name('check-in.show');
+        Route::post('check-in/expected-entitlements/{expectedEntitlement}/issues', [ArtistCheckInController::class, 'store'])
+            ->middleware('event.writable')->name('check-in.issues.store');
+
         Route::get('artists/advancing', [ArtistController::class, 'index'])->name('artists.index');
-        Route::get('artists/check-in', [ArtistCheckInController::class, 'index'])->name('artists.check-in');
-        Route::get('artists/check-in/{engagement}', [ArtistCheckInController::class, 'show'])->name('artists.check-in.show');
+        Route::redirect('artists/check-in', '/check-in')->name('artists.check-in');
+        Route::redirect('artists/check-in/{engagement}', '/check-in/artists/{engagement}')->name('artists.check-in.show');
         Route::post('artists/check-in/expected-entitlements/{expectedEntitlement}/issues', [ArtistCheckInController::class, 'store'])
             ->middleware('event.writable')->name('artists.check-in.issues.store');
         Route::get('artists/create', [ArtistController::class, 'create'])->name('artists.create');
@@ -127,7 +132,7 @@ Route::middleware('auth')->group(function () {
 
         Route::redirect('vendors', '/vendors/advancing')->name('vendors.index');
         Route::get('vendors/advancing', [VendorController::class, 'index'])->name('vendors.advancing');
-        Route::get('vendors/check-in', [VendorController::class, 'checkIn'])->name('vendors.check-in');
+        Route::redirect('vendors/check-in', '/check-in?type=vendor')->name('vendors.check-in');
         Route::get('vendors/engagements/{engagement}', [VendorController::class, 'view'])->name('vendors.view');
         Route::put('vendors/engagements/{engagement}', [VendorController::class, 'update'])
             ->middleware('event.writable')->name('vendors.update');

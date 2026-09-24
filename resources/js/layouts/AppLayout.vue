@@ -55,40 +55,22 @@ const navItems = computed(() => [
         enabled: true,
     },
     {
+        key: 'check_in',
+        href: '/check-in',
+        icon: ['fas', 'clipboard-check'],
+        enabled: true,
+    },
+    {
         key: 'artists',
         href: '/artists/advancing',
         icon: ['fas', 'music'],
         enabled: true,
-        children: [
-            {
-                key: 'artists.advancing',
-                href: '/artists/advancing',
-                enabled: true,
-            },
-            {
-                key: 'artists.check_in',
-                href: '/artists/check-in',
-                enabled: true,
-            },
-        ],
     },
     {
         key: 'vendors',
-        href: null,
+        href: '/vendors/advancing',
         icon: ['fas', 'store'],
         enabled: true,
-        children: [
-            {
-                key: 'vendors.advancing',
-                href: '/vendors/advancing',
-                enabled: true,
-            },
-            {
-                key: 'vendors.check_in',
-                href: '/vendors/check-in',
-                enabled: true,
-            },
-        ],
     },
     {
         key: 'patrons',
@@ -151,6 +133,14 @@ const isActive = (href) => {
             currentPath.value === href ||
             currentPath.value === '/artists/create' ||
             currentPath.value.startsWith('/artists/engagements/')
+        );
+    }
+
+    if (href === '/vendors/advancing') {
+        return (
+            currentPath.value === href ||
+            currentPath.value === '/vendors/create' ||
+            currentPath.value.startsWith('/vendors/engagements/')
         );
     }
 

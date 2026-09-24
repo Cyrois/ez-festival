@@ -5,13 +5,16 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Artists\ConsumeArtistEntitlementRequest;
 use App\Http\Requests\Artists\IndexArtistCheckInRequest;
 use App\Http\Requests\Artists\ViewArtistCheckInRequest;
-use App\Http\Resources\ArtistCheckInListResource;
 use App\Http\Resources\ArtistCheckInShowResource;
+use App\Http\Resources\CheckInPersonResource;
 use App\Models\ArtistEngagement;
 use App\Models\ExpectedEntitlement;
 use App\Services\EntitlementConsumeService;
 use App\Support\EventContext;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -22,21 +25,37 @@ class ArtistCheckInController extends Controller
     public function index(IndexArtistCheckInRequest $request): Response
     {
         $event = $this->eventContext->requireCurrent($request->user());
-        $held = 'exists (select 1 from artist_engagement_people aep where aep.artist_engagement_id = pass_assignments.artist_engagement_id and aep.person_id = pass_assignments.person_id)';
-        $expected = "(select count(*) from expected_entitlements ee join pass_assignments on pass_assignments.id = ee.pass_assignment_id where pass_assignments.artist_engagement_id = artist_engagements.id and pass_assignments.person_id is not null and {$held})";
-        $issued = "(select count(*) from issued_entitlements ie join expected_entitlements ee on ee.id = ie.expected_entitlement_id join pass_assignments on pass_assignments.id = ee.pass_assignment_id where pass_assignments.artist_engagement_id = artist_engagements.id and pass_assignments.person_id is not null and {$held})";
+        $filters = $request->validated();
+        $type = $filters['type'] ?? 'all';
+        $status = $filters['status'] ?? 'all';
+        $passId = isset($filters['pass']) ? (int) $filters['pass'] : null;
+        $search = trim($filters['search'] ?? '');
 
-        $engagements = ArtistEngagement::query()
-            ->where('event_id', $event->id)
-            ->where('status', 'confirmed')
-            ->select('artist_engagements.*')
-            ->selectRaw("{$expected} as expected_count, {$issued} as issued_count")
-            ->with(['artist', 'people' => fn ($query) => $query->orderByDesc('artist_engagement_people.is_primary')->orderBy('people.name')])
-            ->orderByRaw('(select lower(name) from artists where artists.id = artist_engagements.artist_id)')
-            ->get();
+        $rows = in_array($type, ['all', 'artist'], true)
+            ? $this->artistRows($event->id, $passId)
+            : collect();
 
-        return Inertia::render('Artists/CheckIn', [
-            'engagements' => ArtistCheckInListResource::collection($engagements)->resolve(),
+        if ($search !== '') {
+            $needle = Str::lower($search);
+            $rows = $rows->filter(fn (array $row): bool => Str::contains(
+                Str::lower(implode(' ', $row['searchable'])),
+                $needle,
+            ));
+        }
+
+        if ($status !== 'all') {
+            $rows = $rows->where('check_in_status', $status);
+        }
+
+        return Inertia::render('CheckIn/Index', [
+            'people' => CheckInPersonResource::collection($rows->values())->resolve(),
+            'passes' => $event->passTypes()->orderBy('name')->get(['id', 'name']),
+            'filters' => [
+                'type' => $type,
+                'pass' => $passId,
+                'status' => $status,
+                'search' => $search,
+            ],
             'event' => $event->only('id', 'name', 'locked', 'timezone'),
         ]);
     }
@@ -53,11 +72,15 @@ class ArtistCheckInController extends Controller
             'passAssignments.expectedEntitlements.entitlementItem.adjustments.location',
             'passAssignments.expectedEntitlements.issuedEntitlement.location',
         ]);
+        $requestedPersonId = $request->integer('person');
 
         return Inertia::render('Artists/CheckInShow', [
             'engagement' => (new ArtistCheckInShowResource($engagement))->resolve(),
             'event' => $event->only('id', 'name', 'locked', 'timezone'),
             'canWrite' => ! $event->isLocked(),
+            'selectedPersonId' => $engagement->people->contains('id', $requestedPersonId)
+                ? $requestedPersonId
+                : null,
         ]);
     }
 
@@ -76,5 +99,65 @@ class ArtistCheckInController extends Controller
         $consume->consume($expectedEntitlement, $request->user(), (int) $data['location_id'], $data['code'] ?? null);
 
         return back()->with('success', __('artists.check_in.toast.consumed'));
+    }
+
+    /** @return Collection<int, array<string, mixed>> */
+    private function artistRows(int $eventId, ?int $passId): Collection
+    {
+        $engagements = ArtistEngagement::query()
+            ->where('event_id', $eventId)
+            ->where('status', 'confirmed')
+            ->whereHas('passAssignments', fn ($query) => $query->whereNotNull('person_id'))
+            ->with([
+                'artist:id,name',
+                'people' => fn ($query) => $query->orderBy('people.name'),
+                'passAssignments' => fn ($query) => $query
+                    ->whereNotNull('person_id')
+                    ->with(['passType:id,name', 'expectedEntitlements.issuedEntitlement']),
+            ])
+            ->get();
+
+        return $engagements->flatMap(function (ArtistEngagement $engagement) use ($passId): Collection {
+            return $engagement->people->map(function ($person) use ($engagement, $passId): ?array {
+                $assignments = $engagement->passAssignments
+                    ->where('person_id', $person->id)
+                    ->when($passId, fn (Collection $rows) => $rows->where('pass_type_id', $passId));
+
+                if ($assignments->isEmpty()) {
+                    return null;
+                }
+
+                $entitlements = $assignments->flatMap->expectedEntitlements;
+                $expected = $entitlements->count();
+                $issued = $entitlements->filter->issuedEntitlement->count();
+                $checkInStatus = match (true) {
+                    $expected === 0, $issued >= $expected => 'complete',
+                    $issued === 0 => 'not_started',
+                    default => 'partial',
+                };
+                $passes = $assignments->pluck('passType.name')->filter()->unique()->values();
+                $codes = $entitlements->pluck('issuedEntitlement.code')->filter()->values();
+
+                return [
+                    'person_id' => $person->id,
+                    'engagement_id' => $engagement->id,
+                    'name' => $person->name,
+                    'subtitle' => $person->email,
+                    'type' => 'artist',
+                    'context' => $engagement->artist->name,
+                    'pass_name' => $passes->join(', '),
+                    'issued' => $issued,
+                    'expected' => $expected,
+                    'check_in_status' => $checkInStatus,
+                    'can_edit' => Gate::allows('manage-artists'),
+                    'searchable' => collect([$person->name, $person->email, $engagement->artist->name])
+                        ->merge($passes)
+                        ->merge($codes)
+                        ->filter()
+                        ->values()
+                        ->all(),
+                ];
+            })->filter();
+        })->sortBy(fn (array $row) => Str::lower($row['name']))->values();
     }
 }
