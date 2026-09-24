@@ -3,36 +3,39 @@
 namespace App\Http\Controllers\Team;
 
 use App\Http\Controllers\Controller;
-use App\Models\TeamEngagement;
+use App\Http\Requests\Team\IndexGroupsRequest;
+use App\Models\Group;
 use App\Support\EventContext;
-use Illuminate\Http\Request;
+use App\Support\SqlLike;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ConfigureController extends Controller
 {
-    public function index(Request $request, EventContext $eventContext): Response
+    public function index(IndexGroupsRequest $request, EventContext $eventContext): Response
     {
         Gate::authorize('view-team');
 
         $event = $eventContext->requireCurrent($request->user());
 
-        $members = TeamEngagement::query()
-            ->where('event_id', $event->id)
-            ->with(['person:id,name,email', 'group:id,name'])
-            ->orderBy('id')
+        $filters = $request->validated();
+        $search = trim($filters['search'] ?? '');
+        $searchPattern = '%'.SqlLike::escape(mb_strtolower($search)).'%';
+
+        $groups = $event->groups()
+            ->withCount('teamEngagements')
+            ->when(
+                $search !== '',
+                fn ($query) => $query->whereRaw("lower(name) like ? escape '!'", [$searchPattern]),
+            )
+            ->orderBy('name')
             ->paginate(25)
             ->withQueryString()
-            ->through(fn (TeamEngagement $engagement): array => [
-                'id' => $engagement->id,
-                'person' => [
-                    'id' => $engagement->person->id,
-                    'name' => $engagement->person->name,
-                    'email' => $engagement->person->email,
-                ],
-                'group_id' => $engagement->group_id,
-                'group_name' => $engagement->group?->name,
+            ->through(fn (Group $group): array => [
+                'id' => $group->id,
+                'name' => $group->name,
+                'team_engagements_count' => $group->team_engagements_count,
             ]);
 
         return Inertia::render('Team/Configure', [
@@ -41,11 +44,8 @@ class ConfigureController extends Controller
                 'name' => $event->name,
                 'is_locked' => $event->isLocked(),
             ],
-            'groups' => $event->groups()
-                ->withCount('teamEngagements')
-                ->orderBy('name')
-                ->get(['id', 'name']),
-            'members' => $members,
+            'groups' => $groups,
+            'filters' => ['search' => $search],
             'canManage' => Gate::allows('manage-team'),
         ]);
     }

@@ -24,7 +24,7 @@ class TeamGroupsTest extends TestCase
         $this->withoutVite();
     }
 
-    public function test_configure_lists_event_groups_and_paginated_members(): void
+    public function test_configure_lists_paginated_event_groups_with_member_counts(): void
     {
         [$user, $event] = $this->userWithCompletedSetup();
         $group = Group::query()->create(['event_id' => $event->id, 'name' => 'Parking']);
@@ -35,12 +35,27 @@ class TeamGroupsTest extends TestCase
             fn (Assert $page) => $page
                 ->component('Team/Configure')
                 ->where('event.id', $event->id)
-                ->where('groups.0.name', 'Parking')
-                ->where('groups.0.team_engagements_count', 1)
-                ->where('members.data.0.person.name', 'Taylor Team')
-                ->where('members.data.0.group_id', $group->id)
+                ->where('groups.data.0.name', 'Parking')
+                ->where('groups.data.0.team_engagements_count', 1)
+                ->where('filters.search', '')
                 ->where('canManage', true),
         );
+    }
+
+    public function test_configure_searches_group_names_case_insensitively(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        Group::query()->create(['event_id' => $event->id, 'name' => 'Parking']);
+        Group::query()->create(['event_id' => $event->id, 'name' => 'Kitchen']);
+
+        $this->actingAs($user)
+            ->get(route('team.configure', ['search' => 'PARK']))
+            ->assertInertia(
+                fn (Assert $page) => $page
+                    ->where('filters.search', 'PARK')
+                    ->has('groups.data', 1)
+                    ->where('groups.data.0.name', 'Parking'),
+            );
     }
 
     public function test_staff_can_create_update_and_delete_an_event_group(): void
