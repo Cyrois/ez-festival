@@ -42,7 +42,13 @@ class ArtistController extends Controller
         return Inertia::render('Artists/Index', [
             'engagements' => ArtistEngagementResource::collection($engagements),
             'labels' => $this->artists->labelsFor(),
-            'filters' => ['search' => $search, 'labels' => array_map('intval', $labelIds)],
+            'statuses' => ArtistEngagement::STATUSES,
+            'statusCounts' => $this->artists->statusCounts($event, $search, $labelIds),
+            'filters' => [
+                'search' => $search,
+                'labels' => array_map('intval', $labelIds),
+                'view' => $filters['view'] ?? 'list',
+            ],
             'event' => $event?->only('id', 'name', 'locked'),
         ]);
     }
