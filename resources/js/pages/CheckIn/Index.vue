@@ -20,7 +20,7 @@ import {
 import { checkInQuery } from './filters';
 
 const props = defineProps({
-    people: { type: Array, required: true },
+    people: { type: Object, required: true },
     passes: { type: Array, required: true },
     filters: { type: Object, required: true },
     event: { type: Object, required: true },
@@ -30,7 +30,7 @@ const type = ref(props.filters.type ?? 'all');
 const pass = ref(props.filters.pass ? String(props.filters.pass) : '');
 const status = ref(props.filters.status ?? 'all');
 const search = ref(props.filters.search ?? '');
-const types = ['all', 'artist', 'vendor', 'patron', 'team'];
+const types = ['all', 'artist'];
 const statuses = ['all', 'not_started', 'partial', 'complete'];
 const statusVariants = {
     not_started: 'neutral',
@@ -194,7 +194,7 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer));
                 </TableHeader>
                 <TableBody>
                     <TableRow
-                        v-for="person in people"
+                        v-for="person in people.data"
                         :key="`${person.type}-${person.engagement_id}-${person.person_id}`"
                     >
                         <TableCell>
@@ -285,7 +285,7 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer));
                             </template>
                         </TableCell>
                     </TableRow>
-                    <TableRow v-if="people.length === 0">
+                    <TableRow v-if="people.data.length === 0">
                         <TableCell
                             colspan="7"
                             class="py-16 text-center text-muted"
@@ -295,6 +295,40 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer));
                     </TableRow>
                 </TableBody>
             </Table>
+
+            <div
+                v-if="people.meta.last_page > 1"
+                class="mt-4 flex flex-wrap items-center justify-between gap-3"
+            >
+                <p class="m-0 text-sm text-muted">
+                    {{
+                        $t('check_in.pagination', {
+                            from: people.meta.from,
+                            to: people.meta.to,
+                            total: people.meta.total,
+                        })
+                    }}
+                </p>
+                <nav
+                    class="flex gap-2"
+                    :aria-label="$t('check_in.pagination_label')"
+                >
+                    <Button
+                        :href="people.links.prev || ''"
+                        :disabled="!people.links.prev"
+                        variant="outline"
+                    >
+                        {{ $t('check_in.previous') }}
+                    </Button>
+                    <Button
+                        :href="people.links.next || ''"
+                        :disabled="!people.links.next"
+                        variant="outline"
+                    >
+                        {{ $t('check_in.next') }}
+                    </Button>
+                </nav>
+            </div>
         </div>
     </AppLayout>
 </template>

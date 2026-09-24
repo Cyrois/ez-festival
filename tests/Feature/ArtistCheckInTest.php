@@ -52,18 +52,19 @@ class ArtistCheckInTest extends TestCase
 
         $this->actingAs($user)->get(route('check-in.index'))->assertInertia(fn (Assert $page) => $page
             ->component('CheckIn/Index')
-            ->has('people', 2)
-            ->where('people.0.name', $zeroPerson->name)
-            ->where('people.0.context', 'Zero Expected')
-            ->where('people.0.check_in_status', 'complete')
-            ->where('people.1.name', $person->name)
-            ->where('people.1.type', 'artist')
-            ->where('people.1.context', 'River Hollow')
-            ->where('people.1.pass_name', 'Artist pass')
-            ->where('people.1.issued', 1)
-            ->where('people.1.expected', 1)
-            ->where('people.1.check_in_status', 'complete')
-            ->where('people.1.can_edit', true));
+            ->has('people.data', 2)
+            ->where('people.data.0.name', $zeroPerson->name)
+            ->where('people.data.0.context', 'Zero Expected')
+            ->where('people.data.0.check_in_status', 'complete')
+            ->where('people.data.1.name', $person->name)
+            ->where('people.data.1.type', 'artist')
+            ->where('people.data.1.context', 'River Hollow')
+            ->where('people.data.1.pass_name', 'Artist pass')
+            ->where('people.data.1.issued', 1)
+            ->where('people.data.1.expected', 1)
+            ->where('people.data.1.check_in_status', 'complete')
+            ->where('people.data.1.can_edit', true)
+            ->where('people.meta.total', 2));
     }
 
     public function test_list_accepts_shared_filters_and_gates_edit_passes(): void
@@ -81,15 +82,15 @@ class ArtistCheckInTest extends TestCase
             'search' => 'maya',
         ]))->assertInertia(fn (Assert $page) => $page
             ->component('CheckIn/Index')
-            ->has('people', 1)
-            ->where('people.0.name', $maya->name)
-            ->where('people.0.can_edit', false)
+            ->has('people.data', 1)
+            ->where('people.data.0.name', $maya->name)
+            ->where('people.data.0.can_edit', false)
             ->where('filters.type', 'artist')
             ->where('filters.status', 'not_started'));
 
         $this->get(route('check-in.index', ['type' => 'vendor']))
             ->assertInertia(fn (Assert $page) => $page
-                ->has('people', 0)
+                ->has('people.data', 0)
                 ->where('filters.type', 'vendor'));
     }
 
@@ -287,6 +288,45 @@ class ArtistCheckInTest extends TestCase
         ])->assertForbidden();
     }
 
+    public function test_list_paginates_people_and_scopes_search_in_the_query(): void
+    {
+        [$user, $event] = $this->context();
+        $this->heldEntitlement($event, 'River Hollow', 'Maya Chen');
+        for ($i = 1; $i <= 26; $i++) {
+            $this->heldEntitlement($event, "Artist {$i}", sprintf('Person %02d', $i));
+        }
+
+        $this->actingAs($user)->get(route('check-in.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('CheckIn/Index')
+                ->has('people.data', 25)
+                ->where('people.meta.total', 27)
+                ->where('people.meta.current_page', 1));
+
+        $this->get(route('check-in.index', ['page' => 2]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('people.data', 2)
+                ->where('people.meta.current_page', 2));
+
+        $this->get(route('check-in.index', ['search' => 'maya']))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('people.data', 1)
+                ->where('people.data.0.name', 'Maya Chen')
+                ->where('people.meta.total', 1));
+    }
+
+    public function test_legacy_artist_consume_post_redirects_to_shared_write_route(): void
+    {
+        [$user, $event] = $this->context();
+        [, , $expected] = $this->heldEntitlement($event, 'River Hollow');
+
+        $this->actingAs($user)
+            ->post(route('artists.check-in.issues.store', $expected), [
+                'location_id' => 1,
+            ])
+            ->assertRedirect(route('check-in.issues.store', $expected));
+    }
+
     /** @return array{User, Event} */
     private function context(): array
     {
@@ -310,8 +350,8 @@ class ArtistCheckInTest extends TestCase
         $engagement = ArtistEngagement::factory()->for($event)->for(Artist::factory()->state(['name' => $artistName]))->create(['status' => 'confirmed']);
         $person = Person::query()->create(['name' => $personName, 'email' => str($personName)->slug().'@example.com']);
         $engagement->people()->attach($person, ['is_primary' => true]);
-        $item = $event->entitlementItems()->create(['name' => 'Artist wristband']);
-        $pass = $event->passTypes()->create(['name' => $passName]);
+        $item = $event->entitlementItems()->firstOrCreate(['name' => 'Artist wristband']);
+        $pass = $event->passTypes()->firstOrCreate(['name' => $passName]);
         $assignment = $engagement->passAssignments()->create([
             'pass_type_id' => $pass->id,
             'person_id' => $person->id,

@@ -32,6 +32,7 @@ use App\Http\Controllers\Setup\VendorTypeController;
 use App\Http\Controllers\UiKitController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\VendorEngagementPersonController;
+use App\Models\ExpectedEntitlement;
 use App\Support\PostLoginRedirect;
 use Illuminate\Support\Facades\Route;
 
@@ -68,8 +69,9 @@ Route::middleware('auth')->group(function () {
         Route::get('artists/advancing', [ArtistController::class, 'index'])->name('artists.index');
         Route::redirect('artists/check-in', '/check-in')->name('artists.check-in');
         Route::redirect('artists/check-in/{engagement}', '/check-in/artists/{engagement}')->name('artists.check-in.show');
-        Route::post('artists/check-in/expected-entitlements/{expectedEntitlement}/issues', [ArtistCheckInController::class, 'store'])
-            ->middleware('event.writable')->name('artists.check-in.issues.store');
+        Route::post('artists/check-in/expected-entitlements/{expectedEntitlement}/issues', function (ExpectedEntitlement $expectedEntitlement) {
+            return redirect()->route('check-in.issues.store', $expectedEntitlement, 307);
+        })->name('artists.check-in.issues.store');
         Route::get('artists/create', [ArtistController::class, 'create'])->name('artists.create');
         Route::get('artists/engagements/{engagement}', [ArtistController::class, 'view'])->name('artists.view');
         Route::put('artists/engagements/{engagement}', [ArtistController::class, 'update'])

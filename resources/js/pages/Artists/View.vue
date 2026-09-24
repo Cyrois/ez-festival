@@ -252,10 +252,7 @@ const formatNoteTime = (iso) => {
                 </Card>
             </div>
 
-            <Card
-                id="passes"
-                class="mt-4"
-            >
+            <Card class="mt-4">
                 <div class="flex items-start justify-between gap-3">
                     <h2 class="m-0 text-xl font-bold text-muted">
                         {{ $t('artists.custom_fields') }}
@@ -273,7 +270,10 @@ const formatNoteTime = (iso) => {
                 </div>
             </Card>
 
-            <Card class="mt-4">
+            <Card
+                id="passes"
+                class="mt-4"
+            >
                 <PassAssignmentsPanel
                     :assignments="engagement.pass_assignments"
                     :people="engagement.people"
