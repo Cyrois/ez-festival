@@ -16,9 +16,14 @@ const props = defineProps({
     engagement: { type: Object, required: true },
     event: { type: Object, required: true },
     canWrite: { type: Boolean, required: true },
+    selectedPersonId: { type: Number, default: null },
 });
 
-const selectedId = ref(props.engagement.people[0]?.id ?? null);
+const selectedId = ref(
+    props.engagement.people.some(({ id }) => id === props.selectedPersonId)
+        ? props.selectedPersonId
+        : (props.engagement.people[0]?.id ?? null),
+);
 const details = ref(null);
 const consuming = ref(null);
 const readOnly = computed(() => !props.canWrite);
@@ -36,8 +41,8 @@ const status = computed(() => {
     return 'partial';
 });
 const breadcrumbs = computed(() => [
-    { label: trans('nav.artists'), href: '/artists/advancing' },
-    { label: trans('artists.check_in.title'), href: '/artists/check-in' },
+    { label: trans('app.name'), href: '/dashboard' },
+    { label: trans('check_in.title'), href: '/check-in' },
     { label: props.engagement.name },
 ]);
 </script>
@@ -58,7 +63,11 @@ const breadcrumbs = computed(() => [
                         {{ engagement.name }}
                     </h1>
                     <p class="m-0 text-sm text-muted">
-                        {{ $t('artists.check_in.engagement_confirmed') }}
+                        {{
+                            $t('check_in.engagement_confirmed', {
+                                type: $t(`check_in.types.${engagement.type}`),
+                            })
+                        }}
                     </p>
                 </div>
             </header>
@@ -155,7 +164,7 @@ const breadcrumbs = computed(() => [
             :entitlement="consuming"
             :endpoint="
                 consuming
-                    ? `/artists/check-in/expected-entitlements/${consuming.id}/issues`
+                    ? `/check-in/expected-entitlements/${consuming.id}/issues`
                     : ''
             "
             @update:open="consuming = $event ? consuming : null"

@@ -14,6 +14,8 @@ class ViewArtistCheckInRequest extends FormRequest
 
     public function rules(): array
     {
-        return [];
+        return [
+            'person' => ['nullable', 'integer', 'exists:people,id'],
+        ];
     }
 }

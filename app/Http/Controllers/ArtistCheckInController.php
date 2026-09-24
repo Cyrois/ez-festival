@@ -5,59 +5,86 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Artists\ConsumeArtistEntitlementRequest;
 use App\Http\Requests\Artists\IndexArtistCheckInRequest;
 use App\Http\Requests\Artists\ViewArtistCheckInRequest;
-use App\Http\Resources\ArtistCheckInListResource;
 use App\Http\Resources\ArtistCheckInShowResource;
+use App\Http\Resources\CheckInPersonResource;
 use App\Models\ArtistEngagement;
 use App\Models\ExpectedEntitlement;
+use App\Models\VendorEngagement;
+use App\Queries\ArtistCheckInPeopleQuery;
 use App\Services\EntitlementConsumeService;
 use App\Support\EventContext;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ArtistCheckInController extends Controller
 {
-    public function __construct(private readonly EventContext $eventContext) {}
+    public function __construct(
+        private readonly EventContext $eventContext,
+        private readonly ArtistCheckInPeopleQuery $artistCheckInPeople,
+    ) {}
 
     public function index(IndexArtistCheckInRequest $request): Response
     {
         $event = $this->eventContext->requireCurrent($request->user());
-        $held = 'exists (select 1 from artist_engagement_people aep where aep.artist_engagement_id = pass_assignments.artist_engagement_id and aep.person_id = pass_assignments.person_id)';
-        $expected = "(select count(*) from expected_entitlements ee join pass_assignments on pass_assignments.id = ee.pass_assignment_id where pass_assignments.artist_engagement_id = artist_engagements.id and pass_assignments.person_id is not null and {$held})";
-        $issued = "(select count(*) from issued_entitlements ie join expected_entitlements ee on ee.id = ie.expected_entitlement_id join pass_assignments on pass_assignments.id = ee.pass_assignment_id where pass_assignments.artist_engagement_id = artist_engagements.id and pass_assignments.person_id is not null and {$held})";
+        $filters = $request->validated();
+        $type = $filters['type'] ?? 'all';
+        $status = $filters['status'] ?? 'all';
+        $passId = isset($filters['pass']) ? (int) $filters['pass'] : null;
+        $search = trim($filters['search'] ?? '');
+        $canEdit = Gate::allows('manage-artists');
 
-        $engagements = ArtistEngagement::query()
-            ->where('event_id', $event->id)
-            ->where('status', 'confirmed')
-            ->select('artist_engagements.*')
-            ->selectRaw("{$expected} as expected_count, {$issued} as issued_count")
-            ->with(['artist', 'people' => fn ($query) => $query->orderByDesc('artist_engagement_people.is_primary')->orderBy('people.name')])
-            ->orderByRaw('(select lower(name) from artists where artists.id = artist_engagements.artist_id)')
-            ->get();
+        $people = in_array($type, ['all', 'artist', 'vendor'], true)
+            ? $this->artistCheckInPeople->paginate($event->id, $passId, $search, $status, $type, $canEdit)
+            : $this->artistCheckInPeople->empty();
 
-        return Inertia::render('Artists/CheckIn', [
-            'engagements' => ArtistCheckInListResource::collection($engagements)->resolve(),
+        return Inertia::render('CheckIn/Index', [
+            'people' => CheckInPersonResource::collection($people),
+            'passes' => $event->passTypes()->orderBy('name')->get(['id', 'name']),
+            'filters' => [
+                'type' => $type,
+                'pass' => $passId,
+                'status' => $status,
+                'search' => $search,
+            ],
             'event' => $event->only('id', 'name', 'locked', 'timezone'),
         ]);
     }
 
     public function show(ViewArtistCheckInRequest $request, ArtistEngagement $engagement): Response
     {
+        return $this->showEngagement($request, $engagement);
+    }
+
+    public function showVendor(ViewArtistCheckInRequest $request, VendorEngagement $engagement): Response
+    {
+        return $this->showEngagement($request, $engagement);
+    }
+
+    private function showEngagement(
+        ViewArtistCheckInRequest $request,
+        ArtistEngagement|VendorEngagement $engagement,
+    ): Response {
         $event = $this->eventContext->requireCurrent($request->user());
         abort_unless($engagement->event_id === $event->id && $engagement->status === 'confirmed', 404);
 
         $engagement->load([
-            'artist',
+            $engagement instanceof ArtistEngagement ? 'artist' : 'vendor',
             'people' => fn ($query) => $query->orderBy('people.name'),
             'passAssignments.passType.labels',
             'passAssignments.expectedEntitlements.entitlementItem.adjustments.location',
             'passAssignments.expectedEntitlements.issuedEntitlement.location',
         ]);
+        $requestedPersonId = $request->integer('person');
 
-        return Inertia::render('Artists/CheckInShow', [
+        return Inertia::render('CheckIn/Show', [
             'engagement' => (new ArtistCheckInShowResource($engagement))->resolve(),
             'event' => $event->only('id', 'name', 'locked', 'timezone'),
             'canWrite' => ! $event->isLocked(),
+            'selectedPersonId' => $engagement->people->contains('id', $requestedPersonId)
+                ? $requestedPersonId
+                : null,
         ]);
     }
 
@@ -68,7 +95,8 @@ class ArtistCheckInController extends Controller
     ): RedirectResponse {
         $expectedEntitlement->loadMissing('passAssignment.artistEngagement.people');
         $assignment = $expectedEntitlement->passAssignment;
-        $engagement = $assignment->artistEngagement;
+        $assignment->loadMissing('vendorEngagement.people');
+        $engagement = $assignment->artistEngagement ?? $assignment->vendorEngagement;
         abort_unless($engagement !== null && $engagement->status === 'confirmed' && $assignment->person_id !== null, 404);
         $this->eventContext->requireCurrentEvent($request->user(), $engagement->event, writable: true);
         abort_unless($engagement->people->contains('id', $assignment->person_id), 404);

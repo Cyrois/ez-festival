@@ -9,6 +9,8 @@ use App\Models\ExpectedEntitlement;
 use App\Models\PassTypeLabel;
 use App\Models\Person;
 use App\Models\User;
+use App\Models\Vendor;
+use App\Models\VendorEngagement;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Gate;
@@ -42,18 +44,83 @@ class ArtistCheckInTest extends TestCase
         ]);
         ArtistEngagement::factory()->for($event)->for(Artist::factory())->create(['status' => 'idea']);
         ArtistEngagement::factory()->for($this->event('Other'))->for(Artist::factory())->create(['status' => 'confirmed']);
-        ArtistEngagement::factory()->for($event)->for(Artist::factory()->state(['name' => 'Zero Expected']))->create(['status' => 'confirmed']);
+        $zero = ArtistEngagement::factory()->for($event)->for(Artist::factory()->state(['name' => 'Zero Expected']))->create(['status' => 'confirmed']);
+        $zeroPerson = Person::query()->create(['name' => 'Alex Kim', 'email' => 'alex@example.com']);
+        $zero->people()->attach($zeroPerson);
+        $zero->passAssignments()->create([
+            'pass_type_id' => $expected->passAssignment->pass_type_id,
+            'person_id' => $zeroPerson->id,
+        ]);
 
-        $this->actingAs($user)->get(route('artists.check-in'))->assertInertia(fn (Assert $page) => $page
-            ->component('Artists/CheckIn')
-            ->has('engagements', 2)
-            ->where('engagements.0.name', 'River Hollow')
-            ->where('engagements.0.contact.name', $person->name)
-            ->where('engagements.0.issued', 1)
-            ->where('engagements.0.expected', 1)
-            ->where('engagements.0.check_in_status', 'complete')
-            ->where('engagements.1.name', 'Zero Expected')
-            ->where('engagements.1.check_in_status', 'complete'));
+        $this->actingAs($user)->get(route('check-in.index'))->assertInertia(fn (Assert $page) => $page
+            ->component('CheckIn/Index')
+            ->has('people.data', 2)
+            ->where('people.data.0.name', $zeroPerson->name)
+            ->where('people.data.0.context', 'Zero Expected')
+            ->where('people.data.0.check_in_status', 'complete')
+            ->where('people.data.1.name', $person->name)
+            ->where('people.data.1.type', 'artist')
+            ->where('people.data.1.context', 'River Hollow')
+            ->where('people.data.1.pass_name', 'Artist pass')
+            ->where('people.data.1.issued', 1)
+            ->where('people.data.1.expected', 1)
+            ->where('people.data.1.check_in_status', 'complete')
+            ->where('people.data.1.can_edit', true)
+            ->where('people.meta.total', 2));
+    }
+
+    public function test_list_accepts_shared_filters_and_gates_edit_passes(): void
+    {
+        [$user, $event] = $this->context();
+        [, $maya, $expected] = $this->heldEntitlement($event, 'River Hollow', 'Maya Chen');
+        $this->heldEntitlement($event, 'Amber Field', 'Jordan Blake', 'Guest pass');
+        [, $vendorPerson] = $this->heldVendorEntitlement($event, 'Cedar Craft Co', 'Priya Nair');
+
+        Gate::define('manage-artists', fn (): bool => false);
+
+        $this->actingAs($user)->get(route('check-in.index', [
+            'type' => 'artist',
+            'pass' => $expected->passAssignment->pass_type_id,
+            'status' => 'not_started',
+            'search' => 'maya',
+        ]))->assertInertia(fn (Assert $page) => $page
+            ->component('CheckIn/Index')
+            ->has('people.data', 1)
+            ->where('people.data.0.name', $maya->name)
+            ->where('people.data.0.can_edit', false)
+            ->where('filters.type', 'artist')
+            ->where('filters.status', 'not_started'));
+
+        $this->get(route('check-in.index', ['type' => 'vendor']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('CheckIn/Index')
+                ->has('people.data', 1)
+                ->where('people.data.0.name', $vendorPerson->name)
+                ->where('people.data.0.type', 'vendor')
+                ->where('people.data.0.context', 'Cedar Craft Co')
+                ->where('filters.type', 'vendor'));
+
+        foreach (['patron', 'team'] as $type) {
+            $this->get(route('check-in.index', ['type' => $type]))
+                ->assertOk()
+                ->assertInertia(fn (Assert $page) => $page
+                    ->component('CheckIn/Index')
+                    ->has('people.data', 0)
+                    ->has('people.meta')
+                    ->where('filters.type', $type));
+        }
+    }
+
+    public function test_nested_check_in_lists_redirect_to_the_shared_page(): void
+    {
+        [$user, $event] = $this->context();
+        [$engagement] = $this->heldEntitlement($event, 'River Hollow');
+
+        $this->actingAs($user)->get(route('artists.check-in'))->assertRedirect('/check-in');
+        $this->get(route('vendors.check-in'))->assertRedirect('/check-in?type=vendor');
+        $this->get(route('artists.check-in.show', $engagement))
+            ->assertRedirect('/check-in/artists/'.$engagement->id);
     }
 
     public function test_consume_records_location_and_decrements_only_that_location(): void
@@ -66,7 +133,7 @@ class ArtistCheckInTest extends TestCase
         $item->adjustments()->create(['location_id' => $main->id, 'delta' => 2, 'user_id' => $user->id]);
         $item->adjustments()->create(['location_id' => $other->id, 'delta' => 4, 'user_id' => $user->id]);
 
-        $this->actingAs($user)->post(route('artists.check-in.issues.store', $expected), [
+        $this->actingAs($user)->post(route('check-in.issues.store', $expected), [
             'location_id' => $main->id,
             'code' => ' AW-10482 ',
         ])->assertRedirect()->assertSessionHas('success');
@@ -103,8 +170,9 @@ class ArtistCheckInTest extends TestCase
             'entitlement_item_id' => $expected->entitlement_item_id,
         ]);
 
-        $this->actingAs($user)->get(route('artists.check-in.show', $engagement))->assertInertia(fn (Assert $page) => $page
-            ->component('Artists/CheckInShow')
+        $this->actingAs($user)->get(route('check-in.show', [$engagement, 'person' => $maya->id]))->assertInertia(fn (Assert $page) => $page
+            ->component('CheckIn/Show')
+            ->where('selectedPersonId', $maya->id)
             ->where('engagement.name', 'River Hollow')
             ->where('canWrite', true)
             ->where('event.timezone', 'America/Vancouver')
@@ -116,6 +184,37 @@ class ArtistCheckInTest extends TestCase
             ->where('engagement.people.0.pass_labels.0.name', 'Wristband')
             ->where('engagement.people.1.name', $riley->name)
             ->where('engagement.people.1.expected', 0));
+    }
+
+    public function test_vendor_can_be_opened_and_its_entitlement_consumed_from_shared_check_in(): void
+    {
+        [$user, $event] = $this->context();
+        [$engagement, $person, $expected] = $this->heldVendorEntitlement($event, 'Cedar Craft Co', 'Priya Nair');
+        $location = $event->locations()->create(['name' => 'Vendor gate']);
+        $expected->entitlementItem->adjustments()->create([
+            'location_id' => $location->id,
+            'delta' => 2,
+            'user_id' => $user->id,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('check-in.vendors.show', [$engagement, 'person' => $person->id]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('CheckIn/Show')
+                ->where('engagement.name', 'Cedar Craft Co')
+                ->where('engagement.type', 'vendor')
+                ->where('selectedPersonId', $person->id)
+                ->where('engagement.people.0.entitlements.0.locations.0.name', 'Vendor gate'));
+
+        $this->post(route('check-in.issues.store', $expected), [
+            'location_id' => $location->id,
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $this->assertDatabaseHas('issued_entitlements', [
+            'expected_entitlement_id' => $expected->id,
+            'location_id' => $location->id,
+            'issued_by' => $user->id,
+        ]);
     }
 
     public function test_show_rejects_wrong_event_and_unconfirmed_engagements(): void
@@ -132,11 +231,11 @@ class ArtistCheckInTest extends TestCase
             ->create(['status' => 'idea']);
 
         $this->actingAs($user)
-            ->get(route('artists.check-in.show', $other))
+            ->get(route('check-in.show', $other))
             ->assertNotFound();
-        $this->get(route('artists.check-in.show', $unconfirmed))
+        $this->get(route('check-in.show', $unconfirmed))
             ->assertNotFound();
-        $this->get(route('artists.check-in.show', $confirmed))
+        $this->get(route('check-in.show', $confirmed))
             ->assertOk();
     }
 
@@ -152,7 +251,7 @@ class ArtistCheckInTest extends TestCase
         ]);
 
         $engagement->people()->detach($person);
-        $this->actingAs($user)->post(route('artists.check-in.issues.store', $expected), [
+        $this->actingAs($user)->post(route('check-in.issues.store', $expected), [
             'location_id' => $location->id,
         ])->assertNotFound();
         $engagement->people()->attach($person, ['is_primary' => true]);
@@ -174,21 +273,21 @@ class ArtistCheckInTest extends TestCase
             'status' => ExpectedEntitlement::STATUS_EXPECTED,
         ]);
 
-        $this->post(route('artists.check-in.issues.store', $otherExpected), [
+        $this->post(route('check-in.issues.store', $otherExpected), [
             'location_id' => $location->id,
         ])->assertNotFound();
 
         $engagement->update(['status' => 'idea']);
-        $this->post(route('artists.check-in.issues.store', $expected), [
+        $this->post(route('check-in.issues.store', $expected), [
             'location_id' => $location->id,
         ])->assertNotFound();
         $engagement->update(['status' => 'confirmed']);
 
-        $this->post(route('artists.check-in.issues.store', $expected), [
+        $this->post(route('check-in.issues.store', $expected), [
             'location_id' => $location->id,
         ])->assertRedirect()->assertSessionHas('success');
 
-        $this->post(route('artists.check-in.issues.store', $expected), [
+        $this->post(route('check-in.issues.store', $expected), [
             'location_id' => $location->id,
         ])->assertSessionHasErrors('expected_entitlement');
     }
@@ -199,26 +298,26 @@ class ArtistCheckInTest extends TestCase
         [, , $expected] = $this->heldEntitlement($event, 'River Hollow');
         $location = $event->locations()->create(['name' => 'Empty']);
 
-        $this->actingAs($user)->post(route('artists.check-in.issues.store', $expected), [])
+        $this->actingAs($user)->post(route('check-in.issues.store', $expected), [])
             ->assertSessionHasErrors('location_id');
 
-        $this->post(route('artists.check-in.issues.store', $expected), [
+        $this->post(route('check-in.issues.store', $expected), [
             'location_id' => $location->id,
         ])->assertSessionHasErrors('quantity');
 
         $otherLocation = $this->event('Other')->locations()->create(['name' => 'Other']);
-        $this->post(route('artists.check-in.issues.store', $expected), [
+        $this->post(route('check-in.issues.store', $expected), [
             'location_id' => $otherLocation->id,
         ])->assertSessionHasErrors('location_id');
 
         $event->lock();
-        $this->post(route('artists.check-in.issues.store', $expected), [
+        $this->post(route('check-in.issues.store', $expected), [
             'location_id' => $location->id,
         ])->assertForbidden();
 
-        $this->get(route('artists.check-in.show', ArtistEngagement::query()->first()))
+        $this->get(route('check-in.show', ArtistEngagement::query()->first()))
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Artists/CheckInShow')
+                ->component('CheckIn/Show')
                 ->where('canWrite', false));
     }
 
@@ -229,13 +328,52 @@ class ArtistCheckInTest extends TestCase
         $location = $event->locations()->create(['name' => 'Main stage']);
 
         Gate::define('view-artists', fn (): bool => false);
-        $this->actingAs($user)->get(route('artists.check-in'))->assertForbidden();
-        $this->get(route('artists.check-in.show', $engagement))->assertForbidden();
+        $this->actingAs($user)->get(route('check-in.index'))->assertForbidden();
+        $this->get(route('check-in.show', $engagement))->assertForbidden();
 
         Gate::define('manage-artists', fn (): bool => false);
-        $this->post(route('artists.check-in.issues.store', $expected), [
+        $this->post(route('check-in.issues.store', $expected), [
             'location_id' => $location->id,
         ])->assertForbidden();
+    }
+
+    public function test_list_paginates_people_and_scopes_search_in_the_query(): void
+    {
+        [$user, $event] = $this->context();
+        $this->heldEntitlement($event, 'River Hollow', 'Maya Chen');
+        for ($i = 1; $i <= 26; $i++) {
+            $this->heldEntitlement($event, "Artist {$i}", sprintf('Person %02d', $i));
+        }
+
+        $this->actingAs($user)->get(route('check-in.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('CheckIn/Index')
+                ->has('people.data', 25)
+                ->where('people.meta.total', 27)
+                ->where('people.meta.current_page', 1));
+
+        $this->get(route('check-in.index', ['page' => 2]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('people.data', 2)
+                ->where('people.meta.current_page', 2));
+
+        $this->get(route('check-in.index', ['search' => 'maya']))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('people.data', 1)
+                ->where('people.data.0.name', 'Maya Chen')
+                ->where('people.meta.total', 1));
+    }
+
+    public function test_legacy_artist_consume_post_redirects_to_shared_write_route(): void
+    {
+        [$user, $event] = $this->context();
+        [, , $expected] = $this->heldEntitlement($event, 'River Hollow');
+
+        $this->actingAs($user)
+            ->post(route('artists.check-in.issues.store', $expected), [
+                'location_id' => 1,
+            ])
+            ->assertRedirect(route('check-in.issues.store', $expected));
     }
 
     /** @return array{User, Event} */
@@ -252,13 +390,46 @@ class ArtistCheckInTest extends TestCase
     }
 
     /** @return array{ArtistEngagement, Person, ExpectedEntitlement} */
-    private function heldEntitlement(Event $event, string $artistName, string $personName = 'Maya Chen'): array
-    {
+    private function heldEntitlement(
+        Event $event,
+        string $artistName,
+        string $personName = 'Maya Chen',
+        string $passName = 'Artist pass',
+    ): array {
         $engagement = ArtistEngagement::factory()->for($event)->for(Artist::factory()->state(['name' => $artistName]))->create(['status' => 'confirmed']);
         $person = Person::query()->create(['name' => $personName, 'email' => str($personName)->slug().'@example.com']);
         $engagement->people()->attach($person, ['is_primary' => true]);
-        $item = $event->entitlementItems()->create(['name' => 'Artist wristband']);
-        $pass = $event->passTypes()->create(['name' => 'Artist pass']);
+        $item = $event->entitlementItems()->firstOrCreate(['name' => 'Artist wristband']);
+        $pass = $event->passTypes()->firstOrCreate(['name' => $passName]);
+        $assignment = $engagement->passAssignments()->create([
+            'pass_type_id' => $pass->id,
+            'person_id' => $person->id,
+        ]);
+        $expected = $assignment->expectedEntitlements()->create([
+            'entitlement_item_id' => $item->id,
+            'status' => ExpectedEntitlement::STATUS_EXPECTED,
+        ]);
+
+        return [$engagement, $person, $expected];
+    }
+
+    /** @return array{VendorEngagement, Person, ExpectedEntitlement} */
+    private function heldVendorEntitlement(
+        Event $event,
+        string $vendorName,
+        string $personName = 'Priya Nair',
+        string $passName = 'Vendor staff',
+    ): array {
+        $vendor = Vendor::query()->create(['name' => $vendorName]);
+        $engagement = VendorEngagement::query()->create([
+            'vendor_id' => $vendor->id,
+            'event_id' => $event->id,
+            'status' => 'confirmed',
+        ]);
+        $person = Person::query()->create(['name' => $personName, 'email' => str($personName)->slug().'@example.com']);
+        $engagement->people()->attach($person, ['is_primary' => true]);
+        $item = $event->entitlementItems()->firstOrCreate(['name' => 'Vendor wristband']);
+        $pass = $event->passTypes()->firstOrCreate(['name' => $passName]);
         $assignment = $engagement->passAssignments()->create([
             'pass_type_id' => $pass->id,
             'person_id' => $person->id,

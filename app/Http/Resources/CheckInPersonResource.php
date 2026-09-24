@@ -5,7 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class ArtistCheckInListResource extends JsonResource
+class CheckInPersonResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
@@ -13,12 +13,17 @@ class ArtistCheckInListResource extends JsonResource
         $issued = (int) $this->issued_count;
 
         return [
-            'id' => $this->id,
-            'name' => $this->artist->name,
-            'contact' => $this->people->first()?->only('name', 'email'),
-            'expected' => $expected,
+            'person_id' => (int) $this->person_id,
+            'engagement_id' => (int) $this->engagement_id,
+            'name' => $this->person_name,
+            'subtitle' => $this->person_email,
+            'type' => $this->type,
+            'context' => $this->context_name,
+            'pass_name' => $this->pass_name ?? '',
             'issued' => $issued,
+            'expected' => $expected,
             'check_in_status' => $this->status($issued, $expected),
+            'can_edit' => (bool) $this->can_edit,
         ];
     }
 

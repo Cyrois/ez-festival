@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\ArtistEngagement;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Collection;
@@ -10,6 +11,7 @@ class ArtistCheckInShowResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $isArtist = $this->resource instanceof ArtistEngagement;
         $balancesByItem = $this->balancesByItemId();
         $assignments = $this->passAssignments
             ->whereNotNull('person_id')
@@ -68,7 +70,8 @@ class ArtistCheckInShowResource extends JsonResource
 
         return [
             'id' => $this->id,
-            'name' => $this->artist->name,
+            'name' => $isArtist ? $this->artist->name : $this->vendor->name,
+            'type' => $isArtist ? 'artist' : 'vendor',
             'people' => $people,
         ];
     }

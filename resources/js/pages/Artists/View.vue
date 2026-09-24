@@ -270,7 +270,10 @@ const formatNoteTime = (iso) => {
                 </div>
             </Card>
 
-            <Card class="mt-4">
+            <Card
+                id="passes"
+                class="mt-4"
+            >
                 <PassAssignmentsPanel
                     :assignments="engagement.pass_assignments"
                     :people="engagement.people"
