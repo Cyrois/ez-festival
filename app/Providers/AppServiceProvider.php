@@ -27,5 +27,6 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('view-credentials', fn (User $user): bool => $user !== null);
         Gate::define('manage-credentials', fn (User $user): bool => $user !== null);
         Gate::define('view-team', fn (User $user): bool => $user !== null);
+        Gate::define('manage-team', fn (User $user): bool => $user !== null);
     }
 }

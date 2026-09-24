@@ -1,0 +1,242 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Event;
+use App\Models\Group;
+use App\Models\Person;
+use App\Models\TeamEngagement;
+use App\Models\User;
+use App\Support\OrganizationContext;
+use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Gate;
+use Inertia\Testing\AssertableInertia as Assert;
+use Tests\TestCase;
+
+class TeamGroupsTest extends TestCase
+{
+    use LazilyRefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->withoutVite();
+    }
+
+    public function test_configure_lists_event_groups_and_paginated_members(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        $group = Group::query()->create(['event_id' => $event->id, 'name' => 'Parking']);
+        $engagement = $this->engagement($event, 'Taylor Team');
+        $engagement->update(['group_id' => $group->id]);
+
+        $this->actingAs($user)->get(route('team.configure'))->assertInertia(
+            fn (Assert $page) => $page
+                ->component('Team/Configure')
+                ->where('event.id', $event->id)
+                ->where('groups.0.name', 'Parking')
+                ->where('groups.0.team_engagements_count', 1)
+                ->where('members.data.0.person.name', 'Taylor Team')
+                ->where('members.data.0.group_id', $group->id)
+                ->where('canManage', true),
+        );
+    }
+
+    public function test_staff_can_create_update_and_delete_an_event_group(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+
+        $this->actingAs($user)->post(route('team.groups.store', $event), [
+            'name' => 'Parking',
+        ])->assertRedirect(route('team.configure'));
+
+        $group = Group::query()->where('event_id', $event->id)->sole();
+
+        $this->actingAs($user)->put(route('team.groups.update', [$event, $group]), [
+            'name' => 'Site Operations',
+        ])->assertRedirect(route('team.configure'));
+
+        $this->assertDatabaseHas('groups', [
+            'id' => $group->id,
+            'event_id' => $event->id,
+            'name' => 'Site Operations',
+        ]);
+
+        $this->actingAs($user)
+            ->delete(route('team.groups.destroy', [$event, $group]))
+            ->assertRedirect(route('team.configure'));
+
+        $this->assertDatabaseMissing('groups', ['id' => $group->id]);
+    }
+
+    public function test_group_name_is_required_and_unique_within_the_event(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        Group::query()->create(['event_id' => $event->id, 'name' => 'Kitchen']);
+
+        $this->actingAs($user)->post(route('team.groups.store', $event), [
+            'name' => '',
+        ])->assertSessionHasErrors('name');
+
+        $this->actingAs($user)->post(route('team.groups.store', $event), [
+            'name' => 'Kitchen',
+        ])->assertSessionHasErrors('name');
+    }
+
+    public function test_group_with_assigned_members_cannot_be_deleted(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        $group = Group::query()->create(['event_id' => $event->id, 'name' => 'Stage']);
+        $this->engagement($event, 'Morgan Member')->update(['group_id' => $group->id]);
+
+        $this->actingAs($user)
+            ->delete(route('team.groups.destroy', [$event, $group]))
+            ->assertSessionHasErrors('group');
+
+        $this->assertDatabaseHas('groups', ['id' => $group->id]);
+    }
+
+    public function test_staff_can_assign_and_replace_a_members_single_group(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        $parking = Group::query()->create(['event_id' => $event->id, 'name' => 'Parking']);
+        $kitchen = Group::query()->create(['event_id' => $event->id, 'name' => 'Kitchen']);
+        $engagement = $this->engagement($event, 'Alex Member');
+
+        $this->actingAs($user)->put(
+            route('team.members.group.update', [$event, $engagement]),
+            ['group_id' => $parking->id],
+        )->assertRedirect(route('team.configure'));
+
+        $this->actingAs($user)->put(
+            route('team.members.group.update', [$event, $engagement]),
+            ['group_id' => $kitchen->id],
+        )->assertRedirect(route('team.configure'));
+
+        $this->assertSame($kitchen->id, $engagement->fresh()->group_id);
+        $this->assertDatabaseCount('team_engagements', 1);
+    }
+
+    public function test_member_assignment_rejects_a_group_from_another_event(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        $otherEvent = $this->event('Other Festival');
+        $foreignGroup = Group::query()->create([
+            'event_id' => $otherEvent->id,
+            'name' => 'Foreign Group',
+        ]);
+        $engagement = $this->engagement($event, 'Casey Member');
+
+        $this->actingAs($user)->put(
+            route('team.members.group.update', [$event, $engagement]),
+            ['group_id' => $foreignGroup->id],
+        )->assertSessionHasErrors('group_id');
+
+        $this->assertNull($engagement->fresh()->group_id);
+    }
+
+    public function test_group_routes_reject_cross_event_models(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        $otherEvent = $this->event('Other Festival');
+        $foreignGroup = Group::query()->create([
+            'event_id' => $otherEvent->id,
+            'name' => 'Foreign Group',
+        ]);
+        $foreignEngagement = $this->engagement($otherEvent, 'Foreign Member');
+
+        $this->actingAs($user)->put(
+            route('team.groups.update', [$event, $foreignGroup]),
+            ['name' => 'Changed'],
+        )->assertNotFound();
+
+        $this->actingAs($user)->put(
+            route('team.members.group.update', [$event, $foreignEngagement]),
+            ['group_id' => null],
+        )->assertNotFound();
+    }
+
+    public function test_locked_events_block_group_and_assignment_writes(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        $engagement = $this->engagement($event, 'Locked Member');
+        $event->lock();
+
+        $this->actingAs($user)->post(route('team.groups.store', $event), [
+            'name' => 'Parking',
+        ])->assertForbidden();
+
+        $this->actingAs($user)->put(
+            route('team.members.group.update', [$event, $engagement]),
+            ['group_id' => null],
+        )->assertForbidden();
+    }
+
+    public function test_a_non_primary_event_can_be_configured_when_it_is_writable(): void
+    {
+        [$user] = $this->userWithCompletedSetup();
+        $otherEvent = $this->event('Other Festival');
+
+        $this->actingAs($user)->post(route('team.groups.store', $otherEvent), [
+            'name' => 'Kitchen',
+        ])->assertRedirect(route('team.configure'));
+
+        $this->assertDatabaseHas('groups', [
+            'event_id' => $otherEvent->id,
+            'name' => 'Kitchen',
+        ]);
+    }
+
+    public function test_group_mutations_require_the_manage_team_permission(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        Gate::define('manage-team', fn (): bool => false);
+
+        $this->actingAs($user)->post(route('team.groups.store', $event), [
+            'name' => 'Parking',
+        ])->assertForbidden();
+
+        $this->assertDatabaseCount('groups', 0);
+    }
+
+    /**
+     * @return array{User, Event}
+     */
+    private function userWithCompletedSetup(): array
+    {
+        $user = User::factory()->create();
+        $event = $this->event();
+        $organization = app(OrganizationContext::class);
+        $organization->setDefaultEvent($event);
+        $organization->markSetupComplete();
+        $user->setCurrentEvent($event);
+
+        return [$user, $event];
+    }
+
+    private function event(string $name = 'Festival'): Event
+    {
+        return Event::query()->create([
+            'name' => $name,
+            'starts_on' => '2027-06-01',
+            'ends_on' => '2027-06-03',
+            'timezone' => 'America/Vancouver',
+        ]);
+    }
+
+    private function engagement(Event $event, string $name): TeamEngagement
+    {
+        $person = Person::query()->create([
+            'name' => $name,
+            'email' => str($name)->slug().'@example.test',
+        ]);
+
+        return TeamEngagement::query()->create([
+            'event_id' => $event->id,
+            'person_id' => $person->id,
+            'status' => 'hired',
+            'employment_type' => 'volunteer',
+        ]);
+    }
+}
