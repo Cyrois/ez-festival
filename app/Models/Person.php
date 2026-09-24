@@ -33,4 +33,9 @@ class Person extends Model
     {
         return $this->hasMany(EventPatron::class);
     }
+
+    public function teamEngagements(): HasMany
+    {
+        return $this->hasMany(TeamEngagement::class);
+    }
 }

@@ -79,10 +79,32 @@ const navItems = computed(() => [
         enabled: features.value.patrons ?? true,
     },
     {
-        key: 'crew',
-        href: '/crew',
+        key: 'team',
+        href: '/team/advancement',
         icon: ['fas', 'users'],
-        enabled: features.value.crew ?? true,
+        enabled: features.value.team ?? true,
+        children: [
+            {
+                key: 'team.advancement',
+                href: '/team/advancement',
+                enabled: true,
+            },
+            {
+                key: 'team.scheduling',
+                href: '/team/scheduling',
+                enabled: true,
+            },
+            {
+                key: 'team.forms',
+                href: '/team/forms',
+                enabled: true,
+            },
+            {
+                key: 'team.configure',
+                href: '/team/configure',
+                enabled: true,
+            },
+        ],
     },
     {
         key: 'credentials',
