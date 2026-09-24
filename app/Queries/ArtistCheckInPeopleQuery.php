@@ -51,6 +51,12 @@ class ArtistCheckInPeopleQuery
 
     private function baseQuery(int $eventId, ?int $passId, string $search, string $status): Builder
     {
+        $passNames = match (DB::connection()->getDriverName()) {
+            'pgsql' => "STRING_AGG(DISTINCT pt.name, ',' ORDER BY pt.name)",
+            'mysql', 'mariadb' => "GROUP_CONCAT(DISTINCT pt.name ORDER BY pt.name SEPARATOR ',')",
+            default => 'GROUP_CONCAT(DISTINCT pt.name)',
+        };
+
         $query = DB::table('pass_assignments as pa')
             ->join('artist_engagements as ae', function ($join) use ($eventId): void {
                 $join->on('ae.id', '=', 'pa.artist_engagement_id')
@@ -74,16 +80,16 @@ class ArtistCheckInPeopleQuery
                 });
             })
             ->groupBy('pa.person_id', 'pa.artist_engagement_id')
-            ->selectRaw('
+            ->selectRaw("
                 pa.person_id as person_id,
                 pa.artist_engagement_id as artist_engagement_id,
                 MAX(p.name) as person_name,
                 MAX(p.email) as person_email,
                 MAX(a.name) as artist_name,
-                GROUP_CONCAT(DISTINCT pt.name) as pass_name,
+                {$passNames} as pass_name,
                 COUNT(DISTINCT ee.id) as expected_count,
                 COUNT(DISTINCT ie.id) as issued_count
-            ');
+            ");
 
         return match ($status) {
             'complete' => $query->havingRaw('COUNT(DISTINCT ee.id) = 0 OR COUNT(DISTINCT ie.id) >= COUNT(DISTINCT ee.id)'),
