@@ -240,13 +240,7 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                             :key="group.id"
                         >
                             <TableCell>
-                                <div class="flex items-center gap-3">
-                                    <span
-                                        class="h-2.5 w-2.5 shrink-0 rounded-full bg-primary"
-                                        aria-hidden="true"
-                                    />
-                                    <strong>{{ group.name }}</strong>
-                                </div>
+                                <strong>{{ group.name }}</strong>
                             </TableCell>
                             <TableCell>
                                 {{
