@@ -32,6 +32,8 @@ use App\Http\Controllers\Team\AdvancementController as TeamAdvancementController
 use App\Http\Controllers\Team\ConfigureController as TeamConfigureController;
 use App\Http\Controllers\Team\FormsController as TeamFormsController;
 use App\Http\Controllers\Team\SchedulingController as TeamSchedulingController;
+use App\Http\Controllers\Team\ShiftRoleController as TeamShiftRoleController;
+use App\Http\Controllers\Team\ShiftTemplateController as TeamShiftTemplateController;
 use App\Http\Controllers\UiKitController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\VendorEngagementPersonController;
@@ -101,6 +103,26 @@ Route::middleware('auth')->group(function () {
             Route::get('scheduling', [TeamSchedulingController::class, 'index'])->name('scheduling');
             Route::get('forms', [TeamFormsController::class, 'index'])->name('forms');
             Route::get('configure', [TeamConfigureController::class, 'index'])->name('configure');
+        });
+        Route::middleware('feature:team')->group(function () {
+            Route::post('events/{event}/team/shift-roles', [TeamShiftRoleController::class, 'store'])
+                ->middleware('event.writable')
+                ->name('team.shift-roles.store');
+            Route::put('events/{event}/team/shift-roles/{shiftRole}', [TeamShiftRoleController::class, 'update'])
+                ->middleware('event.writable')
+                ->name('team.shift-roles.update');
+            Route::delete('events/{event}/team/shift-roles/{shiftRole}', [TeamShiftRoleController::class, 'destroy'])
+                ->middleware('event.writable')
+                ->name('team.shift-roles.destroy');
+            Route::post('events/{event}/team/shift-templates', [TeamShiftTemplateController::class, 'store'])
+                ->middleware('event.writable')
+                ->name('team.shift-templates.store');
+            Route::put('events/{event}/team/shift-templates/{shiftTemplate}', [TeamShiftTemplateController::class, 'update'])
+                ->middleware('event.writable')
+                ->name('team.shift-templates.update');
+            Route::delete('events/{event}/team/shift-templates/{shiftTemplate}', [TeamShiftTemplateController::class, 'destroy'])
+                ->middleware('event.writable')
+                ->name('team.shift-templates.destroy');
         });
 
         Route::get('credentials/passes', [PassTypeController::class, 'index'])

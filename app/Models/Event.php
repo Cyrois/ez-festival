@@ -72,6 +72,16 @@ class Event extends Model
         return $this->hasMany(EntitlementItemLabel::class);
     }
 
+    public function shiftRoles(): HasMany
+    {
+        return $this->hasMany(ShiftRole::class);
+    }
+
+    public function shiftTemplates(): HasMany
+    {
+        return $this->hasMany(ShiftTemplate::class);
+    }
+
     public function isPast(?Carbon $on = null): bool
     {
         $on ??= now();
