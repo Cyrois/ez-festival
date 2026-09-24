@@ -31,9 +31,11 @@ use App\Http\Controllers\Setup\VendorTypeController;
 use App\Http\Controllers\Team\AdvancementController as TeamAdvancementController;
 use App\Http\Controllers\Team\ConfigureController as TeamConfigureController;
 use App\Http\Controllers\Team\FormsController as TeamFormsController;
+use App\Http\Controllers\Team\GroupController as TeamGroupController;
 use App\Http\Controllers\Team\SchedulingController as TeamSchedulingController;
 use App\Http\Controllers\Team\ShiftRoleController as TeamShiftRoleController;
 use App\Http\Controllers\Team\ShiftTemplateController as TeamShiftTemplateController;
+use App\Http\Controllers\Team\TeamEngagementGroupController;
 use App\Http\Controllers\UiKitController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\VendorEngagementPersonController;
@@ -103,6 +105,13 @@ Route::middleware('auth')->group(function () {
             Route::get('scheduling', [TeamSchedulingController::class, 'index'])->name('scheduling');
             Route::get('forms', [TeamFormsController::class, 'index'])->name('forms');
             Route::get('configure', [TeamConfigureController::class, 'index'])->name('configure');
+            Route::middleware('event.writable')->group(function () {
+                Route::post('events/{event}/groups', [TeamGroupController::class, 'store'])->name('groups.store');
+                Route::put('events/{event}/groups/{group}', [TeamGroupController::class, 'update'])->name('groups.update');
+                Route::delete('events/{event}/groups/{group}', [TeamGroupController::class, 'destroy'])->name('groups.destroy');
+                Route::put('events/{event}/members/{engagement}/group', [TeamEngagementGroupController::class, 'update'])
+                    ->name('members.group.update');
+            });
         });
         Route::middleware('feature:team')->group(function () {
             Route::post('events/{event}/team/shift-roles', [TeamShiftRoleController::class, 'store'])
