@@ -30,7 +30,7 @@ const type = ref(props.filters.type ?? 'all');
 const pass = ref(props.filters.pass ? String(props.filters.pass) : '');
 const status = ref(props.filters.status ?? 'all');
 const search = ref(props.filters.search ?? '');
-const types = ['all', 'artist'];
+const types = ['all', 'artist', 'vendor', 'patron', 'team'];
 const statuses = ['all', 'not_started', 'partial', 'complete'];
 const statusVariants = {
     not_started: 'neutral',

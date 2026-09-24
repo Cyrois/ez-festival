@@ -88,10 +88,15 @@ class ArtistCheckInTest extends TestCase
             ->where('filters.type', 'artist')
             ->where('filters.status', 'not_started'));
 
-        $this->get(route('check-in.index', ['type' => 'vendor']))
-            ->assertInertia(fn (Assert $page) => $page
-                ->has('people.data', 0)
-                ->where('filters.type', 'vendor'));
+        foreach (['vendor', 'patron', 'team'] as $type) {
+            $this->get(route('check-in.index', ['type' => $type]))
+                ->assertOk()
+                ->assertInertia(fn (Assert $page) => $page
+                    ->component('CheckIn/Index')
+                    ->has('people.data', 0)
+                    ->has('people.meta')
+                    ->where('filters.type', $type));
+        }
     }
 
     public function test_nested_check_in_lists_redirect_to_the_shared_page(): void
