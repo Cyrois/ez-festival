@@ -18,10 +18,11 @@ class ArtistCheckInPeopleQuery
         ?int $passId,
         string $search,
         string $status,
+        string $type,
         bool $canEdit,
         int $perPage = 25,
     ): LengthAwarePaginator {
-        $query = $this->baseQuery($eventId, $passId, $search, $status)
+        $query = $this->baseQuery($eventId, $passId, $search, $status, $type)
             ->orderByRaw('MIN(lower(p.name))');
 
         /** @var LengthAwarePaginator<int, object> $paginator */
@@ -49,7 +50,7 @@ class ArtistCheckInPeopleQuery
         ]);
     }
 
-    private function baseQuery(int $eventId, ?int $passId, string $search, string $status): Builder
+    private function baseQuery(int $eventId, ?int $passId, string $search, string $status, string $type): Builder
     {
         $passNames = match (DB::connection()->getDriverName()) {
             'pgsql' => "STRING_AGG(DISTINCT pt.name, ',' ORDER BY pt.name)",
@@ -58,17 +59,26 @@ class ArtistCheckInPeopleQuery
         };
 
         $query = DB::table('pass_assignments as pa')
-            ->join('artist_engagements as ae', function ($join) use ($eventId): void {
+            ->leftJoin('artist_engagements as ae', function ($join) use ($eventId): void {
                 $join->on('ae.id', '=', 'pa.artist_engagement_id')
                     ->where('ae.event_id', '=', $eventId)
                     ->where('ae.status', '=', 'confirmed');
             })
+            ->leftJoin('vendor_engagements as ve', function ($join) use ($eventId): void {
+                $join->on('ve.id', '=', 'pa.vendor_engagement_id')
+                    ->where('ve.event_id', '=', $eventId)
+                    ->where('ve.status', '=', 'confirmed');
+            })
             ->join('people as p', 'p.id', '=', 'pa.person_id')
-            ->join('artists as a', 'a.id', '=', 'ae.artist_id')
+            ->leftJoin('artists as a', 'a.id', '=', 'ae.artist_id')
+            ->leftJoin('vendors as v', 'v.id', '=', 've.vendor_id')
             ->leftJoin('pass_types as pt', 'pt.id', '=', 'pa.pass_type_id')
             ->leftJoin('expected_entitlements as ee', 'ee.pass_assignment_id', '=', 'pa.id')
             ->leftJoin('issued_entitlements as ie', 'ie.expected_entitlement_id', '=', 'ee.id')
             ->whereNotNull('pa.person_id')
+            ->where(fn (Builder $query) => $query->whereNotNull('ae.id')->orWhereNotNull('ve.id'))
+            ->when($type === 'artist', fn (Builder $query) => $query->whereNotNull('ae.id'))
+            ->when($type === 'vendor', fn (Builder $query) => $query->whereNotNull('ve.id'))
             ->when($passId !== null, fn (Builder $query) => $query->where('pa.pass_type_id', $passId))
             ->when($search !== '', function (Builder $query) use ($search): void {
                 $pattern = '%'.SqlLike::escape(mb_strtolower($search)).'%';
@@ -76,16 +86,18 @@ class ArtistCheckInPeopleQuery
                     $query->whereRaw("lower(p.name) like ? escape '!'", [$pattern])
                         ->orWhereRaw("lower(p.email) like ? escape '!'", [$pattern])
                         ->orWhereRaw("lower(a.name) like ? escape '!'", [$pattern])
+                        ->orWhereRaw("lower(v.name) like ? escape '!'", [$pattern])
                         ->orWhereRaw("lower(ie.code) like ? escape '!'", [$pattern]);
                 });
             })
-            ->groupBy('pa.person_id', 'pa.artist_engagement_id')
+            ->groupBy('pa.person_id', 'pa.artist_engagement_id', 'pa.vendor_engagement_id')
             ->selectRaw("
                 pa.person_id as person_id,
-                pa.artist_engagement_id as artist_engagement_id,
+                COALESCE(pa.artist_engagement_id, pa.vendor_engagement_id) as engagement_id,
+                CASE WHEN pa.artist_engagement_id IS NOT NULL THEN 'artist' ELSE 'vendor' END as type,
                 MAX(p.name) as person_name,
                 MAX(p.email) as person_email,
-                MAX(a.name) as artist_name,
+                MAX(COALESCE(a.name, v.name)) as context_name,
                 {$passNames} as pass_name,
                 COUNT(DISTINCT ee.id) as expected_count,
                 COUNT(DISTINCT ie.id) as issued_count

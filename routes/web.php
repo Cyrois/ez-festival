@@ -63,6 +63,7 @@ Route::middleware('auth')->group(function () {
 
         Route::get('check-in', [ArtistCheckInController::class, 'index'])->name('check-in.index');
         Route::get('check-in/artists/{engagement}', [ArtistCheckInController::class, 'show'])->name('check-in.show');
+        Route::get('check-in/vendors/{engagement}', [ArtistCheckInController::class, 'showVendor'])->name('check-in.vendors.show');
         Route::post('check-in/expected-entitlements/{expectedEntitlement}/issues', [ArtistCheckInController::class, 'store'])
             ->middleware('event.writable')->name('check-in.issues.store');
 

@@ -9,6 +9,7 @@ use App\Http\Resources\ArtistCheckInShowResource;
 use App\Http\Resources\CheckInPersonResource;
 use App\Models\ArtistEngagement;
 use App\Models\ExpectedEntitlement;
+use App\Models\VendorEngagement;
 use App\Queries\ArtistCheckInPeopleQuery;
 use App\Services\EntitlementConsumeService;
 use App\Support\EventContext;
@@ -34,8 +35,8 @@ class ArtistCheckInController extends Controller
         $search = trim($filters['search'] ?? '');
         $canEdit = Gate::allows('manage-artists');
 
-        $people = in_array($type, ['all', 'artist'], true)
-            ? $this->artistCheckInPeople->paginate($event->id, $passId, $search, $status, $canEdit)
+        $people = in_array($type, ['all', 'artist', 'vendor'], true)
+            ? $this->artistCheckInPeople->paginate($event->id, $passId, $search, $status, $type, $canEdit)
             : $this->artistCheckInPeople->empty();
 
         return Inertia::render('CheckIn/Index', [
@@ -53,11 +54,23 @@ class ArtistCheckInController extends Controller
 
     public function show(ViewArtistCheckInRequest $request, ArtistEngagement $engagement): Response
     {
+        return $this->showEngagement($request, $engagement);
+    }
+
+    public function showVendor(ViewArtistCheckInRequest $request, VendorEngagement $engagement): Response
+    {
+        return $this->showEngagement($request, $engagement);
+    }
+
+    private function showEngagement(
+        ViewArtistCheckInRequest $request,
+        ArtistEngagement|VendorEngagement $engagement,
+    ): Response {
         $event = $this->eventContext->requireCurrent($request->user());
         abort_unless($engagement->event_id === $event->id && $engagement->status === 'confirmed', 404);
 
         $engagement->load([
-            'artist',
+            $engagement instanceof ArtistEngagement ? 'artist' : 'vendor',
             'people' => fn ($query) => $query->orderBy('people.name'),
             'passAssignments.passType.labels',
             'passAssignments.expectedEntitlements.entitlementItem.adjustments.location',
@@ -65,7 +78,7 @@ class ArtistCheckInController extends Controller
         ]);
         $requestedPersonId = $request->integer('person');
 
-        return Inertia::render('Artists/CheckInShow', [
+        return Inertia::render('CheckIn/Show', [
             'engagement' => (new ArtistCheckInShowResource($engagement))->resolve(),
             'event' => $event->only('id', 'name', 'locked', 'timezone'),
             'canWrite' => ! $event->isLocked(),
@@ -82,7 +95,8 @@ class ArtistCheckInController extends Controller
     ): RedirectResponse {
         $expectedEntitlement->loadMissing('passAssignment.artistEngagement.people');
         $assignment = $expectedEntitlement->passAssignment;
-        $engagement = $assignment->artistEngagement;
+        $assignment->loadMissing('vendorEngagement.people');
+        $engagement = $assignment->artistEngagement ?? $assignment->vendorEngagement;
         abort_unless($engagement !== null && $engagement->status === 'confirmed' && $assignment->person_id !== null, 404);
         $this->eventContext->requireCurrentEvent($request->user(), $engagement->event, writable: true);
         abort_unless($engagement->people->contains('id', $assignment->person_id), 404);

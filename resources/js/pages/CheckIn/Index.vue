@@ -176,14 +176,10 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer));
                         <TableHead>{{
                             $t('check_in.columns.person')
                         }}</TableHead>
-                        <TableHead>{{ $t('check_in.columns.type') }}</TableHead>
                         <TableHead>{{
                             $t('check_in.columns.context')
                         }}</TableHead>
                         <TableHead>{{ $t('check_in.columns.pass') }}</TableHead>
-                        <TableHead>{{
-                            $t('check_in.columns.entitlements')
-                        }}</TableHead>
                         <TableHead>{{
                             $t('check_in.columns.status')
                         }}</TableHead>
@@ -213,23 +209,11 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer));
                                 </div>
                             </div>
                         </TableCell>
-                        <TableCell>
-                            <Badge
-                                variant="outline"
-                                pill
-                                class="font-normal text-muted"
-                            >
-                                {{ $t(`check_in.types.${person.type}`) }}
-                            </Badge>
-                        </TableCell>
                         <TableCell class="text-muted">
                             {{ person.context }}
                         </TableCell>
                         <TableCell class="text-muted">
                             {{ person.pass_name }}
-                        </TableCell>
-                        <TableCell class="font-bold">
-                            {{ person.issued }}/{{ person.expected }}
                         </TableCell>
                         <TableCell>
                             <Badge
@@ -254,7 +238,7 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer));
                                         : 'primary'
                                 "
                                 size="sm"
-                                :href="`/check-in/artists/${person.engagement_id}?person=${person.person_id}`"
+                                :href="`/check-in/${person.type}s/${person.engagement_id}?person=${person.person_id}`"
                             >
                                 {{
                                     person.check_in_status === 'complete'
@@ -264,7 +248,7 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer));
                             </Button>
                             <Link
                                 v-if="person.can_edit"
-                                :href="`/artists/engagements/${person.engagement_id}#passes`"
+                                :href="`/${person.type}s/engagements/${person.engagement_id}#passes`"
                                 class="mt-1 block text-xs font-semibold text-secondary no-underline hover:underline"
                             >
                                 {{ $t('check_in.actions.edit_passes') }}
@@ -287,7 +271,7 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer));
                     </TableRow>
                     <TableRow v-if="people.data.length === 0">
                         <TableCell
-                            colspan="7"
+                            colspan="5"
                             class="py-16 text-center text-muted"
                         >
                             {{ $t('check_in.empty') }}

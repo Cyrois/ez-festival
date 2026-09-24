@@ -9,6 +9,8 @@ use App\Models\ExpectedEntitlement;
 use App\Models\PassTypeLabel;
 use App\Models\Person;
 use App\Models\User;
+use App\Models\Vendor;
+use App\Models\VendorEngagement;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Gate;
@@ -72,6 +74,7 @@ class ArtistCheckInTest extends TestCase
         [$user, $event] = $this->context();
         [, $maya, $expected] = $this->heldEntitlement($event, 'River Hollow', 'Maya Chen');
         $this->heldEntitlement($event, 'Amber Field', 'Jordan Blake', 'Guest pass');
+        [, $vendorPerson] = $this->heldVendorEntitlement($event, 'Cedar Craft Co', 'Priya Nair');
 
         Gate::define('manage-artists', fn (): bool => false);
 
@@ -88,7 +91,17 @@ class ArtistCheckInTest extends TestCase
             ->where('filters.type', 'artist')
             ->where('filters.status', 'not_started'));
 
-        foreach (['vendor', 'patron', 'team'] as $type) {
+        $this->get(route('check-in.index', ['type' => 'vendor']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('CheckIn/Index')
+                ->has('people.data', 1)
+                ->where('people.data.0.name', $vendorPerson->name)
+                ->where('people.data.0.type', 'vendor')
+                ->where('people.data.0.context', 'Cedar Craft Co')
+                ->where('filters.type', 'vendor'));
+
+        foreach (['patron', 'team'] as $type) {
             $this->get(route('check-in.index', ['type' => $type]))
                 ->assertOk()
                 ->assertInertia(fn (Assert $page) => $page
@@ -158,7 +171,7 @@ class ArtistCheckInTest extends TestCase
         ]);
 
         $this->actingAs($user)->get(route('check-in.show', [$engagement, 'person' => $maya->id]))->assertInertia(fn (Assert $page) => $page
-            ->component('Artists/CheckInShow')
+            ->component('CheckIn/Show')
             ->where('selectedPersonId', $maya->id)
             ->where('engagement.name', 'River Hollow')
             ->where('canWrite', true)
@@ -171,6 +184,37 @@ class ArtistCheckInTest extends TestCase
             ->where('engagement.people.0.pass_labels.0.name', 'Wristband')
             ->where('engagement.people.1.name', $riley->name)
             ->where('engagement.people.1.expected', 0));
+    }
+
+    public function test_vendor_can_be_opened_and_its_entitlement_consumed_from_shared_check_in(): void
+    {
+        [$user, $event] = $this->context();
+        [$engagement, $person, $expected] = $this->heldVendorEntitlement($event, 'Cedar Craft Co', 'Priya Nair');
+        $location = $event->locations()->create(['name' => 'Vendor gate']);
+        $expected->entitlementItem->adjustments()->create([
+            'location_id' => $location->id,
+            'delta' => 2,
+            'user_id' => $user->id,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('check-in.vendors.show', [$engagement, 'person' => $person->id]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('CheckIn/Show')
+                ->where('engagement.name', 'Cedar Craft Co')
+                ->where('engagement.type', 'vendor')
+                ->where('selectedPersonId', $person->id)
+                ->where('engagement.people.0.entitlements.0.locations.0.name', 'Vendor gate'));
+
+        $this->post(route('check-in.issues.store', $expected), [
+            'location_id' => $location->id,
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $this->assertDatabaseHas('issued_entitlements', [
+            'expected_entitlement_id' => $expected->id,
+            'location_id' => $location->id,
+            'issued_by' => $user->id,
+        ]);
     }
 
     public function test_show_rejects_wrong_event_and_unconfirmed_engagements(): void
@@ -273,7 +317,7 @@ class ArtistCheckInTest extends TestCase
 
         $this->get(route('check-in.show', ArtistEngagement::query()->first()))
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Artists/CheckInShow')
+                ->component('CheckIn/Show')
                 ->where('canWrite', false));
     }
 
@@ -356,6 +400,35 @@ class ArtistCheckInTest extends TestCase
         $person = Person::query()->create(['name' => $personName, 'email' => str($personName)->slug().'@example.com']);
         $engagement->people()->attach($person, ['is_primary' => true]);
         $item = $event->entitlementItems()->firstOrCreate(['name' => 'Artist wristband']);
+        $pass = $event->passTypes()->firstOrCreate(['name' => $passName]);
+        $assignment = $engagement->passAssignments()->create([
+            'pass_type_id' => $pass->id,
+            'person_id' => $person->id,
+        ]);
+        $expected = $assignment->expectedEntitlements()->create([
+            'entitlement_item_id' => $item->id,
+            'status' => ExpectedEntitlement::STATUS_EXPECTED,
+        ]);
+
+        return [$engagement, $person, $expected];
+    }
+
+    /** @return array{VendorEngagement, Person, ExpectedEntitlement} */
+    private function heldVendorEntitlement(
+        Event $event,
+        string $vendorName,
+        string $personName = 'Priya Nair',
+        string $passName = 'Vendor staff',
+    ): array {
+        $vendor = Vendor::query()->create(['name' => $vendorName]);
+        $engagement = VendorEngagement::query()->create([
+            'vendor_id' => $vendor->id,
+            'event_id' => $event->id,
+            'status' => 'confirmed',
+        ]);
+        $person = Person::query()->create(['name' => $personName, 'email' => str($personName)->slug().'@example.com']);
+        $engagement->people()->attach($person, ['is_primary' => true]);
+        $item = $event->entitlementItems()->firstOrCreate(['name' => 'Vendor wristband']);
         $pass = $event->passTypes()->firstOrCreate(['name' => $passName]);
         $assignment = $engagement->passAssignments()->create([
             'pass_type_id' => $pass->id,

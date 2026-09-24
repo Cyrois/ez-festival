@@ -14,11 +14,11 @@ class CheckInPersonResource extends JsonResource
 
         return [
             'person_id' => (int) $this->person_id,
-            'engagement_id' => (int) $this->artist_engagement_id,
+            'engagement_id' => (int) $this->engagement_id,
             'name' => $this->person_name,
             'subtitle' => $this->person_email,
-            'type' => 'artist',
-            'context' => $this->artist_name,
+            'type' => $this->type,
+            'context' => $this->context_name,
             'pass_name' => $this->pass_name ?? '',
             'issued' => $issued,
             'expected' => $expected,

@@ -63,7 +63,11 @@ const breadcrumbs = computed(() => [
                         {{ engagement.name }}
                     </h1>
                     <p class="m-0 text-sm text-muted">
-                        {{ $t('artists.check_in.engagement_confirmed') }}
+                        {{
+                            $t('check_in.engagement_confirmed', {
+                                type: $t(`check_in.types.${engagement.type}`),
+                            })
+                        }}
                     </p>
                 </div>
             </header>
