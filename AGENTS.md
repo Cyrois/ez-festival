@@ -94,6 +94,60 @@ JSON locale files live at repo-root `lang/` (e.g. `lang/en.json`), not `resource
 - Do not merge unless Calvin explicitly says to merge.
 - Before PRs: `vendor/bin/pint`, `npm run format`, `npm run lint`, relevant tests.
 
+
+## Codex failure modes (HARD)
+
+These are recurring Codex mistakes on this repo. Treat them as hard stops — do not repeat them.
+
+### Bootstrap / AGENTS.md
+
+- If Laravel Boost / Pint / the existing `AGENTS.md` product rules are already present, **do not** re-run `composer require laravel/boost`, `php artisan boost:install`, or rewrite the boost bootstrap block at the top of this file.
+- Prefer **appending** new hard rules under this section (or the relevant domain section). Do not replace Calvin’s product locks with generic Boost boilerplate.
+
+### Migrations & schema
+
+- **Never rewrite an already-shipped `create_*` migration** that may have run in any environment. Change defaults/columns with a **new** forward migration.
+- `down()` methods must not be lossy for shared remaps (e.g. mapping every `teal`/`slate` row back to a legacy token wipes post-refactor data). Prefer irreversible `down()` with a comment when remap is one-way.
+- Do not add schema columns that are unused in the same PR (e.g. `event_id` on values tables with no read/write path). **Wire them in the same PR or do not add them.**
+- Column names must **not** collide with Eloquent relation method names (e.g. a `notes` text column vs `notes()`). Rename the column or the relation before shipping.
+- After DB-per-client, **never reintroduce `organization_id`** (or equivalent) on tenant child tables.
+
+### Location-scoped inventory & FK deletes
+
+- If stock / adjustments / entitlements are location-scoped, **every write path** (adjust, consume, issue, reverse, opening balance when qty ≠ 0) must require an **event-scoped** `location_id` end-to-end: Form Request → service → DB. No null / “Unassigned” writes on those paths.
+- When a FK uses `restrict` / `restrictOnDelete`, the destroy Form Request (and service) must **block with a validation/domain error** before the database throws a 500.
+- Prefer NOT NULL (or a dated follow-up migration to NOT NULL) once product forbids nulls — do not leave permanent nullable “temporary” FKs without a plan called out in the PR body.
+
+### Refactors & leftover surface area
+
+- When lifting a feature from one domain to global (e.g. artist check-in → global check-in), **rename** routes, controllers, Form Requests, resources, Vue pages, i18n keys, and tests to match the new scope in the same PR.
+- Delete dead stubs and **do not leave dual write routes** (old + new POST) after a move.
+- Remove orphan Resources, filters, composables, and pages left behind by the move.
+- Deep-link targets (`id="…"`, query params, hash anchors) must land on the **actual** UI element (e.g. passes panel), not a sibling card.
+
+### Shared constants & UI reuse
+
+- Shared enums / color tokens / label palettes have **one server source of truth** (PHP support class or equivalent). Vue must import a generated module, receive props from the backend, or share one module — **do not triplicate** maps across Tag / Combobox / PHP.
+- Prefer existing UI kit components (`Tag`, `Badge`, tables, dialogs). Do not reintroduce one-off checkbox/button pickers where a shared combobox/tag pattern already exists.
+- Do not leave duplicate selected-chip rows beside a combobox that already shows removable chips.
+
+### Lists, authorization, performance
+
+- Production index/list pages: **filter and paginate on the server**. Do not hydrate unbounded tables into memory and filter in PHP or the browser.
+- Do not `Gate::authorize` / policy-check **per row in a loop** when a single ability plus a query scope is enough.
+- Client-only chips/filters for types that always return empty are not “global” — either wire the data or hide the chip until the type exists.
+
+### Stubs, product invention, tests
+
+- Do not invent product behavior. If the slice is a draft, say so in the PR body and leave explicit `TODO`s — do not ship `window.prompt` / placeholder QR / fake flows as if finished.
+- Feature tests for write paths must cover at least: wrong-event / foreign id, locked event, already-consumed / conflict, destroy-with-children (FK restrict), and validation failure via Form Request (not only happy path).
+
+### PR hygiene
+
+- PR body must list: intent, what is intentionally out of scope, migration/deploy notes, and any temporary nullability.
+- Keep PRs reviewable; do not mix unrelated refactors with feature work.
+- Ping Artist-Tree Code Reviewer after opening or meaningfully updating the PR (number, URL, branch, one-line summary).
+
 ## Tenancy / data model
 
 - Product is one Artist Tree app for music-festival back office; each festival company is a client/organization.
