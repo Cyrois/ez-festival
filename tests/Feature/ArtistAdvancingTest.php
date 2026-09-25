@@ -29,6 +29,7 @@ class ArtistAdvancingTest extends TestCase
         $this->get(route('artists.index'))->assertRedirect(route('login'));
         $this->get(route('artists.create'))->assertRedirect(route('login'));
         $this->post('/events/1/artists', ['name' => 'River Hollow'])->assertRedirect(route('login'));
+        $this->patch('/artists/engagements/1/status', ['status' => 'confirmed'])->assertRedirect(route('login'));
         $this->assertDatabaseCount('artists', 0);
     }
 
@@ -57,6 +58,10 @@ class ArtistAdvancingTest extends TestCase
             ->where('engagements.data.0.type', 'Performance')
             ->where('engagements.data.0.labels.0.name', 'Headliner')
             ->where('engagements.data.0.custom', [])
+            ->where('statuses', ArtistEngagement::STATUSES)
+            ->where('statusCounts.contract_sent', 1)
+            ->where('statusCounts.idea', 0)
+            ->where('filters.view', 'list')
             ->missing('engagements.data.0.fee'));
     }
 
@@ -108,12 +113,107 @@ class ArtistAdvancingTest extends TestCase
                 'artist_id' => Artist::factory()->create(['name' => 'Band '.$sequence->index])->id,
             ])->create();
 
-        $this->actingAs($user)->get(route('artists.index', ['search' => 'Band', 'page' => 2]))
+        $this->actingAs($user)->get(route('artists.index', ['search' => 'Band', 'view' => 'list', 'page' => 2]))
             ->assertInertia(fn (Assert $page) => $page
                 ->has('engagements.data', 1)
                 ->where('engagements.meta.total', 26)
                 ->where('engagements.meta.current_page', 2)
-                ->where('engagements.links.prev', fn (string $url) => str_contains($url, 'search=Band')));
+                ->where('filters.view', 'list')
+                ->where('engagements.links.prev', fn (string $url) => str_contains($url, 'search=Band') && str_contains($url, 'view=list')));
+    }
+
+    public function test_columns_loads_every_filtered_engagement_so_cards_match_status_counts(): void
+    {
+        [$user, $event] = $this->context();
+        ArtistEngagement::factory()->count(26)->for($event)
+            ->sequence(fn ($sequence) => [
+                'artist_id' => Artist::factory()->create(['name' => 'Band '.$sequence->index])->id,
+                'status' => $sequence->index < 20 ? 'idea' : 'confirmed',
+            ])->create();
+        ArtistEngagement::factory()->for($event)
+            ->for(Artist::factory()->state(['name' => 'Solo Act']))
+            ->create(['status' => 'idea']);
+
+        $response = $this->actingAs($user)
+            ->get(route('artists.index', ['search' => 'Band', 'view' => 'columns', 'page' => 2]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('filters.view', 'columns')
+                ->has('engagements.data', 26)
+                ->missing('engagements.meta')
+                ->where('statusCounts.idea', 20)
+                ->where('statusCounts.confirmed', 6));
+
+        $props = $response->viewData('page')['props'];
+        $cardCounts = collect($props['engagements']['data'])->countBy('status');
+
+        foreach ($props['statusCounts'] as $status => $count) {
+            $this->assertSame($count, $cardCounts[$status] ?? 0, "Column {$status} badge must match its cards.");
+        }
+    }
+
+    public function test_drag_status_update_changes_only_the_engagement_status(): void
+    {
+        [$user, $event] = $this->context();
+        $artist = Artist::factory()->create(['name' => 'River Hollow']);
+        $type = ArtistType::query()->create(['name' => 'Performance']);
+        $label = ArtistLabel::factory()->create(['name' => 'VIP']);
+        $engagement = ArtistEngagement::factory()->for($event)->for($artist)->create([
+            'status' => 'idea',
+            'artist_type_id' => $type->id,
+        ]);
+        $engagement->labels()->attach($label);
+
+        $this->actingAs($user)
+            ->from(route('artists.index', ['view' => 'columns']))
+            ->patch(route('artists.status.update', $engagement), ['status' => 'confirmed'])
+            ->assertRedirect(route('artists.index', ['view' => 'columns']))
+            ->assertSessionHas('success', __('artists.toast.status_updated'));
+
+        $engagement->refresh();
+        $this->assertSame('confirmed', $engagement->status);
+        $this->assertTrue($engagement->artistType->is($type));
+        $this->assertSame(['VIP'], $engagement->labels()->pluck('name')->all());
+        $this->assertSame('River Hollow', $artist->fresh()->name);
+    }
+
+    public function test_drag_status_update_rejects_invalid_status(): void
+    {
+        [$user, $event] = $this->context();
+        $engagement = ArtistEngagement::factory()->for($event)->for(Artist::factory())->create(['status' => 'idea']);
+
+        $this->actingAs($user)
+            ->patch(route('artists.status.update', $engagement), ['status' => 'booked'])
+            ->assertSessionHasErrors('status');
+
+        $this->assertSame('idea', $engagement->fresh()->status);
+    }
+
+    public function test_drag_status_update_rejects_an_engagement_from_another_event(): void
+    {
+        [$user] = $this->context();
+        $engagement = ArtistEngagement::factory()
+            ->for($this->event('Other event'))
+            ->for(Artist::factory())
+            ->create(['status' => 'idea']);
+
+        $this->actingAs($user)
+            ->patch(route('artists.status.update', $engagement), ['status' => 'confirmed'])
+            ->assertNotFound();
+
+        $this->assertSame('idea', $engagement->fresh()->status);
+    }
+
+    public function test_drag_status_update_is_blocked_for_a_locked_event(): void
+    {
+        [$user, $event] = $this->context();
+        $engagement = ArtistEngagement::factory()->for($event)->for(Artist::factory())->create(['status' => 'idea']);
+        $event->lock();
+
+        $this->actingAs($user)
+            ->patch(route('artists.status.update', $engagement), ['status' => 'confirmed'])
+            ->assertForbidden();
+
+        $this->assertSame('idea', $engagement->fresh()->status);
     }
 
     public function test_create_form_contains_organization_options_and_current_event(): void
