@@ -1,7 +1,9 @@
 <script setup>
 import AppLayout from '../../layouts/AppLayout.vue';
+import ArtistBoardCard from '../../components/artists/ArtistBoardCard.vue';
 import { Avatar } from '../../components/ui/avatar';
 import { Badge } from '../../components/ui/badge';
+import { Board } from '../../components/ui/board';
 import { Button } from '../../components/ui/button';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Icon } from '../../components/ui/icon';
@@ -9,6 +11,23 @@ import { Input } from '../../components/ui/input';
 import { LabelCombobox } from '../../components/ui/label-combobox';
 import { SegmentedControl } from '../../components/ui/segmented-control';
 import { Tag } from '../../components/ui/tag';
+import { useFlashToast } from '../../composables/useFlashToast';
+import { engagementStatusPresentation } from '../../lib/engagementStatusPresentation';
+import {
+    applySnapshot,
+    createPendingState,
+    dropSettled,
+    failMove,
+    finishVisit,
+    forgetSnapshot,
+    movingIds as pendingMovingIds,
+    overlayCounts,
+    overlayItems,
+    reconcileWithProps,
+    startMove,
+    startVisit,
+    succeedMove,
+} from './pendingStatuses';
 import {
     Table,
     TableBody,
@@ -24,21 +43,37 @@ import { trans } from 'laravel-vue-i18n';
 const props = defineProps({
     engagements: { type: Object, required: true },
     labels: { type: Array, required: true },
+    statuses: { type: Array, required: true },
+    statusCounts: { type: Object, required: true },
     filters: { type: Object, required: true },
     event: { type: Object, default: null },
 });
 const search = ref(props.filters.search);
 const selectedLabels = ref([...props.filters.labels]);
 const busy = ref(false);
-const viewMode = ref('list');
+const viewMode = ref(props.filters.view);
+// Optimistic Columns moves; see pendingStatuses.js for the stale-reload rules.
+const pending = ref(createPendingState());
+let lastRequestId = 0;
+let refreshing = false;
+const movingIds = computed(() => pendingMovingIds(pending.value));
+const engagementItems = computed(() =>
+    overlayItems(pending.value, props.engagements.data),
+);
+const localStatusCounts = computed(() =>
+    overlayCounts(pending.value, props.engagements.data, props.statusCounts),
+);
+const { showFormError } = useFlashToast();
 const viewOptions = computed(() => [
     {
         value: 'columns',
         label: trans('artists.views.columns'),
+        icon: ['fas', 'table-columns'],
     },
     {
         value: 'list',
         label: trans('artists.views.list'),
+        icon: ['fas', 'list'],
     },
 ]);
 const breadcrumbs = computed(() => [
@@ -54,21 +89,78 @@ const statusVariant = {
     confirmed: 'success',
     declined: 'danger',
 };
+const boardColumns = computed(() =>
+    props.statuses.map((status) => ({
+        value: status,
+        label: trans(`artists.status.${status}`),
+        ...engagementStatusPresentation[status],
+    })),
+);
+// Callbacks shared by every visit that can replace engagements props.
+const trackedVisit = (requestId, { onSuccess, onError, refresh } = {}) => ({
+    onSuccess: (page) => {
+        onSuccess?.();
+        pending.value = applySnapshot(
+            pending.value,
+            page.props.engagements.data,
+            requestId,
+        );
+    },
+    onError: (errors) => {
+        onError?.(errors);
+        pending.value = forgetSnapshot(pending.value);
+    },
+    onFinish: () => {
+        const result = finishVisit(pending.value, requestId);
+        pending.value = result.state;
+
+        if (refresh) {
+            // One refresh only: afterwards the server props win.
+            refreshing = false;
+            pending.value = dropSettled(pending.value);
+        } else if (result.needsRefresh) {
+            refreshEngagements();
+        }
+    },
+});
+const refreshEngagements = () => {
+    if (refreshing) {
+        return;
+    }
+
+    const requestId = ++lastRequestId;
+    refreshing = true;
+    pending.value = startVisit(pending.value, requestId);
+    router.reload({
+        only: ['engagements', 'statusCounts'],
+        async: true,
+        ...trackedVisit(requestId, { refresh: true }),
+    });
+};
 let searchTimer;
 const applyFilters = () => {
     clearTimeout(searchTimer);
+    const requestId = ++lastRequestId;
+    const callbacks = trackedVisit(requestId);
+    pending.value = startVisit(pending.value, requestId);
     router.get(
         '/artists/advancing',
-        { search: search.value, labels: selectedLabels.value },
+        {
+            search: search.value,
+            labels: selectedLabels.value,
+            view: viewMode.value,
+        },
         {
             preserveState: true,
             preserveScroll: true,
             replace: true,
+            ...callbacks,
             onStart: () => {
                 busy.value = true;
             },
             onFinish: () => {
                 busy.value = false;
+                callbacks.onFinish();
             },
         },
     );
@@ -82,14 +174,15 @@ watch(
     (filters) => {
         search.value = filters.search;
         selectedLabels.value = [...filters.labels];
+        viewMode.value = filters.view;
     },
 );
-watch(viewMode, (value) => {
-    // Columns board deferred — keep List selected.
-    if (value !== 'list') {
-        viewMode.value = 'list';
-    }
-});
+watch(
+    () => props.engagements.data,
+    (items) => {
+        pending.value = reconcileWithProps(pending.value, items);
+    },
+);
 onUnmounted(() => {
     clearTimeout(searchTimer);
 });
@@ -101,6 +194,42 @@ const clearFilters = () => {
     search.value = '';
     selectedLabels.value = [];
     applyFilters();
+};
+const updateViewMode = (value) => {
+    viewMode.value = value;
+    applyFilters();
+};
+const moveEngagement = ({ item, to }) => {
+    if (props.event.locked || movingIds.value.includes(item.id)) {
+        return;
+    }
+
+    const requestId = ++lastRequestId;
+    pending.value = startMove(pending.value, item.id, to, requestId);
+
+    router.patch(
+        `/artists/engagements/${item.id}/status`,
+        { status: to },
+        {
+            async: true,
+            preserveScroll: true,
+            preserveState: true,
+            ...trackedVisit(requestId, {
+                // Keep the card where it was dropped until a fresh reload confirms it.
+                onSuccess: () => {
+                    pending.value = succeedMove(
+                        pending.value,
+                        item.id,
+                        requestId,
+                    );
+                },
+                onError: (errors) => {
+                    pending.value = failMove(pending.value, item.id, requestId);
+                    showFormError(errors);
+                },
+            }),
+        },
+    );
 };
 </script>
 
@@ -185,19 +314,71 @@ const clearFilters = () => {
                     @click="clearFilters"
                     >{{ $t('artists.clear_filters') }}</Button
                 >
-                <!-- TODO: Implement the Columns board in a follow-up. -->
-                <div
-                    class="ml-auto"
-                    :title="$t('artists.columns_deferred')"
-                >
+                <div class="ml-auto">
                     <SegmentedControl
-                        v-model="viewMode"
+                        :model-value="viewMode"
                         :options="viewOptions"
                         :aria-label="$t('artists.views.mode')"
+                        @update:model-value="updateViewMode"
                     />
                 </div>
             </div>
-            <div :aria-busy="busy">
+            <div
+                v-if="viewMode === 'columns'"
+                class="overflow-x-auto pb-2"
+                :aria-busy="busy"
+            >
+                <Board
+                    :columns="boardColumns"
+                    :items="engagementItems"
+                    :disabled="event.locked"
+                    :disabled-keys="movingIds"
+                    class="min-w-[72rem] grid-cols-6"
+                    @move="moveEngagement"
+                >
+                    <template #header="{ column }">
+                        <div
+                            class="flex items-center justify-between gap-2 text-sm font-bold"
+                        >
+                            <span class="flex min-w-0 items-center gap-2">
+                                <Icon
+                                    :name="column.icon"
+                                    size="sm"
+                                />
+                                <span class="truncate">{{ column.label }}</span>
+                            </span>
+                            <span
+                                :class="[
+                                    'min-w-6 rounded-full px-1.5 py-0.5 text-center text-xs',
+                                    column.countClass,
+                                ]"
+                            >
+                                {{ localStatusCounts[column.value] }}
+                            </span>
+                        </div>
+                    </template>
+                    <template #item="{ item }">
+                        <ArtistBoardCard :engagement="item" />
+                    </template>
+                    <template #empty>
+                        <div
+                            class="rounded-lg border-2 border-dashed border-line bg-ground/50 px-3 py-5 text-center text-xs text-muted"
+                        >
+                            {{
+                                $t(
+                                    event.locked
+                                        ? 'artists.board.empty'
+                                        : 'artists.board.drop_here',
+                                )
+                            }}
+                        </div>
+                    </template>
+                </Board>
+            </div>
+            <div
+                v-else
+                :aria-busy="busy"
+            >
                 <!-- Phone: card stack -->
                 <div class="flex flex-col gap-3 md:hidden">
                     <div
@@ -376,7 +557,7 @@ const clearFilters = () => {
                 </div>
             </div>
             <div
-                v-if="engagements.meta.last_page > 1"
+                v-if="viewMode === 'list' && engagements.meta?.last_page > 1"
                 class="mt-4 flex flex-wrap items-center justify-between gap-3"
             >
                 <p class="m-0 text-sm text-muted">

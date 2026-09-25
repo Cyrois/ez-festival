@@ -99,6 +99,16 @@ class ArtistService
         });
     }
 
+    public function updateStatus(ArtistEngagement $engagement, string $status): void
+    {
+        DB::transaction(function () use ($engagement, $status) {
+            $event = Event::query()->lockForUpdate()->findOrFail($engagement->event_id);
+            $event->ensureWritable();
+
+            $engagement->update(['status' => $status]);
+        });
+    }
+
     private function renameArtist(Artist $artist, string $name): void
     {
         $nameKey = Artist::normalizeName($name);

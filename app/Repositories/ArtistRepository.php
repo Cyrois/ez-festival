@@ -22,6 +22,56 @@ class ArtistRepository
         string $search,
         array $labelIds,
     ): LengthAwarePaginator {
+        return $this->listedEngagements($event, $search, $labelIds)
+            ->paginate(25)
+            ->withQueryString();
+    }
+
+    /**
+     * Every engagement matching the filters, for the Columns board, so cards
+     * and per-status counts describe the same set.
+     *
+     * @param  list<int>  $labelIds
+     * @return Collection<int, ArtistEngagement>
+     */
+    public function allEngagements(?Event $event, string $search, array $labelIds): Collection
+    {
+        return $this->listedEngagements($event, $search, $labelIds)->get();
+    }
+
+    /**
+     * @param  list<int>  $labelIds
+     * @return array<string, int>
+     */
+    public function statusCounts(?Event $event, string $search, array $labelIds): array
+    {
+        $counts = $this->filteredEngagements($event, $search, $labelIds)
+            ->selectRaw('status, count(*) as aggregate')
+            ->groupBy('status')
+            ->pluck('aggregate', 'status');
+
+        return collect(ArtistEngagement::STATUSES)
+            ->mapWithKeys(fn (string $status) => [$status => (int) ($counts[$status] ?? 0)])
+            ->all();
+    }
+
+    /**
+     * @param  list<int>  $labelIds
+     * @return Builder<ArtistEngagement>
+     */
+    private function listedEngagements(?Event $event, string $search, array $labelIds): Builder
+    {
+        return $this->filteredEngagements($event, $search, $labelIds)
+            ->with(['artist', 'labels' => fn ($query) => $query->orderBy('name'), 'artistType'])
+            ->latest('id');
+    }
+
+    /**
+     * @param  list<int>  $labelIds
+     * @return Builder<ArtistEngagement>
+     */
+    private function filteredEngagements(?Event $event, string $search, array $labelIds): Builder
+    {
         $searchPattern = '%'.SqlLike::escape(mb_strtolower($search)).'%';
 
         return ArtistEngagement::query()
@@ -39,11 +89,7 @@ class ArtistRepository
                         $query->whereHas('labels', fn (Builder $query) => $query->whereKey($labelId));
                     }
                 },
-            )
-            ->with(['artist', 'labels' => fn ($query) => $query->orderBy('name'), 'artistType'])
-            ->latest('id')
-            ->paginate(25)
-            ->withQueryString();
+            );
     }
 
     /**

@@ -18,6 +18,7 @@ class IndexArtistsRequest extends FormRequest
             'search' => ['nullable', 'string', 'max:255'],
             'labels' => ['sometimes', 'array', 'max:50'],
             'labels.*' => ['integer', 'distinct', Rule::exists('artist_labels', 'id')],
+            'view' => ['sometimes', Rule::in(['columns', 'list'])],
             'page' => ['sometimes', 'integer', 'min:1'],
         ];
     }

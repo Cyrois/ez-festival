@@ -4,6 +4,7 @@ use App\Http\Controllers\ArtistCheckInController;
 use App\Http\Controllers\ArtistController;
 use App\Http\Controllers\ArtistEngagementPersonController;
 use App\Http\Controllers\ArtistPassAssignmentController;
+use App\Http\Controllers\ArtistStatusController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Credentials\EntitlementItemController;
@@ -82,6 +83,8 @@ Route::middleware('auth')->group(function () {
         Route::get('artists/engagements/{engagement}', [ArtistController::class, 'view'])->name('artists.view');
         Route::put('artists/engagements/{engagement}', [ArtistController::class, 'update'])
             ->middleware('event.writable')->name('artists.update');
+        Route::patch('artists/engagements/{engagement}/status', [ArtistStatusController::class, 'update'])
+            ->middleware('event.writable')->name('artists.status.update');
         Route::post('artists/engagements/{engagement}/notes', [ArtistController::class, 'storeNote'])
             ->middleware('event.writable')->name('artists.notes.store');
         Route::post('artists/engagements/{engagement}/people', [ArtistEngagementPersonController::class, 'store'])
