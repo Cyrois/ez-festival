@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
             TestCatalogSeeder::class,
             TestArtistSeeder::class,
             TestVendorSeeder::class,
+            TestTeamSeeder::class,
         ]);
     }
 }

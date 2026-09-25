@@ -114,7 +114,10 @@ const submit = () => {
                 {{ $t('team.member.locked') }}
             </p>
 
-            <form @submit.prevent="submit">
+            <form
+                id="team-member-details"
+                @submit.prevent="submit"
+            >
                 <Card>
                     <h2 class="m-0 text-xl font-bold text-muted">
                         {{ $t('team.member.details') }}
@@ -165,26 +168,33 @@ const submit = () => {
                     }}</strong>
                     {{ $t('team.member.unlock_note') }}
                 </p>
-
-                <div
-                    v-if="!readOnly"
-                    class="mt-6 flex justify-between gap-3 border-t border-line pt-5"
-                >
-                    <Button
-                        href="/team/advancement"
-                        variant="ghost"
-                        :disabled="form.processing"
-                    >
-                        {{ $t('setup.actions.cancel') }}
-                    </Button>
-                    <Button
-                        type="submit"
-                        :loading="form.processing"
-                    >
-                        {{ $t('team.member.save') }}
-                    </Button>
-                </div>
             </form>
+
+            <div
+                v-if="!readOnly"
+                class="fixed right-0 bottom-0 left-0 z-30 border-t border-line bg-ground/95 py-3 backdrop-blur lg:left-56"
+            >
+                <div class="container mx-auto px-4 md:px-6">
+                    <div
+                        class="mx-auto flex max-w-6xl items-center justify-between"
+                    >
+                        <Button
+                            href="/team/advancement"
+                            variant="cancel"
+                            :disabled="form.processing"
+                        >
+                            {{ $t('setup.actions.cancel') }}
+                        </Button>
+                        <Button
+                            form="team-member-details"
+                            type="submit"
+                            :loading="form.processing"
+                        >
+                            {{ $t('team.member.save') }}
+                        </Button>
+                    </div>
+                </div>
+            </div>
         </div>
     </AppLayout>
 </template>
