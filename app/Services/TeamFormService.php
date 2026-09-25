@@ -29,8 +29,8 @@ class TeamFormService
             $form = TeamForm::query()->create([
                 'event_id' => $event->id,
                 'name' => $data['name'],
+                'slug' => $data['slug'],
                 'status' => $data['status'],
-                'public_token' => Str::random(48),
             ]);
 
             $this->syncFields($form, $data['fields']);
@@ -45,7 +45,11 @@ class TeamFormService
         DB::transaction(function () use ($form, $data): void {
             $form = TeamForm::query()->lockForUpdate()->with('event')->findOrFail($form->id);
             $form->event->ensureWritable();
-            $form->update(['name' => $data['name'], 'status' => $data['status']]);
+            $form->update([
+                'name' => $data['name'],
+                'slug' => $data['slug'],
+                'status' => $data['status'],
+            ]);
             $this->syncFields($form, $data['fields']);
         });
     }
@@ -139,7 +143,11 @@ class TeamFormService
                 $field->key = $field->exists ? $field->key : 'custom_'.$customField->id;
             }
 
-            $field->required = $fieldData['key'] === TeamFormField::KEY_NAME || (bool) $fieldData['required'];
+            $field->required = in_array(
+                $fieldData['key'],
+                [TeamFormField::KEY_NAME, TeamFormField::KEY_EMAIL],
+                true,
+            ) || (bool) $fieldData['required'];
             $field->sort_order = $sortOrder;
             $field->save();
             $retainedIds[] = $field->id;

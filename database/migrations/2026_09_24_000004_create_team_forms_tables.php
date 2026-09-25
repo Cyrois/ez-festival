@@ -13,8 +13,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('event_id')->constrained()->cascadeOnDelete();
             $table->string('name');
+            $table->string('slug', 120)->unique();
             $table->enum('status', ['draft', 'live'])->default('draft');
-            $table->string('public_token', 64)->unique();
             $table->timestamps();
 
             $table->index(['event_id', 'status']);

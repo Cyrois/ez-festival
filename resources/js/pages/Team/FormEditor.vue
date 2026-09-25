@@ -11,7 +11,7 @@ import { Textarea } from '../../components/ui/textarea';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { fieldError, toastFormErrors } from '../../lib/fieldError';
 import { useForm } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
 const props = defineProps({
@@ -47,11 +47,42 @@ const typeItems = computed(() =>
     })),
 );
 const { showError, showFormError, showSuccess } = useFlashToast();
+const initialFormFields = (props.teamForm?.fields ?? props.initialFields).map(
+    (field) => ({
+        ...field,
+        required: ['name', 'email'].includes(field.key) ? true : field.required,
+        options: [...(field.options ?? [])],
+    }),
+);
 const form = useForm({
     name: props.teamForm?.name ?? '',
+    slug: props.teamForm?.slug ?? '',
     status: props.teamForm?.status ?? 'draft',
-    fields: structuredClone(props.teamForm?.fields ?? props.initialFields),
+    fields: initialFormFields,
 });
+const slugEdited = ref(editing.value);
+const slugPreview = computed(
+    () => form.slug || trans('team.forms.editor.slug_placeholder'),
+);
+const fieldList = ref(null);
+const draggedFieldKey = ref(null);
+const activeDropIndex = ref(null);
+let activePointerId = null;
+let pointerStart = null;
+let rowMidpoints = [];
+
+watch(
+    () => form.name,
+    (name) => {
+        if (slugEdited.value) return;
+
+        form.slug = name
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, '');
+    },
+);
 
 const isBuiltin = (field) =>
     ['name', 'email', 'phone', 'employment_type'].includes(field.key);
@@ -69,11 +100,64 @@ const addField = () => {
 };
 
 const removeField = (index) => form.fields.splice(index, 1);
-const moveField = (index, direction) => {
-    const target = index + direction;
-    if (target < 0 || target >= form.fields.length) return;
-    const [field] = form.fields.splice(index, 1);
-    form.fields.splice(target, 0, field);
+const endFieldDrag = () => {
+    activePointerId = null;
+    pointerStart = null;
+    rowMidpoints = [];
+    draggedFieldKey.value = null;
+    activeDropIndex.value = null;
+};
+const startFieldDrag = (event, key) => {
+    if (event.button !== 0) return;
+
+    activePointerId = event.pointerId;
+    pointerStart = { x: event.clientX, y: event.clientY };
+    rowMidpoints = Array.from(
+        fieldList.value?.querySelectorAll('[data-field-index]') ?? [],
+    ).map((row) => {
+        const { top, height } = row.getBoundingClientRect();
+
+        return top + height / 2;
+    });
+    draggedFieldKey.value = key;
+    activeDropIndex.value = null;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+};
+const updateFieldDropIndex = (event) => {
+    if (event.pointerId !== activePointerId || !fieldList.value) return;
+    if (
+        Math.abs(event.clientX - pointerStart.x) < 4 &&
+        Math.abs(event.clientY - pointerStart.y) < 4
+    )
+        return;
+
+    const nextIndex = rowMidpoints.findIndex(
+        (midpoint) => event.clientY < midpoint,
+    );
+
+    activeDropIndex.value = nextIndex === -1 ? rowMidpoints.length : nextIndex;
+};
+const dropField = (event) => {
+    if (event.pointerId !== activePointerId) return;
+    updateFieldDropIndex(event);
+    const targetIndex = activeDropIndex.value;
+    const from = form.fields.findIndex(
+        (field) => field.key === draggedFieldKey.value,
+    );
+    if (targetIndex === null || from === -1) {
+        endFieldDrag();
+        return;
+    }
+    let to = targetIndex;
+    if (from < to) to -= 1;
+    if (from === to) {
+        endFieldDrag();
+        return;
+    }
+    const [moved] = form.fields.splice(from, 1);
+    form.fields.splice(to, 0, moved);
+    endFieldDrag();
 };
 const copyLink = async () => {
     await navigator.clipboard.writeText(props.teamForm.public_url);
@@ -152,6 +236,28 @@ const submit = () => {
                         </template>
                     </FormField>
                     <FormField
+                        :label="$t('team.forms.editor.slug')"
+                        :hint="
+                            $t('team.forms.editor.slug_hint', {
+                                slug: slugPreview,
+                            })
+                        "
+                        :error="fieldError(form, 'slug')"
+                        required
+                    >
+                        <template #default="{ id, invalid }">
+                            <Input
+                                :id="id"
+                                v-model="form.slug"
+                                :invalid="invalid"
+                                :placeholder="
+                                    $t('team.forms.editor.slug_placeholder')
+                                "
+                                @update:model-value="slugEdited = true"
+                            />
+                        </template>
+                    </FormField>
+                    <FormField
                         :label="$t('team.forms.editor.status')"
                         :error="fieldError(form, 'status')"
                         required
@@ -208,122 +314,159 @@ const submit = () => {
                         </Button>
                     </div>
                 </template>
-                <div class="flex flex-col gap-2">
-                    <div
+                <div
+                    ref="fieldList"
+                    class="flex flex-col gap-2"
+                >
+                    <template
                         v-for="(field, index) in form.fields"
                         :key="field.key"
-                        class="rounded-lg border border-line p-3"
                     >
-                        <div class="flex flex-wrap items-start gap-3">
-                            <div class="flex gap-1 pt-1">
-                                <button
-                                    type="button"
-                                    class="rounded-lg p-2 text-muted hover:bg-page hover:text-charcoal disabled:opacity-30"
-                                    :disabled="index === 0"
-                                    :aria-label="
-                                        $t('team.forms.actions.move_up')
-                                    "
-                                    @click="moveField(index, -1)"
-                                >
-                                    <Icon
-                                        :name="['fas', 'arrow-up']"
+                        <div
+                            v-if="
+                                draggedFieldKey !== null &&
+                                activeDropIndex === index
+                            "
+                            class="flex min-h-[64px] items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/10 text-sm font-medium text-primary"
+                        >
+                            {{ $t('team.forms.editor.drop_here') }}
+                        </div>
+                        <div
+                            :data-field-index="index"
+                            class="rounded-lg border border-line p-3"
+                            :class="{
+                                'ring-2 ring-primary/40':
+                                    draggedFieldKey === field.key,
+                            }"
+                        >
+                            <div class="flex flex-wrap items-start gap-3">
+                                <div class="pt-1">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
                                         size="sm"
-                                    />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="rounded-lg p-2 text-muted hover:bg-page hover:text-charcoal disabled:opacity-30"
-                                    :disabled="index === form.fields.length - 1"
-                                    :aria-label="
-                                        $t('team.forms.actions.move_down')
-                                    "
-                                    @click="moveField(index, 1)"
+                                        class="cursor-grab touch-none px-2 text-muted active:cursor-grabbing"
+                                        :aria-label="
+                                            $t('team.forms.actions.drag_field')
+                                        "
+                                        :disabled="form.processing"
+                                        data-field-drag-handle
+                                        @pointerdown="
+                                            startFieldDrag($event, field.key)
+                                        "
+                                        @pointermove="updateFieldDropIndex"
+                                        @pointerup="dropField"
+                                        @pointercancel="endFieldDrag"
+                                    >
+                                        <Icon
+                                            :name="['fas', 'grip-lines']"
+                                            fixed-width
+                                        />
+                                    </Button>
+                                </div>
+                                <div
+                                    class="grid min-w-64 flex-1 grid-cols-1 gap-3 md:grid-cols-2"
                                 >
-                                    <Icon
-                                        :name="['fas', 'arrow-down']"
+                                    <FormField
+                                        :label="
+                                            $t('team.forms.editor.field_label')
+                                        "
+                                    >
+                                        <template #default="{ id }">
+                                            <Input
+                                                :id="id"
+                                                v-model="field.label"
+                                                :disabled="isBuiltin(field)"
+                                            />
+                                        </template>
+                                    </FormField>
+                                    <FormField
+                                        :label="
+                                            $t('team.forms.editor.field_type')
+                                        "
+                                    >
+                                        <template #default="{ id }">
+                                            <Input
+                                                v-if="isBuiltin(field)"
+                                                :id="id"
+                                                :model-value="
+                                                    $t(
+                                                        `team.forms.field_type.${field.type}`,
+                                                    )
+                                                "
+                                                disabled
+                                            />
+                                            <CustomDropdown
+                                                v-else
+                                                :id="id"
+                                                v-model="field.type"
+                                                :items="typeItems"
+                                            />
+                                        </template>
+                                    </FormField>
+                                    <FormField
+                                        v-if="
+                                            !isBuiltin(field) &&
+                                            field.type === 'select'
+                                        "
+                                        class="md:col-span-2"
+                                        :label="$t('team.forms.editor.options')"
+                                        :hint="
+                                            $t('team.forms.editor.options_hint')
+                                        "
+                                    >
+                                        <template #default="{ id }">
+                                            <Textarea
+                                                :id="id"
+                                                v-model="field.optionsText"
+                                                :placeholder="
+                                                    field.options.join('\n')
+                                                "
+                                            />
+                                        </template>
+                                    </FormField>
+                                </div>
+                                <div class="flex items-center gap-3 pt-7">
+                                    <Checkbox
+                                        v-model="field.required"
+                                        :disabled="
+                                            ['name', 'email'].includes(
+                                                field.key,
+                                            )
+                                        "
+                                        :label="
+                                            $t('team.forms.editor.required')
+                                        "
+                                    />
+                                    <Button
+                                        v-if="!isBuiltin(field)"
+                                        type="button"
+                                        variant="ghost"
                                         size="sm"
-                                    />
-                                </button>
-                            </div>
-                            <div
-                                class="grid min-w-64 flex-1 grid-cols-1 gap-3 md:grid-cols-2"
-                            >
-                                <FormField
-                                    :label="$t('team.forms.editor.field_label')"
-                                >
-                                    <template #default="{ id }">
-                                        <Input
-                                            :id="id"
-                                            v-model="field.label"
-                                            :disabled="isBuiltin(field)"
+                                        :aria-label="
+                                            $t(
+                                                'team.forms.actions.remove_field',
+                                            )
+                                        "
+                                        @click="removeField(index)"
+                                    >
+                                        <Icon
+                                            :name="['fas', 'trash']"
+                                            size="sm"
                                         />
-                                    </template>
-                                </FormField>
-                                <FormField
-                                    :label="$t('team.forms.editor.field_type')"
-                                >
-                                    <template #default="{ id }">
-                                        <Input
-                                            v-if="isBuiltin(field)"
-                                            :id="id"
-                                            :model-value="
-                                                $t(
-                                                    `team.forms.field_type.${field.type}`,
-                                                )
-                                            "
-                                            disabled
-                                        />
-                                        <CustomDropdown
-                                            v-else
-                                            :id="id"
-                                            v-model="field.type"
-                                            :items="typeItems"
-                                        />
-                                    </template>
-                                </FormField>
-                                <FormField
-                                    v-if="
-                                        !isBuiltin(field) &&
-                                        field.type === 'select'
-                                    "
-                                    class="md:col-span-2"
-                                    :label="$t('team.forms.editor.options')"
-                                    :hint="$t('team.forms.editor.options_hint')"
-                                >
-                                    <template #default="{ id }">
-                                        <Textarea
-                                            :id="id"
-                                            v-model="field.optionsText"
-                                            :placeholder="
-                                                field.options.join('\n')
-                                            "
-                                        />
-                                    </template>
-                                </FormField>
-                            </div>
-                            <div class="flex items-center gap-3 pt-7">
-                                <Checkbox
-                                    v-model="field.required"
-                                    :disabled="field.key === 'name'"
-                                    :label="$t('team.forms.editor.required')"
-                                />
-                                <Button
-                                    v-if="!isBuiltin(field)"
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    :aria-label="
-                                        $t('team.forms.actions.remove_field')
-                                    "
-                                    @click="removeField(index)"
-                                >
-                                    <Icon
-                                        :name="['fas', 'trash']"
-                                        size="sm"
-                                    />
-                                </Button>
+                                    </Button>
+                                </div>
                             </div>
                         </div>
+                    </template>
+                    <div
+                        v-if="
+                            draggedFieldKey !== null &&
+                            activeDropIndex === form.fields.length
+                        "
+                        class="flex min-h-[64px] items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/10 text-sm font-medium text-primary"
+                    >
+                        {{ $t('team.forms.editor.drop_here') }}
                     </div>
                 </div>
             </Card>

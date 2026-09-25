@@ -50,6 +50,10 @@ class TeamFormsTest extends TestCase
         }
 
         $this->assertDatabaseCount('team_forms', 2);
+        $this->assertDatabaseHas('team_forms', [
+            'name' => 'Volunteer application',
+            'slug' => 'volunteer-application',
+        ]);
         $this->actingAs($user)
             ->get(route('team.forms'))
             ->assertInertia(fn (Assert $page) => $page
@@ -62,7 +66,31 @@ class TeamFormsTest extends TestCase
                     ->all() === ['Paid crew interest', 'Volunteer application']));
     }
 
-    public function test_name_email_and_phone_must_remain_on_a_form_and_name_is_required(): void
+    public function test_public_url_name_must_be_unique_and_url_safe(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        $payload = $this->formPayload();
+        $payload['slug'] = 'join our team';
+
+        $this->actingAs($user)
+            ->post(route('team.forms.store', $event), $payload)
+            ->assertSessionHasErrors('slug');
+
+        $payload['slug'] = 'join-our-team';
+        $this->actingAs($user)
+            ->post(route('team.forms.store', $event), $payload)
+            ->assertSessionHasNoErrors();
+
+        $payload['name'] = 'Another application';
+        $this->actingAs($user)
+            ->post(route('team.forms.store', $event), $payload)
+            ->assertSessionHasErrors('slug');
+
+        $this->get('/form/join-our-team')->assertOk();
+        $this->assertDatabaseCount('team_forms', 1);
+    }
+
+    public function test_name_email_and_phone_must_remain_and_name_and_email_are_required(): void
     {
         [$user, $event] = $this->userWithCompletedSetup();
         $payload = $this->formPayload();
@@ -70,11 +98,20 @@ class TeamFormsTest extends TestCase
             $payload['fields'],
             fn (array $field): bool => $field['key'] !== 'phone',
         ));
-        $payload['fields'][0]['required'] = false;
-
         $this->actingAs($user)
             ->post(route('team.forms.store', $event), $payload)
             ->assertSessionHasErrors('fields');
+
+        foreach (['name', 'email'] as $key) {
+            $payload = $this->formPayload();
+            $index = array_search($key, array_column($payload['fields'], 'key'), true);
+            $payload['fields'][$index]['required'] = false;
+
+            $this->actingAs($user)
+                ->post(route('team.forms.store', $event), $payload)
+                ->assertSessionHasErrors('fields');
+        }
+
         $this->assertDatabaseCount('team_forms', 0);
     }
 
@@ -98,6 +135,7 @@ class TeamFormsTest extends TestCase
         $form = TeamForm::query()->sole();
         $customFormField = $form->fields()->whereNotNull('custom_field_id')->sole();
         $payload['name'] = 'Updated application';
+        $payload['slug'] = 'updated-application';
         $payload['fields'][4] = [
             ...$payload['fields'][4],
             'id' => $customFormField->id,
@@ -114,6 +152,8 @@ class TeamFormsTest extends TestCase
         $this->assertSame(['Gate', 'Kitchen'], $customField->options);
         $this->assertTrue($customFormField->fresh()->required);
         $this->assertSame('Updated application', $form->fresh()->name);
+        $this->assertSame('updated-application', $form->fresh()->slug);
+        $this->get('/form/updated-application')->assertOk();
     }
 
     public function test_a_live_form_is_public_but_a_draft_form_is_not(): void
@@ -122,12 +162,12 @@ class TeamFormsTest extends TestCase
         $live = $this->teamForm($event, 'live');
         $draft = $this->teamForm($event, 'draft');
 
-        $this->get(route('team.forms.public.show', $live->public_token))
+        $this->get(route('team.forms.public.show', $live->slug))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Public/TeamForm')
                 ->where('form.name', $live->name));
-        $this->get(route('team.forms.public.show', $draft->public_token))->assertNotFound();
+        $this->get(route('team.forms.public.show', $draft->slug))->assertNotFound();
     }
 
     public function test_public_submit_directly_creates_an_applied_team_member_with_custom_values(): void
@@ -150,7 +190,7 @@ class TeamFormsTest extends TestCase
             'sort_order' => 4,
         ]);
 
-        $response = $this->post(route('team.forms.public.store', $form->public_token), [
+        $response = $this->post(route('team.forms.public.store', $form->slug), [
             'name' => 'Sam Rivera',
             'email' => 'SAM@example.test',
             'phone' => '604-555-0100',
@@ -159,7 +199,7 @@ class TeamFormsTest extends TestCase
         ]);
 
         $engagement = TeamEngagement::query()->with('person')->sole();
-        $response->assertRedirect(route('team.forms.public.confirmation', $form->public_token));
+        $response->assertRedirect(route('team.forms.public.confirmation', $form->slug));
         $this->assertSame('applied', $engagement->status);
         $this->assertSame('paid', $engagement->employment_type);
         $this->assertSame($form->id, $engagement->team_form_id);
@@ -175,18 +215,18 @@ class TeamFormsTest extends TestCase
         $this->assertDatabaseCount('team_engagements', 1);
     }
 
-    public function test_email_is_optional_for_public_team_forms(): void
+    public function test_email_is_required_for_public_team_forms(): void
     {
         $event = $this->event();
         $form = $this->teamForm($event);
 
-        $this->post(route('team.forms.public.store', $form->public_token), [
+        $this->post(route('team.forms.public.store', $form->slug), [
             'name' => 'No Email Applicant',
             'employment_type' => 'volunteer',
-        ])->assertRedirect(route('team.forms.public.confirmation', $form->public_token));
+        ])->assertSessionHasErrors('email');
 
-        $this->assertNull(Person::query()->sole()->email);
-        $this->assertSame('applied', TeamEngagement::query()->sole()->status);
+        $this->assertDatabaseCount('people', 0);
+        $this->assertDatabaseCount('team_engagements', 0);
     }
 
     public function test_public_submit_rejects_an_email_already_in_the_event_pipeline(): void
@@ -201,7 +241,7 @@ class TeamFormsTest extends TestCase
             'employment_type' => 'volunteer',
         ]);
 
-        $this->post(route('team.forms.public.store', $form->public_token), [
+        $this->post(route('team.forms.public.store', $form->slug), [
             'name' => 'Existing Again',
             'email' => 'EXISTING@example.test',
             'employment_type' => 'paid',
@@ -217,8 +257,9 @@ class TeamFormsTest extends TestCase
         $form = $this->teamForm($event);
         $event->lock();
 
-        $this->post(route('team.forms.public.store', $form->public_token), [
+        $this->post(route('team.forms.public.store', $form->slug), [
             'name' => 'Locked Applicant',
+            'email' => 'locked@example.test',
             'employment_type' => 'volunteer',
         ])->assertForbidden();
 
@@ -263,8 +304,8 @@ class TeamFormsTest extends TestCase
         $form = TeamForm::query()->create([
             'event_id' => $event->id,
             'name' => 'Team application',
+            'slug' => 'team-application-'.str()->lower(str()->random(8)),
             'status' => $status,
-            'public_token' => str()->random(48),
         ]);
 
         foreach ($this->formPayload()['fields'] as $sortOrder => $field) {
@@ -283,10 +324,11 @@ class TeamFormsTest extends TestCase
     {
         return [
             'name' => $name,
+            'slug' => str($name)->slug()->toString(),
             'status' => 'live',
             'fields' => [
                 ['id' => null, 'key' => 'name', 'label' => 'Name', 'type' => 'text', 'required' => true, 'options' => []],
-                ['id' => null, 'key' => 'email', 'label' => 'Email', 'type' => 'email', 'required' => false, 'options' => []],
+                ['id' => null, 'key' => 'email', 'label' => 'Email', 'type' => 'email', 'required' => true, 'options' => []],
                 ['id' => null, 'key' => 'phone', 'label' => 'Phone', 'type' => 'phone', 'required' => false, 'options' => []],
                 ['id' => null, 'key' => 'employment_type', 'label' => 'Volunteer or paid?', 'type' => 'select', 'required' => true, 'options' => ['volunteer', 'paid']],
             ],

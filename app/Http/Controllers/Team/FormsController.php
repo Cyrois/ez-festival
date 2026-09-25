@@ -81,8 +81,9 @@ class FormsController extends Controller
             'teamForm' => [
                 'id' => $teamForm->id,
                 'name' => $teamForm->name,
+                'slug' => $teamForm->slug,
                 'status' => $teamForm->status,
-                'public_url' => route('team.forms.public.show', $teamForm->public_token),
+                'public_url' => route('team.forms.public.show', $teamForm->slug),
                 'fields' => $teamForm->fields->map(fn (TeamFormField $field): array => $this->field($field))->values(),
             ],
             'statuses' => TeamForm::STATUSES,
@@ -120,8 +121,9 @@ class FormsController extends Controller
         return [
             'id' => $form->id,
             'name' => $form->name,
+            'slug' => $form->slug,
             'status' => $form->status,
-            'public_url' => route('team.forms.public.show', $form->public_token),
+            'public_url' => route('team.forms.public.show', $form->slug),
             'edit_url' => route('team.forms.edit', $form),
         ];
     }
@@ -131,7 +133,7 @@ class FormsController extends Controller
     {
         return [
             ['id' => null, 'key' => 'name', 'label' => __('team.forms.fields.name'), 'type' => 'text', 'required' => true, 'options' => []],
-            ['id' => null, 'key' => 'email', 'label' => __('team.forms.fields.email'), 'type' => 'email', 'required' => false, 'options' => []],
+            ['id' => null, 'key' => 'email', 'label' => __('team.forms.fields.email'), 'type' => 'email', 'required' => true, 'options' => []],
             ['id' => null, 'key' => 'phone', 'label' => __('team.forms.fields.phone'), 'type' => 'phone', 'required' => false, 'options' => []],
             ['id' => null, 'key' => 'employment_type', 'label' => __('team.forms.fields.employment_type'), 'type' => 'select', 'required' => true, 'options' => ['volunteer', 'paid']],
         ];
@@ -153,6 +155,11 @@ class FormsController extends Controller
 
         $initial = collect($this->initialFields())->firstWhere('key', $field->key);
 
-        return [...$initial, 'id' => $field->id, 'required' => $field->required];
+        return [
+            ...$initial,
+            'id' => $field->id,
+            'required' => in_array($field->key, [TeamFormField::KEY_NAME, TeamFormField::KEY_EMAIL], true)
+                || $field->required,
+        ];
     }
 }

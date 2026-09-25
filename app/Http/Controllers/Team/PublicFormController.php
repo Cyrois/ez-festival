@@ -16,26 +16,26 @@ class PublicFormController extends Controller
 {
     public function __construct(private readonly TeamFormService $forms) {}
 
-    public function show(string $token): Response
+    public function show(string $slug): Response
     {
-        $form = $this->findLiveForm($token);
+        $form = $this->findLiveForm($slug);
 
         return Inertia::render('Public/TeamForm', $this->formProps($form));
     }
 
-    public function store(StorePublicTeamFormRequest $request, string $token): RedirectResponse
+    public function store(StorePublicTeamFormRequest $request, string $slug): RedirectResponse
     {
         $form = $request->teamForm();
         $this->forms->submit($form, $request->validated());
-        $request->session()->put('confirmed_team_form', $form->public_token);
+        $request->session()->put('confirmed_team_form', $form->id);
 
-        return redirect()->route('team.forms.public.confirmation', $token);
+        return redirect()->route('team.forms.public.confirmation', $slug);
     }
 
-    public function confirmation(Request $request, string $token): Response
+    public function confirmation(Request $request, string $slug): Response
     {
-        abort_unless($request->session()->pull('confirmed_team_form') === $token, 404);
-        $form = TeamForm::query()->with('event')->where('public_token', $token)->firstOrFail();
+        $form = TeamForm::query()->with('event')->where('slug', $slug)->firstOrFail();
+        abort_unless($request->session()->pull('confirmed_team_form') === $form->id, 404);
 
         return Inertia::render('Public/TeamFormConfirmation', [
             'form' => ['name' => $form->name],
@@ -43,11 +43,11 @@ class PublicFormController extends Controller
         ]);
     }
 
-    private function findLiveForm(string $token): TeamForm
+    private function findLiveForm(string $slug): TeamForm
     {
         return TeamForm::query()
             ->with(['event', 'fields.customField'])
-            ->where('public_token', $token)
+            ->where('slug', $slug)
             ->where('status', 'live')
             ->firstOrFail();
     }
@@ -58,7 +58,7 @@ class PublicFormController extends Controller
         return [
             'form' => [
                 'name' => $form->name,
-                'action' => route('team.forms.public.store', $form->public_token),
+                'action' => route('team.forms.public.store', $form->slug),
                 'fields' => $form->fields->map(function (TeamFormField $field): array {
                     if ($field->customField !== null) {
                         return [

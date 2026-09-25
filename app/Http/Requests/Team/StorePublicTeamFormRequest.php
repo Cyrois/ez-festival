@@ -28,7 +28,7 @@ class StorePublicTeamFormRequest extends FormRequest
             if ($field->key === TeamFormField::KEY_NAME) {
                 $rules['name'] = ['required', 'string', 'max:255'];
             } elseif ($field->key === TeamFormField::KEY_EMAIL) {
-                $rules['email'] = [$presence, 'email', 'max:255'];
+                $rules['email'] = ['required', 'email', 'max:255'];
             } elseif ($field->key === TeamFormField::KEY_PHONE) {
                 $rules['phone'] = [$presence, 'string', 'max:50'];
             } elseif ($field->key === TeamFormField::KEY_EMPLOYMENT_TYPE) {
@@ -48,7 +48,7 @@ class StorePublicTeamFormRequest extends FormRequest
     {
         return $this->resolvedForm ??= TeamForm::query()
             ->with('fields.customField')
-            ->where('public_token', $this->route('token'))
+            ->where('slug', $this->route('slug'))
             ->where('status', 'live')
             ->firstOrFail();
     }

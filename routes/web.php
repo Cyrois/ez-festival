@@ -59,9 +59,9 @@ Route::middleware('guest')->group(function () {
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])->name('password.request');
 });
 
-Route::get('f/t/{token}', [TeamPublicFormController::class, 'show'])->name('team.forms.public.show');
-Route::post('f/t/{token}', [TeamPublicFormController::class, 'store'])->name('team.forms.public.store');
-Route::get('f/t/{token}/confirmation', [TeamPublicFormController::class, 'confirmation'])
+Route::get('form/{slug}', [TeamPublicFormController::class, 'show'])->name('team.forms.public.show');
+Route::post('form/{slug}', [TeamPublicFormController::class, 'store'])->name('team.forms.public.store');
+Route::get('form/{slug}/confirmation', [TeamPublicFormController::class, 'confirmation'])
     ->name('team.forms.public.confirmation');
 
 Route::middleware('auth')->group(function () {

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['event_id', 'name', 'status', 'public_token'])]
+#[Fillable(['event_id', 'name', 'slug', 'status'])]
 class TeamForm extends Model
 {
     public const STATUSES = ['draft', 'live'];

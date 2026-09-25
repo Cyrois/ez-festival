@@ -30,8 +30,22 @@ class StoreTeamFormRequest extends FormRequest
     /** @return array<string, mixed> */
     protected function formRules(): array
     {
+        $form = $this->route('teamForm');
+        $uniqueSlug = Rule::unique('team_forms', 'slug');
+
+        if ($form instanceof TeamForm) {
+            $uniqueSlug->ignore($form->id);
+        }
+
         return [
             'name' => ['required', 'string', 'max:255'],
+            'slug' => [
+                'required',
+                'string',
+                'max:120',
+                'regex:/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/',
+                $uniqueSlug,
+            ],
             'status' => ['required', Rule::in(TeamForm::STATUSES)],
             'fields' => ['required', 'array', 'min:3'],
             'fields.*.id' => ['nullable', 'integer'],
@@ -54,10 +68,12 @@ class StoreTeamFormRequest extends FormRequest
             }
         }
 
-        $name = $fields->firstWhere('key', TeamFormField::KEY_NAME);
+        foreach ([TeamFormField::KEY_NAME, TeamFormField::KEY_EMAIL] as $key) {
+            $field = $fields->firstWhere('key', $key);
 
-        if (! ($name['required'] ?? false)) {
-            $validator->errors()->add('fields', __('team.forms.errors.name_required'));
+            if (! ($field['required'] ?? false)) {
+                $validator->errors()->add('fields', __('team.forms.errors.identity_fields_required'));
+            }
         }
 
         foreach ($fields as $index => $field) {
