@@ -14,7 +14,7 @@ import {
     startMove,
     startVisit,
     succeedMove,
-} from '../../resources/js/pages/Artists/pendingStatuses.js';
+} from '../../resources/js/lib/advancementPendingStatuses.js';
 
 const cards = (a, b) => [
     { id: 1, status: a },

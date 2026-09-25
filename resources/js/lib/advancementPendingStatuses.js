@@ -1,12 +1,5 @@
 // Optimistic Columns moves that stay correct while status PATCHes run in parallel.
-//
-// Every visit that can replace engagements props (move PATCH + redirect-back
-// reload, filter reload, refresh) gets an increasing request id. When a move
-// succeeds we remember which visits were still in flight (`waitFor`) and the
-// highest id issued so far (`watermark`). An in-flight visit may deliver a
-// snapshot read before the move committed, so the card keeps its optimistic
-// status until those visits finish and the latest snapshot either came from a
-// newer visit (id > watermark) or agrees with the move.
+// Every visit gets an increasing request id so stale reloads cannot undo a later move.
 
 export const createPendingState = () => ({
     entries: {},
@@ -23,16 +16,9 @@ const keepEntries = (entries, keep) =>
         Object.entries(entries).filter(([id, entry]) => keep(entry, id)),
     );
 
-// 'keep' | 'drop' | 'refresh' for one entry against the latest snapshot.
 const settle = (state, entry, id) => {
-    if (!entry.settled || entry.waitFor.length) {
-        return 'keep';
-    }
-
-    if (!state.snapshot) {
-        return 'refresh';
-    }
-
+    if (!entry.settled || entry.waitFor.length) return 'keep';
+    if (!state.snapshot) return 'refresh';
     if (
         state.snapshotFrom > entry.watermark ||
         state.snapshot[id] === undefined ||
@@ -40,7 +26,6 @@ const settle = (state, entry, id) => {
     ) {
         return 'drop';
     }
-
     return 'refresh';
 };
 
@@ -51,7 +36,6 @@ export const startVisit = (state, requestId) => ({
 
 export const startMove = (state, id, status, requestId) => {
     const next = startVisit(state, requestId);
-
     return {
         ...next,
         entries: {
@@ -80,11 +64,7 @@ export const failMove = (state, id, requestId) =>
 
 export const succeedMove = (state, id, requestId) => {
     const entry = state.entries[id];
-
-    if (entry?.requestId !== requestId) {
-        return state;
-    }
-
+    if (entry?.requestId !== requestId) return state;
     return {
         ...state,
         entries: {
@@ -99,14 +79,12 @@ export const succeedMove = (state, id, requestId) => {
     };
 };
 
-// Snapshot delivered by a tracked visit's successful response.
 export const applySnapshot = (state, items, requestId) => {
     const next = {
         ...state,
         snapshot: statusesById(items),
         snapshotFrom: requestId,
     };
-
     return {
         ...next,
         entries: keepEntries(
@@ -116,15 +94,12 @@ export const applySnapshot = (state, items, requestId) => {
     };
 };
 
-// A tracked visit applied a page we could not read (e.g. validation errors).
 export const forgetSnapshot = (state) => ({
     ...state,
     snapshot: null,
     snapshotFrom: null,
 });
 
-// needsRefresh: a settled card still disagrees with a possibly stale snapshot
-// after every overlapping visit finished, so fetch fresh props once.
 export const finishVisit = (state, requestId) => {
     const next = {
         ...state,
@@ -132,29 +107,21 @@ export const finishVisit = (state, requestId) => {
         entries: {},
     };
     let needsRefresh = false;
-
     Object.entries(state.entries).forEach(([id, entry]) => {
-        // Finished without success or validation error (e.g. 403): revert.
-        if (!entry.settled && entry.requestId === requestId) {
-            return;
-        }
-
+        if (!entry.settled && entry.requestId === requestId) return;
         const current = {
             ...entry,
             waitFor: entry.waitFor.filter((active) => active !== requestId),
         };
         const outcome = settle(state, current, id);
-
         if (outcome !== 'drop') {
             next.entries[id] = current;
             needsRefresh ||= outcome === 'refresh';
         }
     });
-
     return { state: next, needsRefresh };
 };
 
-// After a refresh, trust the server for any card still waiting on nothing.
 export const dropSettled = (state) => ({
     ...state,
     entries: keepEntries(
@@ -163,11 +130,8 @@ export const dropSettled = (state) => ({
     ),
 });
 
-// Props changed outside a tracked visit: drop settled cards that no longer
-// need an overlay because the card is gone or the server agrees.
 export const reconcileWithProps = (state, items) => {
     const statuses = statusesById(items);
-
     return {
         ...state,
         entries: keepEntries(
@@ -194,15 +158,12 @@ export const overlayItems = (state, items) =>
 
 export const overlayCounts = (state, items, serverCounts) => {
     const counts = { ...serverCounts };
-
     items.forEach((item) => {
         const pending = state.entries[item.id]?.status;
-
         if (pending && pending !== item.status) {
             counts[item.status] -= 1;
             counts[pending] += 1;
         }
     });
-
     return counts;
 };

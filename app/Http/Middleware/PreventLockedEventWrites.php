@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\ArtistEngagement;
 use App\Models\Event;
 use App\Models\Location;
+use App\Models\TeamEngagement;
 use App\Models\User;
 use App\Models\VendorEngagement;
 use App\Support\EventContext;
@@ -58,7 +59,9 @@ class PreventLockedEventWrites
 
         $engagement = $request->route('engagement');
 
-        if ($engagement instanceof ArtistEngagement || $engagement instanceof VendorEngagement) {
+        if ($engagement instanceof ArtistEngagement
+            || $engagement instanceof VendorEngagement
+            || $engagement instanceof TeamEngagement) {
             return $engagement->event;
         }
 

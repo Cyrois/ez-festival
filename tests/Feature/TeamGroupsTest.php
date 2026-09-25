@@ -160,45 +160,6 @@ class TeamGroupsTest extends TestCase
         $this->assertDatabaseHas('groups', ['id' => $group->id]);
     }
 
-    public function test_staff_can_assign_and_replace_a_members_single_group(): void
-    {
-        [$user, $event] = $this->userWithCompletedSetup();
-        $parking = Group::query()->create(['event_id' => $event->id, 'name' => 'Parking']);
-        $kitchen = Group::query()->create(['event_id' => $event->id, 'name' => 'Kitchen']);
-        $engagement = $this->engagement($event, 'Alex Member');
-
-        $this->actingAs($user)->put(
-            route('team.members.group.update', [$event, $engagement]),
-            ['group_id' => $parking->id],
-        )->assertRedirect(route('team.configure'));
-
-        $this->actingAs($user)->put(
-            route('team.members.group.update', [$event, $engagement]),
-            ['group_id' => $kitchen->id],
-        )->assertRedirect(route('team.configure'));
-
-        $this->assertSame($kitchen->id, $engagement->fresh()->group_id);
-        $this->assertDatabaseCount('team_engagements', 1);
-    }
-
-    public function test_member_assignment_rejects_a_group_from_another_event(): void
-    {
-        [$user, $event] = $this->userWithCompletedSetup();
-        $otherEvent = $this->event('Other Festival');
-        $foreignGroup = Group::query()->create([
-            'event_id' => $otherEvent->id,
-            'name' => 'Foreign Group',
-        ]);
-        $engagement = $this->engagement($event, 'Casey Member');
-
-        $this->actingAs($user)->put(
-            route('team.members.group.update', [$event, $engagement]),
-            ['group_id' => $foreignGroup->id],
-        )->assertSessionHasErrors('group_id');
-
-        $this->assertNull($engagement->fresh()->group_id);
-    }
-
     public function test_group_routes_reject_cross_event_models(): void
     {
         [$user, $event] = $this->userWithCompletedSetup();
@@ -207,33 +168,20 @@ class TeamGroupsTest extends TestCase
             'event_id' => $otherEvent->id,
             'name' => 'Foreign Group',
         ]);
-        $foreignEngagement = $this->engagement($otherEvent, 'Foreign Member');
-
         $this->actingAs($user)->put(
             route('team.groups.update', [$event, $foreignGroup]),
             ['name' => 'Changed'],
         )->assertNotFound();
-
-        $this->actingAs($user)->put(
-            route('team.members.group.update', [$event, $foreignEngagement]),
-            ['group_id' => null],
-        )->assertNotFound();
     }
 
-    public function test_locked_events_block_group_and_assignment_writes(): void
+    public function test_locked_events_block_group_writes(): void
     {
         [$user, $event] = $this->userWithCompletedSetup();
-        $engagement = $this->engagement($event, 'Locked Member');
         $event->lock();
 
         $this->actingAs($user)->post(route('team.groups.store', $event), [
             'name' => 'Parking',
         ])->assertForbidden();
-
-        $this->actingAs($user)->put(
-            route('team.members.group.update', [$event, $engagement]),
-            ['group_id' => null],
-        )->assertForbidden();
     }
 
     public function test_a_non_primary_event_can_be_configured_when_it_is_writable(): void

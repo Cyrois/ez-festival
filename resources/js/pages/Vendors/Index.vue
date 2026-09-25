@@ -1,12 +1,12 @@
 <script setup>
 import AppLayout from '../../layouts/AppLayout.vue';
+import AdvancementViewToggle from '../../components/advancement/AdvancementViewToggle.vue';
 import { Avatar } from '../../components/ui/avatar';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
-import { SegmentedControl } from '../../components/ui/segmented-control';
 import {
     Table,
     TableBody,
@@ -27,10 +27,6 @@ const props = defineProps({
 
 const search = ref(props.filters.search);
 const viewMode = ref('list');
-const viewOptions = computed(() => [
-    { value: 'columns', label: trans('vendors.views.columns') },
-    { value: 'list', label: trans('vendors.views.list') },
-]);
 const breadcrumbs = computed(() => [
     { label: trans('app.name'), href: '/dashboard' },
     { label: trans('nav.vendors'), href: '/vendors/advancing' },
@@ -143,11 +139,7 @@ watch(search, (value) => {
                     class="ml-auto"
                     :title="$t('vendors.columns_deferred')"
                 >
-                    <SegmentedControl
-                        v-model="viewMode"
-                        :options="viewOptions"
-                        :aria-label="$t('vendors.views.mode')"
-                    />
+                    <AdvancementViewToggle v-model="viewMode" />
                 </div>
             </div>
 

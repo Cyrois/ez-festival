@@ -33,8 +33,9 @@ use App\Http\Controllers\Team\AdvancementController as TeamAdvancementController
 use App\Http\Controllers\Team\ConfigureController as TeamConfigureController;
 use App\Http\Controllers\Team\FormsController as TeamFormsController;
 use App\Http\Controllers\Team\GroupController as TeamGroupController;
+use App\Http\Controllers\Team\MemberController as TeamMemberController;
+use App\Http\Controllers\Team\MemberStatusController as TeamMemberStatusController;
 use App\Http\Controllers\Team\SchedulingController as TeamSchedulingController;
-use App\Http\Controllers\Team\TeamEngagementGroupController;
 use App\Http\Controllers\UiKitController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\VendorEngagementPersonController;
@@ -103,15 +104,21 @@ Route::middleware('auth')->group(function () {
             ->name('patrons.index');
         Route::middleware('feature:team')->prefix('team')->name('team.')->group(function () {
             Route::get('advancement', [TeamAdvancementController::class, 'index'])->name('advancement');
+            Route::get('members/create', [TeamMemberController::class, 'create'])->name('members.create');
+            Route::get('members/{engagement}', [TeamMemberController::class, 'show'])->name('members.show');
             Route::get('scheduling', [TeamSchedulingController::class, 'index'])->name('scheduling');
             Route::get('forms', [TeamFormsController::class, 'index'])->name('forms');
             Route::get('configure', [TeamConfigureController::class, 'index'])->name('configure');
             Route::middleware('event.writable')->group(function () {
+                Route::post('events/{event}/members', [TeamMemberController::class, 'store'])->name('members.store');
+                Route::put('members/{engagement}', [TeamMemberController::class, 'update'])->name('members.update');
+                Route::post('members/{engagement}/notes', [TeamMemberController::class, 'storeNote'])
+                    ->name('members.notes.store');
+                Route::patch('members/{engagement}/status', [TeamMemberStatusController::class, 'update'])
+                    ->name('members.status.update');
                 Route::post('events/{event}/groups', [TeamGroupController::class, 'store'])->name('groups.store');
                 Route::put('events/{event}/groups/{group}', [TeamGroupController::class, 'update'])->name('groups.update');
                 Route::delete('events/{event}/groups/{group}', [TeamGroupController::class, 'destroy'])->name('groups.destroy');
-                Route::put('events/{event}/members/{engagement}/group', [TeamEngagementGroupController::class, 'update'])
-                    ->name('members.group.update');
             });
         });
 
