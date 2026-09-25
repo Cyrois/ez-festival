@@ -113,6 +113,8 @@ Route::middleware('auth')->group(function () {
             Route::middleware('event.writable')->group(function () {
                 Route::post('events/{event}/members', [TeamMemberController::class, 'store'])->name('members.store');
                 Route::put('members/{engagement}', [TeamMemberController::class, 'update'])->name('members.update');
+                Route::post('members/{engagement}/notes', [TeamMemberController::class, 'storeNote'])
+                    ->name('members.notes.store');
                 Route::patch('members/{engagement}/status', [TeamMemberStatusController::class, 'update'])
                     ->name('members.status.update');
                 Route::post('events/{event}/groups', [TeamGroupController::class, 'store'])->name('groups.store');

@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Team;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Team\CreateTeamMemberRequest;
+use App\Http\Requests\Team\StoreTeamMemberNoteRequest;
 use App\Http\Requests\Team\StoreTeamMemberRequest;
 use App\Http\Requests\Team\UpdateTeamMemberRequest;
 use App\Http\Requests\Team\ViewTeamMemberRequest;
+use App\Http\Resources\TeamEngagementNoteResource;
 use App\Http\Resources\TeamEngagementResource;
 use App\Models\Event;
 use App\Models\Group;
@@ -50,9 +52,15 @@ class MemberController extends Controller
     {
         $event = $this->resolveEvent($request, $engagement);
         $engagement->load(['person', 'group']);
+        $notes = $engagement->notes()
+            ->with('user:id,name,email')
+            ->latest('created_at')
+            ->latest('id')
+            ->get();
 
         return Inertia::render('Team/Member', [
             'engagement' => (new TeamEngagementResource($engagement))->resolve(),
+            'notes' => TeamEngagementNoteResource::collection($notes)->resolve(),
             'event' => $event->only('id', 'name', 'locked', 'timezone'),
             'groups' => $this->groups($event),
             'statuses' => TeamEngagement::STATUSES,
@@ -72,8 +80,22 @@ class MemberController extends Controller
             ->with('success_title', __('toast.saved_title'));
     }
 
+    public function storeNote(StoreTeamMemberNoteRequest $request, TeamEngagement $engagement): RedirectResponse
+    {
+        $this->resolveEvent($request, $engagement, writable: true);
+        $this->engagements->addNote(
+            $engagement,
+            $request->user(),
+            $request->validated('body'),
+        );
+
+        return redirect()->route('team.members.show', $engagement)
+            ->with('success', __('team.member.toast.note_posted'))
+            ->with('success_title', __('toast.saved_title'));
+    }
+
     private function resolveEvent(
-        ViewTeamMemberRequest|UpdateTeamMemberRequest $request,
+        ViewTeamMemberRequest|UpdateTeamMemberRequest|StoreTeamMemberNoteRequest $request,
         TeamEngagement $engagement,
         bool $writable = false,
     ): Event {

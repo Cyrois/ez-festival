@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Event;
 use App\Models\Person;
 use App\Models\TeamEngagement;
+use App\Models\TeamEngagementNote;
+use App\Models\User;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -68,6 +70,22 @@ class TeamEngagementService
     public function updateStatus(TeamEngagement $engagement, string $status): void
     {
         $engagement->update(['status' => $status]);
+    }
+
+    public function addNote(
+        TeamEngagement $engagement,
+        User $user,
+        string $body,
+    ): TeamEngagementNote {
+        return DB::transaction(function () use ($engagement, $user, $body): TeamEngagementNote {
+            $event = Event::query()->lockForUpdate()->findOrFail($engagement->event_id);
+            $event->ensureWritable();
+
+            return $engagement->notes()->create([
+                'user_id' => $user->id,
+                'body' => $body,
+            ]);
+        });
     }
 
     /** @param array<string, mixed> $data */

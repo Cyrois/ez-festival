@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '../../layouts/AppLayout.vue';
+import EngagementNoteLog from '../../components/notes/EngagementNoteLog.vue';
 import TeamMemberFields from '../../components/team/TeamMemberFields.vue';
 import { Avatar } from '../../components/ui/avatar';
 import { Button } from '../../components/ui/button';
@@ -13,6 +14,7 @@ import { trans } from 'laravel-vue-i18n';
 
 const props = defineProps({
     engagement: { type: Object, required: true },
+    notes: { type: Array, required: true },
     event: { type: Object, required: true },
     groups: { type: Array, required: true },
     statuses: { type: Array, required: true },
@@ -159,6 +161,15 @@ const submit = () => {
                         }}
                     </div>
                 </Card>
+
+                <EngagementNoteLog
+                    class="mt-4"
+                    :notes="notes"
+                    :post-url="`/team/members/${engagement.id}/notes`"
+                    :can-write="canWrite"
+                    :timezone="event.timezone"
+                    translation-namespace="team.member"
+                />
 
                 <p
                     class="mt-4 rounded-lg border border-dashed border-line bg-page p-3 text-sm text-muted"

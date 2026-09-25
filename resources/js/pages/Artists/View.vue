@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '../../layouts/AppLayout.vue';
+import EngagementNoteLog from '../../components/notes/EngagementNoteLog.vue';
 import { Avatar } from '../../components/ui/avatar';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -11,11 +12,10 @@ import { IconButton } from '../../components/ui/icon-button';
 import { Input } from '../../components/ui/input';
 import { LabelCombobox } from '../../components/ui/label-combobox';
 import { Select } from '../../components/ui/select';
-import { Textarea } from '../../components/ui/textarea';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { toastFormErrors } from '../../lib/fieldError';
 import { useForm } from '@inertiajs/vue3';
-import { computed, nextTick, ref } from 'vue';
+import { computed } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
 const props = defineProps({
@@ -38,11 +38,6 @@ const form = useForm({
     new_labels: [],
 });
 
-const noteForm = useForm({
-    body: '',
-});
-
-const composing = ref(false);
 const { showError, showFormError } = useFlashToast();
 
 const breadcrumbs = computed(() => [
@@ -70,54 +65,6 @@ const submit = () => {
         onError: (errors) =>
             toastFormErrors(form, errors, { showError, showFormError }),
     });
-};
-
-const openCompose = async () => {
-    if (readOnly.value) {
-        return;
-    }
-    composing.value = true;
-    await nextTick();
-    document.querySelector('[data-note-compose]')?.focus();
-};
-
-const cancelCompose = () => {
-    composing.value = false;
-    noteForm.reset('body');
-    noteForm.clearErrors();
-};
-
-const postNote = () => {
-    if (readOnly.value) {
-        return;
-    }
-    noteForm.post(`/artists/engagements/${props.engagement.id}/notes`, {
-        preserveScroll: true,
-        onError: (errors) =>
-            toastFormErrors(noteForm, errors, { showError, showFormError }),
-        onSuccess: () => {
-            noteForm.reset('body');
-            composing.value = false;
-        },
-    });
-};
-
-const formatNoteTime = (iso) => {
-    if (!iso) {
-        return '';
-    }
-    try {
-        return new Intl.DateTimeFormat('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            timeZone: props.event.timezone || 'America/Vancouver',
-        }).format(new Date(iso));
-    } catch {
-        return iso;
-    }
 };
 </script>
 
@@ -294,108 +241,14 @@ const formatNoteTime = (iso) => {
                 </div>
             </Card>
 
-            <Card class="mt-4">
-                <div class="flex items-start justify-between gap-3">
-                    <div>
-                        <h2
-                            class="m-0 text-xl font-bold tracking-tight text-muted"
-                        >
-                            {{ $t('artists.note_log') }}
-                        </h2>
-                    </div>
-                    <Button
-                        v-if="!readOnly"
-                        size="sm"
-                        :disabled="composing || noteForm.processing"
-                        @click="openCompose"
-                    >
-                        <Icon
-                            :name="['fas', 'plus']"
-                            class="mr-1.5"
-                            size="sm"
-                        />
-                        {{ $t('artists.new_note') }}
-                    </Button>
-                </div>
-                <p class="mt-1 mb-4 text-xs text-muted">
-                    {{ $t('artists.note_log_hint') }}
-                </p>
-                <div>
-                    <div
-                        v-if="composing"
-                        class="mb-3 rounded-[10px] border border-primary bg-primary/10 p-3"
-                    >
-                        <FormField
-                            v-slot="{ id, invalid }"
-                            :label="$t('artists.new_note')"
-                            :error="noteForm.errors.body"
-                        >
-                            <div
-                                class="flex flex-col gap-2 sm:flex-row sm:items-end"
-                            >
-                                <Textarea
-                                    :id="id"
-                                    v-model="noteForm.body"
-                                    class="min-h-16 flex-1 bg-ground"
-                                    data-note-compose
-                                    :invalid="invalid"
-                                    :disabled="noteForm.processing"
-                                    :placeholder="
-                                        $t('artists.note_placeholder')
-                                    "
-                                    maxlength="5000"
-                                    required
-                                />
-                                <div class="flex flex-col gap-1.5 sm:shrink-0">
-                                    <Button
-                                        size="sm"
-                                        class="w-full sm:w-auto"
-                                        :loading="noteForm.processing"
-                                        @click="postNote"
-                                    >
-                                        {{ $t('artists.post_note') }}
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        class="w-full sm:w-auto"
-                                        :disabled="noteForm.processing"
-                                        @click="cancelCompose"
-                                    >
-                                        {{ $t('setup.actions.cancel') }}
-                                    </Button>
-                                </div>
-                            </div>
-                        </FormField>
-                    </div>
-                    <div class="space-y-2">
-                        <div
-                            v-for="note in notes"
-                            :key="note.id"
-                            class="rounded-lg border border-line bg-page p-3"
-                        >
-                            <div class="flex justify-between gap-3 text-xs">
-                                <strong class="font-bold">{{
-                                    note.author ||
-                                    $t('artists.notes_author_unknown')
-                                }}</strong>
-                                <span class="text-muted">{{
-                                    formatNoteTime(note.created_at)
-                                }}</span>
-                            </div>
-                            <p class="mt-1 mb-0 text-sm whitespace-pre-wrap">
-                                {{ note.body }}
-                            </p>
-                        </div>
-                        <p
-                            v-if="!notes.length"
-                            class="m-0 py-3 text-sm text-muted"
-                        >
-                            {{ $t('artists.notes_empty') }}
-                        </p>
-                    </div>
-                </div>
-            </Card>
+            <EngagementNoteLog
+                class="mt-4"
+                :notes="notes"
+                :post-url="`/artists/engagements/${engagement.id}/notes`"
+                :can-write="canWrite"
+                :timezone="event.timezone"
+                translation-namespace="artists"
+            />
 
             <div
                 v-if="!readOnly"

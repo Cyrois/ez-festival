@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['event_id', 'person_id', 'group_id', 'status', 'employment_type', 'role_title', 'hourly_pay'])]
 class TeamEngagement extends Model
@@ -33,5 +34,10 @@ class TeamEngagement extends Model
     public function group(): BelongsTo
     {
         return $this->belongsTo(Group::class);
+    }
+
+    public function notes(): HasMany
+    {
+        return $this->hasMany(TeamEngagementNote::class);
     }
 }

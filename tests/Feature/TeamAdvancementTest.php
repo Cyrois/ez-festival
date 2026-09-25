@@ -6,6 +6,7 @@ use App\Models\Event;
 use App\Models\Group;
 use App\Models\Person;
 use App\Models\TeamEngagement;
+use App\Models\TeamEngagementNote;
 use App\Models\User;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -142,6 +143,18 @@ class TeamAdvancementTest extends TestCase
         [$user, $event] = $this->userWithCompletedSetup();
         $engagement = $this->engagement($event, 'Taylor Brooks');
         $group = Group::query()->create(['event_id' => $event->id, 'name' => 'Main Stage']);
+        TeamEngagementNote::query()->create([
+            'team_engagement_id' => $engagement->id,
+            'user_id' => $user->id,
+            'body' => 'Older note',
+            'created_at' => now()->subDay(),
+        ]);
+        TeamEngagementNote::query()->create([
+            'team_engagement_id' => $engagement->id,
+            'user_id' => $user->id,
+            'body' => 'Newest note',
+            'created_at' => now(),
+        ]);
 
         $this->actingAs($user)
             ->get(route('team.members.show', $engagement))
@@ -151,6 +164,10 @@ class TeamAdvancementTest extends TestCase
                     ->where('engagement.name', 'Taylor Brooks')
                     ->where('statuses', ['applied', 'reviewing', 'hired', 'declined'])
                     ->where('groups.0.name', 'Main Stage')
+                    ->has('notes', 2)
+                    ->where('notes.0.body', 'Newest note')
+                    ->where('notes.1.body', 'Older note')
+                    ->where('notes.0.author', $user->name)
                     ->where('canWrite', true),
             );
 
@@ -200,6 +217,56 @@ class TeamAdvancementTest extends TestCase
         $this->actingAs($user)
             ->patch(route('team.members.status.update', $foreign), ['status' => 'hired'])
             ->assertNotFound();
+        $this->actingAs($user)
+            ->post(route('team.members.notes.store', $foreign), ['body' => 'Nope'])
+            ->assertNotFound();
+        $this->assertDatabaseCount('team_engagement_notes', 0);
+    }
+
+    public function test_staff_can_post_trimmed_notes_and_view_them_newest_first(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        $engagement = $this->engagement($event, 'Notes Member');
+
+        $this->actingAs($user)
+            ->post(route('team.members.notes.store', $engagement), [
+                'body' => '  First interview completed.  ',
+            ])
+            ->assertRedirect(route('team.members.show', $engagement))
+            ->assertSessionHas('success', __('team.member.toast.note_posted'));
+
+        $this->assertDatabaseHas('team_engagement_notes', [
+            'team_engagement_id' => $engagement->id,
+            'user_id' => $user->id,
+            'body' => 'First interview completed.',
+        ]);
+
+        $this->post(route('team.members.notes.store', $engagement), [
+            'body' => 'References confirmed.',
+        ])->assertRedirect(route('team.members.show', $engagement));
+
+        $this->get(route('team.members.show', $engagement))->assertInertia(
+            fn (Assert $page) => $page
+                ->has('notes', 2)
+                ->where('notes.0.body', 'References confirmed.')
+                ->where('notes.1.body', 'First interview completed.'),
+        );
+    }
+
+    public function test_blank_and_locked_team_member_notes_are_rejected(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        $engagement = $this->engagement($event, 'Locked Notes Member');
+
+        $this->actingAs($user)
+            ->post(route('team.members.notes.store', $engagement), ['body' => '   '])
+            ->assertSessionHasErrors('body');
+
+        $event->lock();
+        $this->post(route('team.members.notes.store', $engagement), ['body' => 'Blocked'])
+            ->assertForbidden();
+
+        $this->assertDatabaseCount('team_engagement_notes', 0);
     }
 
     public function test_locked_events_block_add_update_and_status_moves(): void
@@ -214,6 +281,10 @@ class TeamAdvancementTest extends TestCase
         $this->actingAs($user)
             ->patch(route('team.members.status.update', $engagement), ['status' => 'hired'])
             ->assertForbidden();
+        $this->actingAs($user)
+            ->post(route('team.members.notes.store', $engagement), ['body' => 'No permission'])
+            ->assertForbidden();
+        $this->assertDatabaseCount('team_engagement_notes', 0);
     }
 
     public function test_member_mutations_require_manage_team_permission(): void
