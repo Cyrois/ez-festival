@@ -35,6 +35,7 @@ use App\Http\Controllers\Team\FormsController as TeamFormsController;
 use App\Http\Controllers\Team\GroupController as TeamGroupController;
 use App\Http\Controllers\Team\MemberController as TeamMemberController;
 use App\Http\Controllers\Team\MemberStatusController as TeamMemberStatusController;
+use App\Http\Controllers\Team\PublicFormController as TeamPublicFormController;
 use App\Http\Controllers\Team\SchedulingController as TeamSchedulingController;
 use App\Http\Controllers\UiKitController;
 use App\Http\Controllers\VendorController;
@@ -57,6 +58,11 @@ Route::middleware('guest')->group(function () {
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])->name('password.request');
 });
+
+Route::get('f/t/{token}', [TeamPublicFormController::class, 'show'])->name('team.forms.public.show');
+Route::post('f/t/{token}', [TeamPublicFormController::class, 'store'])->name('team.forms.public.store');
+Route::get('f/t/{token}/confirmation', [TeamPublicFormController::class, 'confirmation'])
+    ->name('team.forms.public.confirmation');
 
 Route::middleware('auth')->group(function () {
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
@@ -108,6 +114,8 @@ Route::middleware('auth')->group(function () {
             Route::get('members/{engagement}', [TeamMemberController::class, 'show'])->name('members.show');
             Route::get('scheduling', [TeamSchedulingController::class, 'index'])->name('scheduling');
             Route::get('forms', [TeamFormsController::class, 'index'])->name('forms');
+            Route::get('forms/create', [TeamFormsController::class, 'create'])->name('forms.create');
+            Route::get('forms/{teamForm}/edit', [TeamFormsController::class, 'edit'])->name('forms.edit');
             Route::get('configure', [TeamConfigureController::class, 'index'])->name('configure');
             Route::middleware('event.writable')->group(function () {
                 Route::post('events/{event}/members', [TeamMemberController::class, 'store'])->name('members.store');
@@ -117,6 +125,8 @@ Route::middleware('auth')->group(function () {
                 Route::patch('members/{engagement}/status', [TeamMemberStatusController::class, 'update'])
                     ->name('members.status.update');
                 Route::post('events/{event}/groups', [TeamGroupController::class, 'store'])->name('groups.store');
+                Route::post('events/{event}/forms', [TeamFormsController::class, 'store'])->name('forms.store');
+                Route::put('forms/{teamForm}', [TeamFormsController::class, 'update'])->name('forms.update');
                 Route::put('events/{event}/groups/{group}', [TeamGroupController::class, 'update'])->name('groups.update');
                 Route::delete('events/{event}/groups/{group}', [TeamGroupController::class, 'destroy'])->name('groups.destroy');
             });

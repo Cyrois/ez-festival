@@ -54,9 +54,9 @@ class TestTeamSeeder extends Seeder
 
         foreach ($members as $member) {
             $person = Person::query()->updateOrCreate(
-                ['email' => $member['email']],
+                ['name' => $member['name']],
                 [
-                    'name' => $member['name'],
+                    'email' => $member['email'],
                     'phone' => $member['phone'],
                 ],
             );

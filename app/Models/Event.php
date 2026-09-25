@@ -67,6 +67,11 @@ class Event extends Model
         return $this->hasMany(TeamEngagement::class);
     }
 
+    public function teamForms(): HasMany
+    {
+        return $this->hasMany(TeamForm::class);
+    }
+
     public function entitlementItemLabels(): HasMany
     {
         return $this->hasMany(EntitlementItemLabel::class);

@@ -6,12 +6,12 @@ use App\Models\Person;
 
 class PersonService
 {
-    /** @param array{name: string, email: string, phone?: string|null} $data */
+    /** @param array{name: string, email?: string|null, phone?: string|null} $data */
     public function findOrCreateByEmail(array $data): Person
     {
-        $person = $this->findByEmail($data['email']) ?? new Person([
-            'email' => $this->normalizeEmail($data['email']),
-        ]);
+        $email = $this->normalizeEmail($data['email'] ?? null);
+        $person = $email !== null ? $this->findByEmail($email) : null;
+        $person ??= new Person(['email' => $email]);
 
         $this->fillNameAndPhone($person, $data);
         $person->save();
@@ -27,10 +27,16 @@ class PersonService
         $person->save();
     }
 
-    public function findByEmail(string $email): ?Person
+    public function findByEmail(?string $email): ?Person
     {
+        $email = $this->normalizeEmail($email);
+
+        if ($email === null) {
+            return null;
+        }
+
         return Person::query()
-            ->whereRaw('lower(email) = ?', [$this->normalizeEmail($email)])
+            ->whereRaw('lower(email) = ?', [$email])
             ->first();
     }
 
@@ -43,8 +49,10 @@ class PersonService
         ]);
     }
 
-    public function normalizeEmail(string $email): string
+    public function normalizeEmail(?string $email): ?string
     {
-        return mb_strtolower(trim($email));
+        $email = trim((string) $email);
+
+        return $email === '' ? null : mb_strtolower($email);
     }
 }

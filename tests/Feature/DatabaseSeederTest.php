@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Organization;
+use App\Models\Person;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -14,6 +15,11 @@ class DatabaseSeederTest extends TestCase
     public function test_the_default_database_seeder_can_be_resolved_and_run(): void
     {
         $this->artisan('db:seed')->assertSuccessful();
+
+        Person::query()
+            ->whereIn('name', ['Calvin Kyle Chan', 'Maya Chen', 'Priya Nair', 'Morgan West'])
+            ->update(['email' => null]);
+
         $this->artisan('db:seed')->assertSuccessful();
 
         $this->assertDatabaseHas('users', [
@@ -45,14 +51,15 @@ class DatabaseSeederTest extends TestCase
         $this->assertDatabaseCount('expected_entitlements', 14);
         $this->assertDatabaseCount('artist_engagement_people', 3);
         $this->assertDatabaseCount('vendor_engagement_people', 3);
+        $this->assertSame(0, Person::query()->whereNull('email')->count());
 
         $this->assertDatabaseHas('pass_assignments', [
             'artist_engagement_id' => 1,
-            'person_id' => 1,
+            'person_id' => Person::query()->where('email', 'maya@example.com')->sole()->id,
         ]);
         $this->assertDatabaseHas('pass_assignments', [
             'vendor_engagement_id' => 1,
-            'person_id' => 4,
+            'person_id' => Person::query()->where('email', 'priya@example.com')->sole()->id,
         ]);
     }
 }
