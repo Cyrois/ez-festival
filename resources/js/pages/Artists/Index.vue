@@ -14,6 +14,21 @@ import { Tag } from '../../components/ui/tag';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { engagementStatusPresentation } from '../../lib/engagementStatusPresentation';
 import {
+    applySnapshot,
+    createPendingState,
+    dropSettled,
+    failMove,
+    finishVisit,
+    forgetSnapshot,
+    movingIds as pendingMovingIds,
+    overlayCounts,
+    overlayItems,
+    reconcileWithProps,
+    startMove,
+    startVisit,
+    succeedMove,
+} from './pendingStatuses';
+import {
     Table,
     TableBody,
     TableCell,
@@ -37,32 +52,17 @@ const search = ref(props.filters.search);
 const selectedLabels = ref([...props.filters.labels]);
 const busy = ref(false);
 const viewMode = ref(props.filters.view);
-// Optimistic status per engagement id while its PATCH is in flight.
-const pendingStatuses = ref({});
-const movingIds = computed(() =>
-    Object.keys(pendingStatuses.value).map(Number),
-);
+// Optimistic Columns moves; see pendingStatuses.js for the stale-reload rules.
+const pending = ref(createPendingState());
+let lastRequestId = 0;
+let refreshing = false;
+const movingIds = computed(() => pendingMovingIds(pending.value));
 const engagementItems = computed(() =>
-    props.engagements.data.map((item) =>
-        item.id in pendingStatuses.value
-            ? { ...item, status: pendingStatuses.value[item.id] }
-            : item,
-    ),
+    overlayItems(pending.value, props.engagements.data),
 );
-const localStatusCounts = computed(() => {
-    const counts = { ...props.statusCounts };
-
-    props.engagements.data.forEach((item) => {
-        const pending = pendingStatuses.value[item.id];
-
-        if (pending && pending !== item.status) {
-            counts[item.status] -= 1;
-            counts[pending] += 1;
-        }
-    });
-
-    return counts;
-});
+const localStatusCounts = computed(() =>
+    overlayCounts(pending.value, props.engagements.data, props.statusCounts),
+);
 const { showFormError } = useFlashToast();
 const viewOptions = computed(() => [
     {
@@ -96,9 +96,53 @@ const boardColumns = computed(() =>
         ...engagementStatusPresentation[status],
     })),
 );
+// Callbacks shared by every visit that can replace engagements props.
+const trackedVisit = (requestId, { onSuccess, onError, refresh } = {}) => ({
+    onSuccess: (page) => {
+        onSuccess?.();
+        pending.value = applySnapshot(
+            pending.value,
+            page.props.engagements.data,
+            requestId,
+        );
+    },
+    onError: (errors) => {
+        onError?.(errors);
+        pending.value = forgetSnapshot(pending.value);
+    },
+    onFinish: () => {
+        const result = finishVisit(pending.value, requestId);
+        pending.value = result.state;
+
+        if (refresh) {
+            // One refresh only: afterwards the server props win.
+            refreshing = false;
+            pending.value = dropSettled(pending.value);
+        } else if (result.needsRefresh) {
+            refreshEngagements();
+        }
+    },
+});
+const refreshEngagements = () => {
+    if (refreshing) {
+        return;
+    }
+
+    const requestId = ++lastRequestId;
+    refreshing = true;
+    pending.value = startVisit(pending.value, requestId);
+    router.reload({
+        only: ['engagements', 'statusCounts'],
+        async: true,
+        ...trackedVisit(requestId, { refresh: true }),
+    });
+};
 let searchTimer;
 const applyFilters = () => {
     clearTimeout(searchTimer);
+    const requestId = ++lastRequestId;
+    const callbacks = trackedVisit(requestId);
+    pending.value = startVisit(pending.value, requestId);
     router.get(
         '/artists/advancing',
         {
@@ -110,11 +154,13 @@ const applyFilters = () => {
             preserveState: true,
             preserveScroll: true,
             replace: true,
+            ...callbacks,
             onStart: () => {
                 busy.value = true;
             },
             onFinish: () => {
                 busy.value = false;
+                callbacks.onFinish();
             },
         },
     );
@@ -129,6 +175,12 @@ watch(
         search.value = filters.search;
         selectedLabels.value = [...filters.labels];
         viewMode.value = filters.view;
+    },
+);
+watch(
+    () => props.engagements.data,
+    (items) => {
+        pending.value = reconcileWithProps(pending.value, items);
     },
 );
 onUnmounted(() => {
@@ -148,11 +200,12 @@ const updateViewMode = (value) => {
     applyFilters();
 };
 const moveEngagement = ({ item, to }) => {
-    if (props.event.locked || item.id in pendingStatuses.value) {
+    if (props.event.locked || movingIds.value.includes(item.id)) {
         return;
     }
 
-    pendingStatuses.value = { ...pendingStatuses.value, [item.id]: to };
+    const requestId = ++lastRequestId;
+    pending.value = startMove(pending.value, item.id, to, requestId);
 
     router.patch(
         `/artists/engagements/${item.id}/status`,
@@ -161,14 +214,20 @@ const moveEngagement = ({ item, to }) => {
             async: true,
             preserveScroll: true,
             preserveState: true,
-            onError: (errors) => {
-                showFormError(errors);
-            },
-            onFinish: () => {
-                const nextPending = { ...pendingStatuses.value };
-                delete nextPending[item.id];
-                pendingStatuses.value = nextPending;
-            },
+            ...trackedVisit(requestId, {
+                // Keep the card where it was dropped until a fresh reload confirms it.
+                onSuccess: () => {
+                    pending.value = succeedMove(
+                        pending.value,
+                        item.id,
+                        requestId,
+                    );
+                },
+                onError: (errors) => {
+                    pending.value = failMove(pending.value, item.id, requestId);
+                    showFormError(errors);
+                },
+            }),
         },
     );
 };
