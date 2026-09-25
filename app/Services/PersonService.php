@@ -9,7 +9,7 @@ class PersonService
     /** @param array{name: string, email: string, phone?: string|null} $data */
     public function findOrCreateByEmail(array $data): Person
     {
-        $person = Person::query()->firstOrNew([
+        $person = $this->findByEmail($data['email']) ?? new Person([
             'email' => $this->normalizeEmail($data['email']),
         ]);
 
@@ -27,6 +27,13 @@ class PersonService
         $person->save();
     }
 
+    public function findByEmail(string $email): ?Person
+    {
+        return Person::query()
+            ->whereRaw('lower(email) = ?', [$this->normalizeEmail($email)])
+            ->first();
+    }
+
     /** @param array{name: string, phone?: string|null} $data */
     private function fillNameAndPhone(Person $person, array $data): void
     {
@@ -36,7 +43,7 @@ class PersonService
         ]);
     }
 
-    private function normalizeEmail(string $email): string
+    public function normalizeEmail(string $email): string
     {
         return mb_strtolower(trim($email));
     }

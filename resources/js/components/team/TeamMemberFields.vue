@@ -120,6 +120,7 @@ const groupItems = computed(() => [
             v-slot="{ id, invalid }"
             :label="$t('team.member.fields.email')"
             :error="form.errors.email"
+            required
         >
             <Input
                 :id="id"
@@ -128,6 +129,7 @@ const groupItems = computed(() => [
                 :invalid="invalid"
                 :disabled="disabled"
                 maxlength="255"
+                required
                 @update:model-value="emit('update', 'email', $event)"
             />
         </FormField>

@@ -11,11 +11,12 @@ use App\Http\Requests\Team\ViewTeamMemberRequest;
 use App\Http\Resources\TeamEngagementNoteResource;
 use App\Http\Resources\TeamEngagementResource;
 use App\Models\Event;
-use App\Models\Group;
 use App\Models\TeamEngagement;
+use App\Repositories\GroupRepository;
 use App\Services\TeamEngagementService;
 use App\Support\EventContext;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -24,6 +25,7 @@ class MemberController extends Controller
     public function __construct(
         private readonly TeamEngagementService $engagements,
         private readonly EventContext $eventContext,
+        private readonly GroupRepository $groups,
     ) {}
 
     public function create(CreateTeamMemberRequest $request): Response
@@ -32,7 +34,7 @@ class MemberController extends Controller
 
         return Inertia::render('Team/CreateMember', [
             'event' => $event->only('id', 'name'),
-            'groups' => $this->groups($event),
+            'groups' => $this->groups->optionsFor($event),
             'statuses' => TeamEngagement::STATUSES,
             'employmentTypes' => TeamEngagement::EMPLOYMENT_TYPES,
         ]);
@@ -62,10 +64,10 @@ class MemberController extends Controller
             'engagement' => (new TeamEngagementResource($engagement))->resolve(),
             'notes' => TeamEngagementNoteResource::collection($notes)->resolve(),
             'event' => $event->only('id', 'name', 'locked', 'timezone'),
-            'groups' => $this->groups($event),
+            'groups' => $this->groups->optionsFor($event),
             'statuses' => TeamEngagement::STATUSES,
             'employmentTypes' => TeamEngagement::EMPLOYMENT_TYPES,
-            'canWrite' => ! $event->isLocked(),
+            'canWrite' => ! $event->isLocked() && Gate::allows('manage-team'),
         ]);
     }
 
@@ -106,13 +108,5 @@ class MemberController extends Controller
             $engagement->event,
             writable: $writable,
         );
-    }
-
-    private function groups(Event $event): mixed
-    {
-        return Group::query()
-            ->whereBelongsTo($event)
-            ->orderBy('name')
-            ->get(['id', 'name']);
     }
 }

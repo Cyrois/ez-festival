@@ -5,14 +5,16 @@ namespace App\Http\Controllers\Team;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Team\IndexGroupsRequest;
 use App\Models\Group;
+use App\Repositories\GroupRepository;
 use App\Support\EventContext;
-use App\Support\SqlLike;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ConfigureController extends Controller
 {
+    public function __construct(private readonly GroupRepository $groups) {}
+
     public function index(IndexGroupsRequest $request, EventContext $eventContext): Response
     {
         Gate::authorize('view-team');
@@ -21,21 +23,7 @@ class ConfigureController extends Controller
 
         $filters = $request->validated();
         $search = trim($filters['search'] ?? '');
-        $searchPattern = '%'.SqlLike::escape(mb_strtolower($search)).'%';
-
-        $groups = $event->groups()
-            ->withCount('teamEngagements')
-            ->when(
-                $search !== '',
-                fn ($query) => $query->where(
-                    fn ($searchQuery) => $searchQuery
-                        ->whereRaw("lower(name) like ? escape '!'", [$searchPattern])
-                        ->orWhereRaw("lower(description) like ? escape '!'", [$searchPattern]),
-                ),
-            )
-            ->orderBy('name')
-            ->paginate(25)
-            ->withQueryString()
+        $groups = $this->groups->paginateFor($event, $search)
             ->through(fn (Group $group): array => [
                 'id' => $group->id,
                 'name' => $group->name,

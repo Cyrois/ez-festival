@@ -7,6 +7,7 @@ use App\Http\Requests\Team\IndexTeamAdvancementRequest;
 use App\Http\Resources\TeamEngagementResource;
 use App\Models\TeamEngagement;
 use App\Repositories\TeamEngagementRepository;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -29,6 +30,7 @@ class AdvancementController extends Controller
         return Inertia::render('Team/Advancement', [
             'engagements' => TeamEngagementResource::collection($engagements),
             'statuses' => TeamEngagement::STATUSES,
+            'employmentTypes' => TeamEngagement::EMPLOYMENT_TYPES,
             'statusCounts' => $this->engagements->statusCounts($event, $search, $employmentTypes),
             'filters' => [
                 'search' => $search,
@@ -36,6 +38,7 @@ class AdvancementController extends Controller
                 'view' => $view,
             ],
             'event' => $event?->only('id', 'name', 'locked'),
+            'canWrite' => $event !== null && ! $event->isLocked() && Gate::allows('manage-team'),
         ]);
     }
 }

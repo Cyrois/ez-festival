@@ -36,7 +36,6 @@ use App\Http\Controllers\Team\GroupController as TeamGroupController;
 use App\Http\Controllers\Team\MemberController as TeamMemberController;
 use App\Http\Controllers\Team\MemberStatusController as TeamMemberStatusController;
 use App\Http\Controllers\Team\SchedulingController as TeamSchedulingController;
-use App\Http\Controllers\Team\TeamEngagementGroupController;
 use App\Http\Controllers\UiKitController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\VendorEngagementPersonController;
@@ -120,8 +119,6 @@ Route::middleware('auth')->group(function () {
                 Route::post('events/{event}/groups', [TeamGroupController::class, 'store'])->name('groups.store');
                 Route::put('events/{event}/groups/{group}', [TeamGroupController::class, 'update'])->name('groups.update');
                 Route::delete('events/{event}/groups/{group}', [TeamGroupController::class, 'destroy'])->name('groups.destroy');
-                Route::put('events/{event}/members/{engagement}/group', [TeamEngagementGroupController::class, 'update'])
-                    ->name('members.group.update');
             });
         });
 

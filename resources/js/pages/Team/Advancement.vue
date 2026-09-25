@@ -17,44 +17,26 @@ import {
     TableHeader,
     TableRow,
 } from '../../components/ui/table';
-import { useFlashToast } from '../../composables/useFlashToast';
-import {
-    applySnapshot,
-    createPendingState,
-    dropSettled,
-    failMove,
-    finishVisit,
-    forgetSnapshot,
-    movingIds as pendingMovingIds,
-    overlayCounts,
-    overlayItems,
-    reconcileWithProps,
-    startMove,
-    startVisit,
-    succeedMove,
-} from '../../lib/advancementPendingStatuses';
+import { useAdvancementBoard } from '../../composables/useAdvancementBoard';
 import { engagementStatusPresentation } from '../../lib/engagementStatusPresentation';
-import { Link, router } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
 const props = defineProps({
     engagements: { type: Object, required: true },
     statuses: { type: Array, required: true },
+    employmentTypes: { type: Array, required: true },
     statusCounts: { type: Object, required: true },
     filters: { type: Object, required: true },
     event: { type: Object, default: null },
+    canWrite: { type: Boolean, required: true },
 });
 
 const search = ref(props.filters.search);
 const selectedEmploymentTypes = ref([...props.filters.employment_types]);
 const viewMode = ref(props.filters.view);
-const busy = ref(false);
-const pending = ref(createPendingState());
-const { showFormError } = useFlashToast();
 let searchTimer;
-let lastRequestId = 0;
-let refreshing = false;
 
 const breadcrumbs = computed(() => [
     { label: trans('app.name'), href: '/dashboard' },
@@ -68,76 +50,32 @@ const boardColumns = computed(() =>
         ...engagementStatusPresentation[status],
     })),
 );
-const movingIds = computed(() => pendingMovingIds(pending.value));
-const engagementItems = computed(() =>
-    overlayItems(pending.value, props.engagements.data),
-);
-const localStatusCounts = computed(() =>
-    overlayCounts(pending.value, props.engagements.data, props.statusCounts),
-);
-const trackedVisit = (requestId, { onSuccess, onError, refresh } = {}) => ({
-    onSuccess: (page) => {
-        onSuccess?.();
-        pending.value = applySnapshot(
-            pending.value,
-            page.props.engagements.data,
-            requestId,
-        );
-    },
-    onError: (errors) => {
-        onError?.(errors);
-        pending.value = forgetSnapshot(pending.value);
-    },
-    onFinish: () => {
-        const result = finishVisit(pending.value, requestId);
-        pending.value = result.state;
-        if (refresh) {
-            refreshing = false;
-            pending.value = dropSettled(pending.value);
-        } else if (result.needsRefresh) {
-            refreshEngagements();
-        }
-    },
-});
-
-const refreshEngagements = () => {
-    if (refreshing) return;
-    const requestId = ++lastRequestId;
-    refreshing = true;
-    pending.value = startVisit(pending.value, requestId);
-    router.reload({
-        only: ['engagements', 'statusCounts'],
-        async: true,
-        ...trackedVisit(requestId, { refresh: true }),
-    });
+const employmentTypePresentation = {
+    volunteer: 'border-secondary/20 bg-secondary/10 text-secondary',
+    paid: 'border-success/20 bg-success/10 text-success',
 };
-
+const {
+    applyFilters: applyBoardFilters,
+    busy,
+    engagementItems,
+    localStatusCounts,
+    moveEngagement,
+    movingIds,
+} = useAdvancementBoard({
+    indexUrl: '/team/advancement',
+    statusUrl: (item) => `/team/members/${item.id}/status`,
+    items: () => props.engagements.data,
+    serverCounts: () => props.statusCounts,
+    filterPayload: () => ({
+        search: search.value,
+        employment_types: selectedEmploymentTypes.value,
+        view: viewMode.value,
+    }),
+    canMove: () => props.canWrite,
+});
 const applyFilters = () => {
     window.clearTimeout(searchTimer);
-    const requestId = ++lastRequestId;
-    const callbacks = trackedVisit(requestId);
-    pending.value = startVisit(pending.value, requestId);
-    router.get(
-        '/team/advancement',
-        {
-            search: search.value,
-            employment_types: selectedEmploymentTypes.value,
-            view: viewMode.value,
-        },
-        {
-            preserveState: true,
-            preserveScroll: true,
-            replace: true,
-            ...callbacks,
-            onStart: () => {
-                busy.value = true;
-            },
-            onFinish: () => {
-                busy.value = false;
-                callbacks.onFinish();
-            },
-        },
-    );
+    applyBoardFilters();
 };
 
 const toggleEmploymentType = (type) => {
@@ -155,34 +93,6 @@ const updateViewMode = (value) => {
     viewMode.value = value;
     applyFilters();
 };
-const moveEngagement = ({ item, to }) => {
-    if (props.event.locked || movingIds.value.includes(item.id)) return;
-    const requestId = ++lastRequestId;
-    pending.value = startMove(pending.value, item.id, to, requestId);
-    router.patch(
-        `/team/members/${item.id}/status`,
-        { status: to },
-        {
-            async: true,
-            preserveScroll: true,
-            preserveState: true,
-            ...trackedVisit(requestId, {
-                onSuccess: () => {
-                    pending.value = succeedMove(
-                        pending.value,
-                        item.id,
-                        requestId,
-                    );
-                },
-                onError: (errors) => {
-                    pending.value = failMove(pending.value, item.id, requestId);
-                    showFormError(errors);
-                },
-            }),
-        },
-    );
-};
-
 watch(search, () => {
     window.clearTimeout(searchTimer);
     searchTimer = window.setTimeout(applyFilters, 300);
@@ -193,12 +103,6 @@ watch(
         search.value = filters.search;
         selectedEmploymentTypes.value = [...filters.employment_types];
         viewMode.value = filters.view;
-    },
-);
-watch(
-    () => props.engagements.data,
-    (items) => {
-        pending.value = reconcileWithProps(pending.value, items);
     },
 );
 onUnmounted(() => window.clearTimeout(searchTimer));
@@ -222,7 +126,7 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                     </p>
                 </div>
                 <Button
-                    v-if="event && !event.locked"
+                    v-if="event && canWrite"
                     href="/team/members/create"
                     class="min-h-11 w-full sm:w-auto"
                 >
@@ -275,7 +179,7 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                         />
                     </form>
                     <Button
-                        v-for="type in ['volunteer', 'paid']"
+                        v-for="type in employmentTypes"
                         :key="type"
                         type="button"
                         :variant="
@@ -316,7 +220,7 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                     <Board
                         :columns="boardColumns"
                         :items="engagementItems"
-                        :disabled="event.locked"
+                        :disabled="!canWrite"
                         :disabled-keys="movingIds"
                         class="min-w-[52rem] grid-cols-4"
                         @move="moveEngagement"
@@ -351,8 +255,12 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                                 :href="`/team/members/${item.id}`"
                             >
                                 <Badge
-                                    class="mt-2"
-                                    variant="neutral"
+                                    :class="[
+                                        'mt-2',
+                                        employmentTypePresentation[
+                                            item.employment_type
+                                        ],
+                                    ]"
                                     pill
                                 >
                                     {{
@@ -369,7 +277,7 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                             >
                                 {{
                                     $t(
-                                        event.locked
+                                        !canWrite
                                             ? 'team.advancement.board.empty'
                                             : 'team.advancement.board.drop_here',
                                     )

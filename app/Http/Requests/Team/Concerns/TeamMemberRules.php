@@ -12,11 +12,12 @@ trait TeamMemberRules
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['nullable', 'email', 'max:255'],
+            'email' => ['required', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'status' => ['required', Rule::in(TeamEngagement::STATUSES)],
             'employment_type' => ['required', Rule::in(TeamEngagement::EMPLOYMENT_TYPES)],
             'hourly_pay' => [
+                'exclude_unless:employment_type,paid',
                 Rule::requiredIf($this->input('employment_type') === 'paid'),
                 'nullable',
                 'numeric',

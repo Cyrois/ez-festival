@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -25,10 +26,16 @@ class TeamAdvancementTest extends TestCase
         $this->withoutVite();
     }
 
-    public function test_team_member_email_is_optional(): void
+    public function test_team_member_email_is_required_and_indexed(): void
     {
-        $person = Person::query()->create(['name' => 'No Email', 'email' => null]);
-        $this->assertNull($person->email);
+        $this->assertTrue(Schema::hasIndex('people', ['email']));
+
+        [$user, $event] = $this->userWithCompletedSetup();
+        $this->actingAs($user)->post(route('team.members.store', $event), [
+            'name' => 'No Email',
+            'status' => 'applied',
+            'employment_type' => 'volunteer',
+        ])->assertSessionHasErrors('email');
     }
 
     public function test_advancement_columns_use_locked_statuses_and_full_filtered_results(): void
@@ -54,6 +61,7 @@ class TeamAdvancementTest extends TestCase
                 fn (Assert $page) => $page
                     ->component('Team/Advancement')
                     ->where('statuses', ['applied', 'reviewing', 'hired', 'declined'])
+                    ->where('employmentTypes', ['volunteer', 'paid'])
                     ->where('filters.search', 'VOLUNTEER')
                     ->where('filters.employment_types', ['volunteer'])
                     ->where('filters.view', 'columns')
@@ -89,7 +97,7 @@ class TeamAdvancementTest extends TestCase
 
         $response = $this->actingAs($user)->post(route('team.members.store', $event), [
             'name' => 'Morgan West',
-            'email' => '',
+            'email' => 'MORGAN.WEST@example.com',
             'phone' => '(604) 555-0142',
             'status' => 'applied',
             'employment_type' => 'paid',
@@ -99,7 +107,7 @@ class TeamAdvancementTest extends TestCase
 
         $engagement = TeamEngagement::query()->with('person')->sole();
         $response->assertRedirect(route('team.members.show', $engagement));
-        $this->assertNull($engagement->person->email);
+        $this->assertSame('morgan.west@example.com', $engagement->person->email);
         $this->assertSame('Morgan West', $engagement->person->name);
         $this->assertSame('28.00', $engagement->hourly_pay);
         $this->assertSame($group->id, $engagement->group_id);
@@ -136,7 +144,7 @@ class TeamAdvancementTest extends TestCase
     public function test_member_page_loads_and_details_update_with_one_event_group(): void
     {
         [$user, $event] = $this->userWithCompletedSetup();
-        $engagement = $this->engagement($event, 'Taylor Brooks');
+        $engagement = $this->engagement($event, 'Taylor Brooks', 'applied', 'paid');
         $group = Group::query()->create(['event_id' => $event->id, 'name' => 'Main Stage']);
         TeamEngagementNote::query()->create([
             'team_engagement_id' => $engagement->id,
@@ -172,7 +180,7 @@ class TeamAdvancementTest extends TestCase
             'phone' => '555-0100',
             'status' => 'hired',
             'employment_type' => 'volunteer',
-            'hourly_pay' => null,
+            'hourly_pay' => 50,
             'group_id' => $group->id,
         ])->assertRedirect(route('team.members.show', $engagement));
 
@@ -193,6 +201,7 @@ class TeamAdvancementTest extends TestCase
 
         $this->actingAs($user)->post(route('team.members.store', $event), [
             'name' => 'Invalid Member',
+            'email' => 'invalid@example.test',
             'status' => 'interview',
             'employment_type' => 'paid',
             'hourly_pay' => '',
@@ -205,9 +214,16 @@ class TeamAdvancementTest extends TestCase
     public function test_member_routes_reject_foreign_event_records(): void
     {
         [$user] = $this->userWithCompletedSetup();
-        $foreign = $this->engagement($this->event('Other Festival'), 'Foreign Member');
+        $otherEvent = $this->event('Other Festival');
+        $foreign = $this->engagement($otherEvent, 'Foreign Member');
 
         $this->actingAs($user)->get(route('team.members.show', $foreign))->assertNotFound();
+        $this->actingAs($user)
+            ->post(route('team.members.store', $otherEvent), $this->memberPayload($foreign))
+            ->assertNotFound();
+        $this->actingAs($user)
+            ->put(route('team.members.update', $foreign), $this->memberPayload($foreign))
+            ->assertNotFound();
         $this->actingAs($user)
             ->patch(route('team.members.status.update', $foreign), ['status' => 'hired'])
             ->assertNotFound();
@@ -215,6 +231,64 @@ class TeamAdvancementTest extends TestCase
             ->post(route('team.members.notes.store', $foreign), ['body' => 'Nope'])
             ->assertNotFound();
         $this->assertDatabaseCount('team_engagement_notes', 0);
+    }
+
+    public function test_invalid_status_move_is_rejected_without_changing_the_member(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        $engagement = $this->engagement($event, 'Invalid Status Member');
+
+        $this->actingAs($user)
+            ->patch(route('team.members.status.update', $engagement), ['status' => 'interview'])
+            ->assertSessionHasErrors('status');
+
+        $this->assertSame('applied', $engagement->fresh()->status);
+    }
+
+    public function test_update_rejects_an_email_used_by_another_member_in_the_event(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        $engagement = $this->engagement($event, 'First Member');
+        $other = $this->engagement($event, 'Other Member');
+
+        $this->actingAs($user)
+            ->put(route('team.members.update', $engagement), $this->memberPayload($engagement, [
+                'email' => $other->person->email,
+            ]))
+            ->assertSessionHasErrors('email');
+
+        $this->assertSame('first-member@example.test', $engagement->fresh()->person->email);
+    }
+
+    public function test_team_edit_forks_a_shared_person_when_email_changes(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        $sharedUser = User::factory()->create([
+            'name' => 'Shared Person',
+            'email' => 'shared@example.test',
+            'phone' => '555-1000',
+        ]);
+        $originalPerson = $sharedUser->person;
+        $engagement = TeamEngagement::query()->create([
+            'event_id' => $event->id,
+            'person_id' => $originalPerson->id,
+            'status' => 'applied',
+            'employment_type' => 'volunteer',
+        ]);
+
+        $this->actingAs($user)
+            ->put(route('team.members.update', $engagement), $this->memberPayload($engagement, [
+                'name' => 'Team-only Name',
+                'email' => 'team-only@example.test',
+                'phone' => '',
+            ]))
+            ->assertRedirect(route('team.members.show', $engagement));
+
+        $this->assertNotSame($originalPerson->id, $engagement->fresh()->person_id);
+        $this->assertSame('Shared Person', $originalPerson->fresh()->name);
+        $this->assertSame('shared@example.test', $originalPerson->fresh()->email);
+        $this->assertSame('555-1000', $originalPerson->fresh()->phone);
+        $this->assertSame('shared@example.test', $sharedUser->fresh()->email);
     }
 
     public function test_staff_can_post_trimmed_notes_and_view_them_newest_first(): void
@@ -287,10 +361,19 @@ class TeamAdvancementTest extends TestCase
         $engagement = $this->engagement($event, 'Permission Member');
         Gate::define('manage-team', fn (): bool => false);
 
+        $this->actingAs($user)
+            ->get(route('team.members.show', $engagement))
+            ->assertInertia(fn (Assert $page) => $page->where('canWrite', false));
+        $this->actingAs($user)
+            ->get(route('team.advancement'))
+            ->assertInertia(fn (Assert $page) => $page->where('canWrite', false));
         $this->actingAs($user)->get(route('team.members.create'))->assertForbidden();
         $this->actingAs($user)->post(route('team.members.store', $event), [])->assertForbidden();
         $this->actingAs($user)
             ->patch(route('team.members.status.update', $engagement), ['status' => 'hired'])
+            ->assertForbidden();
+        $this->actingAs($user)
+            ->put(route('team.members.update', $engagement), $this->memberPayload($engagement))
             ->assertForbidden();
     }
 
@@ -335,5 +418,22 @@ class TeamAdvancementTest extends TestCase
             'employment_type' => $employmentType,
             'hourly_pay' => $employmentType === 'paid' ? 25 : null,
         ]);
+    }
+
+    /** @param array<string, mixed> $overrides */
+    private function memberPayload(TeamEngagement $engagement, array $overrides = []): array
+    {
+        $engagement->loadMissing('person');
+
+        return [
+            'name' => $engagement->person->name,
+            'email' => $engagement->person->email,
+            'phone' => $engagement->person->phone,
+            'status' => $engagement->status,
+            'employment_type' => $engagement->employment_type,
+            'hourly_pay' => $engagement->hourly_pay,
+            'group_id' => $engagement->group_id,
+            ...$overrides,
+        ];
     }
 }
