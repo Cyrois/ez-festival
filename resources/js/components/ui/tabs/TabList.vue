@@ -11,7 +11,7 @@ const props = defineProps({
 
 const classes = computed(() =>
     cn(
-        'flex flex-nowrap gap-1 overflow-x-auto border-b border-line',
+        'flex flex-nowrap gap-1 overflow-x-auto overflow-y-hidden border-b border-line [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
         props.class,
     ),
 );
