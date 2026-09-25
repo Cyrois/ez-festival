@@ -32,8 +32,8 @@ class TestArtistSeeder extends Seeder
                 ['artist_type_id' => $type->id, 'status' => 'confirmed'],
             );
             $person = Person::query()->updateOrCreate(
-                ['email' => $email],
                 ['name' => $personName],
+                ['email' => $email],
             );
             $engagement->people()->syncWithoutDetaching([
                 $person->id => ['is_primary' => true],

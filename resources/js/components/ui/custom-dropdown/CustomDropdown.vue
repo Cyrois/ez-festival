@@ -169,7 +169,7 @@ onUnmounted(() => {
         </button>
         <div
             v-if="open"
-            class="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-line bg-ground py-1 shadow-toast"
+            class="absolute z-40 mt-1 w-full overflow-hidden rounded-lg border border-line bg-ground py-1 shadow-toast"
             role="listbox"
         >
             <template v-if="items.length">
