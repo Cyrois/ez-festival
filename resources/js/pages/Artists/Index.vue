@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '../../layouts/AppLayout.vue';
+import AdvancementViewToggle from '../../components/advancement/AdvancementViewToggle.vue';
 import ArtistBoardCard from '../../components/artists/ArtistBoardCard.vue';
 import { Avatar } from '../../components/ui/avatar';
 import { Badge } from '../../components/ui/badge';
@@ -9,7 +10,6 @@ import { EmptyState } from '../../components/ui/empty-state';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
 import { LabelCombobox } from '../../components/ui/label-combobox';
-import { SegmentedControl } from '../../components/ui/segmented-control';
 import { Tag } from '../../components/ui/tag';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { engagementStatusPresentation } from '../../lib/engagementStatusPresentation';
@@ -27,7 +27,7 @@ import {
     startMove,
     startVisit,
     succeedMove,
-} from './pendingStatuses';
+} from '../../lib/advancementPendingStatuses';
 import {
     Table,
     TableBody,
@@ -64,18 +64,6 @@ const localStatusCounts = computed(() =>
     overlayCounts(pending.value, props.engagements.data, props.statusCounts),
 );
 const { showFormError } = useFlashToast();
-const viewOptions = computed(() => [
-    {
-        value: 'columns',
-        label: trans('artists.views.columns'),
-        icon: ['fas', 'table-columns'],
-    },
-    {
-        value: 'list',
-        label: trans('artists.views.list'),
-        icon: ['fas', 'list'],
-    },
-]);
 const breadcrumbs = computed(() => [
     { label: trans('app.name'), href: '/dashboard' },
     { label: trans('nav.artists'), href: '/artists/advancing' },
@@ -315,10 +303,8 @@ const moveEngagement = ({ item, to }) => {
                     >{{ $t('artists.clear_filters') }}</Button
                 >
                 <div class="ml-auto">
-                    <SegmentedControl
+                    <AdvancementViewToggle
                         :model-value="viewMode"
-                        :options="viewOptions"
-                        :aria-label="$t('artists.views.mode')"
                         @update:model-value="updateViewMode"
                     />
                 </div>
