@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['event_id', 'person_id', 'group_id', 'status', 'employment_type', 'role_title', 'hourly_pay'])]
+#[Fillable(['event_id', 'person_id', 'group_id', 'status', 'employment_type', 'hourly_pay'])]
 class TeamEngagement extends Model
 {
     public const STATUSES = ['applied', 'reviewing', 'hired', 'declined'];

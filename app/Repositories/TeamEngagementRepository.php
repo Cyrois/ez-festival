@@ -78,7 +78,7 @@ class TeamEngagementRepository
                                 ->whereRaw("lower(name) like ? escape '!'", [$pattern])
                                 ->orWhereRaw("lower(coalesce(email, '')) like ? escape '!'", [$pattern]),
                         ),
-                    )->orWhereRaw("lower(coalesce(role_title, '')) like ? escape '!'", [$pattern]);
+                    );
                 }),
             )
             ->when(

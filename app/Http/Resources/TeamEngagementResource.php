@@ -16,7 +16,6 @@ class TeamEngagementResource extends JsonResource
             'phone' => $this->person->phone,
             'status' => $this->status,
             'employment_type' => $this->employment_type,
-            'role_title' => $this->role_title,
             'hourly_pay' => $this->hourly_pay,
             'group_id' => $this->group_id,
             'group' => $this->group?->only(['id', 'name']),

@@ -11,7 +11,6 @@ use App\Models\User;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Schema;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -26,10 +25,8 @@ class TeamAdvancementTest extends TestCase
         $this->withoutVite();
     }
 
-    public function test_team_member_details_support_role_title_and_optional_email(): void
+    public function test_team_member_email_is_optional(): void
     {
-        $this->assertTrue(Schema::hasColumn('team_engagements', 'role_title'));
-
         $person = Person::query()->create(['name' => 'No Email', 'email' => null]);
         $this->assertNull($person->email);
     }
@@ -96,7 +93,6 @@ class TeamAdvancementTest extends TestCase
             'phone' => '(604) 555-0142',
             'status' => 'applied',
             'employment_type' => 'paid',
-            'role_title' => 'Gate supervisor',
             'hourly_pay' => '28.00',
             'group_id' => $group->id,
         ]);
@@ -107,7 +103,6 @@ class TeamAdvancementTest extends TestCase
         $this->assertSame('Morgan West', $engagement->person->name);
         $this->assertSame('28.00', $engagement->hourly_pay);
         $this->assertSame($group->id, $engagement->group_id);
-        $this->assertSame('Gate supervisor', $engagement->role_title);
     }
 
     public function test_the_same_person_cannot_be_added_to_one_event_twice(): void
@@ -177,7 +172,6 @@ class TeamAdvancementTest extends TestCase
             'phone' => '555-0100',
             'status' => 'hired',
             'employment_type' => 'volunteer',
-            'role_title' => 'Stagehand',
             'hourly_pay' => null,
             'group_id' => $group->id,
         ])->assertRedirect(route('team.members.show', $engagement));

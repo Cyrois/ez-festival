@@ -28,7 +28,6 @@ const form = useForm({
     phone: props.engagement.phone ?? '',
     status: props.engagement.status,
     employment_type: props.engagement.employment_type,
-    role_title: props.engagement.role_title ?? '',
     hourly_pay: props.engagement.hourly_pay ?? '',
     group_id: props.engagement.group_id ?? '',
 });
@@ -36,9 +35,7 @@ const { showError, showFormError } = useFlashToast();
 const readOnly = computed(() => !props.canWrite);
 const hired = computed(() => form.status === 'hired');
 const subtitle = computed(() =>
-    [trans(`team.advancement.status.${form.status}`), form.role_title]
-        .filter(Boolean)
-        .join(' · '),
+    trans(`team.advancement.status.${form.status}`),
 );
 const breadcrumbs = computed(() => [
     { label: trans('app.name'), href: '/dashboard' },

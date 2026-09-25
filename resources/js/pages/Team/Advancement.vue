@@ -347,10 +347,7 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                         <template #item="{ item }">
                             <AdvancementBoardCard
                                 :name="item.name"
-                                :subtitle="
-                                    item.role_title ||
-                                    $t('team.advancement.role_not_set')
-                                "
+                                :subtitle="item.group?.name ?? ''"
                                 :href="`/team/members/${item.id}`"
                             >
                                 <Badge
@@ -409,10 +406,8 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                                             class="mt-0.5 mb-0 text-xs text-muted"
                                         >
                                             {{
-                                                engagement.role_title ||
-                                                $t(
-                                                    'team.advancement.role_not_set',
-                                                )
+                                                engagement.group?.name ||
+                                                $t('team.advancement.not_set')
                                             }}
                                         </p>
                                     </div>
@@ -468,9 +463,6 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                                             )
                                         }}</TableHead>
                                         <TableHead>{{
-                                            $t('team.advancement.columns.role')
-                                        }}</TableHead>
-                                        <TableHead>{{
                                             $t('team.advancement.columns.group')
                                         }}</TableHead>
                                     </TableRow>
@@ -521,12 +513,6 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                                         </TableCell>
                                         <TableCell class="text-muted">
                                             {{
-                                                engagement.role_title ||
-                                                $t('team.advancement.not_set')
-                                            }}
-                                        </TableCell>
-                                        <TableCell class="text-muted">
-                                            {{
                                                 engagement.group?.name ||
                                                 $t('team.advancement.not_set')
                                             }}
@@ -534,7 +520,7 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                                     </TableRow>
                                     <TableRow v-if="!engagements.data.length">
                                         <TableCell
-                                            colspan="5"
+                                            colspan="4"
                                             class="py-16 text-center text-muted"
                                         >
                                             {{

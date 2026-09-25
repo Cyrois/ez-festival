@@ -16,7 +16,6 @@ trait TeamMemberRules
             'phone' => ['nullable', 'string', 'max:50'],
             'status' => ['required', Rule::in(TeamEngagement::STATUSES)],
             'employment_type' => ['required', Rule::in(TeamEngagement::EMPLOYMENT_TYPES)],
-            'role_title' => ['nullable', 'string', 'max:255'],
             'hourly_pay' => [
                 Rule::requiredIf($this->input('employment_type') === 'paid'),
                 'nullable',

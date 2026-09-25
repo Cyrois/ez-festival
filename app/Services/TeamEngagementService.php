@@ -94,7 +94,6 @@ class TeamEngagementService
         return [
             'status' => $data['status'],
             'employment_type' => $data['employment_type'],
-            'role_title' => $data['role_title'] ?? null,
             'hourly_pay' => $data['employment_type'] === 'paid' ? $data['hourly_pay'] : null,
             'group_id' => $data['group_id'] ?? null,
         ];

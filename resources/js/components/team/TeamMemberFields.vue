@@ -133,21 +133,6 @@ const groupItems = computed(() => [
         </FormField>
         <FormField
             v-slot="{ id, invalid }"
-            :label="$t('team.member.fields.role_title')"
-            :error="form.errors.role_title"
-            class="sm:col-span-2"
-        >
-            <Input
-                :id="id"
-                :model-value="form.role_title"
-                :invalid="invalid"
-                :disabled="disabled"
-                maxlength="255"
-                @update:model-value="emit('update', 'role_title', $event)"
-            />
-        </FormField>
-        <FormField
-            v-slot="{ id, invalid }"
             :label="$t('team.member.fields.group')"
             :error="form.errors.group_id"
             :hint="$t('team.member.fields.group_hint')"

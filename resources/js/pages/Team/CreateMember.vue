@@ -22,7 +22,6 @@ const form = useForm({
     phone: '',
     status: 'applied',
     employment_type: 'volunteer',
-    role_title: '',
     hourly_pay: '',
     group_id: '',
 });

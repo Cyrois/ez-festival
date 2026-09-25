@@ -30,7 +30,6 @@ class TestTeamSeeder extends Seeder
                 'group' => 'Gate',
                 'status' => 'hired',
                 'employment_type' => 'paid',
-                'role_title' => 'Gate supervisor',
                 'hourly_pay' => 28,
             ],
             [
@@ -40,7 +39,6 @@ class TestTeamSeeder extends Seeder
                 'group' => 'Stage',
                 'status' => 'reviewing',
                 'employment_type' => 'volunteer',
-                'role_title' => 'Main stage crew',
                 'hourly_pay' => null,
             ],
             [
@@ -50,7 +48,6 @@ class TestTeamSeeder extends Seeder
                 'group' => 'Headquarters',
                 'status' => 'applied',
                 'employment_type' => 'paid',
-                'role_title' => 'HQ coordinator',
                 'hourly_pay' => 25,
             ],
         ];
@@ -73,7 +70,6 @@ class TestTeamSeeder extends Seeder
                     'group_id' => $groups[$member['group']]->id,
                     'status' => $member['status'],
                     'employment_type' => $member['employment_type'],
-                    'role_title' => $member['role_title'],
                     'hourly_pay' => $member['hourly_pay'],
                 ],
             );
