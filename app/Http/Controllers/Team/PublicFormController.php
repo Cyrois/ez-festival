@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Team;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Team\EditTeamFormRequest;
 use App\Http\Requests\Team\StorePublicTeamFormRequest;
 use App\Models\TeamForm;
-use App\Models\TeamFormField;
+use App\Services\TeamFormPageData;
 use App\Services\TeamFormService;
+use App\Support\EventContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -14,13 +16,17 @@ use Inertia\Response;
 
 class PublicFormController extends Controller
 {
-    public function __construct(private readonly TeamFormService $forms) {}
+    public function __construct(
+        private readonly TeamFormService $forms,
+        private readonly TeamFormPageData $pageData,
+        private readonly EventContext $eventContext,
+    ) {}
 
     public function show(string $slug): Response
     {
         $form = $this->findLiveForm($slug);
 
-        return Inertia::render('Public/TeamForm', $this->formProps($form));
+        return Inertia::render('Public/TeamForm', $this->pageData->for($form));
     }
 
     public function store(StorePublicTeamFormRequest $request, string $slug): RedirectResponse
@@ -30,6 +36,14 @@ class PublicFormController extends Controller
         $request->session()->put('confirmed_team_form', $form->id);
 
         return redirect()->route('team.forms.public.confirmation', $slug);
+    }
+
+    public function preview(EditTeamFormRequest $request, TeamForm $teamForm): Response
+    {
+        $teamForm->loadMissing('event');
+        $this->eventContext->requireCurrentEvent($request->user(), $teamForm->event);
+
+        return Inertia::render('Public/TeamForm', $this->pageData->for($teamForm, preview: true));
     }
 
     public function confirmation(Request $request, string $slug): Response
@@ -50,36 +64,5 @@ class PublicFormController extends Controller
             ->where('slug', $slug)
             ->where('status', 'live')
             ->firstOrFail();
-    }
-
-    /** @return array<string, mixed> */
-    private function formProps(TeamForm $form): array
-    {
-        return [
-            'form' => [
-                'name' => $form->name,
-                'action' => route('team.forms.public.store', $form->slug),
-                'fields' => $form->fields->map(function (TeamFormField $field): array {
-                    if ($field->customField !== null) {
-                        return [
-                            'key' => "custom_fields.{$field->custom_field_id}",
-                            'label' => $field->customField->label,
-                            'type' => $field->customField->type,
-                            'required' => $field->required,
-                            'options' => $field->customField->options ?? [],
-                        ];
-                    }
-
-                    return [
-                        'key' => $field->key,
-                        'label' => __("team.forms.fields.{$field->key}"),
-                        'type' => $field->key === 'employment_type' ? 'select' : $field->key,
-                        'required' => $field->required,
-                        'options' => $field->key === 'employment_type' ? ['volunteer', 'paid'] : [],
-                    ];
-                })->values(),
-            ],
-            'event' => ['name' => $form->event->name],
-        ];
     }
 }

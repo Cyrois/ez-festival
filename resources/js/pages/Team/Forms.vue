@@ -162,9 +162,17 @@ const copyLink = async (url) => {
                             </button>
                             <span
                                 v-else
-                                class="text-sm text-muted"
+                                class="inline-flex"
                             >
-                                {{ $t('team.forms.link_after_live') }}
+                                <Button
+                                    :href="teamForm.preview_url"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    variant="ghost"
+                                    size="sm"
+                                >
+                                    {{ $t('team.forms.actions.preview') }}
+                                </Button>
                             </span>
                         </TableCell>
                         <TableCell class="text-right">

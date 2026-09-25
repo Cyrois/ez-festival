@@ -14,6 +14,7 @@ import { trans } from 'laravel-vue-i18n';
 const props = defineProps({
     form: { type: Object, required: true },
     event: { type: Object, required: true },
+    preview: { type: Boolean, default: false },
 });
 
 const initial = { custom_fields: {} };
@@ -49,6 +50,8 @@ const optionsFor = (field) =>
 const errorFor = (field) => application.errors[field.key] ?? '';
 const title = computed(() => `${props.form.name} · ${props.event.name}`);
 const submit = () => {
+    if (props.preview) return;
+
     application.post(props.form.action, {
         onError: (errors) =>
             toastFormErrors(application, errors, { showError, showFormError }),
@@ -62,6 +65,12 @@ const submit = () => {
         class="min-h-screen bg-page px-4 py-10 text-charcoal antialiased sm:px-6"
     >
         <div class="mx-auto flex w-full max-w-2xl flex-col gap-6">
+            <div
+                v-if="preview"
+                class="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-center text-sm font-medium text-charcoal"
+            >
+                {{ $t('team.forms.public.preview_notice') }}
+            </div>
             <header class="text-center">
                 <div
                     class="mx-auto mb-4 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-sm font-bold text-white"
@@ -121,6 +130,7 @@ const submit = () => {
                         </template>
                     </FormField>
                     <Button
+                        v-if="!preview"
                         type="submit"
                         size="lg"
                         class="mt-2 w-full"
@@ -131,7 +141,11 @@ const submit = () => {
                 </form>
             </Card>
             <p class="m-0 text-center text-xs text-muted">
-                {{ $t('team.forms.public.foot') }}
+                {{
+                    preview
+                        ? $t('team.forms.public.preview_foot')
+                        : $t('team.forms.public.foot')
+                }}
             </p>
         </div>
     </main>

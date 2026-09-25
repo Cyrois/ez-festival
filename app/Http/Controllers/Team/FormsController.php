@@ -84,6 +84,7 @@ class FormsController extends Controller
                 'slug' => $teamForm->slug,
                 'status' => $teamForm->status,
                 'public_url' => route('team.forms.public.show', $teamForm->slug),
+                'preview_url' => route('team.forms.preview', $teamForm),
                 'fields' => $teamForm->fields->map(fn (TeamFormField $field): array => $this->field($field))->values(),
             ],
             'statuses' => TeamForm::STATUSES,
@@ -124,6 +125,7 @@ class FormsController extends Controller
             'slug' => $form->slug,
             'status' => $form->status,
             'public_url' => route('team.forms.public.show', $form->slug),
+            'preview_url' => route('team.forms.preview', $form),
             'edit_url' => route('team.forms.edit', $form),
         ];
     }

@@ -115,6 +115,7 @@ Route::middleware('auth')->group(function () {
             Route::get('scheduling', [TeamSchedulingController::class, 'index'])->name('scheduling');
             Route::get('forms', [TeamFormsController::class, 'index'])->name('forms');
             Route::get('forms/create', [TeamFormsController::class, 'create'])->name('forms.create');
+            Route::get('forms/{teamForm}/preview', [TeamPublicFormController::class, 'preview'])->name('forms.preview');
             Route::get('forms/{teamForm}/edit', [TeamFormsController::class, 'edit'])->name('forms.edit');
             Route::get('configure', [TeamConfigureController::class, 'index'])->name('configure');
             Route::middleware('event.writable')->group(function () {

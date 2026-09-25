@@ -166,8 +166,36 @@ class TeamFormsTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Public/TeamForm')
+                ->where('preview', false)
                 ->where('form.name', $live->name));
         $this->get(route('team.forms.public.show', $draft->slug))->assertNotFound();
+    }
+
+    public function test_draft_forms_have_an_authenticated_read_only_preview_and_reject_submissions(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        $form = $this->teamForm($event, 'draft');
+
+        $this->get(route('team.forms.preview', $form))
+            ->assertRedirect(route('login'));
+
+        $this->actingAs($user)
+            ->get(route('team.forms.preview', $form))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Public/TeamForm')
+                ->where('preview', true)
+                ->where('form.action', null)
+                ->where('form.name', $form->name));
+
+        $this->post(route('team.forms.public.store', $form->slug), [
+            'name' => 'Draft Applicant',
+            'email' => 'draft@example.test',
+            'employment_type' => 'volunteer',
+        ])->assertNotFound();
+
+        $this->assertDatabaseMissing('people', ['email' => 'draft@example.test']);
+        $this->assertDatabaseCount('team_engagements', 0);
     }
 
     public function test_public_submit_directly_creates_an_applied_team_member_with_custom_values(): void
@@ -273,6 +301,9 @@ class TeamFormsTest extends TestCase
 
         $this->actingAs($user)
             ->get(route('team.forms.edit', $foreignForm))
+            ->assertNotFound();
+        $this->actingAs($user)
+            ->get(route('team.forms.preview', $foreignForm))
             ->assertNotFound();
     }
 

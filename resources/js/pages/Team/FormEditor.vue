@@ -205,7 +205,8 @@ const submit = () => {
         :back-label="$t('team.forms.actions.back')"
     >
         <form
-            class="container mx-auto flex flex-col gap-4"
+            id="team-form-editor"
+            class="container mx-auto flex flex-col gap-4 pb-24"
             @submit.prevent="submit"
         >
             <div>
@@ -286,6 +287,24 @@ const submit = () => {
                             {{ $t('team.forms.actions.copy_link') }}
                         </Button>
                     </div>
+                    <div
+                        v-if="editing && form.status === 'draft'"
+                        class="flex items-center justify-between gap-3 rounded-lg border border-line bg-page p-3"
+                    >
+                        <span class="text-sm text-muted">
+                            {{ $t('team.forms.editor.preview_hint') }}
+                        </span>
+                        <Button
+                            :href="teamForm.preview_url"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                        >
+                            {{ $t('team.forms.actions.preview') }}
+                        </Button>
+                    </div>
                 </div>
             </Card>
             <Card>
@@ -340,7 +359,7 @@ const submit = () => {
                             }"
                         >
                             <div class="flex flex-wrap items-start gap-3">
-                                <div class="pt-1">
+                                <div class="self-center">
                                     <Button
                                         type="button"
                                         variant="ghost"
@@ -470,20 +489,28 @@ const submit = () => {
                     </div>
                 </div>
             </Card>
-            <div class="flex justify-end gap-3 pt-2">
-                <Button
-                    href="/team/forms"
-                    variant="secondary"
-                >
-                    {{ $t('labels.cancel') }}
-                </Button>
-                <Button
-                    type="submit"
-                    :loading="form.processing"
-                >
-                    {{ $t('team.forms.actions.save') }}
-                </Button>
-            </div>
         </form>
+        <div
+            class="fixed right-0 bottom-0 left-0 z-30 border-t border-line bg-ground/95 py-3 backdrop-blur lg:left-56"
+        >
+            <div class="container mx-auto">
+                <div class="flex items-center justify-between">
+                    <Button
+                        href="/team/forms"
+                        variant="cancel"
+                        :disabled="form.processing"
+                    >
+                        {{ $t('labels.cancel') }}
+                    </Button>
+                    <Button
+                        form="team-form-editor"
+                        type="submit"
+                        :loading="form.processing"
+                    >
+                        {{ $t('team.forms.actions.save') }}
+                    </Button>
+                </div>
+            </div>
+        </div>
     </AppLayout>
 </template>
