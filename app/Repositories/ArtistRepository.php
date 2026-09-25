@@ -22,11 +22,21 @@ class ArtistRepository
         string $search,
         array $labelIds,
     ): LengthAwarePaginator {
-        return $this->filteredEngagements($event, $search, $labelIds)
-            ->with(['artist', 'labels' => fn ($query) => $query->orderBy('name'), 'artistType'])
-            ->latest('id')
+        return $this->listedEngagements($event, $search, $labelIds)
             ->paginate(25)
             ->withQueryString();
+    }
+
+    /**
+     * Every engagement matching the filters, for the Columns board, so cards
+     * and per-status counts describe the same set.
+     *
+     * @param  list<int>  $labelIds
+     * @return Collection<int, ArtistEngagement>
+     */
+    public function allEngagements(?Event $event, string $search, array $labelIds): Collection
+    {
+        return $this->listedEngagements($event, $search, $labelIds)->get();
     }
 
     /**
@@ -43,6 +53,17 @@ class ArtistRepository
         return collect(ArtistEngagement::STATUSES)
             ->mapWithKeys(fn (string $status) => [$status => (int) ($counts[$status] ?? 0)])
             ->all();
+    }
+
+    /**
+     * @param  list<int>  $labelIds
+     * @return Builder<ArtistEngagement>
+     */
+    private function listedEngagements(?Event $event, string $search, array $labelIds): Builder
+    {
+        return $this->filteredEngagements($event, $search, $labelIds)
+            ->with(['artist', 'labels' => fn ($query) => $query->orderBy('name'), 'artistType'])
+            ->latest('id');
     }
 
     /**

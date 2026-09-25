@@ -8,11 +8,13 @@ const props = defineProps({
     itemKey: { type: String, default: 'id' },
     columnKey: { type: String, default: 'status' },
     disabled: { type: Boolean, default: false },
+    disabledKeys: { type: Array, default: () => [] },
     class: { type: [String, Object, Array], default: '' },
 });
 
 const emit = defineEmits(['move']);
 const draggingKey = ref(null);
+const transferType = 'application/x-board-item';
 const overColumn = ref(null);
 
 const groupedItems = computed(() =>
@@ -26,8 +28,11 @@ const groupedItems = computed(() =>
     ),
 );
 
+const canDrag = (item) =>
+    !props.disabled && !props.disabledKeys.includes(item[props.itemKey]);
+
 const startDrag = (event, item) => {
-    if (props.disabled) {
+    if (!canDrag(item)) {
         event.preventDefault();
         return;
     }
@@ -35,6 +40,7 @@ const startDrag = (event, item) => {
     draggingKey.value = item[props.itemKey];
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', String(item[props.itemKey]));
+    event.dataTransfer.setData(transferType, String(item[props.itemKey]));
 };
 
 const finishDrag = () => {
@@ -42,12 +48,15 @@ const finishDrag = () => {
     overColumn.value = null;
 };
 
-const dropItem = (column) => {
+const dropItem = (event, column) => {
+    // Prefer the in-window drag key; fall back to the board's own transfer payload.
+    const key =
+        draggingKey.value ?? event.dataTransfer?.getData(transferType) ?? null;
     const item = props.items.find(
-        (candidate) => candidate[props.itemKey] === draggingKey.value,
+        (candidate) => String(candidate[props.itemKey]) === String(key),
     );
 
-    if (item && item[props.columnKey] !== column.value) {
+    if (item && canDrag(item) && item[props.columnKey] !== column.value) {
         emit('move', {
             item,
             from: item[props.columnKey],
@@ -88,15 +97,16 @@ const dropItem = (column) => {
                 "
                 @dragenter.prevent="overColumn = column.value"
                 @dragover.prevent
-                @drop.prevent="dropItem(column)"
+                @drop.prevent="dropItem($event, column)"
             >
                 <div
                     v-for="item in groupedItems[column.value]"
                     :key="item[itemKey]"
-                    :draggable="!disabled"
+                    :draggable="canDrag(item)"
                     :class="
                         cn(
-                            !disabled && 'cursor-grab active:cursor-grabbing',
+                            canDrag(item) &&
+                                'cursor-grab active:cursor-grabbing',
                             draggingKey === item[itemKey] && 'opacity-45',
                         )
                     "

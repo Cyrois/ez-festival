@@ -37,11 +37,32 @@ const search = ref(props.filters.search);
 const selectedLabels = ref([...props.filters.labels]);
 const busy = ref(false);
 const viewMode = ref(props.filters.view);
-const engagementItems = ref(
-    props.engagements.data.map((item) => ({ ...item })),
+// Optimistic status per engagement id while its PATCH is in flight.
+const pendingStatuses = ref({});
+const movingIds = computed(() =>
+    Object.keys(pendingStatuses.value).map(Number),
 );
-const localStatusCounts = ref({ ...props.statusCounts });
-const movingIds = ref(new Set());
+const engagementItems = computed(() =>
+    props.engagements.data.map((item) =>
+        item.id in pendingStatuses.value
+            ? { ...item, status: pendingStatuses.value[item.id] }
+            : item,
+    ),
+);
+const localStatusCounts = computed(() => {
+    const counts = { ...props.statusCounts };
+
+    props.engagements.data.forEach((item) => {
+        const pending = pendingStatuses.value[item.id];
+
+        if (pending && pending !== item.status) {
+            counts[item.status] -= 1;
+            counts[pending] += 1;
+        }
+    });
+
+    return counts;
+});
 const { showFormError } = useFlashToast();
 const viewOptions = computed(() => [
     {
@@ -110,18 +131,6 @@ watch(
         viewMode.value = filters.view;
     },
 );
-watch(
-    () => props.engagements.data,
-    (items) => {
-        engagementItems.value = items.map((item) => ({ ...item }));
-    },
-);
-watch(
-    () => props.statusCounts,
-    (counts) => {
-        localStatusCounts.value = { ...counts };
-    },
-);
 onUnmounted(() => {
     clearTimeout(searchTimer);
 });
@@ -138,38 +147,27 @@ const updateViewMode = (value) => {
     viewMode.value = value;
     applyFilters();
 };
-const moveEngagement = ({ item, from, to }) => {
-    if (props.event.locked || movingIds.value.has(item.id)) {
+const moveEngagement = ({ item, to }) => {
+    if (props.event.locked || item.id in pendingStatuses.value) {
         return;
     }
 
-    item.status = to;
-    localStatusCounts.value = {
-        ...localStatusCounts.value,
-        [from]: localStatusCounts.value[from] - 1,
-        [to]: localStatusCounts.value[to] + 1,
-    };
-    movingIds.value = new Set([...movingIds.value, item.id]);
+    pendingStatuses.value = { ...pendingStatuses.value, [item.id]: to };
 
     router.patch(
         `/artists/engagements/${item.id}/status`,
         { status: to },
         {
+            async: true,
             preserveScroll: true,
             preserveState: true,
             onError: (errors) => {
-                item.status = from;
-                localStatusCounts.value = {
-                    ...localStatusCounts.value,
-                    [from]: localStatusCounts.value[from] + 1,
-                    [to]: localStatusCounts.value[to] - 1,
-                };
                 showFormError(errors);
             },
             onFinish: () => {
-                const nextMovingIds = new Set(movingIds.value);
-                nextMovingIds.delete(item.id);
-                movingIds.value = nextMovingIds;
+                const nextPending = { ...pendingStatuses.value };
+                delete nextPending[item.id];
+                pendingStatuses.value = nextPending;
             },
         },
     );
@@ -274,7 +272,8 @@ const moveEngagement = ({ item, from, to }) => {
                 <Board
                     :columns="boardColumns"
                     :items="engagementItems"
-                    :disabled="event.locked || movingIds.size > 0"
+                    :disabled="event.locked"
+                    :disabled-keys="movingIds"
                     class="min-w-[72rem] grid-cols-6"
                     @move="moveEngagement"
                 >
@@ -499,7 +498,7 @@ const moveEngagement = ({ item, from, to }) => {
                 </div>
             </div>
             <div
-                v-if="engagements.meta.last_page > 1"
+                v-if="viewMode === 'list' && engagements.meta?.last_page > 1"
                 class="mt-4 flex flex-wrap items-center justify-between gap-3"
             >
                 <p class="m-0 text-sm text-muted">

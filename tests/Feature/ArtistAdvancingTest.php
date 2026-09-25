@@ -113,14 +113,42 @@ class ArtistAdvancingTest extends TestCase
                 'artist_id' => Artist::factory()->create(['name' => 'Band '.$sequence->index])->id,
             ])->create();
 
-        $this->actingAs($user)->get(route('artists.index', ['search' => 'Band', 'view' => 'columns', 'page' => 2]))
+        $this->actingAs($user)->get(route('artists.index', ['search' => 'Band', 'view' => 'list', 'page' => 2]))
             ->assertInertia(fn (Assert $page) => $page
                 ->has('engagements.data', 1)
                 ->where('engagements.meta.total', 26)
                 ->where('engagements.meta.current_page', 2)
+                ->where('filters.view', 'list')
+                ->where('engagements.links.prev', fn (string $url) => str_contains($url, 'search=Band') && str_contains($url, 'view=list')));
+    }
+
+    public function test_columns_loads_every_filtered_engagement_so_cards_match_status_counts(): void
+    {
+        [$user, $event] = $this->context();
+        ArtistEngagement::factory()->count(26)->for($event)
+            ->sequence(fn ($sequence) => [
+                'artist_id' => Artist::factory()->create(['name' => 'Band '.$sequence->index])->id,
+                'status' => $sequence->index < 20 ? 'idea' : 'confirmed',
+            ])->create();
+        ArtistEngagement::factory()->for($event)
+            ->for(Artist::factory()->state(['name' => 'Solo Act']))
+            ->create(['status' => 'idea']);
+
+        $response = $this->actingAs($user)
+            ->get(route('artists.index', ['search' => 'Band', 'view' => 'columns', 'page' => 2]))
+            ->assertInertia(fn (Assert $page) => $page
                 ->where('filters.view', 'columns')
-                ->where('statusCounts.idea', 26)
-                ->where('engagements.links.prev', fn (string $url) => str_contains($url, 'search=Band') && str_contains($url, 'view=columns')));
+                ->has('engagements.data', 26)
+                ->missing('engagements.meta')
+                ->where('statusCounts.idea', 20)
+                ->where('statusCounts.confirmed', 6));
+
+        $props = $response->viewData('page')['props'];
+        $cardCounts = collect($props['engagements']['data'])->countBy('status');
+
+        foreach ($props['statusCounts'] as $status => $count) {
+            $this->assertSame($count, $cardCounts[$status] ?? 0, "Column {$status} badge must match its cards.");
+        }
     }
 
     public function test_drag_status_update_changes_only_the_engagement_status(): void

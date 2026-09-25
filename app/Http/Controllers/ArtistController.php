@@ -36,8 +36,12 @@ class ArtistController extends Controller
         $filters = $request->validated();
         $search = $filters['search'] ?? '';
         $labelIds = $filters['labels'] ?? [];
+        $view = $filters['view'] ?? 'list';
 
-        $engagements = $this->artists->paginateEngagements($event, $search, $labelIds);
+        // Columns shows the full filtered set so cards match statusCounts; List stays paginated.
+        $engagements = $view === 'columns'
+            ? $this->artists->allEngagements($event, $search, $labelIds)
+            : $this->artists->paginateEngagements($event, $search, $labelIds);
 
         return Inertia::render('Artists/Index', [
             'engagements' => ArtistEngagementResource::collection($engagements),
@@ -47,7 +51,7 @@ class ArtistController extends Controller
             'filters' => [
                 'search' => $search,
                 'labels' => array_map('intval', $labelIds),
-                'view' => $filters['view'] ?? 'list',
+                'view' => $view,
             ],
             'event' => $event?->only('id', 'name', 'locked'),
         ]);
