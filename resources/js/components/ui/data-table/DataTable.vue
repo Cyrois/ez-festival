@@ -62,8 +62,36 @@ const options = computed(() => ({
     },
 }));
 
+const api = () => {
+    const instance = dataTable.value?.dt;
+
+    return instance?.value || instance;
+};
+
+const search = (value) => {
+    api()?.search(value).draw();
+};
+
+const searchColumn = (column, value) => {
+    const dataTableColumn = api()?.column(column);
+
+    if (!dataTableColumn) {
+        return;
+    }
+
+    if (value) {
+        dataTableColumn.search(value, { exact: true }).draw();
+
+        return;
+    }
+
+    dataTableColumn.search('').draw();
+};
+
 defineExpose({
     dataTable,
+    search,
+    searchColumn,
 });
 </script>
 
