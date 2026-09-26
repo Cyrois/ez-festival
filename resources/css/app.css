@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import 'datatables.net-dt';
 @config '../../tailwind.config.js';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -47,4 +48,133 @@
     --color-success: #65a30d;
     --color-success-soft: #ecfccb;
     --color-warning: #ca8a04;
+}
+
+@layer components {
+    div.dt-container {
+        color: var(--color-charcoal);
+    }
+
+    div.dt-container .dt-layout-row {
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0 0 1rem;
+    }
+
+    div.dt-container .dt-layout-row:last-child {
+        margin: 1rem 0 0;
+    }
+
+    div.dt-container .dt-search input,
+    div.dt-container .dt-length select {
+        box-sizing: border-box;
+        height: 2.5rem;
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius);
+        background-color: var(--color-ground);
+        color: var(--color-charcoal);
+        font-size: 0.875rem;
+        outline: none;
+        transition:
+            box-shadow 150ms ease,
+            border-color 150ms ease;
+    }
+
+    div.dt-container .dt-search label {
+        color: var(--color-charcoal);
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+
+    div.dt-container .dt-search input {
+        margin-left: 0.5rem;
+        width: 16rem;
+        max-width: 100%;
+        padding: 0 0.75rem;
+    }
+
+    div.dt-container .dt-search input::placeholder {
+        color: var(--color-muted);
+    }
+
+    div.dt-container .dt-search input:focus {
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px
+            color-mix(in srgb, var(--color-primary) 35%, transparent);
+    }
+
+    div.dt-container .dt-search input:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+    }
+
+    div.dt-container .dt-length select {
+        margin: 0 0.35rem;
+        padding: 0.5rem 2rem 0.5rem 0.75rem;
+    }
+
+    div.dt-container .dt-info {
+        color: var(--color-muted);
+        font-size: 0.875rem;
+    }
+
+    div.dt-container .dt-paging .dt-paging-button {
+        min-width: 2.5rem;
+        min-height: 2.5rem;
+        margin-left: 0.25rem;
+        border: 1px solid var(--color-line) !important;
+        border-radius: var(--radius) !important;
+        background: var(--color-ground) !important;
+        color: var(--color-charcoal) !important;
+    }
+
+    div.dt-container .dt-paging .dt-paging-button.current,
+    div.dt-container .dt-paging .dt-paging-button:hover:not(.disabled) {
+        border-color: var(--color-primary) !important;
+        background: var(--color-primary-soft) !important;
+        color: var(--color-primary) !important;
+    }
+
+    div.dt-container .dt-paging .dt-paging-button.disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+    }
+
+    div.dt-container div.dt-layout-table > div {
+        overflow-x: auto;
+        border: 1px solid var(--color-line);
+        border-radius: 0.75rem;
+        background: var(--color-ground);
+    }
+
+    table.dataTable {
+        margin: 0 !important;
+        border: 0;
+        background: var(--color-ground);
+    }
+
+    table.dataTable thead th,
+    table.dataTable thead td {
+        border-bottom: 1px solid var(--color-line) !important;
+        background: var(--color-page);
+        padding: 0.75rem 1rem !important;
+        color: var(--color-muted);
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.025em;
+        text-transform: uppercase;
+    }
+
+    table.dataTable tbody td {
+        border-bottom: 1px solid var(--color-line);
+        padding: 0.75rem 1rem !important;
+    }
+
+    table.dataTable tbody tr:last-child td {
+        border-bottom: 0 !important;
+    }
+
+    table.dataTable tbody tr:hover {
+        background: var(--color-page);
+    }
 }

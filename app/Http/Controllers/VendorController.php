@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Vendors\CreateVendorRequest;
-use App\Http\Requests\Vendors\IndexVendorsRequest;
 use App\Http\Requests\Vendors\StoreVendorRequest;
 use App\Http\Requests\Vendors\UpdateVendorRequest;
 use App\Http\Resources\VendorEngagementNoteResource;
@@ -16,6 +15,7 @@ use App\Repositories\VendorRepository;
 use App\Services\VendorService;
 use App\Support\EventContext;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -27,15 +27,12 @@ class VendorController extends Controller
         private readonly EventContext $eventContext,
     ) {}
 
-    public function index(IndexVendorsRequest $request): Response
+    public function index(Request $request): Response
     {
         $event = $request->user()->effectiveEvent();
-        $filters = $request->validated();
-        $search = $filters['search'] ?? '';
 
         return Inertia::render('Vendors/Index', [
-            'vendors' => VendorResource::collection($this->vendors->paginateFor($event, $search)),
-            'filters' => ['search' => $search],
+            'vendors' => VendorResource::collection($this->vendors->allFor($event)),
             'event' => $event?->only('id', 'name', 'locked'),
         ]);
     }

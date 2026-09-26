@@ -85,6 +85,40 @@ class VendorTest extends TestCase
         $this->assertDatabaseCount('vendor_engagements', 1);
     }
 
+    public function test_vendor_list_returns_the_complete_current_event_collection(): void
+    {
+        [$user, $event] = $this->context();
+
+        foreach (range(1, 30) as $index) {
+            $name = "Vendor {$index}";
+            $vendor = Vendor::query()->create([
+                'name' => $name,
+                'name_key' => mb_strtolower($name),
+            ]);
+            VendorEngagement::query()->create([
+                'vendor_id' => $vendor->id,
+                'event_id' => $event->id,
+                'status' => 'idea',
+            ]);
+        }
+
+        $otherEvent = $this->event('Other Festival');
+        $otherVendor = Vendor::query()->create([
+            'name' => 'Other Event Vendor',
+            'name_key' => 'other event vendor',
+        ]);
+        VendorEngagement::query()->create([
+            'vendor_id' => $otherVendor->id,
+            'event_id' => $otherEvent->id,
+            'status' => 'idea',
+        ]);
+
+        $this->actingAs($user)->get(route('vendors.advancing'))->assertInertia(fn (Assert $page) => $page
+            ->has('vendors.data', 30)
+            ->missing('vendors.meta')
+            ->where('event.id', $event->id));
+    }
+
     public function test_can_create_a_vendor_with_custom_field_values(): void
     {
         [$user, $event] = $this->context();
