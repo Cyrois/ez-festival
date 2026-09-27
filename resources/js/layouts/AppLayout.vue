@@ -1,7 +1,9 @@
 <script setup>
 import { Toast } from '../components/ui/toast';
 import { Icon } from '../components/ui/icon';
+import SidebarCollapseButton from '../components/navigation/SidebarCollapseButton.vue';
 import SidebarNavItem from '../components/navigation/SidebarNavItem.vue';
+import UserAccountControls from '../components/navigation/UserAccountControls.vue';
 import { useInertiaErrorToast } from '../composables/useInertiaErrorToast';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, ref, watch } from 'vue';
@@ -197,9 +199,6 @@ const isActive = (href) => {
         currentPath.value === href || currentPath.value.startsWith(`${href}/`)
     );
 };
-
-const signOutClass =
-    'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line bg-transparent text-muted no-underline transition-colors hover:bg-page hover:text-charcoal focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-charcoal/20';
 
 const openNav = () => {
     navOpen.value = true;
@@ -402,76 +401,14 @@ const railClass = computed(() => {
                 </SidebarNavItem>
             </nav>
 
-            <div class="hidden shrink-0 border-t border-line p-2 lg:block">
-                <button
-                    type="button"
-                    class="inline-flex h-9 w-full items-center gap-2 rounded-lg text-[13px] font-semibold text-muted transition-colors hover:bg-page hover:text-charcoal focus-visible:ring-[3px] focus-visible:ring-primary/35 focus-visible:outline-none"
-                    :class="
-                        sidebarCollapsed
-                            ? 'justify-center px-0'
-                            : 'justify-start px-3'
-                    "
-                    :aria-label="
-                        sidebarCollapsed
-                            ? $t('nav.expand_sidebar')
-                            : $t('nav.collapse_sidebar')
-                    "
-                    :title="
-                        sidebarCollapsed
-                            ? $t('nav.expand_sidebar')
-                            : $t('nav.collapse_sidebar')
-                    "
-                    :aria-expanded="sidebarCollapsed ? 'false' : 'true'"
-                    @click="toggleSidebar"
-                >
-                    <Icon
-                        :name="[
-                            'fas',
-                            sidebarCollapsed ? 'chevron-right' : 'chevron-left',
-                        ]"
-                        size="sm"
-                        fixed-width
-                    />
-                    <span :class="sidebarCollapsed ? 'sr-only' : ''">
-                        {{
-                            sidebarCollapsed
-                                ? $t('nav.expand_sidebar')
-                                : $t('nav.collapse_sidebar')
-                        }}
-                    </span>
-                </button>
-            </div>
-
-            <div
-                class="flex shrink-0 items-center justify-between gap-2 border-t border-line px-3 py-3 lg:hidden"
-            >
-                <div class="min-w-0 px-2">
-                    <p class="m-0 truncate text-xs font-semibold text-charcoal">
-                        {{
-                            user?.name || user?.email || $t('dashboard.unknown')
-                        }}
-                    </p>
-                    <p
-                        v-if="user?.email && user?.name"
-                        class="m-0 truncate text-[11px] text-muted"
-                    >
-                        {{ user.email }}
-                    </p>
-                </div>
-                <Link
-                    method="post"
-                    href="/logout"
-                    as="button"
-                    :class="signOutClass"
-                    :aria-label="$t('dashboard.sign_out')"
-                    :title="$t('dashboard.sign_out')"
-                >
-                    <Icon
-                        :name="['fas', 'right-from-bracket']"
-                        size="sm"
-                    />
-                </Link>
-            </div>
+            <SidebarCollapseButton
+                :collapsed="sidebarCollapsed"
+                @toggle="toggleSidebar"
+            />
+            <UserAccountControls
+                :user="user"
+                placement="sidebar"
+            />
         </aside>
 
         <!-- Settings rail (single #settings-nav outlet) -->
@@ -501,36 +438,10 @@ const railClass = computed(() => {
             <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
                 <slot name="settings-nav" />
             </div>
-            <div
-                class="mt-auto flex shrink-0 items-center justify-between gap-2 border-t border-line px-3 py-3 lg:hidden"
-            >
-                <div class="min-w-0 px-2">
-                    <p class="m-0 truncate text-xs font-semibold text-charcoal">
-                        {{
-                            user?.name || user?.email || $t('dashboard.unknown')
-                        }}
-                    </p>
-                    <p
-                        v-if="user?.email && user?.name"
-                        class="m-0 truncate text-[11px] text-muted"
-                    >
-                        {{ user.email }}
-                    </p>
-                </div>
-                <Link
-                    method="post"
-                    href="/logout"
-                    as="button"
-                    :class="signOutClass"
-                    :aria-label="$t('dashboard.sign_out')"
-                    :title="$t('dashboard.sign_out')"
-                >
-                    <Icon
-                        :name="['fas', 'right-from-bracket']"
-                        size="sm"
-                    />
-                </Link>
-            </div>
+            <UserAccountControls
+                :user="user"
+                placement="sidebar"
+            />
         </aside>
 
         <div class="flex min-w-0 flex-1 flex-col">
@@ -641,38 +552,7 @@ const railClass = computed(() => {
                         </span>
                     </template>
                 </nav>
-                <div class="ml-auto hidden shrink-0 items-center gap-3 lg:flex">
-                    <div class="max-w-52 min-w-0 text-right">
-                        <p
-                            class="m-0 truncate text-xs font-semibold text-charcoal"
-                        >
-                            {{
-                                user?.name ||
-                                user?.email ||
-                                $t('dashboard.unknown')
-                            }}
-                        </p>
-                        <p
-                            v-if="user?.email && user?.name"
-                            class="m-0 truncate text-[11px] text-muted"
-                        >
-                            {{ user.email }}
-                        </p>
-                    </div>
-                    <Link
-                        method="post"
-                        href="/logout"
-                        as="button"
-                        :class="signOutClass"
-                        :aria-label="$t('dashboard.sign_out')"
-                        :title="$t('dashboard.sign_out')"
-                    >
-                        <Icon
-                            :name="['fas', 'right-from-bracket']"
-                            size="sm"
-                        />
-                    </Link>
-                </div>
+                <UserAccountControls :user="user" />
             </header>
 
             <main class="flex-1 px-4 py-6 md:px-6 md:py-8">
