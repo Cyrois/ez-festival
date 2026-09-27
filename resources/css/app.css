@@ -61,13 +61,26 @@
      */
     div.dt-container {
         @apply text-charcoal;
+
+        /*
+         * DataTables shares this layer and its cell, header and paging
+         * selectors are more specific, so drive them through its own
+         * variables (theme tokens only) instead of competing selectors.
+         */
+        --dt-header_padding: --spacing(3) --spacing(4);
+        --dt-header_border: 1px solid var(--color-line);
+        --dt-body_padding: --spacing(3) --spacing(4);
+        --dt-body_border: 1px solid var(--color-line);
+        --dt-paging-button_color-hover: var(--color-primary);
+        --dt-paging-button_color-current: var(--color-primary);
+        --dt-paging-button_color-current-hover: var(--color-primary);
     }
 
-    div.dt-container .dt-layout-row {
-        @apply mb-4 items-center gap-3;
+    div.dt-container div.dt-layout-row {
+        @apply mt-0 mb-4 items-center gap-3;
     }
 
-    div.dt-container .dt-layout-row:last-child {
+    div.dt-container div.dt-layout-row:last-child {
         @apply mt-4 mb-0;
     }
 
@@ -119,11 +132,11 @@
 
     table.dataTable thead th,
     table.dataTable thead td {
-        @apply border-b border-line bg-page px-4 py-3 text-xs font-bold tracking-wide text-muted uppercase;
+        @apply bg-page text-xs font-bold tracking-wide text-muted uppercase;
     }
 
     table.dataTable tbody td {
-        @apply border-b border-line px-4 py-3 text-sm text-charcoal;
+        @apply border-b border-line text-sm text-charcoal;
     }
 
     table.dataTable tbody tr:last-child td {
