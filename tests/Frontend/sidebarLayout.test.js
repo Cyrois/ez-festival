@@ -55,3 +55,12 @@ test('sign out remains a neutral outlined icon button', () => {
     assert.match(accountControls, /text-muted/);
     assert.doesNotMatch(accountControls, /text-primary|text-brand/);
 });
+
+test('a collapsed desktop sidebar expands while hovered', () => {
+    assert.match(layout, /@mouseenter="sidebarHovered = true"/);
+    assert.match(layout, /@mouseleave="sidebarHovered = false"/);
+    assert.match(
+        layout,
+        /:compact="sidebarCompact"[\s\S]*@toggle="toggleSidebar"/,
+    );
+});

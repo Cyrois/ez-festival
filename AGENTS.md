@@ -180,7 +180,7 @@ These are recurring Codex mistakes on this repo. Treat them as hard stops — do
 - On desktop, the user name, email, and gray outlined sign-out icon live at the top-right of the app header. They do not appear in the desktop sidebar.
 - On mobile, the same user controls remain fixed at the bottom of the off-canvas drawer, with at least 44px tap targets.
 - Settings is the final item in the scrollable main navigation list, not a pinned footer item.
-- The desktop collapse control is a full-width row pinned at the bottom of the sidebar. Preserve the normal expanded navigation on mobile regardless of the stored desktop collapse preference.
+- The desktop collapse control is a full-width row pinned at the bottom of the sidebar. A collapsed desktop sidebar temporarily expands on hover without changing the saved preference. Preserve the normal expanded navigation on mobile regardless of the stored desktop collapse preference.
 
 ## Setup wizard
 
