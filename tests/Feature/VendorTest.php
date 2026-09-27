@@ -116,7 +116,8 @@ class VendorTest extends TestCase
         $this->actingAs($user)->get(route('vendors.advancing'))->assertInertia(fn (Assert $page) => $page
             ->has('vendors.data', 30)
             ->missing('vendors.meta')
-            ->where('event.id', $event->id));
+            ->where('event.id', $event->id)
+            ->where('vendorTypes', VendorType::query()->orderBy('name')->get(['id', 'name'])->toArray()));
     }
 
     public function test_can_create_a_vendor_with_custom_field_values(): void

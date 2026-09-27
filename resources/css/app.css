@@ -52,8 +52,12 @@
 
 @layer components {
     /*
-     * DataTables generates this markup outside Vue, so these selectors bridge
-     * its elements to the same Tailwind utilities used by the shared UI kit.
+     * Accepted exception to the Tailwind-only rule (AGENTS.md): DataTables
+     * renders its table, search, length and paging markup outside Vue, so
+     * utility classes cannot be put on it from templates. These selectors only
+     * @apply the same theme utilities as the UI kit, with no raw values or
+     * !important. Keep them in sync with ui/table (Table, TableHead,
+     * TableRow, TableCell) and ui/input (Input) when those change.
      */
     div.dt-container {
         @apply text-charcoal;
@@ -119,14 +123,14 @@
     }
 
     table.dataTable tbody td {
-        @apply border-b border-line px-4 py-3;
+        @apply border-b border-line px-4 py-3 text-sm text-charcoal;
     }
 
     table.dataTable tbody tr:last-child td {
         @apply border-b-0;
     }
 
-    table.dataTable tbody tr:hover {
-        @apply bg-page;
+    table.dataTable tbody tr {
+        @apply transition-colors hover:bg-page;
     }
 }

@@ -88,26 +88,20 @@ const search = (value) => {
     api()?.search(value).draw();
 };
 
-const searchColumn = (column, value) => {
-    const dataTableColumn = api()?.column(column);
-
-    if (!dataTableColumn) {
-        return;
-    }
-
-    if (value) {
-        dataTableColumn.search(value, { exact: true }).draw();
-
-        return;
-    }
-
-    dataTableColumn.search('').draw();
+// Named row filter on raw row data; pass null to clear it.
+const filterRows = (name, predicate) => {
+    api()
+        ?.search.fixed(
+            name,
+            predicate ? (_, rowData) => predicate(rowData) : null,
+        )
+        .draw();
 };
 
 defineExpose({
     dataTable,
+    filterRows,
     search,
-    searchColumn,
 });
 </script>
 

@@ -14,6 +14,7 @@ import { trans } from 'laravel-vue-i18n';
 
 const props = defineProps({
     vendors: { type: Object, required: true },
+    vendorTypes: { type: Array, required: true },
     event: { type: Object, default: null },
 });
 
@@ -69,7 +70,8 @@ const filteredVendors = computed(() => {
                 .toLocaleLowerCase()
                 .includes(normalizedSearch);
         const matchesType =
-            selectedType.value === '' || vendor.type === selectedType.value;
+            selectedType.value === '' ||
+            vendor.vendor_type_id === selectedType.value;
 
         return matchesSearch && matchesType;
     });
@@ -79,15 +81,7 @@ const typeOptions = computed(() => [
         value: '',
         title: trans('vendors.filters.all_types'),
     },
-    ...[
-        ...new Set(
-            props.vendors.data
-                .map((vendor) => vendor.type)
-                .filter((type) => type),
-        ),
-    ]
-        .sort((first, second) => first.localeCompare(second))
-        .map((type) => ({ value: type, title: type })),
+    ...props.vendorTypes.map((type) => ({ value: type.id, title: type.name })),
 ]);
 const options = computed(() => ({
     lengthChange: false,
@@ -110,7 +104,10 @@ watch(search, (value) => {
 });
 
 watch(selectedType, (value) => {
-    table.value?.searchColumn('type:name', value);
+    table.value?.filterRows(
+        'vendorType',
+        value === '' ? null : (vendor) => vendor.vendor_type_id === value,
+    );
 });
 </script>
 

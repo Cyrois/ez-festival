@@ -33,6 +33,7 @@ class VendorController extends Controller
 
         return Inertia::render('Vendors/Index', [
             'vendors' => VendorResource::collection($this->vendors->allFor($event)),
+            'vendorTypes' => VendorType::query()->orderBy('name')->get(['id', 'name']),
             'event' => $event?->only('id', 'name', 'locked'),
         ]);
     }
