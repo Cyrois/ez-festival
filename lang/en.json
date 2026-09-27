@@ -17,7 +17,7 @@
     "data_table.pagination.next": "Next",
     "data_table.pagination.previous": "Previous",
     "ui.demo.data_table": "Data table",
-    "ui.demo.data_table_lead": "Searchable, sortable, and paginated Vue 3 DataTables wrapper for production list pages.",
+    "ui.demo.data_table_lead": "Searchable, sortable client-side table for small per-event lists (Vendors, Artists).",
     "toast.error_title": "Couldn't save",
     "toast.saved_title": "Saved",
     "labels.placeholder": "Search or create labels",
