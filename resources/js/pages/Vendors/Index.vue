@@ -11,6 +11,7 @@ import { Input } from '../../components/ui/input';
 import { Link } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+import { vendorColumns } from './vendorColumns';
 
 const props = defineProps({
     vendors: { type: Object, required: true },
@@ -24,58 +25,31 @@ const breadcrumbs = computed(() => [
     { label: trans('vendors.title') },
 ]);
 // DataTables reads columns and options once on mount; later changes are ignored.
-const columns = computed(() => [
-    {
-        data: 'name',
-        name: 'vendor',
-        render: {
-            _: 'name',
-            display: '#vendorCell',
-        },
-        title: trans('vendors.columns.vendor'),
-    },
-    {
-        data: 'type',
-        defaultContent: '',
-        name: 'type',
-        render: {
-            _: 'type',
-            display: '#typeCell',
-        },
-        title: trans('vendors.columns.type'),
-    },
-    {
-        data: 'status',
-        name: 'status',
-        render: {
-            _: 'status',
-            display: '#statusCell',
-        },
-        title: trans('vendors.columns.status'),
-    },
-]);
+const columns = computed(() => vendorColumns(trans));
 const table = ref(null);
 const search = ref('');
 const selectedType = ref('');
+const matchesVendor = (vendor, normalizedSearch) => {
+    const matchesSearch =
+        normalizedSearch === '' ||
+        vendor.name.toLocaleLowerCase().includes(normalizedSearch) ||
+        (vendor.type || '').toLocaleLowerCase().includes(normalizedSearch) ||
+        trans(`vendors.status.${vendor.status}`)
+            .toLocaleLowerCase()
+            .includes(normalizedSearch);
+    const matchesType =
+        selectedType.value === '' ||
+        vendor.vendor_type_id === selectedType.value;
+
+    return matchesSearch && matchesType;
+};
+// Phone cards use the same order as the desktop table (name ascending).
 const filteredVendors = computed(() => {
     const normalizedSearch = search.value.trim().toLocaleLowerCase();
 
-    return props.vendors.data.filter((vendor) => {
-        const matchesSearch =
-            normalizedSearch === '' ||
-            vendor.name.toLocaleLowerCase().includes(normalizedSearch) ||
-            (vendor.type || '')
-                .toLocaleLowerCase()
-                .includes(normalizedSearch) ||
-            trans(`vendors.status.${vendor.status}`)
-                .toLocaleLowerCase()
-                .includes(normalizedSearch);
-        const matchesType =
-            selectedType.value === '' ||
-            vendor.vendor_type_id === selectedType.value;
-
-        return matchesSearch && matchesType;
-    });
+    return props.vendors.data
+        .filter((vendor) => matchesVendor(vendor, normalizedSearch))
+        .sort((first, second) => first.name.localeCompare(second.name));
 });
 const typeOptions = computed(() => [
     {
