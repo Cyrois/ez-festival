@@ -4,7 +4,7 @@ import { Icon } from '../components/ui/icon';
 import SidebarNavItem from '../components/navigation/SidebarNavItem.vue';
 import { useInertiaErrorToast } from '../composables/useInertiaErrorToast';
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 const props = defineProps({
     title: {
@@ -33,6 +33,33 @@ const page = usePage();
 useInertiaErrorToast();
 
 const navOpen = ref(false);
+const sidebarCollapsed = ref(false);
+const sidebarStorageKey = 'artist-tree.sidebar-collapsed';
+
+onMounted(() => {
+    if (props.settingsNav) {
+        return;
+    }
+
+    try {
+        sidebarCollapsed.value =
+            window.localStorage.getItem(sidebarStorageKey) === 'true';
+    } catch {
+        // The sidebar still works when browser storage is unavailable.
+    }
+});
+
+watch(sidebarCollapsed, (collapsed) => {
+    if (props.settingsNav) {
+        return;
+    }
+
+    try {
+        window.localStorage.setItem(sidebarStorageKey, String(collapsed));
+    } catch {
+        // The preference is optional; keep the in-memory state.
+    }
+});
 
 watch(
     () => page.url,
@@ -172,7 +199,7 @@ const isActive = (href) => {
 };
 
 const signOutClass =
-    'inline-flex min-h-11 w-full items-center justify-start px-2 text-[13px] font-semibold text-primary no-underline hover:underline';
+    'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-primary no-underline hover:bg-primary/10';
 
 const openNav = () => {
     navOpen.value = true;
@@ -182,6 +209,10 @@ const closeNav = () => {
     navOpen.value = false;
 };
 
+const toggleSidebar = () => {
+    sidebarCollapsed.value = !sidebarCollapsed.value;
+};
+
 /** Shared classes: persistent sidebar lg+, off-canvas drawer below lg */
 const railClass = computed(() => {
     const open = navOpen.value
@@ -189,8 +220,9 @@ const railClass = computed(() => {
         : 'max-lg:-translate-x-full';
 
     return [
-        'fixed inset-y-0 left-0 z-50 flex w-[min(18rem,85vw)] flex-col border-r border-line bg-ground shadow-lg transition-transform duration-200',
-        'lg:relative lg:z-40 lg:w-56 lg:shrink-0 lg:translate-x-0 lg:shadow-none',
+        'fixed inset-y-0 left-0 z-50 flex h-screen w-[min(18rem,85vw)] flex-col border-r border-line bg-ground shadow-lg transition-[transform,width] duration-200',
+        'lg:sticky lg:top-0 lg:z-40 lg:shrink-0 lg:translate-x-0 lg:shadow-none',
+        sidebarCollapsed.value && !props.settingsNav ? 'lg:w-16' : 'lg:w-56',
         open,
     ].join(' ');
 });
@@ -220,9 +252,13 @@ const railClass = computed(() => {
             :aria-hidden="navOpen || undefined"
         >
             <div
-                class="flex items-center justify-between border-b border-line px-4 py-3 lg:block lg:py-4"
+                class="flex items-center justify-between border-b border-line px-4 py-3 lg:py-4"
+                :class="sidebarCollapsed ? 'lg:justify-center lg:px-2' : ''"
             >
-                <div class="flex min-w-0 items-center gap-2.5">
+                <div
+                    class="flex min-w-0 items-center gap-2.5"
+                    :class="sidebarCollapsed ? 'lg:hidden' : ''"
+                >
                     <div
                         class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-white"
                         aria-hidden="true"
@@ -258,9 +294,35 @@ const railClass = computed(() => {
                         size="sm"
                     />
                 </button>
+                <button
+                    type="button"
+                    class="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-page hover:text-charcoal lg:inline-flex"
+                    :aria-label="
+                        sidebarCollapsed
+                            ? $t('nav.expand_sidebar')
+                            : $t('nav.collapse_sidebar')
+                    "
+                    :title="
+                        sidebarCollapsed
+                            ? $t('nav.expand_sidebar')
+                            : $t('nav.collapse_sidebar')
+                    "
+                    :aria-expanded="sidebarCollapsed ? 'false' : 'true'"
+                    @click="toggleSidebar"
+                >
+                    <Icon
+                        :name="[
+                            'fas',
+                            sidebarCollapsed ? 'chevron-right' : 'chevron-left',
+                        ]"
+                        size="sm"
+                    />
+                </button>
             </div>
 
-            <nav class="flex flex-1 flex-col gap-1 overflow-y-auto px-2 py-3">
+            <nav
+                class="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 py-3"
+            >
                 <template
                     v-for="item in navItems"
                     :key="item.key"
@@ -283,6 +345,17 @@ const railClass = computed(() => {
                                 )
                             "
                             :icon="item.icon"
+                            :icon-only="sidebarCollapsed"
+                            :aria-label="
+                                sidebarCollapsed
+                                    ? $t(`nav.${item.key}`)
+                                    : undefined
+                            "
+                            :title="
+                                sidebarCollapsed
+                                    ? $t(`nav.${item.key}`)
+                                    : undefined
+                            "
                             :aria-current="
                                 item.enabled &&
                                 (isActive(item.href) ||
@@ -295,7 +368,10 @@ const railClass = computed(() => {
                         >
                             {{ $t(`nav.${item.key}`) }}
                         </SidebarNavItem>
-                        <div class="ml-5 border-l border-line pl-3">
+                        <div
+                            v-if="!sidebarCollapsed"
+                            class="ml-5 border-l border-line pl-3"
+                        >
                             <SidebarNavItem
                                 v-for="child in item.children"
                                 :key="child.key"
@@ -319,6 +395,13 @@ const railClass = computed(() => {
                         :enabled="item.enabled"
                         :active="isActive(item.href)"
                         :icon="item.icon"
+                        :icon-only="sidebarCollapsed"
+                        :aria-label="
+                            sidebarCollapsed ? $t(`nav.${item.key}`) : undefined
+                        "
+                        :title="
+                            sidebarCollapsed ? $t(`nav.${item.key}`) : undefined
+                        "
                         :aria-current="
                             item.enabled && isActive(item.href)
                                 ? 'page'
@@ -328,46 +411,58 @@ const railClass = computed(() => {
                         {{ $t(`nav.${item.key}`) }}
                     </SidebarNavItem>
                 </template>
+                <SidebarNavItem
+                    href="/settings/events"
+                    :active="settingsActive"
+                    :icon="['fas', 'gear']"
+                    :icon-only="sidebarCollapsed"
+                    :aria-label="
+                        sidebarCollapsed ? $t('nav.settings') : undefined
+                    "
+                    :title="sidebarCollapsed ? $t('nav.settings') : undefined"
+                    :aria-current="settingsActive ? 'page' : undefined"
+                >
+                    {{ $t('nav.settings') }}
+                </SidebarNavItem>
             </nav>
 
-            <div class="mt-auto">
-                <div class="border-t border-line px-2 py-2">
-                    <SidebarNavItem
-                        href="/settings/events"
-                        :active="settingsActive"
-                        :icon="['fas', 'gear']"
-                        :aria-current="settingsActive ? 'page' : undefined"
+            <div
+                class="flex shrink-0 items-center border-t border-line px-3 py-3"
+                :class="
+                    sidebarCollapsed
+                        ? 'justify-center lg:px-2'
+                        : 'justify-between gap-2'
+                "
+            >
+                <div
+                    class="min-w-0 px-2"
+                    :class="sidebarCollapsed ? 'lg:hidden' : ''"
+                >
+                    <p class="m-0 truncate text-xs font-semibold text-charcoal">
+                        {{
+                            user?.name || user?.email || $t('dashboard.unknown')
+                        }}
+                    </p>
+                    <p
+                        v-if="user?.email && user?.name"
+                        class="m-0 truncate text-[11px] text-muted"
                     >
-                        {{ $t('nav.settings') }}
-                    </SidebarNavItem>
+                        {{ user.email }}
+                    </p>
                 </div>
-                <div class="space-y-1 border-t border-line px-3 py-3">
-                    <div class="min-w-0 px-2">
-                        <p
-                            class="m-0 truncate text-xs font-semibold text-charcoal"
-                        >
-                            {{
-                                user?.name ||
-                                user?.email ||
-                                $t('dashboard.unknown')
-                            }}
-                        </p>
-                        <p
-                            v-if="user?.email && user?.name"
-                            class="m-0 truncate text-[11px] text-muted"
-                        >
-                            {{ user.email }}
-                        </p>
-                    </div>
-                    <Link
-                        method="post"
-                        href="/logout"
-                        as="button"
-                        :class="signOutClass"
-                    >
-                        {{ $t('dashboard.sign_out') }}
-                    </Link>
-                </div>
+                <Link
+                    method="post"
+                    href="/logout"
+                    as="button"
+                    :class="signOutClass"
+                    :aria-label="$t('dashboard.sign_out')"
+                    :title="$t('dashboard.sign_out')"
+                >
+                    <Icon
+                        :name="['fas', 'right-from-bracket']"
+                        size="sm"
+                    />
+                </Link>
             </div>
         </aside>
 
@@ -398,7 +493,9 @@ const railClass = computed(() => {
             <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
                 <slot name="settings-nav" />
             </div>
-            <div class="mt-auto space-y-1 border-t border-line px-3 py-3">
+            <div
+                class="mt-auto flex shrink-0 items-center justify-between gap-2 border-t border-line px-3 py-3"
+            >
                 <div class="min-w-0 px-2">
                     <p class="m-0 truncate text-xs font-semibold text-charcoal">
                         {{
@@ -417,8 +514,13 @@ const railClass = computed(() => {
                     href="/logout"
                     as="button"
                     :class="signOutClass"
+                    :aria-label="$t('dashboard.sign_out')"
+                    :title="$t('dashboard.sign_out')"
                 >
-                    {{ $t('dashboard.sign_out') }}
+                    <Icon
+                        :name="['fas', 'right-from-bracket']"
+                        size="sm"
+                    />
                 </Link>
             </div>
         </aside>
