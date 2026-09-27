@@ -1,0 +1,57 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
+
+const layout = readFileSync(
+    new URL('../../resources/js/layouts/AppLayout.vue', import.meta.url),
+    'utf8',
+);
+const accountControls = readFileSync(
+    new URL(
+        '../../resources/js/components/navigation/UserAccountControls.vue',
+        import.meta.url,
+    ),
+    'utf8',
+);
+
+test('desktop account controls remain in the app header', () => {
+    const headerStart = layout.indexOf('<header');
+    const headerEnd = layout.indexOf('</header>', headerStart);
+    const header = layout.slice(headerStart, headerEnd);
+
+    assert.notEqual(headerStart, -1);
+    assert.notEqual(headerEnd, -1);
+    assert.match(header, /<UserAccountControls\s+:user="user"\s+\/>/);
+    assert.match(accountControls, /'ml-auto hidden lg:flex'/);
+});
+
+test('mobile account controls remain at the bottom of each sidebar', () => {
+    const mobilePlacements = layout.match(
+        /<UserAccountControls\s+:user="user"\s+placement="sidebar"\s+\/>/g,
+    );
+
+    assert.equal(mobilePlacements?.length, 2);
+    assert.match(accountControls, /'flex[^']*lg:hidden'/);
+    assert.match(accountControls, /min-h-11 min-w-11/);
+});
+
+test('settings remains in the main navigation above the collapse control', () => {
+    const mainSidebarStart = layout.indexOf('<aside');
+    const mainSidebarEnd = layout.indexOf('</aside>', mainSidebarStart);
+    const mainSidebar = layout.slice(mainSidebarStart, mainSidebarEnd);
+    const navEnd = mainSidebar.indexOf('</nav>');
+    const settingsLink = mainSidebar.indexOf('href="/settings/events"');
+    const collapseControl = mainSidebar.indexOf('<SidebarCollapseButton');
+
+    assert.notEqual(mainSidebarStart, -1);
+    assert.notEqual(mainSidebarEnd, -1);
+    assert.ok(settingsLink > -1 && settingsLink < navEnd);
+    assert.ok(collapseControl > navEnd);
+});
+
+test('sign out remains a neutral outlined icon button', () => {
+    assert.match(accountControls, /variant: 'outline'/);
+    assert.match(accountControls, /size: 'icon'/);
+    assert.match(accountControls, /text-muted/);
+    assert.doesNotMatch(accountControls, /text-primary|text-brand/);
+});

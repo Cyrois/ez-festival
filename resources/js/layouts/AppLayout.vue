@@ -392,13 +392,6 @@ const railClass = computed(() => {
                         {{ $t(`nav.${item.key}`) }}
                     </SidebarNavItem>
                 </template>
-            </nav>
-
-            <SidebarCollapseButton
-                :collapsed="sidebarCollapsed"
-                @toggle="toggleSidebar"
-            />
-            <div class="shrink-0 border-t border-line px-2 py-2">
                 <SidebarNavItem
                     href="/settings/events"
                     :active="settingsActive"
@@ -412,10 +405,15 @@ const railClass = computed(() => {
                 >
                     {{ $t('nav.settings') }}
                 </SidebarNavItem>
-            </div>
+            </nav>
+
+            <SidebarCollapseButton
+                :collapsed="sidebarCollapsed"
+                @toggle="toggleSidebar"
+            />
             <UserAccountControls
                 :user="user"
-                :collapsed="sidebarCollapsed"
+                placement="sidebar"
             />
         </aside>
 
@@ -446,7 +444,10 @@ const railClass = computed(() => {
             <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
                 <slot name="settings-nav" />
             </div>
-            <UserAccountControls :user="user" />
+            <UserAccountControls
+                :user="user"
+                placement="sidebar"
+            />
         </aside>
 
         <div class="flex min-w-0 flex-1 flex-col">
@@ -557,6 +558,7 @@ const railClass = computed(() => {
                         </span>
                     </template>
                 </nav>
+                <UserAccountControls :user="user" />
             </header>
 
             <main class="flex-1 px-4 py-6 md:px-6 md:py-8">
