@@ -23,6 +23,7 @@ const breadcrumbs = computed(() => [
     { label: trans('nav.vendors'), href: '/vendors/advancing' },
     { label: trans('vendors.title') },
 ]);
+// DataTables reads columns and options once on mount; later changes are ignored.
 const columns = computed(() => [
     {
         data: 'name',
