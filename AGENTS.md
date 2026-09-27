@@ -134,7 +134,13 @@ These are recurring Codex mistakes on this repo. Treat them as hard stops — do
 
 ### Lists, authorization, performance
 
-- Production index/list pages: **filter and paginate on the server**. Do not hydrate unbounded tables into memory and filter in PHP or the browser.
+- Production index/list pages: **filter and paginate on the server** by default. Do not hydrate unbounded tables into memory and filter in PHP or the browser.
+- **Exception (Calvin, 2026-09-27): Vendors and Artists list pages only.** These lists stay at or under ~200 records per event, so they may load the current event's full set and search/sort/filter/paginate client-side with the shared `DataTable` component (`resources/js/components/ui/data-table`), provided:
+  - the query stays scoped to the current event — never cross-event;
+  - the expected size stays around 200 rows or fewer — if a list could grow past that, switch to server paging (or DataTables `serverSide`);
+  - sort and search use raw values, not rendered slot HTML (use `render: { display: '#slot' }` for slot cells);
+  - every other list (Team, Patrons, check-in, and anything new) still filters and paginates on the server unless Calvin decides otherwise.
+- A future cache for repeated lookups must be scoped per event and cleared on writes.
 - Do not `Gate::authorize` / policy-check **per row in a loop** when a single ability plus a query scope is enough.
 - Client-only chips/filters for types that always return empty are not “global” — either wire the data or hide the chip until the type exists.
 

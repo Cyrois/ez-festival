@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import 'datatables.net-dt' layer(components);
 @config '../../tailwind.config.js';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -47,4 +48,102 @@
     --color-success: #65a30d;
     --color-success-soft: #ecfccb;
     --color-warning: #ca8a04;
+}
+
+@layer components {
+    /*
+     * Accepted exception to the Tailwind-only rule (AGENTS.md): DataTables
+     * renders its table, search, length and paging markup outside Vue, so
+     * utility classes cannot be put on it from templates. These selectors only
+     * @apply the same theme utilities as the UI kit, with no raw values or
+     * !important. Keep them in sync with ui/table (Table, TableHead,
+     * TableRow, TableCell) and ui/input (Input) when those change.
+     */
+    div.dt-container {
+        @apply text-charcoal;
+
+        /*
+         * DataTables shares this layer and its cell, header and paging
+         * selectors are more specific, so drive them through its own
+         * variables (theme tokens only) instead of competing selectors.
+         */
+        --dt-header_padding: --spacing(3) --spacing(4);
+        --dt-header_border: 1px solid var(--color-line);
+        --dt-body_padding: --spacing(3) --spacing(4);
+        --dt-body_border: 1px solid var(--color-line);
+        --dt-paging-button_color-hover: var(--color-primary);
+        --dt-paging-button_color-current: var(--color-primary);
+        --dt-paging-button_color-current-hover: var(--color-primary);
+    }
+
+    div.dt-container div.dt-layout-row {
+        @apply mt-0 mb-4 items-center gap-3;
+    }
+
+    div.dt-container div.dt-layout-row:last-child {
+        @apply mt-4 mb-0;
+    }
+
+    div.dt-container .dt-search input,
+    div.dt-container .dt-length select {
+        @apply box-border h-10 rounded-lg border border-line bg-ground text-sm text-charcoal transition-[box-shadow,border-color] outline-none focus:border-primary focus:ring-[3px] focus:ring-primary/35 disabled:cursor-not-allowed disabled:opacity-45;
+    }
+
+    div.dt-container .dt-search label {
+        @apply text-xs font-bold text-charcoal;
+    }
+
+    div.dt-container .dt-search input {
+        @apply ml-2 w-64 max-w-full px-3;
+    }
+
+    div.dt-container .dt-search input::placeholder {
+        @apply text-muted;
+    }
+
+    div.dt-container .dt-length select {
+        @apply mx-1.5 py-2 pr-8 pl-3;
+    }
+
+    div.dt-container .dt-info {
+        @apply text-sm text-muted;
+    }
+
+    div.dt-container .dt-paging .dt-paging-button {
+        @apply ml-1 min-h-10 min-w-10 rounded-lg border border-line bg-ground text-charcoal;
+    }
+
+    div.dt-container .dt-paging .dt-paging-button.current,
+    div.dt-container .dt-paging .dt-paging-button:hover:not(.disabled) {
+        @apply border-primary bg-primary-soft text-primary;
+    }
+
+    div.dt-container .dt-paging .dt-paging-button.disabled {
+        @apply cursor-not-allowed opacity-45;
+    }
+
+    div.dt-container div.dt-layout-table > div {
+        @apply overflow-x-auto rounded-xl border border-line bg-ground;
+    }
+
+    table.dataTable {
+        @apply m-0 border-0 bg-ground;
+    }
+
+    table.dataTable thead th,
+    table.dataTable thead td {
+        @apply bg-page text-xs font-bold tracking-wide text-muted uppercase;
+    }
+
+    table.dataTable tbody td {
+        @apply border-b border-line text-sm text-charcoal;
+    }
+
+    table.dataTable tbody tr:last-child td {
+        @apply border-b-0;
+    }
+
+    table.dataTable tbody tr {
+        @apply transition-colors hover:bg-page;
+    }
 }

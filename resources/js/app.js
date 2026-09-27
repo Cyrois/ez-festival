@@ -16,7 +16,7 @@ createInertiaApp({
             import.meta.glob('./pages/**/*.vue'),
         ),
     setup({ el, App, props, plugin }) {
-        createApp({ render: () => h(App, props) })
+        return createApp({ render: () => h(App, props) })
             .use(plugin)
             .use(i18nVue, {
                 lang: 'en',

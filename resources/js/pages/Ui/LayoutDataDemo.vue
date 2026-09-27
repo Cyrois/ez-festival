@@ -9,6 +9,7 @@ import { SegmentedControl } from '../../components/ui/segmented-control';
 import { Card } from '../../components/ui/card';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Icon } from '../../components/ui/icon';
+import { DataTable } from '../../components/ui/data-table';
 import {
     Table,
     TableHeader,
@@ -26,6 +27,33 @@ const viewOptions = [
     { value: 'board', label: trans('ui.demo.segmented.board') },
     { value: 'calendar', label: trans('ui.demo.segmented.calendar') },
 ];
+
+const dataTableColumns = [
+    { data: 'artist', title: trans('ui.demo.table.artist') },
+    { data: 'stage', title: trans('ui.demo.table.stage') },
+    { data: 'status', title: trans('ui.demo.table.status') },
+];
+const dataTableRows = [
+    {
+        artist: trans('ui.demo.table.row1_artist'),
+        stage: trans('ui.demo.table.row1_stage'),
+        status: trans('ui.demo.badge.success'),
+    },
+    {
+        artist: trans('ui.demo.table.row2_artist'),
+        stage: trans('ui.demo.table.row2_stage'),
+        status: trans('ui.demo.badge.warning'),
+    },
+    {
+        artist: trans('ui.demo.table.row3_artist'),
+        stage: trans('ui.demo.table.row3_stage'),
+        status: trans('ui.demo.badge.primary'),
+    },
+];
+const dataTableOptions = {
+    pageLength: 2,
+    lengthMenu: [2, 5, 10],
+};
 </script>
 
 <template>
@@ -281,5 +309,19 @@ const viewOptions = [
                 </TableRow>
             </TableBody>
         </Table>
+    </section>
+
+    <section class="mb-4 rounded-xl border border-line bg-ground px-5 py-5">
+        <h2 class="m-0 mb-1 text-base font-bold">
+            {{ $t('ui.demo.data_table') }}
+        </h2>
+        <p class="m-0 mb-4 text-xs text-muted">
+            {{ $t('ui.demo.data_table_lead') }}
+        </p>
+        <DataTable
+            :columns="dataTableColumns"
+            :data="dataTableRows"
+            :options="dataTableOptions"
+        />
     </section>
 </template>
