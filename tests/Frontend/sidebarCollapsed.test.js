@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
     readSidebarCollapsed,
     sidebarStorageKey,
+    shouldUseCompactSidebar,
     writeSidebarCollapsed,
 } from '../../resources/js/composables/useSidebarCollapsed.js';
 
@@ -49,4 +50,11 @@ test('unavailable browser storage falls back without throwing', () => {
     assert.doesNotThrow(() =>
         writeSidebarCollapsed(true, unavailableStorage),
     );
+});
+
+test('hover temporarily expands a collapsed sidebar without changing its preference', () => {
+    assert.equal(shouldUseCompactSidebar(true, false), true);
+    assert.equal(shouldUseCompactSidebar(true, true), false);
+    assert.equal(shouldUseCompactSidebar(false, false), false);
+    assert.equal(shouldUseCompactSidebar(false, true), false);
 });

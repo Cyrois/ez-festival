@@ -5,7 +5,10 @@ import SidebarCollapseButton from '../components/navigation/SidebarCollapseButto
 import SidebarNavItem from '../components/navigation/SidebarNavItem.vue';
 import UserAccountControls from '../components/navigation/UserAccountControls.vue';
 import { useInertiaErrorToast } from '../composables/useInertiaErrorToast';
-import { useSidebarCollapsed } from '../composables/useSidebarCollapsed';
+import {
+    shouldUseCompactSidebar,
+    useSidebarCollapsed,
+} from '../composables/useSidebarCollapsed';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 
@@ -36,7 +39,11 @@ const page = usePage();
 useInertiaErrorToast();
 
 const navOpen = ref(false);
+const sidebarHovered = ref(false);
 const sidebarCollapsed = useSidebarCollapsed({ enabled: !props.settingsNav });
+const sidebarCompact = computed(() =>
+    shouldUseCompactSidebar(sidebarCollapsed.value, sidebarHovered.value),
+);
 
 watch(
     () => page.url,
@@ -203,7 +210,7 @@ const railClass = computed(() => {
     return [
         'fixed inset-y-0 left-0 z-50 flex w-[min(18rem,85vw)] flex-col border-r border-line bg-ground shadow-lg transition-[transform,width] duration-200',
         'lg:sticky lg:top-0 lg:z-40 lg:h-screen lg:shrink-0 lg:translate-x-0 lg:shadow-none',
-        sidebarCollapsed.value && !props.settingsNav ? 'lg:w-16' : 'lg:w-56',
+        sidebarCompact.value && !props.settingsNav ? 'lg:w-16' : 'lg:w-56',
         open,
     ].join(' ');
 });
@@ -231,10 +238,12 @@ const railClass = computed(() => {
             :class="railClass"
             :aria-label="$t('nav.sidebar')"
             :aria-hidden="navOpen || undefined"
+            @mouseenter="sidebarHovered = true"
+            @mouseleave="sidebarHovered = false"
         >
             <div
                 class="flex items-center justify-between border-b border-line px-4 py-3 lg:py-4"
-                :class="sidebarCollapsed ? 'lg:justify-center lg:px-2' : ''"
+                :class="sidebarCompact ? 'lg:justify-center lg:px-2' : ''"
             >
                 <div class="flex min-w-0 items-center gap-2.5">
                     <div
@@ -245,7 +254,7 @@ const railClass = computed(() => {
                     </div>
                     <div
                         class="min-w-0"
-                        :class="sidebarCollapsed ? 'lg:hidden' : ''"
+                        :class="sidebarCompact ? 'lg:hidden' : ''"
                     >
                         <span class="block truncate text-[15px] font-bold">
                             {{ $t('app.name') }}
@@ -302,14 +311,14 @@ const railClass = computed(() => {
                                 )
                             "
                             :icon="item.icon"
-                            :icon-only="sidebarCollapsed"
+                            :icon-only="sidebarCompact"
                             :aria-label="
-                                sidebarCollapsed
+                                sidebarCompact
                                     ? $t(`nav.${item.key}`)
                                     : undefined
                             "
                             :title="
-                                sidebarCollapsed
+                                sidebarCompact
                                     ? $t(`nav.${item.key}`)
                                     : undefined
                             "
@@ -327,7 +336,7 @@ const railClass = computed(() => {
                         </SidebarNavItem>
                         <div
                             class="ml-5 border-l border-line pl-3"
-                            :class="sidebarCollapsed ? 'lg:hidden' : ''"
+                            :class="sidebarCompact ? 'lg:hidden' : ''"
                         >
                             <SidebarNavItem
                                 v-for="child in item.children"
@@ -346,7 +355,7 @@ const railClass = computed(() => {
                             </SidebarNavItem>
                         </div>
                         <div
-                            v-if="sidebarCollapsed"
+                            v-if="sidebarCompact"
                             class="hidden space-y-1 lg:block"
                         >
                             <SidebarNavItem
@@ -376,12 +385,12 @@ const railClass = computed(() => {
                         :enabled="item.enabled"
                         :active="isActive(item.href)"
                         :icon="item.icon"
-                        :icon-only="sidebarCollapsed"
+                        :icon-only="sidebarCompact"
                         :aria-label="
-                            sidebarCollapsed ? $t(`nav.${item.key}`) : undefined
+                            sidebarCompact ? $t(`nav.${item.key}`) : undefined
                         "
                         :title="
-                            sidebarCollapsed ? $t(`nav.${item.key}`) : undefined
+                            sidebarCompact ? $t(`nav.${item.key}`) : undefined
                         "
                         :aria-current="
                             item.enabled && isActive(item.href)
@@ -396,11 +405,11 @@ const railClass = computed(() => {
                     href="/settings/events"
                     :active="settingsActive"
                     :icon="['fas', 'gear']"
-                    :icon-only="sidebarCollapsed"
+                    :icon-only="sidebarCompact"
                     :aria-label="
-                        sidebarCollapsed ? $t('nav.settings') : undefined
+                        sidebarCompact ? $t('nav.settings') : undefined
                     "
-                    :title="sidebarCollapsed ? $t('nav.settings') : undefined"
+                    :title="sidebarCompact ? $t('nav.settings') : undefined"
                     :aria-current="settingsActive ? 'page' : undefined"
                 >
                     {{ $t('nav.settings') }}
@@ -409,6 +418,7 @@ const railClass = computed(() => {
 
             <SidebarCollapseButton
                 :collapsed="sidebarCollapsed"
+                :compact="sidebarCompact"
                 @toggle="toggleSidebar"
             />
             <UserAccountControls

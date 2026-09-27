@@ -21,6 +21,9 @@ export const writeSidebarCollapsed = (
     }
 };
 
+export const shouldUseCompactSidebar = (collapsed, hovered) =>
+    collapsed && !hovered;
+
 export const useSidebarCollapsed = ({ enabled = true } = {}) => {
     const collapsed = ref(enabled && readSidebarCollapsed());
 

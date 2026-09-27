@@ -7,6 +7,10 @@ defineProps({
         type: Boolean,
         required: true,
     },
+    compact: {
+        type: Boolean,
+        required: true,
+    },
 });
 
 defineEmits(['toggle']);
@@ -18,7 +22,7 @@ defineEmits(['toggle']);
             variant="ghost"
             size="sm"
             class="w-full text-muted hover:text-charcoal"
-            :class="collapsed ? 'justify-center px-0' : 'justify-start px-3'"
+            :class="compact ? 'justify-center px-0' : 'justify-start px-3'"
             :aria-label="
                 collapsed
                     ? $t('nav.expand_sidebar')
@@ -37,7 +41,7 @@ defineEmits(['toggle']);
                 size="sm"
                 fixed-width
             />
-            <span :class="collapsed ? 'sr-only' : ''">
+            <span :class="compact ? 'sr-only' : ''">
                 {{
                     collapsed
                         ? $t('nav.expand_sidebar')
