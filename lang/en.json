@@ -925,6 +925,8 @@
     "settings.events.primary_banner_note_after": " page.",
     "nav.menu": "Open menu",
     "nav.close_menu": "Close menu",
+    "nav.collapse_sidebar": "Collapse sidebar",
+    "nav.expand_sidebar": "Expand sidebar",
     "artists.title": "Artists · Advancing",
     "artists.advancing": "Advancing",
     "artists.lead": "Plan your lineup and track every act from first idea to confirmation.",

@@ -1,8 +1,11 @@
 <script setup>
 import { Toast } from '../components/ui/toast';
 import { Icon } from '../components/ui/icon';
+import SidebarCollapseButton from '../components/navigation/SidebarCollapseButton.vue';
 import SidebarNavItem from '../components/navigation/SidebarNavItem.vue';
+import UserAccountControls from '../components/navigation/UserAccountControls.vue';
 import { useInertiaErrorToast } from '../composables/useInertiaErrorToast';
+import { useSidebarCollapsed } from '../composables/useSidebarCollapsed';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 
@@ -33,6 +36,7 @@ const page = usePage();
 useInertiaErrorToast();
 
 const navOpen = ref(false);
+const sidebarCollapsed = useSidebarCollapsed({ enabled: !props.settingsNav });
 
 watch(
     () => page.url,
@@ -87,21 +91,25 @@ const navItems = computed(() => [
             {
                 key: 'team.advancement',
                 href: '/team/advancement',
+                icon: ['fas', 'list'],
                 enabled: true,
             },
             {
                 key: 'team.scheduling',
                 href: '/team/scheduling',
+                icon: ['fas', 'calendar-days'],
                 enabled: true,
             },
             {
                 key: 'team.forms',
                 href: '/team/forms',
+                icon: ['fas', 'clipboard-check'],
                 enabled: true,
             },
             {
                 key: 'team.configure',
                 href: '/team/configure',
+                icon: ['fas', 'gear'],
                 enabled: true,
             },
         ],
@@ -115,16 +123,19 @@ const navItems = computed(() => [
             {
                 key: 'credentials.products',
                 href: null,
+                icon: ['fas', 'store'],
                 enabled: false,
             },
             {
                 key: 'credentials.passes',
                 href: '/credentials/passes',
+                icon: ['fas', 'id-card'],
                 enabled: true,
             },
             {
                 key: 'credentials.entitlements',
                 href: '/credentials/entitlements',
+                icon: ['fas', 'lock-open'],
                 enabled: true,
             },
         ],
@@ -171,15 +182,16 @@ const isActive = (href) => {
     );
 };
 
-const signOutClass =
-    'inline-flex min-h-11 w-full items-center justify-start px-2 text-[13px] font-semibold text-primary no-underline hover:underline';
-
 const openNav = () => {
     navOpen.value = true;
 };
 
 const closeNav = () => {
     navOpen.value = false;
+};
+
+const toggleSidebar = () => {
+    sidebarCollapsed.value = !sidebarCollapsed.value;
 };
 
 /** Shared classes: persistent sidebar lg+, off-canvas drawer below lg */
@@ -189,8 +201,9 @@ const railClass = computed(() => {
         : 'max-lg:-translate-x-full';
 
     return [
-        'fixed inset-y-0 left-0 z-50 flex w-[min(18rem,85vw)] flex-col border-r border-line bg-ground shadow-lg transition-transform duration-200',
-        'lg:relative lg:z-40 lg:w-56 lg:shrink-0 lg:translate-x-0 lg:shadow-none',
+        'fixed inset-y-0 left-0 z-50 flex w-[min(18rem,85vw)] flex-col border-r border-line bg-ground shadow-lg transition-[transform,width] duration-200',
+        'lg:sticky lg:top-0 lg:z-40 lg:h-screen lg:shrink-0 lg:translate-x-0 lg:shadow-none',
+        sidebarCollapsed.value && !props.settingsNav ? 'lg:w-16' : 'lg:w-56',
         open,
     ].join(' ');
 });
@@ -220,7 +233,8 @@ const railClass = computed(() => {
             :aria-hidden="navOpen || undefined"
         >
             <div
-                class="flex items-center justify-between border-b border-line px-4 py-3 lg:block lg:py-4"
+                class="flex items-center justify-between border-b border-line px-4 py-3 lg:py-4"
+                :class="sidebarCollapsed ? 'lg:justify-center lg:px-2' : ''"
             >
                 <div class="flex min-w-0 items-center gap-2.5">
                     <div
@@ -229,7 +243,10 @@ const railClass = computed(() => {
                     >
                         {{ $t('app.mark') }}
                     </div>
-                    <div class="min-w-0">
+                    <div
+                        class="min-w-0"
+                        :class="sidebarCollapsed ? 'lg:hidden' : ''"
+                    >
                         <span class="block truncate text-[15px] font-bold">
                             {{ $t('app.name') }}
                         </span>
@@ -260,7 +277,9 @@ const railClass = computed(() => {
                 </button>
             </div>
 
-            <nav class="flex flex-1 flex-col gap-1 overflow-y-auto px-2 py-3">
+            <nav
+                class="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 py-3"
+            >
                 <template
                     v-for="item in navItems"
                     :key="item.key"
@@ -283,6 +302,17 @@ const railClass = computed(() => {
                                 )
                             "
                             :icon="item.icon"
+                            :icon-only="sidebarCollapsed"
+                            :aria-label="
+                                sidebarCollapsed
+                                    ? $t(`nav.${item.key}`)
+                                    : undefined
+                            "
+                            :title="
+                                sidebarCollapsed
+                                    ? $t(`nav.${item.key}`)
+                                    : undefined
+                            "
                             :aria-current="
                                 item.enabled &&
                                 (isActive(item.href) ||
@@ -295,7 +325,10 @@ const railClass = computed(() => {
                         >
                             {{ $t(`nav.${item.key}`) }}
                         </SidebarNavItem>
-                        <div class="ml-5 border-l border-line pl-3">
+                        <div
+                            class="ml-5 border-l border-line pl-3"
+                            :class="sidebarCollapsed ? 'lg:hidden' : ''"
+                        >
                             <SidebarNavItem
                                 v-for="child in item.children"
                                 :key="child.key"
@@ -312,6 +345,30 @@ const railClass = computed(() => {
                                 {{ $t(`nav.${child.key}`) }}
                             </SidebarNavItem>
                         </div>
+                        <div
+                            v-if="sidebarCollapsed"
+                            class="hidden space-y-1 lg:block"
+                        >
+                            <SidebarNavItem
+                                v-for="child in item.children"
+                                :key="`collapsed-${child.key}`"
+                                :href="child.enabled ? child.href : undefined"
+                                :enabled="child.enabled"
+                                :active="isActive(child.href)"
+                                :icon="child.icon"
+                                icon-only
+                                density="sub"
+                                :aria-label="$t(`nav.${child.key}`)"
+                                :title="$t(`nav.${child.key}`)"
+                                :aria-current="
+                                    child.enabled && isActive(child.href)
+                                        ? 'page'
+                                        : undefined
+                                "
+                            >
+                                {{ $t(`nav.${child.key}`) }}
+                            </SidebarNavItem>
+                        </div>
                     </div>
                     <SidebarNavItem
                         v-else
@@ -319,6 +376,13 @@ const railClass = computed(() => {
                         :enabled="item.enabled"
                         :active="isActive(item.href)"
                         :icon="item.icon"
+                        :icon-only="sidebarCollapsed"
+                        :aria-label="
+                            sidebarCollapsed ? $t(`nav.${item.key}`) : undefined
+                        "
+                        :title="
+                            sidebarCollapsed ? $t(`nav.${item.key}`) : undefined
+                        "
                         :aria-current="
                             item.enabled && isActive(item.href)
                                 ? 'page'
@@ -330,45 +394,29 @@ const railClass = computed(() => {
                 </template>
             </nav>
 
-            <div class="mt-auto">
-                <div class="border-t border-line px-2 py-2">
-                    <SidebarNavItem
-                        href="/settings/events"
-                        :active="settingsActive"
-                        :icon="['fas', 'gear']"
-                        :aria-current="settingsActive ? 'page' : undefined"
-                    >
-                        {{ $t('nav.settings') }}
-                    </SidebarNavItem>
-                </div>
-                <div class="space-y-1 border-t border-line px-3 py-3">
-                    <div class="min-w-0 px-2">
-                        <p
-                            class="m-0 truncate text-xs font-semibold text-charcoal"
-                        >
-                            {{
-                                user?.name ||
-                                user?.email ||
-                                $t('dashboard.unknown')
-                            }}
-                        </p>
-                        <p
-                            v-if="user?.email && user?.name"
-                            class="m-0 truncate text-[11px] text-muted"
-                        >
-                            {{ user.email }}
-                        </p>
-                    </div>
-                    <Link
-                        method="post"
-                        href="/logout"
-                        as="button"
-                        :class="signOutClass"
-                    >
-                        {{ $t('dashboard.sign_out') }}
-                    </Link>
-                </div>
+            <SidebarCollapseButton
+                :collapsed="sidebarCollapsed"
+                @toggle="toggleSidebar"
+            />
+            <div class="shrink-0 border-t border-line px-2 py-2">
+                <SidebarNavItem
+                    href="/settings/events"
+                    :active="settingsActive"
+                    :icon="['fas', 'gear']"
+                    :icon-only="sidebarCollapsed"
+                    :aria-label="
+                        sidebarCollapsed ? $t('nav.settings') : undefined
+                    "
+                    :title="sidebarCollapsed ? $t('nav.settings') : undefined"
+                    :aria-current="settingsActive ? 'page' : undefined"
+                >
+                    {{ $t('nav.settings') }}
+                </SidebarNavItem>
             </div>
+            <UserAccountControls
+                :user="user"
+                :collapsed="sidebarCollapsed"
+            />
         </aside>
 
         <!-- Settings rail (single #settings-nav outlet) -->
@@ -398,29 +446,7 @@ const railClass = computed(() => {
             <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
                 <slot name="settings-nav" />
             </div>
-            <div class="mt-auto space-y-1 border-t border-line px-3 py-3">
-                <div class="min-w-0 px-2">
-                    <p class="m-0 truncate text-xs font-semibold text-charcoal">
-                        {{
-                            user?.name || user?.email || $t('dashboard.unknown')
-                        }}
-                    </p>
-                    <p
-                        v-if="user?.email && user?.name"
-                        class="m-0 truncate text-[11px] text-muted"
-                    >
-                        {{ user.email }}
-                    </p>
-                </div>
-                <Link
-                    method="post"
-                    href="/logout"
-                    as="button"
-                    :class="signOutClass"
-                >
-                    {{ $t('dashboard.sign_out') }}
-                </Link>
-            </div>
+            <UserAccountControls :user="user" />
         </aside>
 
         <div class="flex min-w-0 flex-1 flex-col">
