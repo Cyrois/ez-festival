@@ -427,17 +427,9 @@ const railClass = computed(() => {
             </nav>
 
             <div
-                class="flex shrink-0 items-center border-t border-line px-3 py-3"
-                :class="
-                    sidebarCollapsed
-                        ? 'justify-center lg:px-2'
-                        : 'justify-between gap-2'
-                "
+                class="flex shrink-0 items-center justify-between gap-2 border-t border-line px-3 py-3 lg:hidden"
             >
-                <div
-                    class="min-w-0 px-2"
-                    :class="sidebarCollapsed ? 'lg:hidden' : ''"
-                >
+                <div class="min-w-0 px-2">
                     <p class="m-0 truncate text-xs font-semibold text-charcoal">
                         {{
                             user?.name || user?.email || $t('dashboard.unknown')
@@ -494,7 +486,7 @@ const railClass = computed(() => {
                 <slot name="settings-nav" />
             </div>
             <div
-                class="mt-auto flex shrink-0 items-center justify-between gap-2 border-t border-line px-3 py-3"
+                class="mt-auto flex shrink-0 items-center justify-between gap-2 border-t border-line px-3 py-3 lg:hidden"
             >
                 <div class="min-w-0 px-2">
                     <p class="m-0 truncate text-xs font-semibold text-charcoal">
@@ -633,6 +625,38 @@ const railClass = computed(() => {
                         </span>
                     </template>
                 </nav>
+                <div class="ml-auto hidden shrink-0 items-center gap-3 lg:flex">
+                    <div class="max-w-52 min-w-0 text-right">
+                        <p
+                            class="m-0 truncate text-xs font-semibold text-charcoal"
+                        >
+                            {{
+                                user?.name ||
+                                user?.email ||
+                                $t('dashboard.unknown')
+                            }}
+                        </p>
+                        <p
+                            v-if="user?.email && user?.name"
+                            class="m-0 truncate text-[11px] text-muted"
+                        >
+                            {{ user.email }}
+                        </p>
+                    </div>
+                    <Link
+                        method="post"
+                        href="/logout"
+                        as="button"
+                        :class="signOutClass"
+                        :aria-label="$t('dashboard.sign_out')"
+                        :title="$t('dashboard.sign_out')"
+                    >
+                        <Icon
+                            :name="['fas', 'right-from-bracket']"
+                            size="sm"
+                        />
+                    </Link>
+                </div>
             </header>
 
             <main class="flex-1 px-4 py-6 md:px-6 md:py-8">
