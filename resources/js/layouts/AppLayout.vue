@@ -199,7 +199,7 @@ const isActive = (href) => {
 };
 
 const signOutClass =
-    'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line bg-transparent text-primary no-underline transition-colors hover:bg-page focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/35';
+    'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line bg-transparent text-muted no-underline transition-colors hover:bg-page hover:text-charcoal focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-charcoal/20';
 
 const openNav = () => {
     navOpen.value = true;
