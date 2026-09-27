@@ -1,8 +1,14 @@
 <script setup>
 import DataTablesCore from 'datatables.net-dt';
 import DataTablesVue from 'datatables.net-vue3';
-import { trans } from 'laravel-vue-i18n';
-import { computed, ref } from 'vue';
+import {
+    currentLocale,
+    getActiveLanguage,
+    isLoaded,
+    loadLanguageAsync,
+    trans,
+} from 'laravel-vue-i18n';
+import { computed, onMounted, ref } from 'vue';
 import { cn } from '../../../lib/utils';
 
 defineOptions({ inheritAttrs: false });
@@ -33,12 +39,15 @@ const props = defineProps({
 });
 
 const dataTable = ref(null);
+const ready = ref(isLoaded(getActiveLanguage()));
 const classes = computed(() =>
     cn('w-full border-collapse text-left text-sm', props.class),
 );
+// DataTables reads options only when it mounts. Locale changes remount the
+// table below; callers should not expect other option changes to be reactive.
 const options = computed(() => ({
     autoWidth: false,
-    processing: true,
+    processing: props.ajax !== undefined || props.options.serverSide === true,
     ...props.options,
     language: {
         emptyTable: trans('data_table.empty'),
@@ -61,6 +70,13 @@ const options = computed(() => ({
         },
     },
 }));
+
+onMounted(async () => {
+    if (!ready.value) {
+        await loadLanguageAsync(getActiveLanguage());
+        ready.value = true;
+    }
+});
 
 const api = () => {
     const instance = dataTable.value?.dt;
@@ -97,6 +113,8 @@ defineExpose({
 
 <template>
     <DataTablesVue
+        v-if="ready"
+        :key="currentLocale"
         ref="dataTable"
         v-bind="$attrs"
         :ajax="ajax"
@@ -115,4 +133,9 @@ defineExpose({
             />
         </template>
     </DataTablesVue>
+    <div
+        v-else
+        class="h-40"
+        aria-hidden="true"
+    />
 </template>

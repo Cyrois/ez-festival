@@ -1,5 +1,5 @@
 @import 'tailwindcss';
-@import 'datatables.net-dt';
+@import 'datatables.net-dt' layer(components);
 @config '../../tailwind.config.js';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -51,130 +51,82 @@
 }
 
 @layer components {
+    /*
+     * DataTables generates this markup outside Vue, so these selectors bridge
+     * its elements to the same Tailwind utilities used by the shared UI kit.
+     */
     div.dt-container {
-        color: var(--color-charcoal);
+        @apply text-charcoal;
     }
 
     div.dt-container .dt-layout-row {
-        align-items: center;
-        gap: 0.75rem;
-        margin: 0 0 1rem;
+        @apply mb-4 items-center gap-3;
     }
 
     div.dt-container .dt-layout-row:last-child {
-        margin: 1rem 0 0;
+        @apply mt-4 mb-0;
     }
 
     div.dt-container .dt-search input,
     div.dt-container .dt-length select {
-        box-sizing: border-box;
-        height: 2.5rem;
-        border: 1px solid var(--color-line);
-        border-radius: var(--radius);
-        background-color: var(--color-ground);
-        color: var(--color-charcoal);
-        font-size: 0.875rem;
-        outline: none;
-        transition:
-            box-shadow 150ms ease,
-            border-color 150ms ease;
+        @apply box-border h-10 rounded-lg border border-line bg-ground text-sm text-charcoal transition-[box-shadow,border-color] outline-none focus:border-primary focus:ring-[3px] focus:ring-primary/35 disabled:cursor-not-allowed disabled:opacity-45;
     }
 
     div.dt-container .dt-search label {
-        color: var(--color-charcoal);
-        font-size: 0.75rem;
-        font-weight: 700;
+        @apply text-xs font-bold text-charcoal;
     }
 
     div.dt-container .dt-search input {
-        margin-left: 0.5rem;
-        width: 16rem;
-        max-width: 100%;
-        padding: 0 0.75rem;
+        @apply ml-2 w-64 max-w-full px-3;
     }
 
     div.dt-container .dt-search input::placeholder {
-        color: var(--color-muted);
-    }
-
-    div.dt-container .dt-search input:focus {
-        border-color: var(--color-primary);
-        box-shadow: 0 0 0 3px
-            color-mix(in srgb, var(--color-primary) 35%, transparent);
-    }
-
-    div.dt-container .dt-search input:disabled {
-        cursor: not-allowed;
-        opacity: 0.45;
+        @apply text-muted;
     }
 
     div.dt-container .dt-length select {
-        margin: 0 0.35rem;
-        padding: 0.5rem 2rem 0.5rem 0.75rem;
+        @apply mx-1.5 py-2 pr-8 pl-3;
     }
 
     div.dt-container .dt-info {
-        color: var(--color-muted);
-        font-size: 0.875rem;
+        @apply text-sm text-muted;
     }
 
     div.dt-container .dt-paging .dt-paging-button {
-        min-width: 2.5rem;
-        min-height: 2.5rem;
-        margin-left: 0.25rem;
-        border: 1px solid var(--color-line) !important;
-        border-radius: var(--radius) !important;
-        background: var(--color-ground) !important;
-        color: var(--color-charcoal) !important;
+        @apply ml-1 min-h-10 min-w-10 rounded-lg border border-line bg-ground text-charcoal;
     }
 
     div.dt-container .dt-paging .dt-paging-button.current,
     div.dt-container .dt-paging .dt-paging-button:hover:not(.disabled) {
-        border-color: var(--color-primary) !important;
-        background: var(--color-primary-soft) !important;
-        color: var(--color-primary) !important;
+        @apply border-primary bg-primary-soft text-primary;
     }
 
     div.dt-container .dt-paging .dt-paging-button.disabled {
-        cursor: not-allowed;
-        opacity: 0.45;
+        @apply cursor-not-allowed opacity-45;
     }
 
     div.dt-container div.dt-layout-table > div {
-        overflow-x: auto;
-        border: 1px solid var(--color-line);
-        border-radius: 0.75rem;
-        background: var(--color-ground);
+        @apply overflow-x-auto rounded-xl border border-line bg-ground;
     }
 
     table.dataTable {
-        margin: 0 !important;
-        border: 0;
-        background: var(--color-ground);
+        @apply m-0 border-0 bg-ground;
     }
 
     table.dataTable thead th,
     table.dataTable thead td {
-        border-bottom: 1px solid var(--color-line) !important;
-        background: var(--color-page);
-        padding: 0.75rem 1rem !important;
-        color: var(--color-muted);
-        font-size: 0.75rem;
-        font-weight: 700;
-        letter-spacing: 0.025em;
-        text-transform: uppercase;
+        @apply border-b border-line bg-page px-4 py-3 text-xs font-bold tracking-wide text-muted uppercase;
     }
 
     table.dataTable tbody td {
-        border-bottom: 1px solid var(--color-line);
-        padding: 0.75rem 1rem !important;
+        @apply border-b border-line px-4 py-3;
     }
 
     table.dataTable tbody tr:last-child td {
-        border-bottom: 0 !important;
+        @apply border-b-0;
     }
 
     table.dataTable tbody tr:hover {
-        background: var(--color-page);
+        @apply bg-page;
     }
 }

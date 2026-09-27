@@ -26,23 +26,54 @@ const columns = computed(() => [
     {
         data: 'name',
         name: 'vendor',
+        render: {
+            _: 'name',
+            display: '#vendorCell',
+        },
         title: trans('vendors.columns.vendor'),
     },
     {
         data: 'type',
         defaultContent: '',
         name: 'type',
+        render: {
+            _: 'type',
+            display: '#typeCell',
+        },
         title: trans('vendors.columns.type'),
     },
     {
         data: 'status',
         name: 'status',
+        render: {
+            _: 'status',
+            display: '#statusCell',
+        },
         title: trans('vendors.columns.status'),
     },
 ]);
 const table = ref(null);
 const search = ref('');
 const selectedType = ref('');
+const filteredVendors = computed(() => {
+    const normalizedSearch = search.value.trim().toLocaleLowerCase();
+
+    return props.vendors.data.filter((vendor) => {
+        const matchesSearch =
+            normalizedSearch === '' ||
+            vendor.name.toLocaleLowerCase().includes(normalizedSearch) ||
+            (vendor.type || '')
+                .toLocaleLowerCase()
+                .includes(normalizedSearch) ||
+            trans(`vendors.status.${vendor.status}`)
+                .toLocaleLowerCase()
+                .includes(normalizedSearch);
+        const matchesType =
+            selectedType.value === '' || vendor.type === selectedType.value;
+
+        return matchesSearch && matchesType;
+    });
+});
 const typeOptions = computed(() => [
     {
         value: '',
@@ -139,13 +170,13 @@ watch(selectedType, (value) => {
                     >
                         <Icon
                             :name="['fas', 'magnifying-glass']"
-                            class="pointer-events-none absolute top-3 left-3 z-10 text-muted"
+                            class="pointer-events-none absolute top-3.5 left-3 z-10 text-muted"
                             size="sm"
                         />
                         <Input
                             v-model="search"
                             type="search"
-                            class="pl-9"
+                            class="min-h-11 pl-9"
                             :aria-label="$t('vendors.search')"
                             :placeholder="$t('vendors.search')"
                             maxlength="255"
@@ -162,38 +193,85 @@ watch(selectedType, (value) => {
                     </div>
                 </div>
 
-                <DataTable
-                    ref="table"
-                    :columns="columns"
-                    :data="vendors.data"
-                    :options="options"
-                >
-                    <template #column-vendor="{ rowData }">
-                        <Link
-                            :href="`/vendors/engagements/${rowData.id}`"
-                            class="flex items-center gap-3 font-semibold text-charcoal no-underline hover:text-primary hover:underline"
-                        >
+                <div class="flex flex-col gap-3 md:hidden">
+                    <div
+                        v-for="vendor in filteredVendors"
+                        :key="vendor.id"
+                        class="rounded-xl border border-line bg-ground p-4"
+                    >
+                        <div class="flex items-center gap-3">
                             <Avatar
-                                :name="rowData.name"
+                                :name="vendor.name"
                                 size="sm"
                             />
-                            {{ rowData.name }}
-                        </Link>
-                    </template>
-                    <template #column-type="{ cellData }">
-                        <span class="text-muted">
-                            {{ cellData || $t('vendors.not_set') }}
-                        </span>
-                    </template>
-                    <template #column-status="{ cellData }">
-                        <Badge
-                            variant="neutral"
-                            pill
+                            <Link
+                                :href="`/vendors/engagements/${vendor.id}`"
+                                class="font-semibold text-charcoal"
+                            >
+                                {{ vendor.name }}
+                            </Link>
+                            <Badge
+                                variant="neutral"
+                                pill
+                            >
+                                {{ $t(`vendors.status.${vendor.status}`) }}
+                            </Badge>
+                        </div>
+                        <p
+                            v-if="vendor.type"
+                            class="mt-2 mb-0 text-sm text-muted"
                         >
-                            {{ $t(`vendors.status.${cellData}`) }}
-                        </Badge>
-                    </template>
-                </DataTable>
+                            {{ vendor.type }}
+                        </p>
+                    </div>
+                    <p
+                        v-if="!filteredVendors.length"
+                        class="rounded-xl border border-line bg-ground px-4 py-16 text-center text-muted"
+                    >
+                        {{
+                            $t(
+                                search || selectedType
+                                    ? 'vendors.no_matches'
+                                    : 'vendors.empty',
+                            )
+                        }}
+                    </p>
+                </div>
+
+                <div class="hidden md:block">
+                    <DataTable
+                        ref="table"
+                        :columns="columns"
+                        :data="vendors.data"
+                        :options="options"
+                    >
+                        <template #vendorCell="{ rowData }">
+                            <Link
+                                :href="`/vendors/engagements/${rowData.id}`"
+                                class="flex items-center gap-3 font-semibold text-charcoal no-underline hover:text-primary hover:underline"
+                            >
+                                <Avatar
+                                    :name="rowData.name"
+                                    size="sm"
+                                />
+                                {{ rowData.name }}
+                            </Link>
+                        </template>
+                        <template #typeCell="{ cellData }">
+                            <span class="text-muted">
+                                {{ cellData || $t('vendors.not_set') }}
+                            </span>
+                        </template>
+                        <template #statusCell="{ cellData }">
+                            <Badge
+                                variant="neutral"
+                                pill
+                            >
+                                {{ $t(`vendors.status.${cellData}`) }}
+                            </Badge>
+                        </template>
+                    </DataTable>
+                </div>
             </template>
         </div>
     </AppLayout>
