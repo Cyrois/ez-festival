@@ -5,8 +5,9 @@ import SidebarCollapseButton from '../components/navigation/SidebarCollapseButto
 import SidebarNavItem from '../components/navigation/SidebarNavItem.vue';
 import UserAccountControls from '../components/navigation/UserAccountControls.vue';
 import { useInertiaErrorToast } from '../composables/useInertiaErrorToast';
+import { useSidebarCollapsed } from '../composables/useSidebarCollapsed';
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
     title: {
@@ -35,33 +36,7 @@ const page = usePage();
 useInertiaErrorToast();
 
 const navOpen = ref(false);
-const sidebarCollapsed = ref(false);
-const sidebarStorageKey = 'artist-tree.sidebar-collapsed';
-
-onMounted(() => {
-    if (props.settingsNav) {
-        return;
-    }
-
-    try {
-        sidebarCollapsed.value =
-            window.localStorage.getItem(sidebarStorageKey) === 'true';
-    } catch {
-        // The sidebar still works when browser storage is unavailable.
-    }
-});
-
-watch(sidebarCollapsed, (collapsed) => {
-    if (props.settingsNav) {
-        return;
-    }
-
-    try {
-        window.localStorage.setItem(sidebarStorageKey, String(collapsed));
-    } catch {
-        // The preference is optional; keep the in-memory state.
-    }
-});
+const sidebarCollapsed = useSidebarCollapsed({ enabled: !props.settingsNav });
 
 watch(
     () => page.url,
@@ -116,21 +91,25 @@ const navItems = computed(() => [
             {
                 key: 'team.advancement',
                 href: '/team/advancement',
+                icon: ['fas', 'list'],
                 enabled: true,
             },
             {
                 key: 'team.scheduling',
                 href: '/team/scheduling',
+                icon: ['fas', 'calendar-days'],
                 enabled: true,
             },
             {
                 key: 'team.forms',
                 href: '/team/forms',
+                icon: ['fas', 'clipboard-check'],
                 enabled: true,
             },
             {
                 key: 'team.configure',
                 href: '/team/configure',
+                icon: ['fas', 'gear'],
                 enabled: true,
             },
         ],
@@ -144,16 +123,19 @@ const navItems = computed(() => [
             {
                 key: 'credentials.products',
                 href: null,
+                icon: ['fas', 'store'],
                 enabled: false,
             },
             {
                 key: 'credentials.passes',
                 href: '/credentials/passes',
+                icon: ['fas', 'id-card'],
                 enabled: true,
             },
             {
                 key: 'credentials.entitlements',
                 href: '/credentials/entitlements',
+                icon: ['fas', 'lock-open'],
                 enabled: true,
             },
         ],
@@ -219,8 +201,8 @@ const railClass = computed(() => {
         : 'max-lg:-translate-x-full';
 
     return [
-        'fixed inset-y-0 left-0 z-50 flex h-screen w-[min(18rem,85vw)] flex-col border-r border-line bg-ground shadow-lg transition-[transform,width] duration-200',
-        'lg:sticky lg:top-0 lg:z-40 lg:shrink-0 lg:translate-x-0 lg:shadow-none',
+        'fixed inset-y-0 left-0 z-50 flex w-[min(18rem,85vw)] flex-col border-r border-line bg-ground shadow-lg transition-[transform,width] duration-200',
+        'lg:sticky lg:top-0 lg:z-40 lg:h-screen lg:shrink-0 lg:translate-x-0 lg:shadow-none',
         sidebarCollapsed.value && !props.settingsNav ? 'lg:w-16' : 'lg:w-56',
         open,
     ].join(' ');
@@ -344,8 +326,8 @@ const railClass = computed(() => {
                             {{ $t(`nav.${item.key}`) }}
                         </SidebarNavItem>
                         <div
-                            v-if="!sidebarCollapsed"
                             class="ml-5 border-l border-line pl-3"
+                            :class="sidebarCollapsed ? 'lg:hidden' : ''"
                         >
                             <SidebarNavItem
                                 v-for="child in item.children"
@@ -354,6 +336,30 @@ const railClass = computed(() => {
                                 :enabled="child.enabled"
                                 :active="isActive(child.href)"
                                 density="sub"
+                                :aria-current="
+                                    child.enabled && isActive(child.href)
+                                        ? 'page'
+                                        : undefined
+                                "
+                            >
+                                {{ $t(`nav.${child.key}`) }}
+                            </SidebarNavItem>
+                        </div>
+                        <div
+                            v-if="sidebarCollapsed"
+                            class="hidden space-y-1 lg:block"
+                        >
+                            <SidebarNavItem
+                                v-for="child in item.children"
+                                :key="`collapsed-${child.key}`"
+                                :href="child.enabled ? child.href : undefined"
+                                :enabled="child.enabled"
+                                :active="isActive(child.href)"
+                                :icon="child.icon"
+                                icon-only
+                                density="sub"
+                                :aria-label="$t(`nav.${child.key}`)"
+                                :title="$t(`nav.${child.key}`)"
                                 :aria-current="
                                     child.enabled && isActive(child.href)
                                         ? 'page'
@@ -386,6 +392,13 @@ const railClass = computed(() => {
                         {{ $t(`nav.${item.key}`) }}
                     </SidebarNavItem>
                 </template>
+            </nav>
+
+            <SidebarCollapseButton
+                :collapsed="sidebarCollapsed"
+                @toggle="toggleSidebar"
+            />
+            <div class="shrink-0 border-t border-line px-2 py-2">
                 <SidebarNavItem
                     href="/settings/events"
                     :active="settingsActive"
@@ -399,15 +412,10 @@ const railClass = computed(() => {
                 >
                     {{ $t('nav.settings') }}
                 </SidebarNavItem>
-            </nav>
-
-            <SidebarCollapseButton
-                :collapsed="sidebarCollapsed"
-                @toggle="toggleSidebar"
-            />
+            </div>
             <UserAccountControls
                 :user="user"
-                placement="sidebar"
+                :collapsed="sidebarCollapsed"
             />
         </aside>
 
@@ -438,10 +446,7 @@ const railClass = computed(() => {
             <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
                 <slot name="settings-nav" />
             </div>
-            <UserAccountControls
-                :user="user"
-                placement="sidebar"
-            />
+            <UserAccountControls :user="user" />
         </aside>
 
         <div class="flex min-w-0 flex-1 flex-col">
@@ -552,7 +557,6 @@ const railClass = computed(() => {
                         </span>
                     </template>
                 </nav>
-                <UserAccountControls :user="user" />
             </header>
 
             <main class="flex-1 px-4 py-6 md:px-6 md:py-8">

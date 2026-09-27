@@ -43,19 +43,15 @@ const props = defineProps({
 const tag = computed(() => (props.enabled && props.href ? Link : 'span'));
 
 const densityClass = computed(() => {
-    if (props.iconOnly) {
-        return 'min-h-[33px] justify-center px-0 py-1.5 text-[13px]';
-    }
-
     if (props.density === 'sub') {
-        return 'min-h-[27px] gap-2 px-3 py-1 text-[12px]';
+        return 'min-h-9 gap-2 px-3 py-2 text-[12px] lg:min-h-7 lg:py-1';
     }
 
     if (props.density === 'settings') {
-        return 'min-h-[33px] gap-2 px-2 py-1.5 text-[13px]';
+        return 'min-h-11 gap-2 px-2 py-2.5 text-[13px]';
     }
 
-    return 'min-h-[33px] gap-2.5 px-3 py-1.5 text-[13px]';
+    return 'min-h-11 gap-2.5 px-3 py-2.5 text-[13px] lg:min-h-8 lg:py-1.5';
 });
 
 const stateClass = computed(() => {
@@ -77,6 +73,7 @@ const classes = computed(() =>
     cn(
         'inline-flex w-full items-center rounded-lg font-semibold no-underline',
         densityClass.value,
+        props.iconOnly && 'lg:justify-center lg:px-0',
         stateClass.value,
         props.class,
     ),
@@ -97,7 +94,7 @@ const classes = computed(() =>
             size="sm"
             fixed-width
         />
-        <span :class="iconOnly ? 'sr-only' : ''">
+        <span :class="iconOnly ? 'lg:sr-only' : ''">
             <slot />
         </span>
     </component>

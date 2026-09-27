@@ -1,35 +1,31 @@
 <script setup>
 import { Icon } from '../ui/icon';
+import { buttonVariants } from '../ui/button';
 import { Link } from '@inertiajs/vue3';
+import { cn } from '../../lib/utils';
 
-defineProps({
+const props = defineProps({
     user: {
         type: Object,
         default: null,
     },
-    placement: {
-        type: String,
-        default: 'header',
-        validator: (value) => ['header', 'sidebar'].includes(value),
+    collapsed: {
+        type: Boolean,
+        default: false,
     },
 });
 
-const signOutClass =
-    'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line bg-transparent text-muted no-underline transition-colors hover:bg-page hover:text-charcoal focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-charcoal/20';
+const iconSignOutClass = cn(
+    buttonVariants({ variant: 'outline', size: 'icon' }),
+    'hidden text-muted no-underline hover:text-charcoal lg:inline-flex',
+);
 </script>
 
 <template>
-    <div
-        class="shrink-0 items-center gap-3"
-        :class="
-            placement === 'header'
-                ? 'ml-auto hidden lg:flex'
-                : 'flex justify-between border-t border-line px-3 py-3 lg:hidden'
-        "
-    >
+    <div class="shrink-0 space-y-1 border-t border-line px-3 py-3">
         <div
-            class="min-w-0"
-            :class="placement === 'header' ? 'max-w-52 text-right' : 'px-2'"
+            class="min-w-0 px-2"
+            :class="collapsed ? 'lg:hidden' : ''"
         >
             <p class="m-0 truncate text-xs font-semibold text-charcoal">
                 {{ user?.name || user?.email || $t('dashboard.unknown') }}
@@ -45,7 +41,17 @@ const signOutClass =
             method="post"
             href="/logout"
             as="button"
-            :class="signOutClass"
+            class="inline-flex min-h-11 w-full items-center justify-start px-2 text-[13px] font-semibold text-primary no-underline hover:underline"
+            :class="collapsed ? 'lg:hidden' : ''"
+        >
+            {{ $t('dashboard.sign_out') }}
+        </Link>
+        <Link
+            v-if="props.collapsed"
+            method="post"
+            href="/logout"
+            as="button"
+            :class="iconSignOutClass"
             :aria-label="$t('dashboard.sign_out')"
             :title="$t('dashboard.sign_out')"
         >

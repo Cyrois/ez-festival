@@ -1,5 +1,6 @@
 <script setup>
 import { Icon } from '../ui/icon';
+import { Button } from '../ui/button';
 
 defineProps({
     collapsed: {
@@ -13,9 +14,10 @@ defineEmits(['toggle']);
 
 <template>
     <div class="hidden shrink-0 border-t border-line p-2 lg:block">
-        <button
-            type="button"
-            class="inline-flex h-9 w-full items-center gap-2 rounded-lg text-[13px] font-semibold text-muted transition-colors hover:bg-page hover:text-charcoal focus-visible:ring-[3px] focus-visible:ring-primary/35 focus-visible:outline-none"
+        <Button
+            variant="ghost"
+            size="sm"
+            class="w-full text-muted hover:text-charcoal"
             :class="collapsed ? 'justify-center px-0' : 'justify-start px-3'"
             :aria-label="
                 collapsed
@@ -42,6 +44,6 @@ defineEmits(['toggle']);
                         : $t('nav.collapse_sidebar')
                 }}
             </span>
-        </button>
+        </Button>
     </div>
 </template>
