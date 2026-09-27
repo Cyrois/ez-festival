@@ -255,17 +255,17 @@ const railClass = computed(() => {
                 class="flex items-center justify-between border-b border-line px-4 py-3 lg:py-4"
                 :class="sidebarCollapsed ? 'lg:justify-center lg:px-2' : ''"
             >
-                <div
-                    class="flex min-w-0 items-center gap-2.5"
-                    :class="sidebarCollapsed ? 'lg:hidden' : ''"
-                >
+                <div class="flex min-w-0 items-center gap-2.5">
                     <div
                         class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-white"
                         aria-hidden="true"
                     >
                         {{ $t('app.mark') }}
                     </div>
-                    <div class="min-w-0">
+                    <div
+                        class="min-w-0"
+                        :class="sidebarCollapsed ? 'lg:hidden' : ''"
+                    >
                         <span class="block truncate text-[15px] font-bold">
                             {{ $t('app.name') }}
                         </span>
@@ -291,30 +291,6 @@ const railClass = computed(() => {
                 >
                     <Icon
                         :name="['fas', 'xmark']"
-                        size="sm"
-                    />
-                </button>
-                <button
-                    type="button"
-                    class="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-page hover:text-charcoal lg:inline-flex"
-                    :aria-label="
-                        sidebarCollapsed
-                            ? $t('nav.expand_sidebar')
-                            : $t('nav.collapse_sidebar')
-                    "
-                    :title="
-                        sidebarCollapsed
-                            ? $t('nav.expand_sidebar')
-                            : $t('nav.collapse_sidebar')
-                    "
-                    :aria-expanded="sidebarCollapsed ? 'false' : 'true'"
-                    @click="toggleSidebar"
-                >
-                    <Icon
-                        :name="[
-                            'fas',
-                            sidebarCollapsed ? 'chevron-right' : 'chevron-left',
-                        ]"
                         size="sm"
                     />
                 </button>
@@ -425,6 +401,46 @@ const railClass = computed(() => {
                     {{ $t('nav.settings') }}
                 </SidebarNavItem>
             </nav>
+
+            <div class="hidden shrink-0 border-t border-line p-2 lg:block">
+                <button
+                    type="button"
+                    class="inline-flex h-9 w-full items-center gap-2 rounded-lg text-[13px] font-semibold text-muted transition-colors hover:bg-page hover:text-charcoal focus-visible:ring-[3px] focus-visible:ring-primary/35 focus-visible:outline-none"
+                    :class="
+                        sidebarCollapsed
+                            ? 'justify-center px-0'
+                            : 'justify-start px-3'
+                    "
+                    :aria-label="
+                        sidebarCollapsed
+                            ? $t('nav.expand_sidebar')
+                            : $t('nav.collapse_sidebar')
+                    "
+                    :title="
+                        sidebarCollapsed
+                            ? $t('nav.expand_sidebar')
+                            : $t('nav.collapse_sidebar')
+                    "
+                    :aria-expanded="sidebarCollapsed ? 'false' : 'true'"
+                    @click="toggleSidebar"
+                >
+                    <Icon
+                        :name="[
+                            'fas',
+                            sidebarCollapsed ? 'chevron-right' : 'chevron-left',
+                        ]"
+                        size="sm"
+                        fixed-width
+                    />
+                    <span :class="sidebarCollapsed ? 'sr-only' : ''">
+                        {{
+                            sidebarCollapsed
+                                ? $t('nav.expand_sidebar')
+                                : $t('nav.collapse_sidebar')
+                        }}
+                    </span>
+                </button>
+            </div>
 
             <div
                 class="flex shrink-0 items-center justify-between gap-2 border-t border-line px-3 py-3 lg:hidden"
