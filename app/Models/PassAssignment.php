@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['pass_type_id', 'artist_engagement_id', 'vendor_engagement_id', 'event_patron_id', 'person_id'])]
+#[Fillable(['pass_type_id', 'artist_engagement_id', 'vendor_engagement_id', 'event_patron_id', 'team_engagement_id', 'person_id'])]
 class PassAssignment extends Model
 {
     public function passType(): BelongsTo
@@ -28,6 +28,11 @@ class PassAssignment extends Model
     public function eventPatron(): BelongsTo
     {
         return $this->belongsTo(EventPatron::class);
+    }
+
+    public function teamEngagement(): BelongsTo
+    {
+        return $this->belongsTo(TeamEngagement::class);
     }
 
     public function person(): BelongsTo

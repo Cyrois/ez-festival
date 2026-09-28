@@ -1,6 +1,7 @@
 <script setup>
 import AppLayout from '../../layouts/AppLayout.vue';
 import EngagementNoteLog from '../../components/notes/EngagementNoteLog.vue';
+import TeamPassAssignmentsPanel from '../../components/team/TeamPassAssignmentsPanel.vue';
 import TeamMemberFields from '../../components/team/TeamMemberFields.vue';
 import { Avatar } from '../../components/ui/avatar';
 import { Button } from '../../components/ui/button';
@@ -19,6 +20,7 @@ const props = defineProps({
     groups: { type: Array, required: true },
     statuses: { type: Array, required: true },
     employmentTypes: { type: Array, required: true },
+    passes: { type: Array, default: () => [] },
     canWrite: { type: Boolean, required: true },
 });
 
@@ -30,10 +32,17 @@ const form = useForm({
     employment_type: props.engagement.employment_type,
     hourly_pay: props.engagement.hourly_pay ?? '',
     group_id: props.engagement.group_id ?? '',
+    pass_assignments: props.engagement.pass_assignments.map((assignment) => ({
+        id: assignment.id,
+        pass_type_id: assignment.pass_type_id,
+        issue_state: assignment.issue_state,
+        can_remove: assignment.can_remove,
+    })),
 });
 const { showError, showFormError } = useFlashToast();
 const readOnly = computed(() => !props.canWrite);
 const hired = computed(() => form.status === 'hired');
+const persistedHired = computed(() => props.engagement.status === 'hired');
 const subtitle = computed(() =>
     trans(`team.advancement.status.${form.status}`),
 );
@@ -44,18 +53,6 @@ const breadcrumbs = computed(() => [
     { label: props.engagement.name },
 ]);
 const sections = computed(() => [
-    {
-        key: 'shifts',
-        title: trans('team.member.sections.shifts.title'),
-        description: trans('team.member.sections.shifts.description'),
-        available: hired.value,
-    },
-    {
-        key: 'passes',
-        title: trans('team.member.sections.passes.title'),
-        description: trans('team.member.sections.passes.description'),
-        available: hired.value,
-    },
     {
         key: 'contracts',
         title: trans('team.member.sections.contracts.title'),
@@ -72,8 +69,18 @@ const sections = computed(() => [
 const submit = () => {
     if (readOnly.value) return;
     form.put(`/team/members/${props.engagement.id}`, {
-        onError: (errors) =>
-            toastFormErrors(form, errors, { showError, showFormError }),
+        onError: (errors) => {
+            if (
+                Object.keys(errors).some((key) =>
+                    key.startsWith('pass_assignments'),
+                )
+            ) {
+                showFormError(errors);
+                return;
+            }
+
+            toastFormErrors(form, errors, { showError, showFormError });
+        },
     });
 };
 </script>
@@ -131,6 +138,42 @@ const submit = () => {
                         :employment-types="employmentTypes"
                         :disabled="readOnly || form.processing"
                         @update="(field, value) => (form[field] = value)"
+                    />
+                </Card>
+
+                <Card
+                    id="shifts"
+                    class="mt-4"
+                >
+                    <h2 class="m-0 text-xl font-bold text-muted">
+                        {{ $t('team.member.sections.shifts.title') }}
+                    </h2>
+                    <p class="mt-1 mb-3 text-xs text-muted">
+                        {{ $t('team.member.sections.shifts.description') }}
+                    </p>
+                    <div
+                        class="rounded-lg border border-dashed border-line bg-page p-5 text-center text-sm text-muted"
+                    >
+                        {{
+                            $t(
+                                hired
+                                    ? 'team.member.sections.future'
+                                    : 'team.member.sections.hired_required',
+                            )
+                        }}
+                    </div>
+                </Card>
+
+                <Card
+                    id="passes"
+                    class="mt-4"
+                >
+                    <TeamPassAssignmentsPanel
+                        v-model:assignments="form.pass_assignments"
+                        :passes="passes"
+                        :can-write="canWrite"
+                        :hired="persistedHired"
+                        :errors="form.errors"
                     />
                 </Card>
 

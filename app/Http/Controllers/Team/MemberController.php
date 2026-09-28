@@ -53,7 +53,17 @@ class MemberController extends Controller
     public function show(ViewTeamMemberRequest $request, TeamEngagement $engagement): Response
     {
         $event = $this->resolveEvent($request, $engagement);
-        $engagement->load(['person', 'group']);
+        $engagement->load([
+            'person',
+            'group',
+            'passAssignments' => fn ($query) => $query
+                ->with(['passType.labels'])
+                ->withCount([
+                    'expectedEntitlements',
+                    'expectedEntitlements as issued_count' => fn ($query) => $query->whereHas('issuedEntitlement'),
+                ])
+                ->latest('id'),
+        ]);
         $notes = $engagement->notes()
             ->with('user:id,name,email')
             ->latest('created_at')
@@ -67,6 +77,11 @@ class MemberController extends Controller
             'groups' => $this->groups->optionsFor($event),
             'statuses' => TeamEngagement::STATUSES,
             'employmentTypes' => TeamEngagement::EMPLOYMENT_TYPES,
+            'passes' => $event->passTypes()
+                ->with('labels:id,name,color')
+                ->withCount('assignments')
+                ->orderBy('name')
+                ->get(['id', 'name', 'max_assignments']),
             'canWrite' => ! $event->isLocked() && Gate::allows('manage-team'),
         ]);
     }
