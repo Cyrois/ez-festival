@@ -171,6 +171,7 @@ const submit = () => {
                     <TeamPassAssignmentsPanel
                         v-model:assignments="form.pass_assignments"
                         :passes="passes"
+                        :member-name="engagement.name"
                         :can-write="canWrite"
                         :hired="persistedHired"
                         :errors="form.errors"

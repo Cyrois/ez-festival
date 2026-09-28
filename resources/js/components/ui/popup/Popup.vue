@@ -8,6 +8,7 @@ defineProps({
     acceptLabel: { type: String, default: '' },
     cancelLabel: { type: String, default: '' },
     busy: { type: Boolean, default: false },
+    confirmDisabled: { type: Boolean, default: false },
     class: { type: [String, Object, Array], default: '' },
 });
 
@@ -23,11 +24,18 @@ const emit = defineEmits(['update:open', 'accept', 'cancel']);
         :cancel-label="cancelLabel"
         confirm-variant="primary"
         :busy="busy"
+        :confirm-disabled="confirmDisabled"
         :class="$props.class"
         @update:open="emit('update:open', $event)"
         @cancel="emit('cancel')"
         @confirm="emit('accept')"
     >
+        <template
+            v-if="$slots.description"
+            #description
+        >
+            <slot name="description" />
+        </template>
         <slot />
     </Dialog>
 </template>

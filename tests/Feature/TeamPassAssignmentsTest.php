@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Artist;
 use App\Models\ArtistEngagement;
+use App\Models\EntitlementItemLabel;
 use App\Models\Event;
 use App\Models\EventPatron;
 use App\Models\PassAssignment;
@@ -414,9 +415,19 @@ class TeamPassAssignmentsTest extends TestCase
     {
         [$user, $event, $engagement] = $this->teamContext();
         $item = $event->entitlementItems()->create(['name' => 'Wristband']);
+        $itemLabel = EntitlementItemLabel::query()->create([
+            'event_id' => $event->id,
+            'name' => 'Physical',
+            'color' => 'amber',
+        ]);
+        $item->labels()->attach($itemLabel);
         $passType = $event->passTypes()->create(['name' => 'Crew', 'max_assignments' => 2]);
         $label = PassTypeLabel::query()->create(['name' => 'Backstage', 'color' => 'teal']);
         $passType->labels()->attach($label);
+        $passType->entitlements()->createMany([
+            ['entitlement_item_id' => $item->id, 'sort_order' => 0],
+            ['entitlement_item_id' => $item->id, 'sort_order' => 1],
+        ]);
         $assignment = $engagement->passAssignments()->create([
             'pass_type_id' => $passType->id,
             'person_id' => $engagement->person_id,
@@ -437,7 +448,10 @@ class TeamPassAssignmentsTest extends TestCase
                 ->where('engagement.pass_assignments.0.issue_state', 'issued')
                 ->where('engagement.pass_assignments.0.can_remove', false)
                 ->where('passes.0.assignments_count', 1)
-                ->where('passes.0.labels.0.name', 'Backstage'),
+                ->where('passes.0.labels.0.name', 'Backstage')
+                ->where('passes.0.entitlements.0.name', 'Wristband')
+                ->where('passes.0.entitlements.0.quantity', 2)
+                ->where('passes.0.entitlements.0.labels.0.name', 'Physical'),
         );
     }
 

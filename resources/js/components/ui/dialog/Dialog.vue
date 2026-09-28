@@ -32,6 +32,10 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    confirmDisabled: {
+        type: Boolean,
+        default: false,
+    },
     showCancel: {
         type: Boolean,
         default: true,
@@ -137,7 +141,7 @@ onUnmounted(() => {
                     />
                     <template v-else>{{ description }}</template>
                 </p>
-                <div class="min-h-0 overflow-y-auto">
+                <div class="min-h-0 flex-1 overflow-y-auto">
                     <slot />
                 </div>
                 <div
@@ -160,7 +164,7 @@ onUnmounted(() => {
                         class="min-h-11 w-full sm:w-auto"
                         :variant="confirmVariant"
                         :loading="busy"
-                        :disabled="busy"
+                        :disabled="busy || confirmDisabled"
                         @click="confirm"
                     >
                         {{ confirmLabel || $t('ui.dialog.confirm') }}

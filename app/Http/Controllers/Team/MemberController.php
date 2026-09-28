@@ -10,6 +10,7 @@ use App\Http\Requests\Team\UpdateTeamMemberRequest;
 use App\Http\Requests\Team\ViewTeamMemberRequest;
 use App\Http\Resources\TeamEngagementNoteResource;
 use App\Http\Resources\TeamEngagementResource;
+use App\Http\Resources\TeamPassOptionResource;
 use App\Models\Event;
 use App\Models\TeamEngagement;
 use App\Repositories\GroupRepository;
@@ -77,11 +78,16 @@ class MemberController extends Controller
             'groups' => $this->groups->optionsFor($event),
             'statuses' => TeamEngagement::STATUSES,
             'employmentTypes' => TeamEngagement::EMPLOYMENT_TYPES,
-            'passes' => $event->passTypes()
-                ->with('labels:id,name,color')
-                ->withCount('assignments')
-                ->orderBy('name')
-                ->get(['id', 'name', 'max_assignments']),
+            'passes' => TeamPassOptionResource::collection(
+                $event->passTypes()
+                    ->with([
+                        'labels:id,name,color',
+                        'entitlements.entitlementItem.labels:id,name,color',
+                    ])
+                    ->withCount('assignments')
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'max_assignments']),
+            )->resolve(),
             'canWrite' => ! $event->isLocked() && Gate::allows('manage-team'),
         ]);
     }
