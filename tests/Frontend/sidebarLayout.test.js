@@ -13,6 +13,13 @@ const accountControls = readFileSync(
     ),
     'utf8',
 );
+const sidebarNavItem = readFileSync(
+    new URL(
+        '../../resources/js/components/navigation/SidebarNavItem.vue',
+        import.meta.url,
+    ),
+    'utf8',
+);
 const actionBarPages = [
     '../../resources/js/pages/Artists/View.vue',
     '../../resources/js/pages/Credentials/EditEntitlement.vue',
@@ -66,10 +73,42 @@ test('sign out remains a neutral outlined icon button', () => {
 test('a collapsed desktop sidebar expands while hovered', () => {
     assert.match(layout, /@mouseenter="sidebarHovered = true"/);
     assert.match(layout, /@mouseleave="sidebarHovered = false"/);
+    assert.match(layout, /lg:fixed lg:top-0/);
     assert.match(
         layout,
         /:compact="sidebarCompact"[\s\S]*@toggle="toggleSidebar"/,
     );
+    assert.match(
+        layout,
+        /sidebarCollapsed && !settingsNav \? 'lg:ml-16' : 'lg:ml-56'/,
+    );
+    assert.doesNotMatch(
+        layout,
+        /sidebarCompact && !settingsNav[\s\S]*--app-sidebar-width/,
+    );
+});
+
+test('sidebar navigation stays vertically anchored during hover expansion', () => {
+    assert.match(
+        layout,
+        /flex shrink-0 items-center justify-between[^"\n]*lg:h-16 lg:py-0/,
+    );
+    assert.match(
+        layout,
+        /ml-5 space-y-1 border-l border-line pl-3 transition-/,
+    );
+    assert.doesNotMatch(layout, /:key="`collapsed-\$\{child\.key\}`"/);
+    assert.match(sidebarNavItem, /lg:h-7 lg:min-h-7/);
+    assert.match(sidebarNavItem, /lg:h-8 lg:min-h-8/);
+    assert.match(sidebarNavItem, /truncate/);
+    assert.match(sidebarNavItem, /whitespace-nowrap/);
+});
+
+test('sidebar labels animate without replacing navigation rows', () => {
+    assert.match(sidebarNavItem, /transition-\[max-width,opacity\]/);
+    assert.match(sidebarNavItem, /lg:max-w-0 lg:opacity-0/);
+    assert.match(layout, /overflow-x-hidden/);
+    assert.match(layout, /duration-200 ease-in-out/);
 });
 
 test('fixed action bars follow the current desktop sidebar width', () => {

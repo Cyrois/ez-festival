@@ -208,8 +208,8 @@ const railClass = computed(() => {
         : 'max-lg:-translate-x-full';
 
     return [
-        'fixed inset-y-0 left-0 z-50 flex w-[min(18rem,85vw)] flex-col border-r border-line bg-ground shadow-lg transition-[transform,width] duration-200',
-        'lg:sticky lg:top-0 lg:z-40 lg:h-screen lg:shrink-0 lg:translate-x-0 lg:shadow-none',
+        'fixed inset-y-0 left-0 z-50 flex w-[min(18rem,85vw)] flex-col overflow-x-hidden border-r border-line bg-ground shadow-lg transition-[transform,width] duration-200 ease-in-out',
+        'lg:fixed lg:top-0 lg:z-40 lg:h-screen lg:translate-x-0 lg:shadow-none',
         sidebarCompact.value && !props.settingsNav ? 'lg:w-16' : 'lg:w-56',
         open,
     ].join(' ');
@@ -222,7 +222,7 @@ const railClass = computed(() => {
     <div
         class="flex min-h-screen bg-page text-charcoal antialiased"
         :class="
-            sidebarCompact && !settingsNav
+            sidebarCollapsed && !settingsNav
                 ? 'lg:[--app-sidebar-width:4rem]'
                 : 'lg:[--app-sidebar-width:14rem]'
         "
@@ -249,10 +249,13 @@ const railClass = computed(() => {
             @mouseleave="sidebarHovered = false"
         >
             <div
-                class="flex items-center justify-between border-b border-line px-4 py-3 lg:py-4"
+                class="flex shrink-0 items-center justify-between border-b border-line px-4 py-3 transition-[padding] duration-200 ease-in-out lg:h-16 lg:py-0"
                 :class="sidebarCompact ? 'lg:justify-center lg:px-2' : ''"
             >
-                <div class="flex min-w-0 items-center gap-2.5">
+                <div
+                    class="flex min-w-0 items-center gap-2.5 transition-[gap] duration-200 ease-in-out"
+                    :class="sidebarCompact ? 'lg:gap-0' : ''"
+                >
                     <div
                         class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-white"
                         aria-hidden="true"
@@ -260,8 +263,12 @@ const railClass = computed(() => {
                         {{ $t('app.mark') }}
                     </div>
                     <div
-                        class="min-w-0"
-                        :class="sidebarCompact ? 'lg:hidden' : ''"
+                        class="min-w-0 overflow-hidden transition-[max-width,opacity] duration-150 ease-out"
+                        :class="
+                            sidebarCompact
+                                ? 'lg:max-w-0 lg:opacity-0'
+                                : 'lg:max-w-48 lg:opacity-100'
+                        "
                     >
                         <span class="block truncate text-[15px] font-bold">
                             {{ $t('app.name') }}
@@ -342,8 +349,12 @@ const railClass = computed(() => {
                             {{ $t(`nav.${item.key}`) }}
                         </SidebarNavItem>
                         <div
-                            class="ml-5 border-l border-line pl-3"
-                            :class="sidebarCompact ? 'lg:hidden' : ''"
+                            class="ml-5 space-y-1 border-l border-line pl-3 transition-[margin,padding,border-color] duration-200 ease-in-out"
+                            :class="
+                                sidebarCompact
+                                    ? 'lg:ml-0 lg:border-transparent lg:pl-0'
+                                    : ''
+                            "
                         >
                             <SidebarNavItem
                                 v-for="child in item.children"
@@ -351,31 +362,20 @@ const railClass = computed(() => {
                                 :href="child.enabled ? child.href : undefined"
                                 :enabled="child.enabled"
                                 :active="isActive(child.href)"
+                                :icon="sidebarCompact ? child.icon : null"
+                                :icon-desktop-only="sidebarCompact"
+                                :icon-only="sidebarCompact"
                                 density="sub"
-                                :aria-current="
-                                    child.enabled && isActive(child.href)
-                                        ? 'page'
+                                :aria-label="
+                                    sidebarCompact
+                                        ? $t(`nav.${child.key}`)
                                         : undefined
                                 "
-                            >
-                                {{ $t(`nav.${child.key}`) }}
-                            </SidebarNavItem>
-                        </div>
-                        <div
-                            v-if="sidebarCompact"
-                            class="hidden space-y-1 lg:block"
-                        >
-                            <SidebarNavItem
-                                v-for="child in item.children"
-                                :key="`collapsed-${child.key}`"
-                                :href="child.enabled ? child.href : undefined"
-                                :enabled="child.enabled"
-                                :active="isActive(child.href)"
-                                :icon="child.icon"
-                                icon-only
-                                density="sub"
-                                :aria-label="$t(`nav.${child.key}`)"
-                                :title="$t(`nav.${child.key}`)"
+                                :title="
+                                    sidebarCompact
+                                        ? $t(`nav.${child.key}`)
+                                        : undefined
+                                "
                                 :aria-current="
                                     child.enabled && isActive(child.href)
                                         ? 'page'
@@ -467,7 +467,10 @@ const railClass = computed(() => {
             />
         </aside>
 
-        <div class="flex min-w-0 flex-1 flex-col">
+        <div
+            class="flex min-w-0 flex-1 flex-col transition-[margin] duration-200"
+            :class="sidebarCollapsed && !settingsNav ? 'lg:ml-16' : 'lg:ml-56'"
+        >
             <header
                 class="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-ground px-4 md:px-6"
             >
