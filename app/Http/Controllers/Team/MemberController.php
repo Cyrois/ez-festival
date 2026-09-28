@@ -14,6 +14,7 @@ use App\Http\Resources\TeamPassOptionResource;
 use App\Models\Event;
 use App\Models\TeamEngagement;
 use App\Repositories\GroupRepository;
+use App\Repositories\PassTypeRepository;
 use App\Services\TeamEngagementService;
 use App\Support\EventContext;
 use Illuminate\Http\RedirectResponse;
@@ -27,6 +28,7 @@ class MemberController extends Controller
         private readonly TeamEngagementService $engagements,
         private readonly EventContext $eventContext,
         private readonly GroupRepository $groups,
+        private readonly PassTypeRepository $passTypes,
     ) {}
 
     public function create(CreateTeamMemberRequest $request): Response
@@ -79,14 +81,7 @@ class MemberController extends Controller
             'statuses' => TeamEngagement::STATUSES,
             'employmentTypes' => TeamEngagement::EMPLOYMENT_TYPES,
             'passes' => TeamPassOptionResource::collection(
-                $event->passTypes()
-                    ->with([
-                        'labels:id,name,color',
-                        'entitlements.entitlementItem.labels:id,name,color',
-                    ])
-                    ->withCount('assignments')
-                    ->orderBy('name')
-                    ->get(['id', 'name', 'max_assignments']),
+                $this->passTypes->optionsFor($event, withEntitlements: true),
             )->resolve(),
             'canWrite' => ! $event->isLocked() && Gate::allows('manage-team'),
         ]);

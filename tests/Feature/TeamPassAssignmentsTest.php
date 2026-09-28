@@ -342,7 +342,9 @@ class TeamPassAssignmentsTest extends TestCase
             $this->updatePayload($engagement, [
                 ['id' => $otherAssignment->id, 'pass_type_id' => $passType->id],
             ]),
-        )->assertSessionHasErrors('pass_assignments');
+        )->assertSessionHasErrors([
+            'pass_assignments' => __('team.member.passes.errors.foreign_assignment'),
+        ]);
         $this->put(
             route('team.members.update', $engagement),
             $this->updatePayload($engagement, [
@@ -409,6 +411,49 @@ class TeamPassAssignmentsTest extends TestCase
         $engagement->refresh();
         $this->assertNotSame($originalPersonId, $engagement->person_id);
         $this->assertSame($engagement->person_id, $assignment->fresh()->person_id);
+    }
+
+    public function test_member_can_rename_after_receiving_a_team_pass(): void
+    {
+        [$user, $event, $engagement] = $this->teamContext();
+        $passType = $event->passTypes()->create(['name' => 'Crew']);
+        $assignment = $engagement->passAssignments()->create([
+            'pass_type_id' => $passType->id,
+            'person_id' => $engagement->person_id,
+        ]);
+        $payload = $this->updatePayload($engagement, [
+            ['id' => $assignment->id, 'pass_type_id' => $passType->id],
+        ]);
+        $payload['name'] = 'Renamed Member';
+
+        $this->actingAs($user)
+            ->put(route('team.members.update', $engagement), $payload)
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('Renamed Member', $engagement->person->fresh()->name);
+    }
+
+    public function test_member_cannot_rename_when_their_person_holds_an_artist_pass(): void
+    {
+        [$user, $event, $engagement] = $this->teamContext();
+        $passType = $event->passTypes()->create(['name' => 'Crew']);
+        $artist = Artist::query()->create(['name' => 'Shared Artist']);
+        $artistEngagement = ArtistEngagement::query()->create([
+            'artist_id' => $artist->id,
+            'event_id' => $event->id,
+        ]);
+        $artistEngagement->passAssignments()->create([
+            'pass_type_id' => $passType->id,
+            'person_id' => $engagement->person_id,
+        ]);
+        $payload = $this->updatePayload($engagement, []);
+        $payload['name'] = 'Blocked Rename';
+
+        $this->actingAs($user)
+            ->put(route('team.members.update', $engagement), $payload)
+            ->assertSessionHasErrors('email');
+
+        $this->assertNotSame('Blocked Rename', $engagement->person->fresh()->name);
     }
 
     public function test_member_page_exposes_assignment_issue_state_labels_and_event_pass_capacity(): void

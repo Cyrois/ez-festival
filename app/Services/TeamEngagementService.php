@@ -144,7 +144,12 @@ class TeamEngagementService
             || $person->artistEngagements()->exists()
             || $person->vendorEngagements()->exists()
             || $person->eventPatrons()->exists()
-            || $person->passAssignments()->exists()
+            || $person->passAssignments()
+                ->where(function ($query) use ($engagement): void {
+                    $query->whereNull('team_engagement_id')
+                        ->orWhere('team_engagement_id', '!=', $engagement->id);
+                })
+                ->exists()
             || $person->teamEngagements()->whereKeyNot($engagement->id)->exists();
     }
 
@@ -163,7 +168,7 @@ class TeamEngagementService
 
         if (array_diff($submittedIds, $existingIds) !== []) {
             throw ValidationException::withMessages([
-                'pass_assignments' => __('validation.exists', ['attribute' => 'pass assignments']),
+                'pass_assignments' => __('team.member.passes.errors.foreign_assignment'),
             ]);
         }
 
