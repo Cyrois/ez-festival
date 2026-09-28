@@ -13,6 +13,13 @@ const accountControls = readFileSync(
     ),
     'utf8',
 );
+const actionBarPages = [
+    '../../resources/js/pages/Artists/View.vue',
+    '../../resources/js/pages/Credentials/EditEntitlement.vue',
+    '../../resources/js/pages/Team/FormEditor.vue',
+    '../../resources/js/pages/Team/Member.vue',
+    '../../resources/js/pages/Vendors/View.vue',
+].map((path) => readFileSync(new URL(path, import.meta.url), 'utf8'));
 
 test('desktop account controls remain in the app header', () => {
     const headerStart = layout.indexOf('<header');
@@ -63,4 +70,14 @@ test('a collapsed desktop sidebar expands while hovered', () => {
         layout,
         /:compact="sidebarCompact"[\s\S]*@toggle="toggleSidebar"/,
     );
+});
+
+test('fixed action bars follow the current desktop sidebar width', () => {
+    assert.match(layout, /lg:\[--app-sidebar-width:4rem\]/);
+    assert.match(layout, /lg:\[--app-sidebar-width:14rem\]/);
+
+    for (const page of actionBarPages) {
+        assert.match(page, /lg:left-\[var\(--app-sidebar-width\)\]/);
+        assert.doesNotMatch(page, /lg:left-56/);
+    }
 });

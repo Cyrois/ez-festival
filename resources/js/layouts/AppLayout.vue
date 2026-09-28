@@ -219,7 +219,14 @@ const railClass = computed(() => {
 <template>
     <Head :title="title" />
 
-    <div class="flex min-h-screen bg-page text-charcoal antialiased">
+    <div
+        class="flex min-h-screen bg-page text-charcoal antialiased"
+        :class="
+            sidebarCompact && !settingsNav
+                ? 'lg:[--app-sidebar-width:4rem]'
+                : 'lg:[--app-sidebar-width:14rem]'
+        "
+    >
         <!-- Scrim (below lg only) -->
         <div
             class="fixed inset-0 z-40 bg-charcoal/40 transition-opacity lg:hidden"
