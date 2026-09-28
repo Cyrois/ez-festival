@@ -15,6 +15,7 @@ use App\Models\ArtistLabel;
 use App\Models\ArtistType;
 use App\Models\Event;
 use App\Repositories\ArtistRepository;
+use App\Repositories\PassTypeRepository;
 use App\Services\ArtistService;
 use App\Support\EventContext;
 use App\Support\LabelColors;
@@ -26,6 +27,7 @@ class ArtistController extends Controller
 {
     public function __construct(
         private readonly ArtistRepository $artists,
+        private readonly PassTypeRepository $passTypes,
         private readonly ArtistService $artistService,
         private readonly EventContext $eventContext,
     ) {}
@@ -107,7 +109,7 @@ class ArtistController extends Controller
             'labels' => ArtistLabel::query()->orderBy('name')->get(['id', 'name', 'color']),
             'statuses' => ArtistEngagement::STATUSES,
             'labelColors' => LabelColors::ALL,
-            'passes' => $event->passTypes()->withCount('assignments')->orderBy('name')->get(['id', 'name', 'max_assignments']),
+            'passes' => $this->passTypes->optionsFor($event),
             'canWrite' => ! $event->isLocked(),
         ]);
     }

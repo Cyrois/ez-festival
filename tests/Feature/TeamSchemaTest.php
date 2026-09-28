@@ -3,7 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Event;
+use App\Models\EventPatron;
 use App\Models\Group;
+use App\Models\PassAssignment;
+use App\Models\PassType;
 use App\Models\Person;
 use App\Models\TeamEngagement;
 use Illuminate\Database\QueryException;
@@ -28,6 +31,7 @@ class TeamSchemaTest extends TestCase
             'employment_type',
             'hourly_pay',
         ]));
+        $this->assertTrue(Schema::hasColumn('pass_assignments', 'team_engagement_id'));
     }
 
     #[DataProvider('statusProvider')]
@@ -133,6 +137,79 @@ class TeamSchemaTest extends TestCase
 
         $this->assertDatabaseCount('groups', 0);
         $this->assertDatabaseCount('team_engagements', 0);
+    }
+
+    public function test_pass_assignments_support_exactly_one_of_four_owner_types(): void
+    {
+        $event = $this->event();
+        $engagement = TeamEngagement::query()->create([
+            'event_id' => $event->id,
+            'person_id' => $this->person('pass-owner')->id,
+            'status' => 'hired',
+            'employment_type' => 'volunteer',
+        ]);
+        $passType = PassType::query()->create([
+            'event_id' => $event->id,
+            'name' => 'Crew',
+        ]);
+
+        $assignment = PassAssignment::query()->create([
+            'pass_type_id' => $passType->id,
+            'team_engagement_id' => $engagement->id,
+            'person_id' => $engagement->person_id,
+        ]);
+
+        $this->assertSame($engagement->id, $assignment->teamEngagement->id);
+
+        $patron = EventPatron::query()->create([
+            'event_id' => $event->id,
+            'person_id' => $this->person('patron-owner')->id,
+        ]);
+
+        $this->expectException(QueryException::class);
+        DB::table('pass_assignments')->insert([
+            'pass_type_id' => $passType->id,
+            'team_engagement_id' => $engagement->id,
+            'event_patron_id' => $patron->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    public function test_deleting_team_engagement_cascades_its_pass_assignments(): void
+    {
+        $event = $this->event();
+        $engagement = TeamEngagement::query()->create([
+            'event_id' => $event->id,
+            'person_id' => $this->person('pass-cascade')->id,
+            'status' => 'hired',
+            'employment_type' => 'volunteer',
+        ]);
+        $passType = PassType::query()->create(['event_id' => $event->id, 'name' => 'Crew']);
+        $engagement->passAssignments()->create(['pass_type_id' => $passType->id]);
+
+        $engagement->delete();
+
+        $this->assertDatabaseCount('pass_assignments', 0);
+    }
+
+    public function test_team_owner_migration_refuses_lossy_rollback(): void
+    {
+        $event = $this->event();
+        $engagement = TeamEngagement::query()->create([
+            'event_id' => $event->id,
+            'person_id' => $this->person('rollback-guard')->id,
+            'status' => 'hired',
+            'employment_type' => 'volunteer',
+        ]);
+        $passType = PassType::query()->create(['event_id' => $event->id, 'name' => 'Crew']);
+        $engagement->passAssignments()->create(['pass_type_id' => $passType->id]);
+        $migration = require database_path('migrations/2026_09_27_000002_add_team_owner_to_pass_assignments_table.php');
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Cannot roll back while Team-owned pass assignments exist.');
+
+        $migration->down();
     }
 
     /**
