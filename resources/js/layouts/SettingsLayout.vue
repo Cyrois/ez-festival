@@ -21,6 +21,7 @@ const currentPath = computed(() => page.url.split('?')[0]);
 const organizationItems = [
     { key: 'events', href: '/settings/events', enabled: true },
     { key: 'team', href: '/settings/team', enabled: true },
+    { key: 'roles', href: '/settings/roles', enabled: true },
     { key: 'artist_types', href: '/settings/artist-types', enabled: true },
     { key: 'vendor_types', href: '/settings/vendor-types', enabled: true },
     { key: 'custom_fields', href: '/settings/custom-fields', enabled: true },
@@ -33,7 +34,6 @@ const personalItems = [
 
 const eventNavItems = [
     { key: 'locations', href: '/settings/locations', match: 'locations' },
-    { key: 'roles', href: '/settings/roles', match: 'roles' },
     { key: 'users', href: '/settings/users', match: 'users' },
 ];
 
@@ -54,13 +54,6 @@ const isEventNavActive = (match) => {
         );
     }
 
-    if (match === 'roles') {
-        return (
-            path === '/settings/roles' ||
-            /^\/settings\/events\/\d+\/roles$/.test(path)
-        );
-    }
-
     if (match === 'users') {
         return (
             path === '/settings/users' ||
@@ -77,6 +70,7 @@ const isOrganizationNavActive = (key) => {
     return (
         (key === 'events' && isEventNavActive('events')) ||
         (key === 'team' && path === '/settings/team') ||
+        (key === 'roles' && path === '/settings/roles') ||
         (key === 'artist_types' && path === '/settings/artist-types') ||
         (key === 'vendor_types' && path === '/settings/vendor-types') ||
         (key === 'custom_fields' && path === '/settings/custom-fields') ||

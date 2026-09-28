@@ -33,21 +33,6 @@ class PrimaryEventSettingsController extends Controller
         ]);
     }
 
-    public function roles(Request $request): Response|RedirectResponse
-    {
-        $event = $this->primaryEventOrRedirect($request);
-
-        if ($event instanceof RedirectResponse) {
-            return $event;
-        }
-
-        return Inertia::render('Settings/Events/Roles', [
-            'event' => $this->eventPayload($event),
-            'tab' => 'roles',
-            'forPrimary' => true,
-        ]);
-    }
-
     public function users(Request $request): Response|RedirectResponse
     {
         $event = $this->primaryEventOrRedirect($request);

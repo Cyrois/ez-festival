@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, watch } from 'vue';
 import { cn } from '../../../lib/utils';
 import { Button } from '../button';
+import { Icon } from '../icon';
 
 const props = defineProps({
     open: {
@@ -40,6 +41,24 @@ const props = defineProps({
         type: Boolean,
         default: true,
     },
+    // Opt-in layout with a header (title + close button), body, and a
+    // shaded footer. Off by default so existing dialogs keep their look.
+    sectioned: {
+        type: Boolean,
+        default: false,
+    },
+    closeLabel: {
+        type: String,
+        default: '',
+    },
+    cancelVariant: {
+        type: String,
+        default: 'cancel',
+    },
+    confirmIcon: {
+        type: [String, Array, Object],
+        default: null,
+    },
     class: {
         type: [String, Object, Array],
         default: '',
@@ -50,7 +69,8 @@ const emit = defineEmits(['update:open', 'confirm', 'cancel']);
 
 const panelClass = computed(() =>
     cn(
-        'relative z-10 flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-t-xl border border-line bg-ground p-5 text-charcoal shadow-toast max-md:rounded-b-none sm:rounded-xl',
+        'relative z-10 flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-t-xl border border-line bg-ground text-charcoal shadow-toast max-md:rounded-b-none sm:rounded-xl',
+        props.sectioned ? 'p-0' : 'p-5',
         props.class,
     ),
 );
@@ -119,35 +139,72 @@ onUnmounted(() => {
                 "
                 :class="panelClass"
             >
+                <div
+                    v-if="sectioned"
+                    class="flex shrink-0 items-center justify-between gap-3 border-b border-line px-5 py-4"
+                >
+                    <h2
+                        v-if="title"
+                        id="ui-dialog-title"
+                        class="m-0 text-lg font-bold"
+                    >
+                        {{ title }}
+                    </h2>
+                    <button
+                        type="button"
+                        class="-mr-1 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-muted transition-colors hover:bg-page hover:text-charcoal focus-visible:ring-[3px] focus-visible:ring-primary/35 focus-visible:outline-none"
+                        :aria-label="closeLabel || $t('ui.dialog.close')"
+                        :disabled="busy"
+                        @click="close"
+                    >
+                        <Icon :name="['fas', 'xmark']" />
+                    </button>
+                </div>
                 <h2
-                    v-if="title"
+                    v-else-if="title"
                     id="ui-dialog-title"
                     class="m-0 mb-2 text-base font-bold"
                 >
                     {{ title }}
                 </h2>
-                <p
-                    v-if="description || $slots.description"
-                    id="ui-dialog-description"
-                    class="m-0 text-sm leading-snug text-muted"
+                <div
+                    :class="
+                        sectioned
+                            ? 'min-h-0 overflow-y-auto px-5 py-4'
+                            : 'contents'
+                    "
                 >
-                    <slot
-                        v-if="$slots.description"
-                        name="description"
-                    />
-                    <template v-else>{{ description }}</template>
-                </p>
-                <div class="min-h-0 overflow-y-auto">
-                    <slot />
+                    <p
+                        v-if="description || $slots.description"
+                        id="ui-dialog-description"
+                        :class="
+                            sectioned
+                                ? 'm-0 text-sm leading-relaxed text-charcoal'
+                                : 'm-0 text-sm leading-snug text-muted'
+                        "
+                    >
+                        <slot
+                            v-if="$slots.description"
+                            name="description"
+                        />
+                        <template v-else>{{ description }}</template>
+                    </p>
+                    <div :class="sectioned ? '' : 'min-h-0 overflow-y-auto'">
+                        <slot />
+                    </div>
                 </div>
                 <div
                     v-if="showCancel || showConfirm"
-                    class="mt-5 flex shrink-0 flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3"
+                    :class="
+                        sectioned
+                            ? 'flex shrink-0 flex-col-reverse gap-2 border-t border-line bg-page px-5 py-4 sm:flex-row sm:justify-end sm:gap-3'
+                            : 'mt-5 flex shrink-0 flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3'
+                    "
                 >
                     <Button
                         v-if="showCancel"
                         type="button"
-                        variant="cancel"
+                        :variant="cancelVariant"
                         class="min-h-11 w-full sm:w-auto"
                         :disabled="busy"
                         @click="close"
@@ -163,6 +220,11 @@ onUnmounted(() => {
                         :disabled="busy"
                         @click="confirm"
                     >
+                        <Icon
+                            v-if="confirmIcon"
+                            :name="confirmIcon"
+                            size="sm"
+                        />
                         {{ confirmLabel || $t('ui.dialog.confirm') }}
                     </Button>
                 </div>
