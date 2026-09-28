@@ -491,7 +491,7 @@ const submit = () => {
             </Card>
         </form>
         <div
-            class="fixed right-0 bottom-0 left-0 z-30 border-t border-line bg-ground/95 py-3 backdrop-blur lg:left-56"
+            class="fixed right-0 bottom-0 left-0 z-30 border-t border-line bg-ground/95 py-3 backdrop-blur lg:left-[var(--app-sidebar-width)]"
         >
             <div class="container mx-auto">
                 <div class="flex items-center justify-between">
