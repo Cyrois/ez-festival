@@ -10,11 +10,13 @@ use Normalizer;
 class RoleName
 {
     /**
-     * Display form: trim the ends and squash repeated inner whitespace to one space.
+     * Display form: drop invisible format characters (zero-width space/joiners, word joiner,
+     * BOM, soft hyphen, …), trim the ends and squash repeated inner whitespace to one space.
      */
     public static function clean(string $name): string
     {
         $name = Normalizer::normalize($name, Normalizer::FORM_C) ?: $name;
+        $name = (string) preg_replace('/\p{Cf}+/u', '', $name);
 
         return trim((string) preg_replace('/\s+/u', ' ', $name));
     }

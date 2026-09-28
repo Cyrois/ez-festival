@@ -371,7 +371,63 @@ class RoleControllerTest extends TestCase
                 [__('settings.roles.validation.name_taken')],
                 $exception->errors()['name'],
             );
+            $this->assertSame(['Stage Manager'], $exception->errors()['name_match']);
         }
+    }
+
+    public function test_service_rethrows_unique_violations_that_are_not_name_clashes(): void
+    {
+        $first = Role::query()->create(['name' => 'Staff']);
+        $second = Role::query()->create(['name' => 'Volunteer lead']);
+
+        // Force a primary key clash while the new name itself is free.
+        $second->id = $first->id;
+
+        $this->expectException(UniqueConstraintViolationException::class);
+
+        app(RoleService::class)->rename($second, 'Stage crew');
+    }
+
+    public function test_zero_width_characters_do_not_make_a_new_name(): void
+    {
+        $user = $this->userWithCompletedSetup();
+        Role::query()->create(['name' => 'Staff']);
+
+        foreach (["Staff\u{200B}", "\u{FEFF}Staff", "St\u{200C}a\u{200D}ff", "Staff\u{2060}", "Sta\u{00AD}ff"] as $name) {
+            $this->actingAs($user)
+                ->post(route('settings.roles.store'), ['name' => $name])
+                ->assertSessionHasErrors(['name' => __('settings.roles.validation.name_taken')]);
+        }
+
+        $this->assertDatabaseCount('roles', 1);
+    }
+
+    public function test_zero_width_characters_are_removed_from_the_saved_name(): void
+    {
+        $user = $this->userWithCompletedSetup();
+        $role = Role::query()->create(['name' => 'Volunteer lead']);
+
+        $this->actingAs($user)
+            ->post(route('settings.roles.store'), ['name' => "\u{200B}Stage\u{2060} \u{FEFF}manager\u{200D}"])
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($user)
+            ->put(route('settings.roles.update', $role), ['name' => "Volunteer\u{200B} coordinator"])
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('roles', ['name' => 'Stage manager', 'name_key' => 'stage manager']);
+        $this->assertDatabaseHas('roles', ['name' => 'Volunteer coordinator', 'name_key' => 'volunteer coordinator']);
+    }
+
+    public function test_a_name_made_only_of_zero_width_characters_is_refused(): void
+    {
+        $user = $this->userWithCompletedSetup();
+
+        $this->actingAs($user)
+            ->post(route('settings.roles.store'), ['name' => "\u{200B}\u{FEFF}\u{2060}"])
+            ->assertSessionHasErrors(['name' => __('settings.roles.validation.name_required')]);
+
+        $this->assertDatabaseCount('roles', 0);
     }
 
     public function test_event_roles_tab_routes_are_gone(): void

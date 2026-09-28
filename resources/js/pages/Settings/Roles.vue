@@ -18,6 +18,7 @@ import {
 } from '../../components/ui/table';
 import { emphasisParts } from '../../lib/emphasisParts';
 import { fieldError } from '../../lib/fieldError';
+import { roleMatchHint } from './roleMatchHint';
 import { ROLE_STATUSES, rolesQuery } from './rolesFilters';
 import { router, useForm } from '@inertiajs/vue3';
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
@@ -96,14 +97,19 @@ const formTitle = computed(() =>
           })
         : trans('settings.roles.form.add_title'),
 );
-const matchParts = computed(() =>
-    form.errors.name_match
-        ? emphasisParts(trans, 'settings.roles.form.match_hint', {
-              typed: `"${form.name}"`,
-              existing: form.errors.name_match,
-          })
-        : [],
-);
+// Name as last sent to the server, so the "matches" hint never follows later typing.
+const submittedName = ref(null);
+const matchParts = computed(() => {
+    const hint = roleMatchHint({
+        match: form.errors.name_match,
+        submitted: submittedName.value,
+        current: form.name,
+    });
+
+    return hint
+        ? emphasisParts(trans, 'settings.roles.form.match_hint', hint)
+        : [];
+});
 
 const focusName = async () => {
     await nextTick();
@@ -129,6 +135,7 @@ const openRename = (role) => {
 const closeForm = () => {
     formOpen.value = false;
     editing.value = null;
+    submittedName.value = null;
     form.reset();
     form.clearErrors();
 };
@@ -140,6 +147,7 @@ const submitForm = () => {
     };
 
     form.clearErrors();
+    submittedName.value = form.name;
 
     if (isRename.value) {
         form.put(`/settings/roles/${editing.value.id}`, options);
@@ -245,99 +253,197 @@ const confirmTurnOff = () => {
                 />
             </div>
 
-            <Table>
-                <TableHeader>
-                    <TableRow variant="header">
-                        <TableHead>
-                            {{ $t('settings.roles.columns.role') }}
-                        </TableHead>
-                        <TableHead>
-                            {{ $t('settings.roles.columns.people') }}
-                        </TableHead>
-                        <TableHead class="text-right">
-                            {{ $t('settings.roles.columns.actions') }}
-                        </TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    <TableRow
-                        v-for="role in roles.data"
-                        :key="role.id"
+            <!-- Phone: card stack -->
+            <div class="flex flex-col gap-3 md:hidden">
+                <div
+                    v-for="role in roles.data"
+                    :key="`card-${role.id}`"
+                    class="rounded-xl border border-line bg-ground p-4"
+                >
+                    <div
+                        :class="[
+                            'flex flex-wrap items-center gap-2 font-bold',
+                            !role.active && 'text-muted',
+                        ]"
                     >
-                        <TableCell
-                            :class="['font-bold', !role.active && 'text-muted']"
+                        {{ role.name }}
+                        <Badge
+                            v-if="!role.active"
+                            pill
+                            class="font-bold text-muted"
                         >
-                            <span class="inline-flex items-center gap-2">
-                                {{ role.name }}
-                                <Badge
-                                    v-if="!role.active"
-                                    pill
-                                    class="font-bold text-muted"
-                                >
-                                    {{ $t('settings.roles.status.off') }}
-                                </Badge>
-                            </span>
-                        </TableCell>
-                        <TableCell :class="!role.active && 'text-muted'">
-                            {{ peopleLabel(role.people_count) }}
-                        </TableCell>
-                        <TableCell>
-                            <div class="flex items-center justify-end gap-2">
-                                <IconButton
-                                    :icon="['fas', 'pencil']"
-                                    :label="
-                                        $t('settings.roles.actions.rename', {
-                                            name: role.name,
-                                        })
-                                    "
-                                    tone="edit"
-                                    @click="openRename(role)"
-                                />
-                                <Button
-                                    v-if="role.active"
-                                    type="button"
-                                    variant="outline-secondary"
-                                    size="sm"
-                                    :disabled="statusBusy"
-                                    @click="turningOff = role"
-                                >
-                                    <Icon
-                                        :name="['fas', 'power-off']"
-                                        size="sm"
-                                    />
-                                    {{ $t('settings.roles.actions.turn_off') }}
-                                </Button>
-                                <Button
-                                    v-else
-                                    type="button"
-                                    variant="outline-primary"
-                                    size="sm"
-                                    :disabled="statusBusy"
-                                    @click="setActive(role, true)"
-                                >
-                                    <Icon
-                                        :name="['fas', 'power-off']"
-                                        size="sm"
-                                    />
-                                    {{ $t('settings.roles.actions.turn_on') }}
-                                </Button>
-                            </div>
-                        </TableCell>
-                    </TableRow>
-                    <TableRow v-if="roles.data.length === 0">
-                        <TableCell
-                            colspan="3"
-                            class="py-6 text-center text-muted"
+                            {{ $t('settings.roles.status.off') }}
+                        </Badge>
+                    </div>
+                    <div class="mt-0.5 text-sm text-muted">
+                        {{ peopleLabel(role.people_count) }}
+                    </div>
+                    <div class="mt-4 flex flex-wrap justify-end gap-2">
+                        <IconButton
+                            :icon="['fas', 'pencil']"
+                            :label="
+                                $t('settings.roles.actions.rename', {
+                                    name: role.name,
+                                })
+                            "
+                            tone="edit"
+                            class="h-11 w-11"
+                            @click="openRename(role)"
+                        />
+                        <Button
+                            v-if="role.active"
+                            type="button"
+                            variant="outline-secondary"
+                            size="sm"
+                            class="min-h-11"
+                            :disabled="statusBusy"
+                            @click="turningOff = role"
                         >
-                            {{
-                                hasAnyRoles
-                                    ? $t('settings.roles.empty_filtered')
-                                    : $t('settings.roles.empty')
-                            }}
-                        </TableCell>
-                    </TableRow>
-                </TableBody>
-            </Table>
+                            <Icon
+                                :name="['fas', 'power-off']"
+                                size="sm"
+                            />
+                            {{ $t('settings.roles.actions.turn_off') }}
+                        </Button>
+                        <Button
+                            v-else
+                            type="button"
+                            variant="outline-primary"
+                            size="sm"
+                            class="min-h-11"
+                            :disabled="statusBusy"
+                            @click="setActive(role, true)"
+                        >
+                            <Icon
+                                :name="['fas', 'power-off']"
+                                size="sm"
+                            />
+                            {{ $t('settings.roles.actions.turn_on') }}
+                        </Button>
+                    </div>
+                </div>
+                <p
+                    v-if="roles.data.length === 0"
+                    class="m-0 rounded-xl border border-line bg-ground px-4 py-6 text-center text-sm text-muted"
+                >
+                    {{
+                        hasAnyRoles
+                            ? $t('settings.roles.empty_filtered')
+                            : $t('settings.roles.empty')
+                    }}
+                </p>
+            </div>
+
+            <!-- md+: table -->
+            <div class="hidden md:block">
+                <Table>
+                    <TableHeader>
+                        <TableRow variant="header">
+                            <TableHead>
+                                {{ $t('settings.roles.columns.role') }}
+                            </TableHead>
+                            <TableHead>
+                                {{ $t('settings.roles.columns.people') }}
+                            </TableHead>
+                            <TableHead class="text-right">
+                                {{ $t('settings.roles.columns.actions') }}
+                            </TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        <TableRow
+                            v-for="role in roles.data"
+                            :key="role.id"
+                        >
+                            <TableCell
+                                :class="[
+                                    'font-bold',
+                                    !role.active && 'text-muted',
+                                ]"
+                            >
+                                <span class="inline-flex items-center gap-2">
+                                    {{ role.name }}
+                                    <Badge
+                                        v-if="!role.active"
+                                        pill
+                                        class="font-bold text-muted"
+                                    >
+                                        {{ $t('settings.roles.status.off') }}
+                                    </Badge>
+                                </span>
+                            </TableCell>
+                            <TableCell :class="!role.active && 'text-muted'">
+                                {{ peopleLabel(role.people_count) }}
+                            </TableCell>
+                            <TableCell>
+                                <div
+                                    class="flex items-center justify-end gap-2"
+                                >
+                                    <IconButton
+                                        :icon="['fas', 'pencil']"
+                                        :label="
+                                            $t(
+                                                'settings.roles.actions.rename',
+                                                {
+                                                    name: role.name,
+                                                },
+                                            )
+                                        "
+                                        tone="edit"
+                                        @click="openRename(role)"
+                                    />
+                                    <Button
+                                        v-if="role.active"
+                                        type="button"
+                                        variant="outline-secondary"
+                                        size="sm"
+                                        :disabled="statusBusy"
+                                        @click="turningOff = role"
+                                    >
+                                        <Icon
+                                            :name="['fas', 'power-off']"
+                                            size="sm"
+                                        />
+                                        {{
+                                            $t(
+                                                'settings.roles.actions.turn_off',
+                                            )
+                                        }}
+                                    </Button>
+                                    <Button
+                                        v-else
+                                        type="button"
+                                        variant="outline-primary"
+                                        size="sm"
+                                        :disabled="statusBusy"
+                                        @click="setActive(role, true)"
+                                    >
+                                        <Icon
+                                            :name="['fas', 'power-off']"
+                                            size="sm"
+                                        />
+                                        {{
+                                            $t('settings.roles.actions.turn_on')
+                                        }}
+                                    </Button>
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                        <TableRow v-if="roles.data.length === 0">
+                            <TableCell
+                                colspan="3"
+                                class="py-6 text-center text-muted"
+                            >
+                                {{
+                                    hasAnyRoles
+                                        ? $t('settings.roles.empty_filtered')
+                                        : $t('settings.roles.empty')
+                                }}
+                            </TableCell>
+                        </TableRow>
+                    </TableBody>
+                </Table>
+            </div>
 
             <div
                 v-if="roles.meta?.last_page > 1"

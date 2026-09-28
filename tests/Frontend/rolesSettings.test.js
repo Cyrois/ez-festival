@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { emphasisParts } from '../../resources/js/lib/emphasisParts.js';
+import { roleMatchHint } from '../../resources/js/pages/Settings/roleMatchHint.js';
 import {
     DEFAULT_ROLE_STATUS,
     rolesQuery,
@@ -104,4 +105,59 @@ test('every settings.roles key used by the page exists in en.json', () => {
 
 test('the roles page has no delete action', () => {
     assert.doesNotMatch(rolesPage, /\.delete\(|'trash'|destroy/);
+});
+
+test('the match hint shows only the last submitted name', () => {
+    assert.deepEqual(
+        roleMatchHint({
+            match: 'Staff',
+            submitted: ' staff ',
+            current: ' staff ',
+        }),
+        { typed: '" staff "', existing: 'Staff' },
+    );
+});
+
+test('the match hint goes away once the name is edited', () => {
+    assert.equal(
+        roleMatchHint({
+            match: 'Staff',
+            submitted: ' staff ',
+            current: 'stage crew',
+        }),
+        null,
+    );
+    assert.equal(
+        roleMatchHint({ match: 'Staff', submitted: null, current: 'staff' }),
+        null,
+    );
+    assert.equal(
+        roleMatchHint({ match: '', submitted: 'staff', current: 'staff' }),
+        null,
+    );
+});
+
+test('the page snapshots the submitted name for the match hint', () => {
+    assert.match(rolesPage, /submittedName\.value = form\.name;/);
+    assert.match(rolesPage, /submitted: submittedName\.value/);
+    assert.doesNotMatch(rolesPage, /typed: `"\$\{form\.name\}"`/);
+});
+
+test('phones get role cards and md+ keeps the table', () => {
+    const cardsStart = rolesPage.indexOf(
+        '<div class="flex flex-col gap-3 md:hidden">',
+    );
+    const tableWrapper = rolesPage.indexOf('<div class="hidden md:block">');
+    const table = rolesPage.indexOf('<Table>');
+
+    assert.notEqual(cardsStart, -1);
+    assert.ok(tableWrapper > cardsStart);
+    assert.ok(table > tableWrapper);
+
+    const cards = rolesPage.slice(cardsStart, tableWrapper);
+    assert.match(cards, /v-for="role in roles\.data"/);
+    assert.match(cards, /openRename\(role\)/);
+    assert.match(cards, /turningOff = role/);
+    assert.match(cards, /setActive\(role, true\)/);
+    assert.match(cards, /min-h-11/);
 });

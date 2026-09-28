@@ -177,7 +177,8 @@ These are recurring Codex mistakes on this repo. Treat them as hard stops — do
 - On Settings pages: hide main App sidebar; show only Settings sidebar.
 - Groups: Organization Settings, Event Settings.
 - Top of Settings sidebar: Back to Dashboard.
-- Event Settings: Events list + Locations / Roles / Users for the **primary** event; pages must state they edit the primary event and that Events is where you change primary.
+- Global Settings has one org-wide **Roles** list (`/settings/roles`). Roles are global to the organization (no `event_id`, no per-event Roles tab, no copying roles between events). Roles are turned off, not deleted.
+- Event Settings: Events list + Locations / Users for the **primary** event; pages must state they edit the primary event and that Events is where you change primary.
 - Event create/edit lives in the Settings shell (not regular AppLayout).
 - Do not invent Settings nav items beyond what is locked/shipped.
 
@@ -216,7 +217,7 @@ These are recurring Codex mistakes on this repo. Treat them as hard stops — do
 ## Permissions (general)
 
 - A screen, button, or stored file (contract, fee, etc.) only opens if the person’s role includes the permission. New features get a permission from the start. Do not ship gated features without a permission hook when roles exist.
-- Org role = org-scoped (Settings, types, create event, People). Event work uses event roles — required for event access when that system lands.
+- Roles come from the one org-wide Roles list in Global Settings. A person gets access to an event by holding a role on their Team record for that event; the same role can be held at several events. Permission checks come later — until then gates allow any signed-in user.
 
 ## Frontend error handling
 
