@@ -14,6 +14,8 @@ const props = defineProps({
 
 defineEmits(['remove']);
 
+const isNew = computed(() => props.assignment.id == null);
+
 const status = computed(() => {
     if (props.assignment.issue_state === 'issued') {
         return {
@@ -41,8 +43,20 @@ const status = computed(() => {
 
 <template>
     <article
-        class="flex flex-wrap items-center gap-3 rounded-lg border border-line px-3 py-3"
+        class="flex flex-wrap items-center gap-3 rounded-lg border px-3 py-3"
+        :class="
+            isNew
+                ? 'border-l-4 border-primary/30 border-l-primary bg-primary-soft'
+                : 'border-line bg-ground'
+        "
     >
+        <Badge
+            v-if="isNew"
+            variant="primary"
+            pill
+        >
+            {{ $t('team.member.passes.status.new') }}
+        </Badge>
         <p class="m-0 text-sm font-semibold text-charcoal">
             {{ pass.name }}
         </p>
@@ -58,6 +72,7 @@ const status = computed(() => {
             />
         </div>
         <Badge
+            v-if="!isNew"
             :variant="status.variant"
             pill
         >

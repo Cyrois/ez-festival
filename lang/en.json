@@ -415,6 +415,7 @@
     "team.member.passes.empty": "No passes have been given to this team member.",
     "team.member.passes.no_options": "No passes are available for this event.",
     "team.member.passes.hired_required": "Passes are available once this team member is hired.",
+    "team.member.passes.status.new": "New",
     "team.member.passes.capacity.unlimited": "Unlimited",
     "team.member.passes.capacity.remaining": ":count remaining",
     "team.member.passes.dialog.title": "Give pass",
