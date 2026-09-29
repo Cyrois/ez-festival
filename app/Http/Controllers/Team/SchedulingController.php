@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Team;
 
 use App\Http\Controllers\Controller;
+use App\Repositories\LocationRepository;
 use App\Support\EventContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -11,8 +12,11 @@ use Inertia\Response;
 
 class SchedulingController extends Controller
 {
-    public function index(Request $request, EventContext $eventContext): Response
-    {
+    public function index(
+        Request $request,
+        EventContext $eventContext,
+        LocationRepository $locations,
+    ): Response {
         Gate::authorize('view-team');
 
         $event = $eventContext->requireCurrent($request->user());
@@ -23,7 +27,7 @@ class SchedulingController extends Controller
                 'name' => $event->name,
                 'is_locked' => $event->isLocked(),
             ],
-            'locations' => $event->locations()->orderBy('name')->get(['id', 'name']),
+            'locations' => $locations->optionsFor($event),
             'canManage' => Gate::allows('manage-team'),
         ]);
     }

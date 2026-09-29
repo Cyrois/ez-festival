@@ -458,6 +458,7 @@
     "team.scheduling.no_matches": "No matching shifts found.",
     "team.scheduling.unnamed_shift": "Unnamed shift",
     "team.scheduling.locked": "This event is locked. Scheduling is read-only.",
+    "team.scheduling.no_permission": "You can view this shift but not edit it.",
     "team.scheduling.no_locations": "Add an event location before creating a shift.",
     "team.scheduling.create.title": "Create a Shift",
     "team.scheduling.create.lead": "Set the location, start, and end for a new :event shift.",

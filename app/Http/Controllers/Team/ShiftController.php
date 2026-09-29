@@ -7,8 +7,11 @@ use App\Http\Requests\Team\CreateShiftRequest;
 use App\Http\Requests\Team\DestroyShiftRequest;
 use App\Http\Requests\Team\StoreShiftRequest;
 use App\Http\Requests\Team\UpdateShiftRequest;
+use App\Http\Resources\ShiftResource;
 use App\Models\Event;
 use App\Models\Shift;
+use App\Repositories\LocationRepository;
+use App\Services\ShiftService;
 use App\Support\EventContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,13 +21,18 @@ use Inertia\Response;
 
 class ShiftController extends Controller
 {
+    public function __construct(
+        private readonly ShiftService $shifts,
+        private readonly LocationRepository $locations,
+    ) {}
+
     public function create(CreateShiftRequest $request, EventContext $eventContext): Response
     {
         $event = $eventContext->requireWritable($request->user());
 
         return Inertia::render('Team/CreateShift', [
             'event' => $event->only('id', 'name'),
-            'locations' => $event->locations()->orderBy('name')->get(['id', 'name']),
+            'locations' => $this->locations->optionsFor($event),
         ]);
     }
 
@@ -41,14 +49,8 @@ class ShiftController extends Controller
                 'name' => $event->name,
                 'is_locked' => $event->isLocked(),
             ],
-            'shift' => [
-                'id' => $shift->id,
-                'name' => $shift->name,
-                'location_id' => $shift->location_id,
-                'starts_at' => $shift->starts_at->format('Y-m-d\TH:i'),
-                'ends_at' => $shift->ends_at->format('Y-m-d\TH:i'),
-            ],
-            'locations' => $event->locations()->orderBy('name')->get(['id', 'name']),
+            'shift' => (new ShiftResource($shift))->resolve($request),
+            'locations' => $this->locations->optionsFor($event),
             'canManage' => Gate::allows('manage-team'),
         ]);
     }
@@ -58,8 +60,8 @@ class ShiftController extends Controller
         Event $event,
         EventContext $eventContext,
     ): RedirectResponse {
-        $eventContext->requireCurrentEvent($request->user(), $event, writable: true);
-        $shift = $event->shifts()->create($request->validated());
+        $eventContext->requireCurrentEvent($request->user(), $event);
+        $shift = $this->shifts->create($event, $request->validated());
 
         return redirect()->route('team.shifts.show', $shift)
             ->with('success', __('team.scheduling.toast.created'))
@@ -74,8 +76,8 @@ class ShiftController extends Controller
     ): RedirectResponse {
         abort_unless((int) $shift->event_id === (int) $event->id, 404);
 
-        $eventContext->requireCurrentEvent($request->user(), $event, writable: true);
-        $shift->update($request->validated());
+        $eventContext->requireCurrentEvent($request->user(), $event);
+        $this->shifts->update($shift, $request->validated());
 
         return redirect()->route('team.shifts.show', $shift)
             ->with('success', __('team.scheduling.toast.updated'))
@@ -90,8 +92,8 @@ class ShiftController extends Controller
     ): RedirectResponse {
         abort_unless((int) $shift->event_id === (int) $event->id, 404);
 
-        $eventContext->requireCurrentEvent($request->user(), $event, writable: true);
-        $shift->delete();
+        $eventContext->requireCurrentEvent($request->user(), $event);
+        $this->shifts->delete($shift);
 
         return redirect()->route('team.scheduling', ['tab' => 'list'])
             ->with('success', __('team.scheduling.toast.deleted'))

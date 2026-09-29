@@ -11,6 +11,8 @@ return new class extends Migration
         Schema::create('shifts', function (Blueprint $table) {
             $table->id();
             $table->foreignId('event_id')->constrained()->cascadeOnDelete();
+            // Restrict keeps the location-delete guards meaningful; EventService deletes an event's
+            // shifts before the event, because the event cascade would otherwise trip this FK.
             $table->foreignId('location_id')->constrained()->restrictOnDelete();
             $table->string('name')->nullable();
             $table->dateTime('starts_at');

@@ -94,12 +94,19 @@ const destroy = () => {
             </header>
 
             <p
-                v-if="!canWrite"
+                v-if="event.is_locked"
                 class="mb-4 flex items-center gap-2 rounded-lg border border-warning/20 bg-warning/10 p-3 text-sm text-charcoal"
                 role="status"
             >
                 <Icon :name="['fas', 'lock']" />
                 {{ $t('team.scheduling.locked') }}
+            </p>
+            <p
+                v-else-if="!canManage"
+                class="mb-4 rounded-lg border border-line bg-page p-3 text-sm text-muted"
+                role="status"
+            >
+                {{ $t('team.scheduling.no_permission') }}
             </p>
 
             <form @submit.prevent="submit">

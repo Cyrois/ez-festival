@@ -86,6 +86,28 @@ class TeamShiftsTest extends TestCase
             ->assertJsonPath('data.0.id', $matchingShift->id);
     }
 
+    public function test_schedule_datatable_search_treats_like_wildcards_literally(): void
+    {
+        [$user, $event] = $this->eventContext();
+        $location = $event->locations()->create(['name' => 'Main stage']);
+        $event->shifts()->create($this->shiftPayload($location->id, ['name' => 'Gate AM']));
+        $percentShift = $event->shifts()->create($this->shiftPayload($location->id, ['name' => '100% crew']));
+        $underscoreShift = $event->shifts()->create($this->shiftPayload($location->id, ['name' => 'load_in']));
+        $backslashShift = $event->shifts()->create($this->shiftPayload($location->id, ['name' => 'Bar \\ back']));
+
+        foreach (['%' => $percentShift, '_' => $underscoreShift, '\\' => $backslashShift] as $term => $shift) {
+            $this->actingAs($user)
+                ->getJson(route('team.scheduling.shifts', [
+                    'draw' => 1,
+                    'search' => ['value' => $term],
+                ]))
+                ->assertOk()
+                ->assertJsonPath('recordsTotal', 4)
+                ->assertJsonPath('recordsFiltered', 1)
+                ->assertJsonPath('data.0.id', $shift->id);
+        }
+    }
+
     public function test_user_can_create_a_shift(): void
     {
         [$user, $event] = $this->eventContext();
@@ -286,6 +308,27 @@ class TeamShiftsTest extends TestCase
             ->assertForbidden();
 
         $this->assertDatabaseCount('shifts', 0);
+    }
+
+    public function test_locked_event_blocks_shift_updates_and_deletes(): void
+    {
+        [$user, $event] = $this->eventContext();
+        $location = $event->locations()->create(['name' => 'Main stage']);
+        $shift = $event->shifts()->create($this->shiftPayload($location->id));
+        $event->lock();
+
+        $this->actingAs($user)
+            ->put(
+                route('team.shifts.update', [$event, $shift]),
+                $this->shiftPayload($location->id, ['name' => 'Changed']),
+            )
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->delete(route('team.shifts.destroy', [$event, $shift]))
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('shifts', ['id' => $shift->id, 'name' => 'Show run']);
     }
 
     public function test_shift_writes_require_the_manage_team_permission(): void
