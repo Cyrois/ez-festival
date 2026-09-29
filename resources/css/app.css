@@ -135,6 +135,11 @@
         @apply bg-page text-xs font-bold tracking-wide text-muted uppercase;
     }
 
+    table.dataTable thead > tr > th.dt-type-date div.dt-column-header,
+    table.dataTable thead > tr > th.dt-type-numeric div.dt-column-header {
+        @apply flex-row;
+    }
+
     table.dataTable tbody td {
         @apply border-b border-line text-sm text-charcoal;
     }

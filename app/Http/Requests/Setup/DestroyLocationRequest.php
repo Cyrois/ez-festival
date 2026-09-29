@@ -4,6 +4,7 @@ namespace App\Http\Requests\Setup;
 
 use App\Models\EntitlementAdjustment;
 use App\Models\Location;
+use App\Models\Shift;
 use Illuminate\Foundation\Http\FormRequest;
 
 class DestroyLocationRequest extends FormRequest
@@ -27,9 +28,9 @@ class DestroyLocationRequest extends FormRequest
             /** @var Location|null $location */
             $location = $this->route('location');
 
-            if ($location !== null && EntitlementAdjustment::query()
+            if ($location !== null && (EntitlementAdjustment::query()
                 ->where('location_id', $location->id)
-                ->exists()) {
+                ->exists() || Shift::query()->where('location_id', $location->id)->exists())) {
                 $validator->errors()->add(
                     'location',
                     __('setup.locations.errors.delete_blocked'),

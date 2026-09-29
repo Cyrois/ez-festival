@@ -39,6 +39,8 @@ use App\Http\Controllers\Team\MemberController as TeamMemberController;
 use App\Http\Controllers\Team\MemberStatusController as TeamMemberStatusController;
 use App\Http\Controllers\Team\PublicFormController as TeamPublicFormController;
 use App\Http\Controllers\Team\SchedulingController as TeamSchedulingController;
+use App\Http\Controllers\Team\ShiftController as TeamShiftController;
+use App\Http\Controllers\Team\ShiftDataTableController as TeamShiftDataTableController;
 use App\Http\Controllers\UiKitController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\VendorEngagementPersonController;
@@ -115,6 +117,10 @@ Route::middleware('auth')->group(function () {
             Route::get('members/create', [TeamMemberController::class, 'create'])->name('members.create');
             Route::get('members/{engagement}', [TeamMemberController::class, 'show'])->name('members.show');
             Route::get('scheduling', [TeamSchedulingController::class, 'index'])->name('scheduling');
+            Route::get('scheduling/shifts', [TeamShiftDataTableController::class, 'index'])
+                ->name('scheduling.shifts');
+            Route::get('shifts/create', [TeamShiftController::class, 'create'])->name('shifts.create');
+            Route::get('shifts/{shift}', [TeamShiftController::class, 'show'])->name('shifts.show');
             Route::get('forms', [TeamFormsController::class, 'index'])->name('forms');
             Route::get('forms/create', [TeamFormsController::class, 'create'])->name('forms.create');
             Route::get('forms/{teamForm}/preview', [TeamPublicFormController::class, 'preview'])->name('forms.preview');
@@ -132,6 +138,9 @@ Route::middleware('auth')->group(function () {
                 Route::put('forms/{teamForm}', [TeamFormsController::class, 'update'])->name('forms.update');
                 Route::put('events/{event}/groups/{group}', [TeamGroupController::class, 'update'])->name('groups.update');
                 Route::delete('events/{event}/groups/{group}', [TeamGroupController::class, 'destroy'])->name('groups.destroy');
+                Route::post('events/{event}/shifts', [TeamShiftController::class, 'store'])->name('shifts.store');
+                Route::put('events/{event}/shifts/{shift}', [TeamShiftController::class, 'update'])->name('shifts.update');
+                Route::delete('events/{event}/shifts/{shift}', [TeamShiftController::class, 'destroy'])->name('shifts.destroy');
             });
         });
 

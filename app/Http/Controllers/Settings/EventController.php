@@ -11,6 +11,7 @@ use App\Http\Requests\Settings\UpdateEventRequest;
 use App\Http\Resources\EventResource;
 use App\Models\Event;
 use App\Models\User;
+use App\Services\EventService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -74,10 +75,9 @@ class EventController extends Controller
             ->with('success_title', __('toast.saved_title'));
     }
 
-    public function destroy(DestroyEventRequest $request, Event $event): RedirectResponse
+    public function destroy(DestroyEventRequest $request, Event $event, EventService $events): RedirectResponse
     {
-        $event->ensureWritable();
-        $event->delete();
+        $events->delete($event);
 
         return redirect()
             ->route('settings.events.index')

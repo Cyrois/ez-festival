@@ -85,6 +85,33 @@ class EventControllerTest extends TestCase
         $this->assertModelMissing($event);
     }
 
+    public function test_user_can_delete_an_event_that_has_shifts(): void
+    {
+        $user = User::factory()->create();
+        app(OrganizationContext::class)->organization()->markSetupComplete();
+        $event = Event::query()->create([
+            'name' => 'Coastal Folk Festival 2027',
+            'starts_on' => '2027-07-10',
+            'ends_on' => '2027-07-12',
+            'timezone' => 'America/Vancouver',
+        ]);
+        $location = $event->locations()->create(['name' => 'Main stage']);
+        $shift = $event->shifts()->create([
+            'location_id' => $location->id,
+            'name' => 'Show run',
+            'starts_at' => '2027-07-10 14:00:00',
+            'ends_at' => '2027-07-10 22:00:00',
+        ]);
+
+        $this->actingAs($user)
+            ->delete(route('settings.events.destroy', $event))
+            ->assertRedirect(route('settings.events.index'));
+
+        $this->assertModelMissing($event);
+        $this->assertModelMissing($location);
+        $this->assertModelMissing($shift);
+    }
+
     public function test_user_cannot_delete_a_locked_event(): void
     {
         $user = User::factory()->create();
