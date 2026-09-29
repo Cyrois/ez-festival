@@ -55,6 +55,27 @@ class EventLocationControllerTest extends TestCase
         ]);
     }
 
+    public function test_deleting_a_location_with_shifts_is_blocked(): void
+    {
+        [$user, $event] = $this->eventContext();
+        $location = $event->locations()->create(['name' => 'Main stage']);
+        $shift = $event->shifts()->create([
+            'name' => 'Show run',
+            'location_id' => $location->id,
+            'starts_at' => '2026-07-10 14:00:00',
+            'ends_at' => '2026-07-10 22:00:00',
+        ]);
+
+        $this->actingAs($user)
+            ->from(route('settings.events.locations', $event))
+            ->delete(route('settings.events.locations.destroy', [$event, $location]))
+            ->assertRedirect(route('settings.events.locations', $event))
+            ->assertSessionHasErrors('location');
+
+        $this->assertDatabaseHas('locations', ['id' => $location->id]);
+        $this->assertDatabaseHas('shifts', ['id' => $shift->id]);
+    }
+
     /** @return array{User, Event} */
     private function eventContext(): array
     {
