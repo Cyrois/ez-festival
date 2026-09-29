@@ -98,9 +98,14 @@ const filterRows = (name, predicate) => {
         .draw();
 };
 
+const reload = (resetPaging = true) => {
+    api()?.ajax.reload(null, resetPaging);
+};
+
 defineExpose({
     dataTable,
     filterRows,
+    reload,
     search,
 });
 </script>

@@ -97,14 +97,6 @@ class EventController extends Controller
             ->with('success_title', __('settings.events.toast.set_primary_title'));
     }
 
-    public function roles(Request $request, Event $event): Response
-    {
-        return Inertia::render('Settings/Events/Roles', [
-            'event' => $this->eventPayload($event),
-            'tab' => 'roles',
-        ]);
-    }
-
     public function users(Request $request, Event $event): Response
     {
         return Inertia::render('Settings/Events/Users', [

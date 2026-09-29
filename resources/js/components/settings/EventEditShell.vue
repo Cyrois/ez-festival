@@ -49,9 +49,6 @@ const tabRoutes = computed(() => ({
     locations: props.forPrimary
         ? '/settings/locations'
         : `/settings/events/${props.event.id}/locations`,
-    roles: props.forPrimary
-        ? '/settings/roles'
-        : `/settings/events/${props.event.id}/roles`,
     users: props.forPrimary
         ? '/settings/users'
         : `/settings/events/${props.event.id}/users`,
@@ -138,9 +135,6 @@ const onTabChange = (value) => {
                 </Tab>
                 <Tab value="locations">
                     {{ $t('settings.events.tabs.locations') }}
-                </Tab>
-                <Tab value="roles">
-                    {{ $t('settings.events.tabs.roles') }}
                 </Tab>
                 <Tab value="users">
                     {{ $t('settings.events.tabs.users') }}

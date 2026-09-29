@@ -22,6 +22,8 @@ use App\Http\Controllers\Settings\EventLocationController;
 use App\Http\Controllers\Settings\FeatureFlagController;
 use App\Http\Controllers\Settings\LabelController;
 use App\Http\Controllers\Settings\PrimaryEventSettingsController;
+use App\Http\Controllers\Settings\RoleController;
+use App\Http\Controllers\Settings\RoleStatusController;
 use App\Http\Controllers\Settings\TeamController;
 use App\Http\Controllers\Settings\VendorTypeController as SettingsVendorTypeController;
 use App\Http\Controllers\Setup\ArtistTypeController;
@@ -200,13 +202,17 @@ Route::middleware('auth')->group(function () {
             Route::get('events/create', [SettingsEventController::class, 'create'])->name('events.create');
             Route::post('events', [SettingsEventController::class, 'store'])->name('events.store');
             Route::get('locations', [PrimaryEventSettingsController::class, 'locations'])->name('locations');
-            Route::get('roles', [PrimaryEventSettingsController::class, 'roles'])->name('roles');
             Route::get('users', [PrimaryEventSettingsController::class, 'users'])->name('users');
             Route::get('artist-types', [SettingsArtistTypeController::class, 'index'])->name('artist-types');
             Route::post('artist-types', [SettingsArtistTypeController::class, 'store'])->name('artist-types.store');
             Route::put('artist-types/{artistType}', [SettingsArtistTypeController::class, 'update'])->name('artist-types.update');
             Route::delete('artist-types/{artistType}', [SettingsArtistTypeController::class, 'destroy'])->name('artist-types.destroy');
             Route::post('artist-types/reorder', [SettingsArtistTypeController::class, 'reorder'])->name('artist-types.reorder');
+            Route::get('roles', [RoleController::class, 'index'])->name('roles');
+            Route::get('roles/data', [RoleController::class, 'dataTable'])->name('roles.data');
+            Route::post('roles', [RoleController::class, 'store'])->name('roles.store');
+            Route::put('roles/{role}', [RoleController::class, 'update'])->name('roles.update');
+            Route::put('roles/{role}/status', [RoleStatusController::class, 'update'])->name('roles.status.update');
             Route::get('vendor-types', [SettingsVendorTypeController::class, 'index'])->name('vendor-types');
             Route::post('vendor-types', [SettingsVendorTypeController::class, 'store'])->name('vendor-types.store');
             Route::put('vendor-types/{vendorType}', [SettingsVendorTypeController::class, 'update'])->name('vendor-types.update');
@@ -225,7 +231,6 @@ Route::middleware('auth')->group(function () {
             Route::get('labels', LabelController::class)->name('labels');
             Route::get('events/{event}/edit', [SettingsEventController::class, 'edit'])->name('events.edit');
             Route::post('events/{event}/set-primary', [SettingsEventController::class, 'setPrimary'])->name('events.set-primary');
-            Route::get('events/{event}/roles', [SettingsEventController::class, 'roles'])->name('events.roles');
             Route::get('events/{event}/users', [SettingsEventController::class, 'users'])->name('events.users');
 
             Route::get('events/{event}/locations', [EventLocationController::class, 'index'])->name('events.locations');
