@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
-#[Fillable(['event_id', 'person_id', 'group_id', 'team_form_id', 'status', 'employment_type', 'hourly_pay', 'submitted_at'])]
+#[Fillable(['event_id', 'person_id', 'group_id', 'role_id', 'team_form_id', 'status', 'employment_type', 'hourly_pay', 'submitted_at'])]
 class TeamEngagement extends Model
 {
     public const STATUSES = ['applied', 'reviewing', 'hired', 'declined'];
@@ -41,6 +41,11 @@ class TeamEngagement extends Model
     public function group(): BelongsTo
     {
         return $this->belongsTo(Group::class);
+    }
+
+    public function role(): BelongsTo
+    {
+        return $this->belongsTo(Role::class);
     }
 
     public function teamForm(): BelongsTo

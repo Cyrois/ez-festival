@@ -8,6 +8,7 @@ use App\Support\SqlLike;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class RoleRepository
 {
@@ -24,7 +25,7 @@ class RoleRepository
     {
         $pattern = '%'.SqlLike::escape(RoleName::key($search)).'%';
 
-        return Role::query()
+        return $this->withPeopleCount()
             ->when(
                 $search !== '',
                 fn (Builder $query) => $query->whereRaw("name_key like ? escape '!'", [$pattern]),
@@ -86,8 +87,18 @@ class RoleRepository
     /** @return Builder<Role> */
     private function forStatus(string $status): Builder
     {
-        return Role::query()
+        return $this->withPeopleCount()
             ->when($status === self::STATUS_ON, fn (Builder $query) => $query->where('active', true))
             ->when($status === self::STATUS_OFF, fn (Builder $query) => $query->where('active', false));
+    }
+
+    /** @return Builder<Role> */
+    private function withPeopleCount(): Builder
+    {
+        return Role::query()->withCount([
+            'teamEngagements as people_count' => fn (Builder $query) => $query->select(
+                DB::raw('count(distinct person_id)'),
+            ),
+        ]);
     }
 }

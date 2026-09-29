@@ -33,21 +33,6 @@ class PrimaryEventSettingsController extends Controller
         ]);
     }
 
-    public function users(Request $request): Response|RedirectResponse
-    {
-        $event = $this->primaryEventOrRedirect($request);
-
-        if ($event instanceof RedirectResponse) {
-            return $event;
-        }
-
-        return Inertia::render('Settings/Events/Users', [
-            'event' => $this->eventPayload($event),
-            'tab' => 'users',
-            'forPrimary' => true,
-        ]);
-    }
-
     private function primaryEventOrRedirect(Request $request): Event|RedirectResponse
     {
         /** @var User $user */

@@ -12,6 +12,7 @@ use App\Http\Resources\TeamEngagementNoteResource;
 use App\Http\Resources\TeamEngagementResource;
 use App\Http\Resources\TeamPassOptionResource;
 use App\Models\Event;
+use App\Models\Role;
 use App\Models\TeamEngagement;
 use App\Repositories\GroupRepository;
 use App\Repositories\PassTypeRepository;
@@ -59,6 +60,7 @@ class MemberController extends Controller
         $engagement->load([
             'person',
             'group',
+            'role',
             'passAssignments' => fn ($query) => $query
                 ->with(['passType.labels'])
                 ->withCount([
@@ -80,6 +82,10 @@ class MemberController extends Controller
             'groups' => $this->groups->optionsFor($event),
             'statuses' => TeamEngagement::STATUSES,
             'employmentTypes' => TeamEngagement::EMPLOYMENT_TYPES,
+            'roles' => Role::query()
+                ->where('active', true)
+                ->orderBy('name_key')
+                ->get(['id', 'name']),
             'passes' => TeamPassOptionResource::collection(
                 $this->passTypes->optionsFor($event, withEntitlements: true),
             )->resolve(),

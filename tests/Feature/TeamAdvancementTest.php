@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Event;
 use App\Models\Group;
 use App\Models\Person;
+use App\Models\Role;
 use App\Models\TeamEngagement;
 use App\Models\TeamEngagementNote;
 use App\Models\User;
@@ -355,6 +356,70 @@ class TeamAdvancementTest extends TestCase
         $this->assertDatabaseCount('team_engagement_notes', 0);
     }
 
+    public function test_team_member_page_shows_active_roles_and_the_current_off_role(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        Role::query()->create(['name' => 'Active role']);
+        $off = Role::query()->create(['name' => 'Historical role', 'active' => false]);
+        $engagement = $this->engagement($event, 'Role Holder');
+        $engagement->update(['role_id' => $off->id]);
+
+        $this->actingAs($user)->get(route('team.members.show', $engagement))->assertInertia(
+            fn (Assert $page) => $page
+                ->where('engagement.role.id', $off->id)
+                ->where('engagement.role.active', false)
+                ->has('roles', 1)
+                ->where('roles.0.name', 'Active role'),
+        );
+    }
+
+    public function test_role_can_be_given_changed_and_removed_on_the_team_member_page(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        $first = Role::query()->create(['name' => 'Staff']);
+        $second = Role::query()->create(['name' => 'Manager']);
+        $engagement = $this->engagement($event, 'Access Member');
+
+        $this->actingAs($user)
+            ->put(route('team.members.update', $engagement), $this->memberPayload($engagement, [
+                'role_id' => $first->id,
+            ]))
+            ->assertRedirect(route('team.members.show', $engagement));
+        $this->assertSame($first->id, $engagement->fresh()->role_id);
+        $this->actingAs($user)->get(route('settings.team'))->assertInertia(
+            fn (Assert $page) => $page->where('hasAnyPeople', true),
+        );
+
+        $this->put(route('team.members.update', $engagement), $this->memberPayload($engagement, [
+            'role_id' => $second->id,
+        ]))->assertSessionHasNoErrors();
+        $this->assertSame($second->id, $engagement->fresh()->role_id);
+
+        $this->put(route('team.members.update', $engagement), $this->memberPayload($engagement, [
+            'role_id' => null,
+        ]))->assertSessionHasNoErrors();
+        $this->assertNull($engagement->fresh()->role_id);
+        $this->assertDatabaseHas('team_engagements', ['id' => $engagement->id]);
+        $this->get(route('settings.team'))->assertInertia(
+            fn (Assert $page) => $page->where('hasAnyPeople', false),
+        );
+    }
+
+    public function test_an_off_role_cannot_be_newly_picked_on_the_team_member_page(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        $off = Role::query()->create(['name' => 'Off role', 'active' => false]);
+        $engagement = $this->engagement($event, 'No Off Role');
+
+        $this->actingAs($user)
+            ->put(route('team.members.update', $engagement), $this->memberPayload($engagement, [
+                'role_id' => $off->id,
+            ]))
+            ->assertSessionHasErrors('role_id');
+
+        $this->assertNull($engagement->fresh()->role_id);
+    }
+
     public function test_member_mutations_require_manage_team_permission(): void
     {
         [$user, $event] = $this->userWithCompletedSetup();
@@ -433,6 +498,7 @@ class TeamAdvancementTest extends TestCase
             'employment_type' => $engagement->employment_type,
             'hourly_pay' => $engagement->hourly_pay,
             'group_id' => $engagement->group_id,
+            'role_id' => $engagement->role_id,
             ...$overrides,
         ];
     }

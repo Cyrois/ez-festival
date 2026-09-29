@@ -11,6 +11,7 @@ class TeamEngagementResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'person_id' => $this->person_id,
             'name' => $this->person->name,
             'email' => $this->person->email,
             'phone' => $this->person->phone,
@@ -19,6 +20,8 @@ class TeamEngagementResource extends JsonResource
             'hourly_pay' => $this->hourly_pay,
             'group_id' => $this->group_id,
             'group' => $this->group?->only(['id', 'name']),
+            'role_id' => $this->role_id,
+            'role' => $this->role?->only(['id', 'name', 'active']),
             'pass_assignments' => $this->whenLoaded(
                 'passAssignments',
                 fn (): array => TeamPassAssignmentResource::collection($this->passAssignments)->resolve(),

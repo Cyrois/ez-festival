@@ -211,7 +211,6 @@ Route::middleware('auth')->group(function () {
             Route::get('events/create', [SettingsEventController::class, 'create'])->name('events.create');
             Route::post('events', [SettingsEventController::class, 'store'])->name('events.store');
             Route::get('locations', [PrimaryEventSettingsController::class, 'locations'])->name('locations');
-            Route::get('users', [PrimaryEventSettingsController::class, 'users'])->name('users');
             Route::get('artist-types', [SettingsArtistTypeController::class, 'index'])->name('artist-types');
             Route::post('artist-types', [SettingsArtistTypeController::class, 'store'])->name('artist-types.store');
             Route::put('artist-types/{artistType}', [SettingsArtistTypeController::class, 'update'])->name('artist-types.update');
@@ -227,7 +226,13 @@ Route::middleware('auth')->group(function () {
             Route::put('vendor-types/{vendorType}', [SettingsVendorTypeController::class, 'update'])->name('vendor-types.update');
             Route::delete('vendor-types/{vendorType}', [SettingsVendorTypeController::class, 'destroy'])->name('vendor-types.destroy');
             Route::post('vendor-types/reorder', [SettingsVendorTypeController::class, 'reorder'])->name('vendor-types.reorder');
-            Route::get('team', TeamController::class)->name('team');
+            Route::get('team', [TeamController::class, 'index'])->name('team');
+            Route::get('team/data', [TeamController::class, 'dataTable'])->name('team.data');
+            Route::get('team/create', [TeamController::class, 'create'])->name('team.create');
+            Route::get('team/email-lookup', [TeamController::class, 'lookup'])->name('team.lookup');
+            Route::post('team', [TeamController::class, 'store'])->name('team.store');
+            Route::get('team/{person}', [TeamController::class, 'show'])->name('team.show');
+            Route::put('team/{person}', [TeamController::class, 'update'])->name('team.update');
             Route::get('account', [AccountController::class, 'index'])->name('account');
             Route::put('account', [AccountController::class, 'update'])->name('account.update');
             Route::put('account/password', [AccountController::class, 'updatePassword'])->name('account.password.update');
@@ -240,8 +245,6 @@ Route::middleware('auth')->group(function () {
             Route::get('labels', LabelController::class)->name('labels');
             Route::get('events/{event}/edit', [SettingsEventController::class, 'edit'])->name('events.edit');
             Route::post('events/{event}/set-primary', [SettingsEventController::class, 'setPrimary'])->name('events.set-primary');
-            Route::get('events/{event}/users', [SettingsEventController::class, 'users'])->name('events.users');
-
             Route::get('events/{event}/locations', [EventLocationController::class, 'index'])->name('events.locations');
 
             Route::middleware('event.writable')->group(function () {

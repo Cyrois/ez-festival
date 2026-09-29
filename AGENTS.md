@@ -74,6 +74,7 @@ Boost replaces these bootstrap instructions with guidelines tailored to the appl
 - Compose screens from `resources/js/components/ui` (Button, Input, Textarea, Select, Checkbox, Radio, Switch, Badge, Label, Tag, FormField, Toast, Icon, Avatar, Tabs, SegmentedControl, Card, EmptyState, Table, …). Do not one-off restyle controls per page. Extend the kit in a PR when something is missing.
 - For new or changed product dropdown controls, use `CustomDropdown` from `resources/js/components/ui/custom-dropdown`; do not use the native `Select` component for dropdowns.
 - Page body layout: center page content with Tailwind’s `container mx-auto` wrapper. If a page needs a narrower `max-w-*` body, retain `mx-auto` so it stays centered; do not leave constrained page bodies left-aligned. `AppLayout` already supplies the standard responsive page padding.
+- Fixed bottom form action bars must align their Cancel/Save row to the actual page body edges. Reuse the shell’s responsive wrapper (`container mx-auto px-4 md:px-6`) and give the inner action row the **same centered `max-w-*` value as that page’s body** (`max-w-6xl` body → `max-w-6xl` actions, `max-w-5xl` body → `max-w-5xl` actions). Do not copy another page’s width blindly. Keep Cancel left, Save right, respect `lg:left-[var(--app-sidebar-width)]`, and reserve body space (normally `pb-24`) so content is not hidden behind the fixed bar.
 - UI glyphs: use the `Icon` component (Font Awesome Free SVG). Register needed icons in `resources/js/icons.js` — do not invent text-glyph icons (✓ / × / ⋯) and do not import entire `fas`/`far`/`fab` packs.
 - Designer lock: use `Tag` for artist labels; use `Badge` (especially `pill`) for statuses. Do not swap those roles.
 - Layout/data kit (`Avatar`, `Tabs`, `SegmentedControl`, `Card`, `EmptyState`, `Table`) is **light-only** until a dedicated dark-mode pass. Do not half-wire `dark:` on these primitives in product screens yet.
@@ -134,12 +135,13 @@ These are recurring Codex mistakes on this repo. Treat them as hard stops — do
 
 ### Lists, authorization, performance
 
+- Production index/list pages with tabular data must render with the shared `DataTable` component (`resources/js/components/ui/data-table`). Do not hand-build sortable tables, search wiring, or pagination controls when `DataTable` covers the list. Use its `serverSide` mode when the query is server-paginated.
 - Production index/list pages: **filter and paginate on the server** by default. Do not hydrate unbounded tables into memory and filter in PHP or the browser.
 - **Exception (Calvin, 2026-09-27): Vendors and Artists list pages only.** These lists stay at or under ~200 records per event, so they may load the current event's full set and search/sort/filter/paginate client-side with the shared `DataTable` component (`resources/js/components/ui/data-table`), provided:
   - the query stays scoped to the current event — never cross-event;
   - the expected size stays around 200 rows or fewer — if a list could grow past that, switch to server paging (or DataTables `serverSide`);
   - sort and search use raw values, not rendered slot HTML (use `render: { display: '#slot' }` for slot cells);
-  - every other list (Team, Patrons, check-in, and anything new) still filters and paginates on the server unless Calvin decides otherwise.
+  - every other list (Global Team, event Team, Patrons, check-in, and anything new) still filters and paginates on the server unless Calvin decides otherwise. Global Team specifically uses the shared `DataTable` in `serverSide` mode.
 - A future cache for repeated lookups must be scoped per event and cleared on writes.
 - Do not `Gate::authorize` / policy-check **per row in a loop** when a single ability plus a query scope is enough.
 - Client-only chips/filters for types that always return empty are not “global” — either wire the data or hide the chip until the type exists.

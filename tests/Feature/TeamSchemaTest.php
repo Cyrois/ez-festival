@@ -204,7 +204,7 @@ class TeamSchemaTest extends TestCase
         ]);
         $passType = PassType::query()->create(['event_id' => $event->id, 'name' => 'Crew']);
         $engagement->passAssignments()->create(['pass_type_id' => $passType->id]);
-        $migration = require database_path('migrations/2026_09_27_000002_add_team_owner_to_pass_assignments_table.php');
+        $migration = require database_path('migrations/2026_09_27_000001_add_team_owner_to_pass_assignments_table.php');
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Cannot roll back while Team-owned pass assignments exist.');

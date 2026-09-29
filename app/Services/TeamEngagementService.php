@@ -126,6 +126,7 @@ class TeamEngagementService
             'employment_type' => $data['employment_type'],
             'hourly_pay' => $data['hourly_pay'] ?? null,
             'group_id' => $data['group_id'] ?? null,
+            'role_id' => $data['role_id'] ?? null,
         ];
     }
 
