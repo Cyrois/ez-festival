@@ -19,6 +19,10 @@ class TeamEngagementResource extends JsonResource
             'hourly_pay' => $this->hourly_pay,
             'group_id' => $this->group_id,
             'group' => $this->group?->only(['id', 'name']),
+            'pass_assignments' => $this->whenLoaded(
+                'passAssignments',
+                fn (): array => TeamPassAssignmentResource::collection($this->passAssignments)->resolve(),
+            ),
         ];
     }
 }

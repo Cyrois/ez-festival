@@ -10,9 +10,11 @@ use App\Http\Requests\Team\UpdateTeamMemberRequest;
 use App\Http\Requests\Team\ViewTeamMemberRequest;
 use App\Http\Resources\TeamEngagementNoteResource;
 use App\Http\Resources\TeamEngagementResource;
+use App\Http\Resources\TeamPassOptionResource;
 use App\Models\Event;
 use App\Models\TeamEngagement;
 use App\Repositories\GroupRepository;
+use App\Repositories\PassTypeRepository;
 use App\Services\TeamEngagementService;
 use App\Support\EventContext;
 use Illuminate\Http\RedirectResponse;
@@ -26,6 +28,7 @@ class MemberController extends Controller
         private readonly TeamEngagementService $engagements,
         private readonly EventContext $eventContext,
         private readonly GroupRepository $groups,
+        private readonly PassTypeRepository $passTypes,
     ) {}
 
     public function create(CreateTeamMemberRequest $request): Response
@@ -53,7 +56,17 @@ class MemberController extends Controller
     public function show(ViewTeamMemberRequest $request, TeamEngagement $engagement): Response
     {
         $event = $this->resolveEvent($request, $engagement);
-        $engagement->load(['person', 'group']);
+        $engagement->load([
+            'person',
+            'group',
+            'passAssignments' => fn ($query) => $query
+                ->with(['passType.labels'])
+                ->withCount([
+                    'expectedEntitlements',
+                    'expectedEntitlements as issued_count' => fn ($query) => $query->whereHas('issuedEntitlement'),
+                ])
+                ->latest('id'),
+        ]);
         $notes = $engagement->notes()
             ->with('user:id,name,email')
             ->latest('created_at')
@@ -67,6 +80,9 @@ class MemberController extends Controller
             'groups' => $this->groups->optionsFor($event),
             'statuses' => TeamEngagement::STATUSES,
             'employmentTypes' => TeamEngagement::EMPLOYMENT_TYPES,
+            'passes' => TeamPassOptionResource::collection(
+                $this->passTypes->optionsFor($event, withEntitlements: true),
+            )->resolve(),
             'canWrite' => ! $event->isLocked() && Gate::allows('manage-team'),
         ]);
     }

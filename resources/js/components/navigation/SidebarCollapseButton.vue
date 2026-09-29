@@ -21,8 +21,12 @@ defineEmits(['toggle']);
         <Button
             variant="ghost"
             size="sm"
-            class="w-full text-muted hover:text-charcoal"
-            :class="compact ? 'justify-center px-0' : 'justify-start px-3'"
+            class="w-full overflow-hidden text-muted transition-[padding,gap,color,background-color] duration-200 ease-in-out hover:text-charcoal"
+            :class="
+                compact
+                    ? 'justify-center gap-0 px-0'
+                    : 'justify-start gap-2 px-3'
+            "
             :aria-label="
                 collapsed
                     ? $t('nav.expand_sidebar')
@@ -41,7 +45,10 @@ defineEmits(['toggle']);
                 size="sm"
                 fixed-width
             />
-            <span :class="compact ? 'sr-only' : ''">
+            <span
+                class="overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-150 ease-out"
+                :class="compact ? 'max-w-0 opacity-0' : 'max-w-48 opacity-100'"
+            >
                 {{
                     collapsed
                         ? $t('nav.expand_sidebar')

@@ -11,6 +11,7 @@ use App\Models\CustomField;
 use App\Models\Event;
 use App\Models\VendorEngagement;
 use App\Models\VendorType;
+use App\Repositories\PassTypeRepository;
 use App\Repositories\VendorRepository;
 use App\Services\VendorService;
 use App\Support\EventContext;
@@ -23,6 +24,7 @@ class VendorController extends Controller
 {
     public function __construct(
         private readonly VendorRepository $vendors,
+        private readonly PassTypeRepository $passTypes,
         private readonly VendorService $vendorService,
         private readonly EventContext $eventContext,
     ) {}
@@ -94,7 +96,7 @@ class VendorController extends Controller
                 ->orderBy('id')
                 ->get(['id', 'label', 'type', 'required', 'options']),
             'statuses' => VendorEngagement::STATUSES,
-            'passes' => $event->passTypes()->withCount('assignments')->orderBy('name')->get(['id', 'name', 'max_assignments']),
+            'passes' => $this->passTypes->optionsFor($event),
             'canWrite' => ! $event->isLocked(),
         ]);
     }

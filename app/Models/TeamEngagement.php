@@ -57,4 +57,9 @@ class TeamEngagement extends Model
     {
         return $this->hasMany(TeamEngagementNote::class);
     }
+
+    public function passAssignments(): HasMany
+    {
+        return $this->hasMany(PassAssignment::class);
+    }
 }
