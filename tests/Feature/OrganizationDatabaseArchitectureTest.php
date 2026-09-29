@@ -34,6 +34,11 @@ class OrganizationDatabaseArchitectureTest extends TestCase
         }
     }
 
+    public function test_database_configuration_supports_only_postgresql_and_test_sqlite(): void
+    {
+        $this->assertSame(['sqlite', 'pgsql'], array_keys(config('database.connections')));
+    }
+
     public function test_users_inherit_the_organization_default_and_can_select_their_own_event(): void
     {
         $default = $this->event('Default festival');
@@ -67,6 +72,18 @@ class OrganizationDatabaseArchitectureTest extends TestCase
         $user->refresh();
         $this->assertNull($user->current_event_id);
         $this->assertTrue($user->effectiveEvent()->is($default));
+    }
+
+    public function test_organization_resolution_does_not_assume_the_first_sequence_id(): void
+    {
+        $discarded = Organization::query()->create(['name' => 'Discarded tenant']);
+        $discarded->delete();
+
+        $organization = app(OrganizationContext::class)->organization();
+
+        $this->assertNotSame(1, $organization->id);
+        $this->assertSame('Festival', $organization->name);
+        $this->assertDatabaseCount('organizations', 1);
     }
 
     public function test_setup_uses_configured_organization_name_and_persists_organization_wide_state(): void

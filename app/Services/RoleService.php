@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Role;
 use App\Repositories\RoleRepository;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class RoleService
@@ -39,7 +40,7 @@ class RoleService
     private function guardUniqueName(string $name, ?Role $ignore, callable $write): mixed
     {
         try {
-            return $write();
+            return DB::transaction($write);
         } catch (UniqueConstraintViolationException $exception) {
             $clash = $this->roles->findByName($name, $ignore);
 

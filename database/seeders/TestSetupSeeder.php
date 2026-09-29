@@ -4,16 +4,16 @@ namespace Database\Seeders;
 
 use App\Models\ArtistType;
 use App\Models\Event;
-use App\Models\Organization;
 use App\Models\User;
 use App\Models\VendorType;
+use App\Support\OrganizationContext;
 use Illuminate\Database\Seeder;
 
 class TestSetupSeeder extends Seeder
 {
     public function run(): void
     {
-        $organization = Organization::query()->firstOrFail();
+        $organization = app(OrganizationContext::class)->organization();
         $event = $organization->activeEvent()->first()
             ?? Event::query()->firstOrCreate(
                 ['name' => 'Sunrise Folk Fest 2026'],

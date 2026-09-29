@@ -47,12 +47,6 @@ return new class extends Migration
             return;
         }
 
-        if (DB::getDriverName() === 'mysql') {
-            DB::statement('ALTER TABLE pass_assignments DROP CHECK pass_assignments_exactly_one_owner');
-
-            return;
-        }
-
         DB::statement('ALTER TABLE pass_assignments DROP CONSTRAINT pass_assignments_exactly_one_owner');
     }
 

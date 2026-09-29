@@ -13,8 +13,43 @@ class EventService
             $event = Event::query()->lockForUpdate()->findOrFail($event->id);
             $event->ensureWritable();
 
-            // shifts.location_id restricts location deletes, and InnoDB checks it while the
-            // event cascade removes locations, so the event's shifts must go first.
+            $entitlementItemIds = fn () => DB::table('entitlement_items')
+                ->select('id')
+                ->where('event_id', $event->id);
+            $locationIds = fn () => DB::table('locations')
+                ->select('id')
+                ->where('event_id', $event->id);
+            $passTypeIds = fn () => DB::table('pass_types')
+                ->select('id')
+                ->where('event_id', $event->id);
+
+            DB::table('issued_entitlements')
+                ->where(fn ($query) => $query
+                    ->whereIn('entitlement_item_id', $entitlementItemIds())
+                    ->orWhereIn('location_id', $locationIds()))
+                ->delete();
+
+            DB::table('expected_entitlements')
+                ->whereIn('entitlement_item_id', $entitlementItemIds())
+                ->delete();
+
+            DB::table('entitlement_adjustments')
+                ->where(fn ($query) => $query
+                    ->whereIn('entitlement_item_id', $entitlementItemIds())
+                    ->orWhereIn('location_id', $locationIds()))
+                ->delete();
+
+            DB::table('pass_type_entitlements')
+                ->where(fn ($query) => $query
+                    ->whereIn('pass_type_id', $passTypeIds())
+                    ->orWhereIn('entitlement_item_id', $entitlementItemIds()))
+                ->delete();
+
+            DB::table('pass_assignments')
+                ->whereIn('pass_type_id', $passTypeIds())
+                ->delete();
+
+            $event->teamEngagements()->delete();
             $event->shifts()->delete();
             $event->delete();
         });

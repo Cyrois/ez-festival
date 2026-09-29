@@ -9,6 +9,7 @@ use App\Services\RoleService;
 use App\Support\OrganizationContext;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -427,6 +428,22 @@ class RoleControllerTest extends TestCase
         $this->expectException(UniqueConstraintViolationException::class);
 
         app(RoleService::class)->rename($second, 'Stage crew');
+    }
+
+    public function test_service_handles_a_unique_index_clash_inside_a_transaction(): void
+    {
+        Role::query()->create(['name' => 'Stage Manager']);
+
+        try {
+            DB::transaction(fn () => app(RoleService::class)->create('STAGE MANAGER'));
+            $this->fail('Expected a validation error.');
+        } catch (ValidationException $exception) {
+            $this->assertSame(
+                [__('settings.roles.validation.name_taken')],
+                $exception->errors()['name'],
+            );
+            $this->assertSame(['Stage Manager'], $exception->errors()['name_match']);
+        }
     }
 
     public function test_zero_width_characters_do_not_make_a_new_name(): void

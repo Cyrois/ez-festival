@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Support\OrganizationContext;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -13,7 +15,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $databaseConnections = $this->app->environment('testing')
+            ? ['pgsql', 'sqlite']
+            : ['pgsql'];
+
+        config()->set(
+            'database.connections',
+            Arr::only(config('database.connections'), $databaseConnections),
+        );
+
+        $this->app->scoped(OrganizationContext::class);
     }
 
     /**
