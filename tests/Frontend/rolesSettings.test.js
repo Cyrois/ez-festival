@@ -17,6 +17,7 @@ const eventEditShell = read(
     'resources/js/components/settings/EventEditShell.vue',
 );
 const rolesPage = read('resources/js/pages/Settings/Roles.vue');
+const roleColumns = read('resources/js/pages/Settings/roleColumns.js');
 
 // Minimal stand-in for laravel-vue-i18n's trans(): swaps :placeholders.
 const translate = (key, replacements = {}) =>
@@ -143,16 +144,20 @@ test('the page snapshots the submitted name for the match hint', () => {
     assert.doesNotMatch(rolesPage, /typed: `"\$\{form\.name\}"`/);
 });
 
-test('phones get role cards and md+ keeps the table', () => {
+test('phones get role cards and md+ uses the server-side DataTable', () => {
     const cardsStart = rolesPage.indexOf(
         '<div class="flex flex-col gap-3 md:hidden">',
     );
     const tableWrapper = rolesPage.indexOf('<div class="hidden md:block">');
-    const table = rolesPage.indexOf('<Table>');
+    const table = rolesPage.indexOf('<DataTable');
 
     assert.notEqual(cardsStart, -1);
     assert.ok(tableWrapper > cardsStart);
     assert.ok(table > tableWrapper);
+    assert.match(rolesPage, /serverSide: true/);
+    assert.match(rolesPage, /:ajax="dataTableUrl"/);
+    assert.match(rolesPage, /\/settings\/roles\/data/);
+    assert.match(roleColumns, /render: \{ display: '#roleCell' \}/);
 
     const cards = rolesPage.slice(cardsStart, tableWrapper);
     assert.match(cards, /v-for="role in roles\.data"/);

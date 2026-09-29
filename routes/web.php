@@ -209,6 +209,7 @@ Route::middleware('auth')->group(function () {
             Route::delete('artist-types/{artistType}', [SettingsArtistTypeController::class, 'destroy'])->name('artist-types.destroy');
             Route::post('artist-types/reorder', [SettingsArtistTypeController::class, 'reorder'])->name('artist-types.reorder');
             Route::get('roles', [RoleController::class, 'index'])->name('roles');
+            Route::get('roles/data', [RoleController::class, 'dataTable'])->name('roles.data');
             Route::post('roles', [RoleController::class, 'store'])->name('roles.store');
             Route::put('roles/{role}', [RoleController::class, 'update'])->name('roles.update');
             Route::put('roles/{role}/status', [RoleStatusController::class, 'update'])->name('roles.status.update');

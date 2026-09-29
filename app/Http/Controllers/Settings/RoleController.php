@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\IndexRoleDataTableRequest;
 use App\Http\Requests\Settings\IndexRolesRequest;
 use App\Http\Requests\Settings\StoreRoleRequest;
 use App\Http\Requests\Settings\UpdateRoleRequest;
+use App\Http\Resources\RoleDataTableResource;
 use App\Http\Resources\RoleResource;
 use App\Models\Role;
 use App\Repositories\RoleRepository;
@@ -33,6 +35,22 @@ class RoleController extends Controller
                 'status' => $status,
             ],
             'hasAnyRoles' => $this->roles->exists(),
+        ]);
+    }
+
+    public function dataTable(IndexRoleDataTableRequest $request): RoleDataTableResource
+    {
+        $result = $this->roles->dataTable(
+            trim((string) $request->validated('query', '')),
+            $request->validated('status', RoleRepository::STATUS_ON),
+            (int) $request->validated('start'),
+            (int) $request->validated('length'),
+            $request->validated('order.0.dir', 'asc'),
+        );
+
+        return new RoleDataTableResource([
+            'draw' => (int) $request->validated('draw'),
+            ...$result,
         ]);
     }
 

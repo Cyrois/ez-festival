@@ -2,22 +2,16 @@
 import SettingsLayout from '../../layouts/SettingsLayout.vue';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
+import { DataTable } from '../../components/ui/data-table';
 import { Dialog } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
 import { IconButton } from '../../components/ui/icon-button';
 import { Input } from '../../components/ui/input';
 import { SegmentedControl } from '../../components/ui/segmented-control';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '../../components/ui/table';
 import { emphasisParts } from '../../lib/emphasisParts';
 import { fieldError } from '../../lib/fieldError';
+import { roleColumns } from './roleColumns';
 import { roleMatchHint } from './roleMatchHint';
 import { ROLE_STATUSES, rolesQuery } from './rolesFilters';
 import { router, useForm } from '@inertiajs/vue3';
@@ -46,6 +40,41 @@ const statusOptions = computed(() =>
 
 const peopleLabel = (count) =>
     transChoice('settings.roles.people_count', count, { count });
+const columns = computed(() => roleColumns(trans));
+const table = ref(null);
+const dataTableKey = computed(
+    () => `${props.filters.search}:${props.filters.status}`,
+);
+const dataTableUrl = computed(() => {
+    const query = new URLSearchParams();
+
+    if (props.filters.search) {
+        query.set('query', props.filters.search);
+    }
+    if (props.filters.status !== 'on') {
+        query.set('status', props.filters.status);
+    }
+
+    const suffix = query.toString();
+
+    return `/settings/roles/data${suffix ? `?${suffix}` : ''}`;
+});
+const dataTableOptions = computed(() => ({
+    serverSide: true,
+    searching: false,
+    lengthChange: false,
+    pageLength: 25,
+    order: [[0, 'asc']],
+    layout: {
+        topStart: null,
+        topEnd: null,
+    },
+    columnDefs: [{ targets: 2, className: 'text-right' }],
+    language: {
+        emptyTable: trans('settings.roles.empty'),
+        zeroRecords: trans('settings.roles.empty_filtered'),
+    },
+}));
 
 // Filters: search and On | Off | All run on the server.
 const search = ref(props.filters.search);
@@ -143,7 +172,11 @@ const closeForm = () => {
 const submitForm = () => {
     const options = {
         preserveScroll: true,
-        onSuccess: closeForm,
+        onSuccess: async () => {
+            closeForm();
+            await nextTick();
+            table.value?.reload(false);
+        },
     };
 
     form.clearErrors();
@@ -177,7 +210,11 @@ const setActive = (role, active, onSuccess = () => {}) => {
         { active },
         {
             preserveScroll: true,
-            onSuccess,
+            onSuccess: async () => {
+                onSuccess();
+                await nextTick();
+                table.value?.reload();
+            },
             onFinish: () => {
                 statusBusy.value = false;
             },
@@ -336,118 +373,83 @@ const confirmTurnOff = () => {
 
             <!-- md+: table -->
             <div class="hidden md:block">
-                <Table>
-                    <TableHeader>
-                        <TableRow variant="header">
-                            <TableHead>
-                                {{ $t('settings.roles.columns.role') }}
-                            </TableHead>
-                            <TableHead>
-                                {{ $t('settings.roles.columns.people') }}
-                            </TableHead>
-                            <TableHead class="text-right">
-                                {{ $t('settings.roles.columns.actions') }}
-                            </TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        <TableRow
-                            v-for="role in roles.data"
-                            :key="role.id"
+                <DataTable
+                    :key="dataTableKey"
+                    ref="table"
+                    :ajax="dataTableUrl"
+                    :columns="columns"
+                    :options="dataTableOptions"
+                >
+                    <template #roleCell="{ rowData }">
+                        <span
+                            :class="[
+                                'inline-flex items-center gap-2 font-bold',
+                                !rowData.active && 'text-muted',
+                            ]"
                         >
-                            <TableCell
-                                :class="[
-                                    'font-bold',
-                                    !role.active && 'text-muted',
-                                ]"
+                            {{ rowData.name }}
+                            <Badge
+                                v-if="!rowData.active"
+                                pill
+                                class="font-bold text-muted"
                             >
-                                <span class="inline-flex items-center gap-2">
-                                    {{ role.name }}
-                                    <Badge
-                                        v-if="!role.active"
-                                        pill
-                                        class="font-bold text-muted"
-                                    >
-                                        {{ $t('settings.roles.status.off') }}
-                                    </Badge>
-                                </span>
-                            </TableCell>
-                            <TableCell :class="!role.active && 'text-muted'">
-                                {{ peopleLabel(role.people_count) }}
-                            </TableCell>
-                            <TableCell>
-                                <div
-                                    class="flex items-center justify-end gap-2"
-                                >
-                                    <IconButton
-                                        :icon="['fas', 'pencil']"
-                                        :label="
-                                            $t(
-                                                'settings.roles.actions.rename',
-                                                {
-                                                    name: role.name,
-                                                },
-                                            )
-                                        "
-                                        tone="edit"
-                                        @click="openRename(role)"
-                                    />
-                                    <Button
-                                        v-if="role.active"
-                                        type="button"
-                                        variant="outline-secondary"
-                                        size="sm"
-                                        :disabled="statusBusy"
-                                        @click="turningOff = role"
-                                    >
-                                        <Icon
-                                            :name="['fas', 'power-off']"
-                                            size="sm"
-                                        />
-                                        {{
-                                            $t(
-                                                'settings.roles.actions.turn_off',
-                                            )
-                                        }}
-                                    </Button>
-                                    <Button
-                                        v-else
-                                        type="button"
-                                        variant="outline-primary"
-                                        size="sm"
-                                        :disabled="statusBusy"
-                                        @click="setActive(role, true)"
-                                    >
-                                        <Icon
-                                            :name="['fas', 'power-off']"
-                                            size="sm"
-                                        />
-                                        {{
-                                            $t('settings.roles.actions.turn_on')
-                                        }}
-                                    </Button>
-                                </div>
-                            </TableCell>
-                        </TableRow>
-                        <TableRow v-if="roles.data.length === 0">
-                            <TableCell
-                                colspan="3"
-                                class="py-6 text-center text-muted"
+                                {{ $t('settings.roles.status.off') }}
+                            </Badge>
+                        </span>
+                    </template>
+                    <template #peopleCell="{ rowData }">
+                        <span :class="!rowData.active && 'text-muted'">
+                            {{ peopleLabel(rowData.people_count) }}
+                        </span>
+                    </template>
+                    <template #actionsCell="{ rowData }">
+                        <div class="flex items-center justify-end gap-2">
+                            <IconButton
+                                :icon="['fas', 'pencil']"
+                                :label="
+                                    $t('settings.roles.actions.rename', {
+                                        name: rowData.name,
+                                    })
+                                "
+                                tone="edit"
+                                @click="openRename(rowData)"
+                            />
+                            <Button
+                                v-if="rowData.active"
+                                type="button"
+                                variant="outline-secondary"
+                                size="sm"
+                                :disabled="statusBusy"
+                                @click="turningOff = rowData"
                             >
-                                {{
-                                    hasAnyRoles
-                                        ? $t('settings.roles.empty_filtered')
-                                        : $t('settings.roles.empty')
-                                }}
-                            </TableCell>
-                        </TableRow>
-                    </TableBody>
-                </Table>
+                                <Icon
+                                    :name="['fas', 'power-off']"
+                                    size="sm"
+                                />
+                                {{ $t('settings.roles.actions.turn_off') }}
+                            </Button>
+                            <Button
+                                v-else
+                                type="button"
+                                variant="outline-primary"
+                                size="sm"
+                                :disabled="statusBusy"
+                                @click="setActive(rowData, true)"
+                            >
+                                <Icon
+                                    :name="['fas', 'power-off']"
+                                    size="sm"
+                                />
+                                {{ $t('settings.roles.actions.turn_on') }}
+                            </Button>
+                        </div>
+                    </template>
+                </DataTable>
             </div>
 
             <div
                 v-if="roles.meta?.last_page > 1"
-                class="flex flex-wrap items-center justify-between gap-3"
+                class="flex flex-wrap items-center justify-between gap-3 md:hidden"
             >
                 <p class="m-0 text-sm text-muted">
                     {{

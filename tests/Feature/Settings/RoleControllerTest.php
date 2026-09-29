@@ -30,6 +30,7 @@ class RoleControllerTest extends TestCase
     public function test_unauthenticated_roles_request_redirects_to_login(): void
     {
         $this->get(route('settings.roles'))->assertRedirect(route('login'));
+        $this->get(route('settings.roles.data'))->assertRedirect(route('login'));
     }
 
     public function test_roles_table_is_organization_wide(): void
@@ -112,6 +113,46 @@ class RoleControllerTest extends TestCase
         $this->actingAs($user)->get(route('settings.roles', ['search' => '%']))->assertInertia(
             fn (Assert $page) => $page->has('roles.data', 0),
         );
+    }
+
+    public function test_roles_data_table_filters_sorts_and_pages_on_the_server(): void
+    {
+        $user = $this->userWithCompletedSetup();
+        Role::query()->create(['name' => 'Stage hand']);
+        Role::query()->create(['name' => 'Bartender']);
+        Role::query()->create(['name' => 'Stage manager', 'active' => false]);
+
+        $this->actingAs($user)
+            ->getJson(route('settings.roles.data', [
+                'draw' => 7,
+                'start' => 1,
+                'length' => 1,
+                'query' => 'STAGE',
+                'status' => 'all',
+                'order' => [['column' => 0, 'dir' => 'desc']],
+            ]))
+            ->assertOk()
+            ->assertJsonPath('draw', 7)
+            ->assertJsonPath('recordsTotal', 3)
+            ->assertJsonPath('recordsFiltered', 2)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.name', 'Stage hand')
+            ->assertJsonPath('data.0.people_count', 0);
+    }
+
+    public function test_roles_data_table_rejects_unsupported_sort_columns(): void
+    {
+        $user = $this->userWithCompletedSetup();
+
+        $this->actingAs($user)
+            ->getJson(route('settings.roles.data', [
+                'draw' => 1,
+                'start' => 0,
+                'length' => 25,
+                'order' => [['column' => 2, 'dir' => 'asc']],
+            ]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('order.0.column');
     }
 
     public function test_people_count_is_zero_until_roles_are_given_to_people(): void

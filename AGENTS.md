@@ -162,7 +162,7 @@ These are recurring Codex mistakes on this repo. Treat them as hard stops — do
 - Keep the `organizations` table (name, `active_event_id` / default event, `setup_completed_at`). Keep `organization_user` for org-level membership.
 - Do not use an `application_state` table — setup/default event live on the organization row.
 - Control-plane (org directory, DB routing across clients) is outside this tenant DB — do not build it unless locked.
-- Event-level user access (who can open which event) is **parked** — do not build allow/deny event ACL until Calvin locks that slice. Org membership is enough for now.
+- Event-level user access (who can open which event) is **parked** — do not build allow/deny event ACL until Calvin locks that slice (Roles 2 #81 delivers this). Org membership is enough for now.
 - Per-user current/primary event: `users.current_event_id` (fallback to org active/default event). Primary is only the default open event on login — not a write gate.
 
 ## Write / lock gates
@@ -217,7 +217,7 @@ These are recurring Codex mistakes on this repo. Treat them as hard stops — do
 ## Permissions (general)
 
 - A screen, button, or stored file (contract, fee, etc.) only opens if the person’s role includes the permission. New features get a permission from the start. Do not ship gated features without a permission hook when roles exist.
-- Roles come from the one org-wide Roles list in Global Settings. A person gets access to an event by holding a role on their Team record for that event; the same role can be held at several events. Permission checks come later — until then gates allow any signed-in user.
+- Roles come from the one org-wide Roles list in Global Settings (Calvin, 2026-09-27; replaces the 2026-09-24 per-event rule). A person gets access to an event by holding a role on their Team record for that event; the same role can be held at several events. An off role grants nothing. Permissions resolve on each request for the current event, never cached in the login session or token. Permission checks come later — until then gates allow any signed-in user.
 
 ## Frontend error handling
 
