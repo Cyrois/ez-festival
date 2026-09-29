@@ -56,12 +56,14 @@ test('Global Team uses the shared server-side DataTable with person links', () =
     assert.doesNotMatch(listPage, /people\.links\.(prev|next)/);
 });
 
-test('Global Team save panels match the Vendors action layout', () => {
-    const vendorActionLayout =
-        /container mx-auto px-4 md:px-6[\s\S]*mx-auto flex max-w-6xl items-center justify-between/;
+test('Global Team save panels align to their page containers', () => {
+    const teamActionLayout =
+        /container mx-auto px-4 md:px-6[\s\S]*mx-auto flex max-w-5xl items-center justify-between/;
 
-    assert.match(addPage, vendorActionLayout);
-    assert.match(personPage, vendorActionLayout);
+    assert.match(addPage, /container mx-auto max-w-5xl pb-24/);
+    assert.match(personPage, /container mx-auto max-w-5xl pb-24/);
+    assert.match(addPage, teamActionLayout);
+    assert.match(personPage, teamActionLayout);
 });
 
 test('the obsolete event Users surfaces are absent', () => {

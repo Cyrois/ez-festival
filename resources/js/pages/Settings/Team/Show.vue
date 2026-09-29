@@ -290,7 +290,7 @@ const submit = () => {
             >
                 <div class="container mx-auto px-4 md:px-6">
                     <div
-                        class="mx-auto flex max-w-6xl items-center justify-between"
+                        class="mx-auto flex max-w-5xl items-center justify-between"
                     >
                         <Button
                             href="/settings/team"
