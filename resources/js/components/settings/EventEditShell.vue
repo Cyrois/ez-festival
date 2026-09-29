@@ -49,9 +49,6 @@ const tabRoutes = computed(() => ({
     locations: props.forPrimary
         ? '/settings/locations'
         : `/settings/events/${props.event.id}/locations`,
-    users: props.forPrimary
-        ? '/settings/users'
-        : `/settings/events/${props.event.id}/users`,
 }));
 
 const onTabChange = (value) => {
@@ -135,9 +132,6 @@ const onTabChange = (value) => {
                 </Tab>
                 <Tab value="locations">
                     {{ $t('settings.events.tabs.locations') }}
-                </Tab>
-                <Tab value="users">
-                    {{ $t('settings.events.tabs.users') }}
                 </Tab>
             </TabList>
         </Tabs>

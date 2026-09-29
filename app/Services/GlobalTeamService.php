@@ -1,0 +1,150 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Event;
+use App\Models\Person;
+use App\Models\Role;
+use App\Models\TeamEngagement;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+
+class GlobalTeamService
+{
+    public function __construct(private readonly PersonService $people) {}
+
+    /** @param array<string, mixed> $data */
+    public function create(array $data): Person
+    {
+        return DB::transaction(function () use ($data): Person {
+            $person = $this->people->findByEmail($data['email']);
+
+            if ($person?->teamEngagements()->whereNotNull('role_id')->exists()) {
+                throw ValidationException::withMessages([
+                    'email' => __('settings.team.validation.already_on_team'),
+                ]);
+            }
+
+            if ($person === null) {
+                $person = Person::query()->create([
+                    'name' => $data['name'],
+                    'email' => $this->people->normalizeEmail($data['email']),
+                    'phone' => $this->normalizePhone($data['phone'] ?? null),
+                ]);
+            }
+
+            foreach ($data['event_access'] as $access) {
+                $event = Event::query()->lockForUpdate()->findOrFail($access['event_id']);
+                $event->ensureWritable();
+                $role = Role::query()->lockForUpdate()->findOrFail($access['role_id']);
+
+                if (! $role->active) {
+                    throw ValidationException::withMessages([
+                        'event_access' => __('settings.team.validation.role_unavailable'),
+                    ]);
+                }
+
+                $engagement = TeamEngagement::query()
+                    ->whereBelongsTo($event)
+                    ->whereBelongsTo($person)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($engagement) {
+                    $engagement->update([
+                        'role_id' => $role->id,
+                        'status' => $data['status'],
+                    ]);
+                } else {
+                    TeamEngagement::query()->create([
+                        'event_id' => $event->id,
+                        'person_id' => $person->id,
+                        'role_id' => $role->id,
+                        'status' => $data['status'],
+                        'employment_type' => 'volunteer',
+                    ]);
+                }
+            }
+
+            return $person;
+        });
+    }
+
+    /** @param array<string, mixed> $data */
+    public function update(Person $person, array $data): void
+    {
+        DB::transaction(function () use ($person, $data): void {
+            $person = Person::query()->lockForUpdate()->findOrFail($person->id);
+            $person->update([
+                'name' => $data['name'],
+                'phone' => $this->normalizePhone($data['phone'] ?? null),
+            ]);
+
+            foreach ($data['event_access'] as $index => $access) {
+                $event = Event::query()->lockForUpdate()->findOrFail($access['event_id']);
+                $engagement = TeamEngagement::query()
+                    ->whereBelongsTo($event)
+                    ->whereBelongsTo($person)
+                    ->lockForUpdate()
+                    ->first();
+                $currentRoleId = $engagement?->role_id;
+                $roleId = $access['role_id'] ?? null;
+
+                if ($event->isLocked() && (int) $currentRoleId !== (int) $roleId) {
+                    throw ValidationException::withMessages([
+                        "event_access.{$index}.role_id" => __('settings.team.validation.locked_event'),
+                    ]);
+                }
+
+                if ($event->isLocked() || (int) $currentRoleId === (int) $roleId) {
+                    continue;
+                }
+
+                if ($roleId === null) {
+                    $engagement?->update(['role_id' => null]);
+
+                    continue;
+                }
+
+                $role = Role::query()->lockForUpdate()->findOrFail($roleId);
+                if (! $role->active) {
+                    throw ValidationException::withMessages([
+                        "event_access.{$index}.role_id" => __('settings.team.validation.role_unavailable'),
+                    ]);
+                }
+
+                if ($currentRoleId === null) {
+                    $status = $access['status'] ?? null;
+                    if (! in_array($status, ['applied', 'reviewing', 'hired'], true)) {
+                        throw ValidationException::withMessages([
+                            "event_access.{$index}.status" => __('settings.team.validation.status_required'),
+                        ]);
+                    }
+
+                    if ($engagement) {
+                        $engagement->update(['role_id' => $role->id, 'status' => $status]);
+                    } else {
+                        TeamEngagement::query()->create([
+                            'event_id' => $event->id,
+                            'person_id' => $person->id,
+                            'role_id' => $role->id,
+                            'status' => $status,
+                            'employment_type' => 'volunteer',
+                        ]);
+                    }
+
+                    continue;
+                }
+
+                $engagement->update(['role_id' => $role->id]);
+            }
+        });
+    }
+
+    private function normalizePhone(mixed $phone): ?string
+    {
+        $phone = trim((string) $phone);
+
+        return $phone === '' ? null : $phone;
+    }
+}

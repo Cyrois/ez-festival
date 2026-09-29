@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Support\RoleName;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A named job for Team, shared by the whole organization (one database per organization).
@@ -33,5 +34,10 @@ class Role extends Model
         return [
             'active' => 'boolean',
         ];
+    }
+
+    public function teamEngagements(): HasMany
+    {
+        return $this->hasMany(TeamEngagement::class);
     }
 }

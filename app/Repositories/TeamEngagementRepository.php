@@ -54,7 +54,7 @@ class TeamEngagementRepository
     private function listed(?Event $event, string $search, array $employmentTypes): Builder
     {
         return $this->filtered($event, $search, $employmentTypes)
-            ->with(['person', 'group'])
+            ->with(['person', 'group', 'role'])
             ->latest('id');
     }
 

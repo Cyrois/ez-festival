@@ -34,7 +34,6 @@ const personalItems = [
 
 const eventNavItems = [
     { key: 'locations', href: '/settings/locations', match: 'locations' },
-    { key: 'users', href: '/settings/users', match: 'users' },
 ];
 
 const isEventNavActive = (match) => {
@@ -54,13 +53,6 @@ const isEventNavActive = (match) => {
         );
     }
 
-    if (match === 'users') {
-        return (
-            path === '/settings/users' ||
-            /^\/settings\/events\/\d+\/users$/.test(path)
-        );
-    }
-
     return false;
 };
 
@@ -69,7 +61,7 @@ const isOrganizationNavActive = (key) => {
 
     return (
         (key === 'events' && isEventNavActive('events')) ||
-        (key === 'team' && path === '/settings/team') ||
+        (key === 'team' && path.startsWith('/settings/team')) ||
         (key === 'roles' && path === '/settings/roles') ||
         (key === 'artist_types' && path === '/settings/artist-types') ||
         (key === 'vendor_types' && path === '/settings/vendor-types') ||

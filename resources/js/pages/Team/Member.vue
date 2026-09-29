@@ -6,10 +6,12 @@ import TeamMemberFields from '../../components/team/TeamMemberFields.vue';
 import { Avatar } from '../../components/ui/avatar';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
+import { CustomDropdown } from '../../components/ui/custom-dropdown';
+import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { toastFormErrors } from '../../lib/fieldError';
-import { useForm } from '@inertiajs/vue3';
+import { Link, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
@@ -20,6 +22,7 @@ const props = defineProps({
     groups: { type: Array, required: true },
     statuses: { type: Array, required: true },
     employmentTypes: { type: Array, required: true },
+    roles: { type: Array, required: true },
     passes: { type: Array, default: () => [] },
     canWrite: { type: Boolean, required: true },
 });
@@ -32,6 +35,7 @@ const form = useForm({
     employment_type: props.engagement.employment_type,
     hourly_pay: props.engagement.hourly_pay ?? '',
     group_id: props.engagement.group_id ?? '',
+    role_id: props.engagement.role_id ?? '',
     pass_assignments: props.engagement.pass_assignments.map((assignment) => ({
         id: assignment.id,
         pass_type_id: assignment.pass_type_id,
@@ -66,6 +70,22 @@ const sections = computed(() => [
         available: hired.value,
     },
 ]);
+const roleItems = computed(() => {
+    const items = [
+        { value: '', title: trans('team.member.role.no_role') },
+        ...props.roles.map((role) => ({ value: role.id, title: role.name })),
+    ];
+
+    if (props.engagement.role && !props.engagement.role.active) {
+        items.push({
+            value: props.engagement.role.id,
+            title: `${props.engagement.role.name} ${trans('settings.team.role_off_suffix')}`,
+            disabled: true,
+        });
+    }
+
+    return items;
+});
 const submit = () => {
     if (readOnly.value) return;
     form.put(`/team/members/${props.engagement.id}`, {
@@ -139,6 +159,51 @@ const submit = () => {
                         :disabled="readOnly || form.processing"
                         @update="(field, value) => (form[field] = value)"
                     />
+                </Card>
+
+                <Card class="mt-4">
+                    <h2 class="m-0 text-xl font-bold text-muted">
+                        {{ $t('team.member.role.title') }}
+                    </h2>
+                    <div class="mt-4 max-w-md">
+                        <FormField
+                            v-slot="{ id, invalid }"
+                            :label="$t('team.member.role.field')"
+                            :error="form.errors.role_id"
+                        >
+                            <CustomDropdown
+                                :id="id"
+                                v-model="form.role_id"
+                                :items="roleItems"
+                                :invalid="invalid"
+                                :disabled="readOnly || form.processing"
+                            />
+                        </FormField>
+                    </div>
+                    <p
+                        v-if="engagement.role && !engagement.role.active"
+                        class="mt-2 mb-0 flex items-start gap-1.5 text-xs text-muted"
+                    >
+                        <Icon
+                            :name="['fas', 'power-off']"
+                            size="sm"
+                            class="mt-0.5"
+                        />
+                        {{ $t('team.member.role.off_hint') }}
+                    </p>
+                    <p class="mt-2 mb-0 text-xs text-muted">
+                        {{
+                            $t('team.member.role.hint', {
+                                event: event.name,
+                            })
+                        }}
+                        <Link
+                            href="/settings/team"
+                            class="font-semibold text-secondary no-underline hover:underline"
+                        >
+                            {{ $t('settings.team.title') }} </Link
+                        >.
+                    </p>
                 </Card>
 
                 <Card
