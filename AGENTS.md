@@ -109,6 +109,10 @@ These are recurring Codex mistakes on this repo. Treat them as hard stops — do
 ### Migrations & schema
 
 - **Never rewrite an already-shipped `create_*` migration** that may have run in any environment. Change defaults/columns with a **new** forward migration.
+- Production runs on **PostgreSQL**; SQLite is only supported for automated tests. Index, constraint, and foreign-key names must be at most 63 bytes because PostgreSQL silently truncates longer names. Pass an explicit short name when Laravel's generated name would exceed that limit.
+- Deleting an event goes through `EventService::delete`. When adding an event-scoped table with a `restrict` foreign key, delete its rows there in child-first order and cover it in the comprehensive event-deletion test.
+- Do not assume a row has a particular id in code, seeders, or tests. PostgreSQL sequences do not reset when a test transaction rolls back.
+- On PostgreSQL, one failed statement aborts its transaction. Do not query after catching a database error unless the failing statement ran inside a nested `DB::transaction()` savepoint.
 - `down()` methods must not be lossy for shared remaps (e.g. mapping every `teal`/`slate` row back to a legacy token wipes post-refactor data). Prefer irreversible `down()` with a comment when remap is one-way.
 - Do not add schema columns that are unused in the same PR (e.g. `event_id` on values tables with no read/write path). **Wire them in the same PR or do not add them.**
 - Column names must **not** collide with Eloquent relation method names (e.g. a `notes` text column vs `notes()`). Rename the column or the relation before shipping.
@@ -231,3 +235,8 @@ These are recurring Codex mistakes on this repo. Treat them as hard stops — do
 - Product brand spelling in docs and UI copy: **Artist Tree** (two words). Use hyphenated **Artist-Tree** only for agent/team names (e.g. Artist-Tree Code Reviewer), not the product.
 - Wall is called **organization**, not client (client retired in product language).
 - Prefer existing i18n keys; don’t hardcode strings.
+
+## Testing on PostgreSQL
+
+- The default `composer test` suite uses in-memory SQLite.
+- Before a PR that changes migrations or queries, create the test database once with `createdb ez_festival_test`, then run `composer test:pgsql`. Override `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, or `DB_PASSWORD` in the shell when local PostgreSQL settings differ.

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-#[Fillable(['name', 'active_event_id', 'setup_completed_at'])]
+#[Fillable(['name', 'active_event_id', 'setup_completed_at', 'singleton'])]
 class Organization extends Model
 {
     /**

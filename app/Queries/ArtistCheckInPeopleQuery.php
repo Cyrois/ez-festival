@@ -54,8 +54,8 @@ class ArtistCheckInPeopleQuery
     {
         $passNames = match (DB::connection()->getDriverName()) {
             'pgsql' => "STRING_AGG(DISTINCT pt.name, ',' ORDER BY pt.name)",
-            'mysql', 'mariadb' => "GROUP_CONCAT(DISTINCT pt.name ORDER BY pt.name SEPARATOR ',')",
-            default => 'GROUP_CONCAT(DISTINCT pt.name)',
+            'sqlite' => 'GROUP_CONCAT(DISTINCT pt.name)',
+            default => throw new \LogicException('Artist check-in requires PostgreSQL or the SQLite test database.'),
         };
 
         $query = DB::table('pass_assignments as pa')

@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
-use App\Models\Organization;
 use App\Models\Person;
 use App\Models\User;
+use App\Support\OrganizationContext;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -14,10 +14,7 @@ class TestUserSeeder extends Seeder
 
     public function run(): void
     {
-        $organization = Organization::query()->firstOrCreate(
-            ['id' => 1],
-            ['name' => 'Festival'],
-        );
+        $organization = app(OrganizationContext::class)->organization();
 
         $user = User::query()->updateOrCreate(
             ['email' => 'calvinkylechan@gmail.com'],

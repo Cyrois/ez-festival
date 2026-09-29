@@ -3,6 +3,9 @@
 namespace Tests\Feature\Settings;
 
 use App\Models\Event;
+use App\Models\ExpectedEntitlement;
+use App\Models\IssuedEntitlement;
+use App\Models\Organization;
 use App\Models\User;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -110,6 +113,47 @@ class EventControllerTest extends TestCase
         $this->assertModelMissing($event);
         $this->assertModelMissing($location);
         $this->assertModelMissing($shift);
+    }
+
+    public function test_user_can_delete_an_event_with_every_restricted_related_record(): void
+    {
+        $this->seed();
+
+        $organization = Organization::query()->where('name', 'Festival')->sole();
+        $event = $organization->activeEvent()->sole();
+        $user = User::query()->where('email', 'calvinkylechan@gmail.com')->sole();
+        $location = $event->locations()->firstOrFail();
+        $expected = ExpectedEntitlement::query()
+            ->whereIn('entitlement_item_id', $event->entitlementItems()->select('id'))
+            ->firstOrFail();
+
+        $issued = IssuedEntitlement::query()->create([
+            'expected_entitlement_id' => $expected->id,
+            'entitlement_item_id' => $expected->entitlement_item_id,
+            'location_id' => $location->id,
+            'code' => 'EVENT-DELETE-TEST',
+            'issued_by' => $user->id,
+        ]);
+        $shift = $event->shifts()->create([
+            'location_id' => $location->id,
+            'name' => 'Event teardown',
+            'starts_at' => '2026-07-12 20:00:00',
+            'ends_at' => '2026-07-12 23:00:00',
+        ]);
+
+        $this->actingAs($user)
+            ->delete(route('settings.events.destroy', $event))
+            ->assertRedirect(route('settings.events.index'));
+
+        $this->assertModelMissing($event);
+        $this->assertModelMissing($location);
+        $this->assertModelMissing($issued);
+        $this->assertModelMissing($shift);
+        $this->assertDatabaseCount('pass_assignments', 0);
+        $this->assertDatabaseCount('pass_type_entitlements', 0);
+        $this->assertDatabaseCount('entitlement_adjustments', 0);
+        $this->assertDatabaseCount('expected_entitlements', 0);
+        $this->assertDatabaseCount('team_engagements', 0);
     }
 
     public function test_user_cannot_delete_a_locked_event(): void

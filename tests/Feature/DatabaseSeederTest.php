@@ -2,9 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\Artist;
+use App\Models\Event;
 use App\Models\Organization;
 use App\Models\Person;
 use App\Models\User;
+use App\Models\Vendor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -26,14 +29,13 @@ class DatabaseSeederTest extends TestCase
             'email' => 'calvinkylechan@gmail.com',
         ]);
 
-        $this->assertDatabaseHas('organizations', [
-            'id' => 1,
-            'name' => 'Festival',
-            'active_event_id' => 1,
-        ]);
+        $organization = Organization::query()->where('name', 'Festival')->sole();
+        $event = Event::query()->where('name', 'Sunrise Folk Fest 2026')->sole();
+        $user = User::query()->where('email', 'calvinkylechan@gmail.com')->sole();
 
-        $this->assertNotNull(Organization::query()->firstOrFail()->setup_completed_at);
-        $this->assertSame(1, User::query()->firstOrFail()->current_event_id);
+        $this->assertSame($event->id, $organization->active_event_id);
+        $this->assertNotNull($organization->setup_completed_at);
+        $this->assertSame($event->id, $user->current_event_id);
 
         $this->assertDatabaseCount('events', 1);
         $this->assertDatabaseCount('locations', 3);
@@ -53,12 +55,25 @@ class DatabaseSeederTest extends TestCase
         $this->assertDatabaseCount('vendor_engagement_people', 3);
         $this->assertSame(0, Person::query()->whereNull('email')->count());
 
+        $artistEngagement = Artist::query()
+            ->where('name', 'River Hollow')
+            ->sole()
+            ->engagements()
+            ->whereBelongsTo($event)
+            ->sole();
+        $vendorEngagement = Vendor::query()
+            ->where('name', 'Cedar Craft Co')
+            ->sole()
+            ->engagements()
+            ->whereBelongsTo($event)
+            ->sole();
+
         $this->assertDatabaseHas('pass_assignments', [
-            'artist_engagement_id' => 1,
+            'artist_engagement_id' => $artistEngagement->id,
             'person_id' => Person::query()->where('email', 'maya@example.com')->sole()->id,
         ]);
         $this->assertDatabaseHas('pass_assignments', [
-            'vendor_engagement_id' => 1,
+            'vendor_engagement_id' => $vendorEngagement->id,
             'person_id' => Person::query()->where('email', 'priya@example.com')->sole()->id,
         ]);
     }
