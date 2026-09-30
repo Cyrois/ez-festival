@@ -9,6 +9,11 @@ const lang = JSON.parse(read('lang/en.json'));
 const listPage = read('resources/js/pages/Settings/Team.vue');
 const addPage = read('resources/js/pages/Settings/Team/Create.vue');
 const personPage = read('resources/js/pages/Settings/Team/Show.vue');
+const invitationPage = read(
+    'resources/js/pages/Auth/SetInvitedPassword.vue',
+);
+const http = read('resources/js/lib/http.js');
+const appBlade = read('resources/views/app.blade.php');
 const memberPage = read('resources/js/pages/Team/Member.vue');
 const settingsLayout = read('resources/js/layouts/SettingsLayout.vue');
 const eventEditShell = read(
@@ -47,6 +52,36 @@ test('Global Team person page saves login access with the main form', () => {
     assert.match(personPage, /v-model="form\.can_log_in"/);
     assert.match(personPage, /person\.login_disable_reason/);
     assert.doesNotMatch(memberPage, /can_log_in|settings\.team\.login/);
+});
+
+test('Global Team login tools follow the saved switch state', () => {
+    assert.match(
+        personPage,
+        /props\.person\.can_log_in && form\.can_log_in/,
+    );
+    assert.match(personPage, /inviteWillBeSent/);
+    assert.match(personPage, /person\.has_set_password/);
+    assert.match(personPage, /temporary-password/);
+    assert.match(personPage, /navigator\.clipboard\.writeText/);
+    assert.match(personPage, /inviteCancelledLocally\.value = true/);
+});
+
+test('temporary password requests use the refreshed XSRF cookie', () => {
+    assert.match(personPage, /'X-XSRF-TOKEN': xsrfToken\(\)/);
+    assert.match(http, /document\.cookie/);
+    assert.match(http, /XSRF-TOKEN=/);
+    assert.doesNotMatch(personPage, /meta\[name="csrf-token"\]/);
+    assert.doesNotMatch(appBlade, /name="csrf-token"/);
+});
+
+test('signed-in invitation visitors get a sign-out state', () => {
+    assert.match(invitationPage, /v-if="authenticated"/);
+    assert.match(invitationPage, /auth\.invitation\.signed_in_title/);
+    assert.match(invitationPage, /signOutForm\.post\('\/logout'\)/);
+});
+
+test('temporary passwords are never included in the normal person page props', () => {
+    assert.doesNotMatch(personPage, /props\.person\.temporary_password/);
 });
 
 test('Global Team list renders the Login column from server data', () => {

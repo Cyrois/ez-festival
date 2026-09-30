@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Settings;
 
+use App\Mail\TeamInvitationMail;
 use App\Models\Event;
 use App\Models\Person;
 use App\Models\Role;
@@ -206,11 +207,12 @@ class TeamControllerTest extends TestCase
             TeamEngagement::query()->pluck('status')->unique()->values()->all(),
         );
         $this->assertTrue($person->can_log_in);
-        Mail::assertNothingSent();
+        Mail::assertSent(TeamInvitationMail::class, 1);
     }
 
     public function test_add_person_can_disable_login(): void
     {
+        Mail::fake();
         [$user, $event] = $this->userWithCompletedSetup();
         $role = Role::query()->create(['name' => 'Staff']);
 
@@ -224,10 +226,12 @@ class TeamControllerTest extends TestCase
         ])->assertSessionHasNoErrors();
 
         $this->assertFalse(Person::query()->where('email', 'no-login@example.test')->sole()->can_log_in);
+        Mail::assertNothingSent();
     }
 
     public function test_add_person_refuses_a_person_who_is_already_on_global_team_through_login_access(): void
     {
+        Mail::fake();
         [$user, $event] = $this->userWithCompletedSetup();
         $role = Role::query()->create(['name' => 'Staff']);
         $knownUser = User::factory()->create();
@@ -246,6 +250,7 @@ class TeamControllerTest extends TestCase
 
         $this->assertTrue($knownUser->person->fresh()->can_log_in);
         $this->assertFalse($knownUser->person->teamEngagements()->exists());
+        Mail::assertNothingSent();
     }
 
     public function test_add_person_cannot_turn_off_their_own_login_by_reusing_their_email(): void

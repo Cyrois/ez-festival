@@ -34,6 +34,10 @@ class AuthenticatedSessionController extends Controller
         /** @var User $user */
         $user = $request->user();
 
+        if ($user->must_change_password) {
+            return redirect()->route('password.temporary.edit');
+        }
+
         return redirect()->intended(PostLoginRedirect::for($user));
     }
 

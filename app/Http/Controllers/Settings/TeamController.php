@@ -14,6 +14,7 @@ use App\Models\Person;
 use App\Models\Role;
 use App\Repositories\GlobalTeamRepository;
 use App\Services\GlobalTeamService;
+use App\Services\LoginInvitationService;
 use App\Services\PersonService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,6 +26,7 @@ class TeamController extends Controller
     public function __construct(
         private readonly GlobalTeamRepository $team,
         private readonly GlobalTeamService $teamService,
+        private readonly LoginInvitationService $invitations,
         private readonly PersonService $people,
     ) {}
 
@@ -62,7 +64,14 @@ class TeamController extends Controller
 
     public function store(StoreGlobalTeamPersonRequest $request): RedirectResponse
     {
-        $person = $this->teamService->create($request->validated());
+        $result = $this->teamService->create($request->validated(), $request->user());
+        $person = $result['person'];
+
+        if ($result['invite_sent'] === false) {
+            return redirect()->route('settings.team.show', $person)
+                ->with('warning', __('settings.team.toast.invite_failed'))
+                ->with('warning_title', __('toast.warning_title'));
+        }
 
         return redirect()->route('settings.team.show', $person)
             ->with('success', __('settings.team.toast.created'))
@@ -82,6 +91,8 @@ class TeamController extends Controller
                 'phone' => $person->phone,
                 'can_log_in' => $person->can_log_in,
                 'login_disable_reason' => $this->teamService->loginLockReason($request->user(), $person),
+                'has_set_password' => $this->invitations->hasEverSetPassword($person),
+                'can_resend_invite' => $this->invitations->canResend($person),
             ],
             'events' => collect($this->eventOptions())->map(function (array $event) use ($engagements): array {
                 $engagement = $engagements->get($event['id']);
@@ -100,7 +111,13 @@ class TeamController extends Controller
 
     public function update(UpdateGlobalTeamPersonRequest $request, Person $person): RedirectResponse
     {
-        $this->teamService->update($person, $request->validated());
+        $inviteSent = $this->teamService->update($person, $request->validated(), $request->user());
+
+        if ($inviteSent === false) {
+            return redirect()->route('settings.team.show', $person)
+                ->with('warning', __('settings.team.toast.invite_failed'))
+                ->with('warning_title', __('toast.warning_title'));
+        }
 
         if (! $this->onGlobalTeam($person)) {
             return redirect()->route('settings.team')

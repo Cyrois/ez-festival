@@ -8,7 +8,7 @@ import { useFlashToast } from './useFlashToast';
  */
 export function useInertiaErrorToast() {
     const page = usePage();
-    const { showError, showSuccess } = useFlashToast();
+    const { showError, showSuccess, showWarning } = useFlashToast();
 
     watch(
         () => page.props.flash?.error,
@@ -30,6 +30,16 @@ export function useInertiaErrorToast() {
         { immediate: true },
     );
 
+    watch(
+        () => page.props.flash?.warning,
+        (warning) => {
+            if (warning) {
+                showWarning(warning, page.props.flash?.warning_title || '');
+            }
+        },
+        { immediate: true },
+    );
+
     const removeInvalidListener = router.on('invalid', (event) => {
         event.preventDefault();
         showError(trans('errors.generic'));
@@ -39,5 +49,5 @@ export function useInertiaErrorToast() {
         removeInvalidListener();
     });
 
-    return { showError, showSuccess };
+    return { showError, showSuccess, showWarning };
 }

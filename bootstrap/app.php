@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureFeatureEnabled;
 use App\Http\Middleware\EnsureOrganization;
 use App\Http\Middleware\EnsureSetupComplete;
+use App\Http\Middleware\EnsureTemporaryPasswordChanged;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\PreventLockedEventWrites;
 use App\Support\PostLoginRedirect;
@@ -29,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'setup.complete' => EnsureSetupComplete::class,
             'event.writable' => PreventLockedEventWrites::class,
             'feature' => EnsureFeatureEnabled::class,
+            'password.changed' => EnsureTemporaryPasswordChanged::class,
         ]);
 
         $middleware->redirectGuestsTo(fn () => route('login'));

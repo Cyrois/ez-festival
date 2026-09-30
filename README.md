@@ -24,6 +24,13 @@ php artisan migrate
 php artisan serve
 ```
 
+Start Mailpit to catch outgoing email locally, then open
+[http://localhost:8025](http://localhost:8025) to view the inbox:
+
+```bash
+docker compose up -d mailpit
+```
+
 To create the local test account after rebuilding the database, run:
 
 ```bash
