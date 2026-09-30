@@ -4,6 +4,7 @@ import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { FormField } from '../ui/form-field';
 import { Icon } from '../ui/icon';
+import { IconButton } from '../ui/icon-button';
 import { Textarea } from '../ui/textarea';
 import { teamNoteEditState } from '../../lib/teamNoteEditWindow';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
@@ -306,6 +307,13 @@ onUnmounted(() => window.clearInterval(clock));
                         <span v-if="note.edited_at">
                             {{ $t('team.member.notes.edited') }}
                         </span>
+                        <IconButton
+                            v-if="canEdit(note)"
+                            :icon="['fas', 'pen']"
+                            :label="$t('team.member.notes.edit')"
+                            tone="edit"
+                            @click="openEdit(note)"
+                        />
                     </div>
                 </div>
 
@@ -345,34 +353,19 @@ onUnmounted(() => window.clearInterval(clock));
                         <p class="m-0 text-sm whitespace-pre-wrap">
                             {{ note.body }}
                         </p>
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
+                        <IconButton
+                            :icon="['fas', 'xmark']"
+                            :label="$t('team.member.notes.remove')"
+                            tone="delete"
                             class="shrink-0"
                             @click="removeNewNote(note.client_id)"
-                        >
-                            {{ $t('team.member.notes.remove') }}
-                        </Button>
+                        />
                     </div>
                 </template>
                 <template v-else>
                     <p class="mt-1 mb-0 text-sm whitespace-pre-wrap">
                         {{ noteBody(note) }}
                     </p>
-                    <div
-                        v-if="canEdit(note)"
-                        class="mt-2 flex justify-end"
-                    >
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            @click="openEdit(note)"
-                        >
-                            {{ $t('team.member.notes.edit') }}
-                        </Button>
-                    </div>
                     <p
                         v-if="!note.pending && editsById.has(note.id)"
                         class="mt-2 mb-0 text-xs font-semibold text-warning"
