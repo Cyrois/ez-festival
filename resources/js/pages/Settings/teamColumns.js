@@ -21,7 +21,7 @@ export const teamColumns = (trans) => [
         title: trans('settings.team.columns.login'),
     },
     {
-        data: 'events',
+        data: null,
         name: 'events',
         orderable: false,
         render: { display: '#eventsCell' },

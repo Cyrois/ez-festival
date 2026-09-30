@@ -13,7 +13,7 @@ class UpdateGlobalTeamPersonRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Gate::allows('manage-team');
+        return Gate::allows('manage-global-team');
     }
 
     protected function prepareForValidation(): void
@@ -27,6 +27,7 @@ class UpdateGlobalTeamPersonRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'can_log_in' => ['required', 'boolean'],
+            'is_admin' => ['sometimes', 'boolean'],
             'event_access' => ['required', 'array'],
             'event_access.*.event_id' => ['required', 'integer', 'distinct', Rule::exists('events', 'id')],
             'event_access.*.role_id' => ['nullable', 'integer', Rule::exists('roles', 'id')],
@@ -48,6 +49,8 @@ class UpdateGlobalTeamPersonRequest extends FormRequest
                 $validator->errors()->add('event_access', __('settings.team.validation.all_events_required'));
             }
 
+            $this->validateAdminChange($validator);
+
             if ($this->boolean('can_log_in')) {
                 return;
             }
@@ -61,5 +64,31 @@ class UpdateGlobalTeamPersonRequest extends FormRequest
                 $validator->errors()->add('can_log_in', $reason);
             }
         }];
+    }
+
+    private function validateAdminChange(Validator $validator): void
+    {
+        if (! $this->has('is_admin')) {
+            return;
+        }
+
+        $person = $this->route('person');
+        $target = $person->user()->first();
+        $current = (bool) $target?->is_admin;
+
+        if ($this->boolean('is_admin') === $current) {
+            return;
+        }
+
+        $error = app(GlobalTeamService::class)->adminChangeError(
+            $this->user(),
+            $target,
+            $this->boolean('is_admin'),
+            $this->boolean('can_log_in'),
+        );
+
+        if ($error !== null) {
+            $validator->errors()->add('is_admin', $error);
+        }
     }
 }

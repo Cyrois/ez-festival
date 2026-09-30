@@ -79,7 +79,7 @@ test('Roles sits in Global Settings and not in Event Settings', () => {
 
     assert.match(
         organizationItems,
-        /key: 'team'[^\n]*\n\s*\{ key: 'roles', href: '\/settings\/roles'/,
+        /key: 'team'[\s\S]*?key: 'roles', href: '\/settings\/roles'/,
     );
     assert.doesNotMatch(eventNavItems, /roles/);
     assert.doesNotMatch(settingsLayout, /events\\\/\\d\+\\\/roles/);

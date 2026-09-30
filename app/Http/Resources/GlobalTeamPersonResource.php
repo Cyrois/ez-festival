@@ -15,6 +15,7 @@ class GlobalTeamPersonResource extends JsonResource
             'email' => $this->email,
             'phone' => $this->phone,
             'can_log_in' => $this->can_log_in,
+            'is_admin' => $this->relationLoaded('user') && (bool) $this->user?->is_admin,
             'events' => $this->whenLoaded('teamEngagements', fn () => $this->teamEngagements->map(fn ($engagement): array => [
                 'event_id' => $engagement->event_id,
                 'event_name' => $engagement->event->name,

@@ -509,6 +509,7 @@ class TeamPassAssignmentsTest extends TestCase
         $organization->setDefaultEvent($event);
         $organization->markSetupComplete();
         $user->setCurrentEvent($event);
+        $this->grantAdminAccess($user);
 
         return [$user, $event, $this->engagement($event, 'Hired Member')];
     }

@@ -87,7 +87,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::get('ui', UiKitController::class)->name('ui');
     }
 
-    Route::middleware(['organization', 'setup.complete'])->group(function () {
+    Route::middleware(['organization', 'setup.complete', 'login.access', 'event.access'])->group(function () {
         Route::get('dashboard', DashboardController::class)->name('dashboard');
 
         Route::get('check-in', [ArtistCheckInController::class, 'index'])->name('check-in.index');
@@ -238,17 +238,19 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::put('vendor-types/{vendorType}', [SettingsVendorTypeController::class, 'update'])->name('vendor-types.update');
             Route::delete('vendor-types/{vendorType}', [SettingsVendorTypeController::class, 'destroy'])->name('vendor-types.destroy');
             Route::post('vendor-types/reorder', [SettingsVendorTypeController::class, 'reorder'])->name('vendor-types.reorder');
-            Route::get('team', [TeamController::class, 'index'])->name('team');
-            Route::get('team/data', [TeamController::class, 'dataTable'])->name('team.data');
-            Route::get('team/create', [TeamController::class, 'create'])->name('team.create');
-            Route::get('team/email-lookup', [TeamController::class, 'lookup'])->name('team.lookup');
-            Route::post('team', [TeamController::class, 'store'])->name('team.store');
-            Route::get('team/{person}', [TeamController::class, 'show'])->name('team.show');
-            Route::put('team/{person}', [TeamController::class, 'update'])->name('team.update');
-            Route::post('team/{person}/invite', [TeamInviteController::class, 'store'])
-                ->name('team.invite.store');
-            Route::post('team/{person}/temporary-password', [TemporaryPasswordController::class, 'store'])
-                ->name('team.temporary-password.store');
+            Route::middleware('can:manage-global-team')->group(function () {
+                Route::get('team', [TeamController::class, 'index'])->name('team');
+                Route::get('team/data', [TeamController::class, 'dataTable'])->name('team.data');
+                Route::get('team/create', [TeamController::class, 'create'])->name('team.create');
+                Route::get('team/email-lookup', [TeamController::class, 'lookup'])->name('team.lookup');
+                Route::post('team', [TeamController::class, 'store'])->name('team.store');
+                Route::get('team/{person}', [TeamController::class, 'show'])->name('team.show');
+                Route::put('team/{person}', [TeamController::class, 'update'])->name('team.update');
+                Route::post('team/{person}/invite', [TeamInviteController::class, 'store'])
+                    ->name('team.invite.store');
+                Route::post('team/{person}/temporary-password', [TemporaryPasswordController::class, 'store'])
+                    ->name('team.temporary-password.store');
+            });
             Route::get('account', [AccountController::class, 'index'])->name('account');
             Route::put('account', [AccountController::class, 'update'])->name('account.update');
             Route::put('account/password', [AccountController::class, 'updatePassword'])->name('account.password.update');
@@ -273,7 +275,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         });
     });
 
-    Route::middleware('organization')->prefix('setup')->name('setup.')->group(function () {
+    Route::middleware(['organization', 'login.access'])->prefix('setup')->name('setup.')->group(function () {
         // Event-scoped writes: blocked when active event is locked or non-active context.
         Route::middleware('event.writable')->group(function () {
             Route::get('event', [SetupEventController::class, 'show'])->name('event');

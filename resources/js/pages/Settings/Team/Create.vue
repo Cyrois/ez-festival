@@ -109,20 +109,7 @@ const submit = () => {
         :title="$t('settings.team.add.title')"
         :breadcrumbs="breadcrumbs"
     >
-        <div class="container mx-auto max-w-5xl pb-24">
-            <Button
-                href="/settings/team"
-                variant="ghost"
-                size="sm"
-                class="mb-3 px-2.5"
-            >
-                <Icon
-                    :name="['fas', 'arrow-left']"
-                    size="sm"
-                />
-                {{ $t('settings.team.back') }}
-            </Button>
-
+        <div class="container mx-auto pb-24">
             <header class="mb-5">
                 <h1 class="m-0 text-2xl font-bold tracking-tight">
                     {{ $t('settings.team.add.title') }}
@@ -137,72 +124,90 @@ const submit = () => {
                 class="space-y-4"
                 @submit.prevent="submit"
             >
-                <Card>
-                    <h2 class="m-0 mb-4 text-lg font-bold text-muted">
-                        {{ $t('settings.team.details') }}
-                    </h2>
-                    <div class="grid gap-4 sm:grid-cols-2">
-                        <FormField
-                            v-slot="{ id, invalid }"
-                            :label="$t('settings.team.fields.name')"
-                            :error="form.errors.name"
-                            required
-                        >
-                            <Input
-                                :id="id"
-                                v-model="form.name"
-                                :invalid="invalid"
-                                maxlength="255"
+                <div class="grid gap-4 lg:grid-cols-2">
+                    <Card>
+                        <h2 class="m-0 mb-4 text-lg font-bold text-muted">
+                            {{ $t('settings.team.details') }}
+                        </h2>
+                        <div class="grid gap-4">
+                            <FormField
+                                v-slot="{ id, invalid }"
+                                :label="$t('settings.team.fields.name')"
+                                :error="form.errors.name"
                                 required
-                            />
-                        </FormField>
-                        <FormField
-                            v-slot="{ id, invalid }"
-                            :label="$t('settings.team.fields.email')"
-                            :error="form.errors.email"
-                            required
-                        >
-                            <Input
-                                :id="id"
-                                v-model="form.email"
-                                type="email"
-                                :invalid="invalid"
-                                maxlength="255"
-                                required
-                            />
-                            <p
-                                v-if="lookup?.exists && !lookup.on_global_team"
-                                class="mt-1.5 mb-0 text-xs text-warning"
-                                role="alert"
                             >
-                                {{
-                                    $t('settings.team.add.existing_contact', {
-                                        name: lookup.person.name,
-                                    })
-                                }}
-                                <Link
-                                    :href="`/settings/team/${lookup.person.id}`"
-                                    class="font-semibold text-secondary underline underline-offset-2"
+                                <Input
+                                    :id="id"
+                                    v-model="form.name"
+                                    :invalid="invalid"
+                                    maxlength="255"
+                                    required
+                                />
+                            </FormField>
+                            <FormField
+                                v-slot="{ id, invalid }"
+                                :label="$t('settings.team.fields.email')"
+                                :error="form.errors.email"
+                                required
+                            >
+                                <Input
+                                    :id="id"
+                                    v-model="form.email"
+                                    type="email"
+                                    :invalid="invalid"
+                                    maxlength="255"
+                                    required
+                                />
+                                <p
+                                    v-if="
+                                        lookup?.exists && !lookup.on_global_team
+                                    "
+                                    class="mt-1.5 mb-0 text-xs text-warning"
+                                    role="alert"
                                 >
-                                    {{ $t('settings.team.add.open_existing') }}
-                                </Link>
-                            </p>
-                        </FormField>
-                        <FormField
-                            v-slot="{ id, invalid }"
-                            :label="$t('settings.team.fields.phone')"
-                            :error="form.errors.phone"
-                        >
-                            <Input
-                                :id="id"
-                                v-model="form.phone"
-                                type="tel"
-                                :invalid="invalid"
-                                maxlength="50"
-                            />
-                        </FormField>
-                    </div>
-                    <div class="mt-5 border-t border-line pt-5">
+                                    {{
+                                        $t(
+                                            'settings.team.add.existing_contact',
+                                            {
+                                                name: lookup.person.name,
+                                            },
+                                        )
+                                    }}
+                                    <Link
+                                        :href="`/settings/team/${lookup.person.id}`"
+                                        class="font-semibold text-secondary underline underline-offset-2"
+                                    >
+                                        {{
+                                            $t(
+                                                'settings.team.add.open_existing',
+                                            )
+                                        }}
+                                    </Link>
+                                </p>
+                            </FormField>
+                            <FormField
+                                v-slot="{ id, invalid }"
+                                :label="$t('settings.team.fields.phone')"
+                                :error="form.errors.phone"
+                            >
+                                <Input
+                                    :id="id"
+                                    v-model="form.phone"
+                                    type="tel"
+                                    :invalid="invalid"
+                                    maxlength="50"
+                                />
+                            </FormField>
+                        </div>
+                    </Card>
+
+                    <Card>
+                        <h2 class="m-0 text-lg font-bold text-muted">
+                            {{ $t('settings.team.security') }}
+                        </h2>
+                        <p class="mt-1 mb-4 text-xs text-muted">
+                            {{ $t('settings.team.security_add_hint') }}
+                        </p>
                         <Switch
                             v-model="form.can_log_in"
                             :disabled="form.processing"
@@ -212,8 +217,8 @@ const submit = () => {
                         <p class="mt-1.5 mb-0 text-xs text-muted">
                             {{ $t('settings.team.login.add_hint') }}
                         </p>
-                    </div>
-                </Card>
+                    </Card>
+                </div>
 
                 <Card>
                     <h2 class="m-0 text-lg font-bold text-muted">
@@ -286,9 +291,7 @@ const submit = () => {
                 class="fixed right-0 bottom-0 left-0 z-30 border-t border-line bg-ground/95 py-3 backdrop-blur lg:left-[var(--app-sidebar-width)]"
             >
                 <div class="container mx-auto px-4 md:px-6">
-                    <div
-                        class="mx-auto flex max-w-5xl items-center justify-between"
-                    >
+                    <div class="flex items-center justify-between">
                         <Button
                             href="/settings/team"
                             variant="cancel"

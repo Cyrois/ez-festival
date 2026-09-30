@@ -27,7 +27,7 @@ class LoginInvitationService
                 ]);
             }
 
-            $user = $this->loginFor($person);
+            $user = $this->ensureLogin($person);
             if ($user->has_set_password) {
                 throw ValidationException::withMessages([
                     'invite' => __('settings.team.login.invite_unavailable'),
@@ -124,7 +124,7 @@ class LoginInvitationService
             }
 
             $password = TeamPassword::temporary();
-            $user = $this->loginFor($person);
+            $user = $this->ensureLogin($person);
             $user->forceFill([
                 'password' => $password,
                 'must_change_password' => true,
@@ -135,7 +135,7 @@ class LoginInvitationService
         });
     }
 
-    private function loginFor(Person $person): User
+    public function ensureLogin(Person $person): User
     {
         $user = $person->user()->first();
 

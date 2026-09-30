@@ -165,10 +165,20 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                             {{ $t('settings.team.login.disabled') }}
                         </span>
                     </template>
-                    <template #eventsCell="{ cellData }">
-                        <div class="flex flex-wrap gap-1.5">
+                    <template #eventsCell="{ rowData }">
+                        <Badge
+                            v-if="rowData.is_admin"
+                            variant="orange"
+                            pill
+                        >
+                            {{ $t('settings.team.access.admin_badge') }}
+                        </Badge>
+                        <div
+                            v-else
+                            class="flex flex-wrap gap-1.5"
+                        >
                             <Badge
-                                v-for="access in cellData"
+                                v-for="access in rowData.events"
                                 :key="access.event_id"
                                 :variant="
                                     access.role_active ? 'primary' : 'neutral'

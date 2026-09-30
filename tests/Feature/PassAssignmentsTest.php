@@ -209,6 +209,7 @@ class PassAssignmentsTest extends TestCase
         $organization->setDefaultEvent($event);
         $organization->markSetupComplete();
         $user->setCurrentEvent($event);
+        $this->grantAdminAccess($user);
 
         $artist = Artist::query()->create(['name' => 'The Headliners']);
         $engagement = ArtistEngagement::query()->create(['artist_id' => $artist->id, 'event_id' => $event->id]);

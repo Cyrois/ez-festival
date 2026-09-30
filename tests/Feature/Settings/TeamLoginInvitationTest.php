@@ -388,11 +388,11 @@ class TeamLoginInvitationTest extends TestCase
             ->assertJsonValidationErrors('can_log_in');
     }
 
-    public function test_generate_and_resend_use_the_manage_team_permission(): void
+    public function test_generate_and_resend_use_the_manage_global_team_permission(): void
     {
         [$actor, $person, $event] = $this->teamPerson();
         $this->enableAndToken($actor, $person, $event);
-        Gate::define('manage-team', fn (): bool => false);
+        Gate::define('manage-global-team', fn (): bool => false);
 
         $this->actingAs($actor)
             ->postJson(route('settings.team.temporary-password.store', $person))
@@ -425,6 +425,7 @@ class TeamLoginInvitationTest extends TestCase
         app(OrganizationContext::class)->setDefaultEvent($event);
         app(OrganizationContext::class)->markSetupComplete();
         $actor->setCurrentEvent($event);
+        $this->grantAdminAccess($actor);
         $role = Role::query()->create(['name' => 'Staff']);
         $person = Person::query()->create([
             'name' => 'Morgan West',

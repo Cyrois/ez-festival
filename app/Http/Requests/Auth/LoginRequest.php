@@ -57,7 +57,7 @@ class LoginRequest extends FormRequest
             Auth::logout();
 
             throw ValidationException::withMessages([
-                'email' => __('auth.no_event_access'),
+                'access' => __('auth.no_event_access'),
             ]);
         }
     }

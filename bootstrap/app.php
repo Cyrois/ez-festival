@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Middleware\EnsureEventAccess;
 use App\Http\Middleware\EnsureFeatureEnabled;
+use App\Http\Middleware\EnsureLoginAccess;
 use App\Http\Middleware\EnsureOrganization;
 use App\Http\Middleware\EnsureSetupComplete;
 use App\Http\Middleware\EnsureTemporaryPasswordChanged;
@@ -27,6 +29,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'organization' => EnsureOrganization::class,
+            'login.access' => EnsureLoginAccess::class,
+            'event.access' => EnsureEventAccess::class,
             'setup.complete' => EnsureSetupComplete::class,
             'event.writable' => PreventLockedEventWrites::class,
             'feature' => EnsureFeatureEnabled::class,

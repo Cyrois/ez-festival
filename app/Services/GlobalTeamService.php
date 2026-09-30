@@ -27,9 +27,44 @@ class GlobalTeamService
             return __('settings.team.login.own_disabled');
         }
 
-        return $person->user()->where('is_admin', true)->exists()
-            ? __('settings.team.login.admin_disabled')
+        return null;
+    }
+
+    public function adminLockReason(User $actor, Person $person): ?string
+    {
+        $target = $person->user()->first();
+
+        if ($target === null || ! $target->is_admin) {
+            return null;
+        }
+
+        return (int) $actor->getKey() === (int) $target->getKey()
+            ? __('settings.team.admin.own_disabled')
             : null;
+    }
+
+    public function adminChangeError(
+        User $actor,
+        ?User $target,
+        bool $isAdmin,
+        ?bool $canLogIn = null,
+    ): ?string {
+        if (! $actor->isAdmin()) {
+            return __('settings.team.admin.unauthorized');
+        }
+
+        $loginEnabled = $canLogIn
+            ?? ($target !== null && $target->person()->where('can_log_in', true)->exists());
+
+        if ($isAdmin && (! $loginEnabled || ($target === null && $canLogIn !== true))) {
+            return __('settings.team.admin.login_required');
+        }
+
+        if (! $isAdmin && $target !== null && (int) $actor->getKey() === (int) $target->getKey()) {
+            return __('settings.team.admin.own_disabled');
+        }
+
+        return null;
     }
 
     /**
@@ -99,14 +134,39 @@ class GlobalTeamService
     /** @param array<string, mixed> $data */
     public function update(Person $person, array $data, User $actor): ?bool
     {
-        $loginChange = DB::transaction(function () use ($person, $data): ?string {
+        $loginChange = DB::transaction(function () use ($person, $data, $actor): ?string {
+            if (array_key_exists('is_admin', $data)) {
+                User::query()
+                    ->where('is_admin', true)
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->get(['id']);
+            }
+
             $person = Person::query()->lockForUpdate()->findOrFail($person->id);
+            $target = User::query()
+                ->where('person_id', $person->id)
+                ->lockForUpdate()
+                ->first();
+            $wasAdmin = (bool) $target?->is_admin;
+            $willBeAdmin = array_key_exists('is_admin', $data)
+                ? (bool) $data['is_admin']
+                : $wasAdmin;
+
             $wasEnabled = $person->can_log_in;
             $person->update([
                 'name' => $data['name'],
                 'phone' => $this->normalizePhone($data['phone'] ?? null),
                 'can_log_in' => $data['can_log_in'],
             ]);
+
+            if ($willBeAdmin && $target === null) {
+                $target = $this->invitations->ensureLogin($person);
+            }
+
+            if ($willBeAdmin !== $wasAdmin) {
+                $this->changeAdminAccess($actor, $target, $willBeAdmin);
+            }
 
             foreach ($data['event_access'] as $index => $access) {
                 $event = Event::query()->lockForUpdate()->findOrFail($access['event_id']);
@@ -117,6 +177,12 @@ class GlobalTeamService
                     ->first();
                 $currentRoleId = $engagement?->role_id;
                 $roleId = $access['role_id'] ?? null;
+
+                if ($wasAdmin && $willBeAdmin && (int) $currentRoleId !== (int) $roleId) {
+                    throw ValidationException::withMessages([
+                        "event_access.{$index}.role_id" => __('settings.team.admin.event_access_locked'),
+                    ]);
+                }
 
                 if ($event->isLocked() && (int) $currentRoleId !== (int) $roleId) {
                     throw ValidationException::withMessages([
@@ -182,6 +248,34 @@ class GlobalTeamService
         }
 
         return null;
+    }
+
+    private function changeAdminAccess(User $actor, ?User $target, bool $isAdmin): void
+    {
+        $error = $this->adminChangeError($actor, $target, $isAdmin);
+
+        if ($error !== null) {
+            throw ValidationException::withMessages([
+                'is_admin' => $error,
+            ]);
+        }
+
+        /** @var User $target */
+        if (! $isAdmin) {
+            $admins = User::query()
+                ->where('is_admin', true)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get(['id']);
+
+            if ($admins->count() <= 1) {
+                throw ValidationException::withMessages([
+                    'is_admin' => __('settings.team.admin.last_required'),
+                ]);
+            }
+        }
+
+        $target->forceFill(['is_admin' => $isAdmin])->save();
     }
 
     private function normalizePhone(mixed $phone): ?string

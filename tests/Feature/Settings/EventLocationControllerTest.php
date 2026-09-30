@@ -90,6 +90,7 @@ class EventLocationControllerTest extends TestCase
         $organization->setDefaultEvent($event);
         $organization->markSetupComplete();
         $user->setCurrentEvent($event);
+        $this->grantAdminAccess($user);
 
         return [$user, $event];
     }

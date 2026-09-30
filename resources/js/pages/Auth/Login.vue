@@ -6,7 +6,6 @@ const form = useForm({
     password: '',
     remember: false,
 });
-
 const submit = () => {
     form.post('/login', {
         onFinish: () => form.reset('password'),
@@ -42,6 +41,13 @@ const submit = () => {
                 </p>
 
                 <form @submit.prevent="submit">
+                    <div
+                        v-if="form.errors.access"
+                        class="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2.5 text-sm leading-snug text-charcoal"
+                        role="alert"
+                    >
+                        {{ form.errors.access }}
+                    </div>
                     <div class="mb-4">
                         <label
                             class="mb-1.5 block text-[13px] font-bold text-charcoal"

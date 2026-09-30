@@ -80,8 +80,9 @@ class TeamController extends Controller
 
     public function show(Request $request, Person $person): Response
     {
-        $person->load(['teamEngagements.role']);
+        $person->load(['teamEngagements.role', 'user']);
         $engagements = $person->teamEngagements->keyBy('event_id');
+        $target = $person->user;
 
         return Inertia::render('Settings/Team/Show', [
             'person' => [
@@ -91,9 +92,13 @@ class TeamController extends Controller
                 'phone' => $person->phone,
                 'can_log_in' => $person->can_log_in,
                 'login_disable_reason' => $this->teamService->loginLockReason($request->user(), $person),
+                'has_login' => $target !== null,
+                'is_admin' => (bool) $target?->is_admin,
+                'admin_disable_reason' => $this->teamService->adminLockReason($request->user(), $person),
                 'has_set_password' => $this->invitations->hasEverSetPassword($person),
                 'can_resend_invite' => $this->invitations->canResend($person),
             ],
+            'viewerCanManageAdmin' => $request->user()->isAdmin(),
             'events' => collect($this->eventOptions())->map(function (array $event) use ($engagements): array {
                 $engagement = $engagements->get($event['id']);
 

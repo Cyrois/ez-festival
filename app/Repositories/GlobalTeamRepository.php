@@ -35,10 +35,13 @@ class GlobalTeamRepository
 
         return [
             'people' => $filteredQuery
-                ->with(['teamEngagements' => fn ($query) => $query
-                    ->whereNotNull('role_id')
-                    ->with(['event', 'role'])
-                    ->orderBy('event_id')])
+                ->with([
+                    'user',
+                    'teamEngagements' => fn ($query) => $query
+                        ->whereNotNull('role_id')
+                        ->with(['event', 'role'])
+                        ->orderBy('event_id'),
+                ])
                 ->orderBy($orderBy, $direction)
                 ->orderBy('id')
                 ->offset($start)
