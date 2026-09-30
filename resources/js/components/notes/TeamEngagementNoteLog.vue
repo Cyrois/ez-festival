@@ -292,15 +292,8 @@ onUnmounted(() => window.clearInterval(clock));
                             {{ $t('team.member.notes.pending') }}
                         </span>
                     </div>
-                    <Badge
-                        v-if="note.pending"
-                        pill
-                        variant="primary"
-                    >
-                        {{ $t('team.member.notes.new') }}
-                    </Badge>
                     <div
-                        v-else
+                        v-if="!note.pending"
                         class="flex items-center gap-2 text-muted"
                     >
                         <span>{{ formatNoteTime(note.created_at) }}</span>
