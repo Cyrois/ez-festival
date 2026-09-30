@@ -45,6 +45,8 @@ class OrganizationDatabaseArchitectureTest extends TestCase
         $selected = $this->event('Selected festival');
         $first = User::factory()->create();
         $second = User::factory()->create();
+        $this->grantAdminAccess($first);
+        $this->grantAdminAccess($second);
         $organization = app(OrganizationContext::class);
         $organization->setDefaultEvent($default);
 
@@ -64,6 +66,7 @@ class OrganizationDatabaseArchitectureTest extends TestCase
         $default = $this->event('Default festival');
         $selected = $this->event('Selected festival');
         $user = User::factory()->create();
+        $this->grantAdminAccess($user);
         app(OrganizationContext::class)->setDefaultEvent($default);
         $user->setCurrentEvent($selected);
 
@@ -89,6 +92,7 @@ class OrganizationDatabaseArchitectureTest extends TestCase
     public function test_setup_uses_configured_organization_name_and_persists_organization_wide_state(): void
     {
         $user = User::factory()->create();
+        $this->grantAdminAccess($user);
         app(OrganizationContext::class)->organization()->update(['name' => 'Coastal Folk Festival']);
 
         $this->actingAs($user)->get(route('setup.event'))->assertInertia(fn (Assert $page) => $page
@@ -124,6 +128,7 @@ class OrganizationDatabaseArchitectureTest extends TestCase
         $this->assertNotNull(Organization::query()->sole()->setup_completed_at);
 
         $otherUser = User::factory()->create();
+        $this->grantAdminAccess($otherUser);
         $this->actingAs($otherUser)->get(route('dashboard'))->assertOk();
         $this->assertTrue($otherUser->organizations()->exists());
     }

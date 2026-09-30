@@ -32,6 +32,19 @@ class GlobalTeamService
             : null;
     }
 
+    public function adminLockReason(User $actor, Person $person): ?string
+    {
+        $target = $person->user()->first();
+
+        if ($target === null || ! $target->is_admin) {
+            return null;
+        }
+
+        return (int) $actor->getKey() === (int) $target->getKey()
+            ? __('settings.team.admin.own_disabled')
+            : null;
+    }
+
     /**
      * @param  array<string, mixed>  $data
      * @return array{person: Person, invite_sent: ?bool}
@@ -99,8 +112,29 @@ class GlobalTeamService
     /** @param array<string, mixed> $data */
     public function update(Person $person, array $data, User $actor): ?bool
     {
-        $loginChange = DB::transaction(function () use ($person, $data): ?string {
+        $loginChange = DB::transaction(function () use ($person, $data, $actor): ?string {
+            if (array_key_exists('is_admin', $data)) {
+                User::query()
+                    ->where('is_admin', true)
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->get(['id']);
+            }
+
             $person = Person::query()->lockForUpdate()->findOrFail($person->id);
+            $target = User::query()
+                ->where('person_id', $person->id)
+                ->lockForUpdate()
+                ->first();
+            $wasAdmin = (bool) $target?->is_admin;
+            $willBeAdmin = array_key_exists('is_admin', $data)
+                ? (bool) $data['is_admin']
+                : $wasAdmin;
+
+            if ($willBeAdmin !== $wasAdmin) {
+                $this->changeAdminAccess($actor, $target, $willBeAdmin);
+            }
+
             $wasEnabled = $person->can_log_in;
             $person->update([
                 'name' => $data['name'],
@@ -117,6 +151,12 @@ class GlobalTeamService
                     ->first();
                 $currentRoleId = $engagement?->role_id;
                 $roleId = $access['role_id'] ?? null;
+
+                if ($wasAdmin && (int) $currentRoleId !== (int) $roleId) {
+                    throw ValidationException::withMessages([
+                        "event_access.{$index}.role_id" => __('settings.team.admin.event_access_locked'),
+                    ]);
+                }
 
                 if ($event->isLocked() && (int) $currentRoleId !== (int) $roleId) {
                     throw ValidationException::withMessages([
@@ -182,6 +222,43 @@ class GlobalTeamService
         }
 
         return null;
+    }
+
+    private function changeAdminAccess(User $actor, ?User $target, bool $isAdmin): void
+    {
+        if (! $actor->isAdmin()) {
+            throw ValidationException::withMessages([
+                'is_admin' => __('settings.team.admin.unauthorized'),
+            ]);
+        }
+
+        if ($target === null) {
+            throw ValidationException::withMessages([
+                'is_admin' => __('settings.team.admin.login_required'),
+            ]);
+        }
+
+        if (! $isAdmin && (int) $actor->getKey() === (int) $target->getKey()) {
+            throw ValidationException::withMessages([
+                'is_admin' => __('settings.team.admin.own_disabled'),
+            ]);
+        }
+
+        if (! $isAdmin) {
+            $admins = User::query()
+                ->where('is_admin', true)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get(['id']);
+
+            if ($admins->count() <= 1) {
+                throw ValidationException::withMessages([
+                    'is_admin' => __('settings.team.admin.last_required'),
+                ]);
+            }
+        }
+
+        $target->forceFill(['is_admin' => $isAdmin])->save();
     }
 
     private function normalizePhone(mixed $phone): ?string

@@ -425,6 +425,7 @@ class TeamLoginInvitationTest extends TestCase
         app(OrganizationContext::class)->setDefaultEvent($event);
         app(OrganizationContext::class)->markSetupComplete();
         $actor->setCurrentEvent($event);
+        $this->grantAdminAccess($actor);
         $role = Role::query()->create(['name' => 'Staff']);
         $person = Person::query()->create([
             'name' => 'Morgan West',

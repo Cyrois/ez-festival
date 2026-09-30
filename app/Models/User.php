@@ -7,6 +7,7 @@ use App\Support\OrganizationContext;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -119,17 +120,93 @@ class User extends Authenticatable
 
     public function effectiveEvent(): ?Event
     {
-        return $this->currentEvent()->first() ?? app(OrganizationContext::class)->defaultEvent();
+        $currentEventId = self::query()->whereKey($this->getKey())->value('current_event_id');
+
+        if ($currentEventId !== null) {
+            $current = $this->accessibleEvents()->whereKey($currentEventId)->first();
+
+            if ($current !== null) {
+                return $current;
+            }
+        }
+
+        $defaultEventId = app(OrganizationContext::class)->defaultEvent()?->getKey();
+
+        if ($defaultEventId !== null) {
+            $default = $this->accessibleEvents()->whereKey($defaultEventId)->first();
+
+            if ($default !== null) {
+                return $default;
+            }
+        }
+
+        return $this->accessibleEvents()
+            ->orderByDesc('starts_on')
+            ->orderByDesc('id')
+            ->first();
     }
 
     public function canSignIn(): bool
     {
-        return $this->is_admin
-            || ($this->person?->teamEngagements()->whereNotNull('role_id')->exists() ?? false);
+        $access = $this->accessIdentity();
+
+        if ($access === null || ! (bool) $access->can_log_in) {
+            return false;
+        }
+
+        return (bool) $access->is_admin
+            || TeamEngagement::query()
+                ->where('person_id', $access->access_person_id)
+                ->whereHas('role', fn (Builder $query) => $query->where('active', true))
+                ->exists();
+    }
+
+    public function isAdmin(): bool
+    {
+        return (bool) (self::query()->whereKey($this->getKey())->value('is_admin') ?? false);
+    }
+
+    public function canAccessEvent(Event|int $event): bool
+    {
+        return $this->accessibleEvents()->whereKey($event instanceof Event ? $event->getKey() : $event)->exists();
+    }
+
+    /** @return Builder<Event> */
+    public function accessibleEvents(): Builder
+    {
+        $events = Event::query();
+        $access = $this->accessIdentity();
+
+        if ($access === null || ! (bool) $access->can_log_in) {
+            return $events->whereRaw('1 = 0');
+        }
+
+        if ((bool) $access->is_admin) {
+            return $events;
+        }
+
+        return $events->whereHas(
+            'teamEngagements',
+            fn (Builder $query) => $query
+                ->where('person_id', $access->access_person_id)
+                ->whereHas('role', fn (Builder $query) => $query->where('active', true)),
+        );
     }
 
     public function setCurrentEvent(Event $event): void
     {
         $this->forceFill(['current_event_id' => $event->id])->save();
+    }
+
+    private function accessIdentity(): ?object
+    {
+        return self::query()
+            ->leftJoin('people', 'people.id', '=', 'users.person_id')
+            ->where('users.id', $this->getKey())
+            ->first([
+                'users.is_admin',
+                'people.can_log_in',
+                'people.id as access_person_id',
+            ]);
     }
 }

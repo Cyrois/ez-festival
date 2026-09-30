@@ -33,6 +33,7 @@ class CustomFieldControllerTest extends TestCase
         $organization->setDefaultEvent($event);
         $organization->markSetupComplete();
         $user->setCurrentEvent($event);
+        $this->grantAdminAccess($user);
 
         $this->actingAs($user)->get(route('settings.custom-fields'))->assertInertia(
             fn (Assert $page) => $page->component('Settings/CustomFields'),
@@ -109,6 +110,7 @@ class CustomFieldControllerTest extends TestCase
         $organization->setDefaultEvent($event);
         $organization->markSetupComplete();
         $user->setCurrentEvent($event);
+        $this->grantAdminAccess($user);
 
         return $user;
     }

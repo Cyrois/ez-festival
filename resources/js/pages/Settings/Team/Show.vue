@@ -1,5 +1,6 @@
 <script setup>
 import SettingsLayout from '../../../layouts/SettingsLayout.vue';
+import AdminAccessToggle from '../../../components/settings/AdminAccessToggle.vue';
 import { Avatar } from '../../../components/ui/avatar';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
@@ -20,6 +21,7 @@ const props = defineProps({
     events: { type: Array, required: true },
     roles: { type: Array, required: true },
     statuses: { type: Array, required: true },
+    viewerCanManageAdmin: { type: Boolean, required: true },
 });
 
 const originalRoles = Object.fromEntries(
@@ -29,6 +31,9 @@ const form = useForm({
     name: props.person.name,
     phone: props.person.phone ?? '',
     can_log_in: props.person.can_log_in,
+    ...(props.viewerCanManageAdmin && props.person.has_login
+        ? { is_admin: props.person.is_admin }
+        : {}),
     event_access: props.events.map((event) => ({
         event_id: event.id,
         role_id: event.role_id ?? '',
@@ -52,6 +57,9 @@ const canGeneratePassword = computed(
 );
 const canResendInvite = computed(
     () => props.person.can_resend_invite && !inviteCancelledLocally.value,
+);
+const adminAccessEnabled = computed(
+    () => form.is_admin ?? props.person.is_admin,
 );
 
 const breadcrumbs = computed(() => [
@@ -157,20 +165,7 @@ const copyPassword = async () => {
         :title="person.name"
         :breadcrumbs="breadcrumbs"
     >
-        <div class="container mx-auto max-w-5xl pb-24">
-            <Button
-                href="/settings/team"
-                variant="ghost"
-                size="sm"
-                class="mb-3 px-2.5"
-            >
-                <Icon
-                    :name="['fas', 'arrow-left']"
-                    size="sm"
-                />
-                {{ $t('settings.team.back') }}
-            </Button>
-
+        <div class="container mx-auto pb-24">
             <header class="mb-5 flex items-center gap-3.5">
                 <Avatar
                     :name="person.name"
@@ -191,50 +186,61 @@ const copyPassword = async () => {
                 class="space-y-4"
                 @submit.prevent="submit"
             >
-                <Card>
-                    <h2 class="m-0 text-lg font-bold text-muted">
-                        {{ $t('settings.team.details') }}
-                    </h2>
-                    <p class="mt-1 mb-4 text-xs text-muted">
-                        {{ $t('settings.team.details_hint') }}
-                    </p>
-                    <div class="grid gap-4 sm:grid-cols-2">
-                        <FormField
-                            v-slot="{ id, invalid }"
-                            :label="$t('settings.team.fields.name')"
-                            :error="form.errors.name"
-                            required
-                        >
-                            <Input
-                                :id="id"
-                                v-model="form.name"
-                                :invalid="invalid"
-                                maxlength="255"
+                <div class="grid gap-4 lg:grid-cols-2">
+                    <Card>
+                        <h2 class="m-0 text-lg font-bold text-muted">
+                            {{ $t('settings.team.details') }}
+                        </h2>
+                        <p class="mt-1 mb-4 text-xs text-muted">
+                            {{ $t('settings.team.details_hint') }}
+                        </p>
+                        <div class="grid gap-4">
+                            <FormField
+                                v-slot="{ id, invalid }"
+                                :label="$t('settings.team.fields.name')"
+                                :error="form.errors.name"
                                 required
-                            />
-                        </FormField>
-                        <FormField :label="$t('settings.team.fields.email')">
-                            <Input
-                                :model-value="person.email"
-                                type="email"
-                                disabled
-                            />
-                        </FormField>
-                        <FormField
-                            v-slot="{ id, invalid }"
-                            :label="$t('settings.team.fields.phone')"
-                            :error="form.errors.phone"
-                        >
-                            <Input
-                                :id="id"
-                                v-model="form.phone"
-                                type="tel"
-                                :invalid="invalid"
-                                maxlength="50"
-                            />
-                        </FormField>
-                    </div>
-                    <div class="mt-5 border-t border-line pt-5">
+                            >
+                                <Input
+                                    :id="id"
+                                    v-model="form.name"
+                                    :invalid="invalid"
+                                    maxlength="255"
+                                    required
+                                />
+                            </FormField>
+                            <FormField
+                                :label="$t('settings.team.fields.email')"
+                            >
+                                <Input
+                                    :model-value="person.email"
+                                    type="email"
+                                    disabled
+                                />
+                            </FormField>
+                            <FormField
+                                v-slot="{ id, invalid }"
+                                :label="$t('settings.team.fields.phone')"
+                                :error="form.errors.phone"
+                            >
+                                <Input
+                                    :id="id"
+                                    v-model="form.phone"
+                                    type="tel"
+                                    :invalid="invalid"
+                                    maxlength="50"
+                                />
+                            </FormField>
+                        </div>
+                    </Card>
+
+                    <Card>
+                        <h2 class="m-0 text-lg font-bold text-muted">
+                            {{ $t('settings.team.security') }}
+                        </h2>
+                        <p class="mt-1 mb-4 text-xs text-muted">
+                            {{ $t('settings.team.security_hint') }}
+                        </p>
                         <Switch
                             v-model="form.can_log_in"
                             :disabled="
@@ -387,18 +393,45 @@ const copyPassword = async () => {
                         >
                             {{ $t('settings.team.login.resend') }}
                         </button>
-                    </div>
-                </Card>
+                    </Card>
+                </div>
 
                 <Card>
-                    <h2 class="m-0 text-lg font-bold text-muted">
-                        {{ $t('settings.team.access.title') }}
-                    </h2>
-                    <p class="mt-1 mb-4 text-xs text-muted">
-                        {{ $t('settings.team.access.lead') }}
-                    </p>
+                    <div
+                        class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
+                    >
+                        <div>
+                            <h2 class="m-0 text-lg font-bold text-muted">
+                                {{ $t('settings.team.access.title') }}
+                            </h2>
+                            <p class="mt-1 mb-0 text-xs text-muted">
+                                {{ $t('settings.team.access.lead') }}
+                            </p>
+                        </div>
+                        <AdminAccessToggle
+                            v-if="viewerCanManageAdmin && person.has_login"
+                            v-model="form.is_admin"
+                            class="sm:max-w-sm sm:text-right"
+                            :disabled="
+                                form.processing ||
+                                Boolean(person.admin_disable_reason)
+                            "
+                            :disable-reason="person.admin_disable_reason"
+                            :error="form.errors.is_admin"
+                        />
+                    </div>
 
-                    <div class="overflow-visible rounded-lg border border-line">
+                    <div
+                        v-if="adminAccessEnabled"
+                        class="rounded-lg border border-line bg-page px-4 py-3 text-sm font-semibold text-charcoal"
+                    >
+                        {{ $t('settings.team.access.admin_all_events') }}
+                    </div>
+
+                    <div
+                        class="overflow-visible rounded-lg border border-line"
+                        :class="{ 'mt-3': adminAccessEnabled }"
+                    >
                         <div
                             v-for="(event, index) in events"
                             :key="event.id"
@@ -418,7 +451,11 @@ const copyPassword = async () => {
                                         form.event_access[index].role_id
                                     "
                                     :items="roleItemsFor(event)"
-                                    :disabled="event.locked || form.processing"
+                                    :disabled="
+                                        adminAccessEnabled ||
+                                        event.locked ||
+                                        form.processing
+                                    "
                                     :invalid="
                                         Boolean(
                                             form.errors[
@@ -467,6 +504,10 @@ const copyPassword = async () => {
                                             "
                                             :items="statusItems"
                                             :invalid="invalid"
+                                            :disabled="
+                                                adminAccessEnabled ||
+                                                form.processing
+                                            "
                                         />
                                     </FormField>
                                 </div>
@@ -497,7 +538,10 @@ const copyPassword = async () => {
                             </div>
                         </div>
                     </div>
-                    <p class="mt-3 mb-0 text-xs text-muted">
+                    <p
+                        v-if="!adminAccessEnabled"
+                        class="mt-3 mb-0 text-xs text-muted"
+                    >
                         {{ $t('settings.team.access.remove_note') }}
                     </p>
                 </Card>
@@ -507,9 +551,7 @@ const copyPassword = async () => {
                 class="fixed right-0 bottom-0 left-0 z-30 border-t border-line bg-ground/95 py-3 backdrop-blur lg:left-[var(--app-sidebar-width)]"
             >
                 <div class="container mx-auto px-4 md:px-6">
-                    <div
-                        class="mx-auto flex max-w-5xl items-center justify-between"
-                    >
+                    <div class="flex items-center justify-between">
                         <Button
                             href="/settings/team"
                             variant="cancel"

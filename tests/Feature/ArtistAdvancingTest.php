@@ -413,9 +413,10 @@ class ArtistAdvancingTest extends TestCase
 
     public function test_missing_effective_event_shows_an_empty_state(): void
     {
-        [$user] = $this->context();
+        [$user, $event] = $this->context();
         $user->forceFill(['current_event_id' => null])->save();
         app(OrganizationContext::class)->organization()->forceFill(['active_event_id' => null])->save();
+        $event->delete();
 
         $this->actingAs($user)->get(route('artists.index'))->assertInertia(fn (Assert $page) => $page
             ->where('event', null)->has('engagements.data', 0));
@@ -430,6 +431,7 @@ class ArtistAdvancingTest extends TestCase
         $organization->setDefaultEvent($event);
         $organization->markSetupComplete();
         $user->setCurrentEvent($event);
+        $this->grantAdminAccess($user);
 
         return [$user, $event];
     }

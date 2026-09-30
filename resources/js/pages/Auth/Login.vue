@@ -1,11 +1,16 @@
 <script setup>
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { trans } from 'laravel-vue-i18n';
+import { computed } from 'vue';
 
 const form = useForm({
     email: '',
     password: '',
     remember: false,
 });
+const noEventAccess = computed(
+    () => form.errors.email === trans('auth.no_event_access'),
+);
 
 const submit = () => {
     form.post('/login', {
@@ -42,6 +47,13 @@ const submit = () => {
                 </p>
 
                 <form @submit.prevent="submit">
+                    <div
+                        v-if="noEventAccess"
+                        class="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2.5 text-sm leading-snug text-charcoal"
+                        role="alert"
+                    >
+                        {{ form.errors.email }}
+                    </div>
                     <div class="mb-4">
                         <label
                             class="mb-1.5 block text-[13px] font-bold text-charcoal"
@@ -60,7 +72,7 @@ const submit = () => {
                             class="box-border h-[42px] w-full rounded-lg border border-line bg-white px-3 text-sm text-charcoal outline-none focus:border-brand focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-brand)_22%,transparent)]"
                         />
                         <p
-                            v-if="form.errors.email"
+                            v-if="form.errors.email && !noEventAccess"
                             class="mt-1.5 text-[13px] leading-snug text-danger"
                         >
                             {{ form.errors.email }}

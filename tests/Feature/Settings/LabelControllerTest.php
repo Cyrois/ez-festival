@@ -33,6 +33,7 @@ class LabelControllerTest extends TestCase
         $organization->setDefaultEvent($event);
         $organization->markSetupComplete();
         $user->setCurrentEvent($event);
+        $this->grantAdminAccess($user);
 
         $this->actingAs($user)->get(route('settings.labels'))->assertInertia(
             fn (Assert $page) => $page->component('Settings/Labels'),

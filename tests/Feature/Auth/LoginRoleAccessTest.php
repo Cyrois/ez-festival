@@ -41,35 +41,49 @@ class LoginRoleAccessTest extends TestCase
         $this->assertGuest();
     }
 
-    public function test_person_with_a_role_can_sign_in_even_when_login_switch_and_role_are_off(): void
+    public function test_non_admin_with_only_turned_off_roles_cannot_sign_in(): void
+    {
+        $user = User::factory()->create();
+        $event = $this->event();
+        $role = Role::query()->create(['name' => 'Historical role', 'active' => false]);
+        $this->engagement($user, $event, $role);
+
+        $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ])->assertSessionHasErrors(['email' => __('auth.no_event_access')]);
+
+        $this->assertGuest();
+    }
+
+    public function test_non_admin_with_an_active_role_but_login_turned_off_cannot_sign_in(): void
     {
         $user = User::factory()->create();
         $user->person->update(['can_log_in' => false]);
         $event = $this->event();
-        $role = Role::query()->create(['name' => 'Historical role', 'active' => false]);
-        $engagement = $this->engagement($user, $event, $role);
+        $role = Role::query()->create(['name' => 'Staff']);
+        $this->engagement($user, $event, $role);
 
         $this->post('/login', [
             'email' => $user->email,
             'password' => 'password',
-        ])->assertRedirect('/setup/event');
+        ])->assertSessionHasErrors(['email' => __('auth.no_event_access')]);
 
-        $this->assertAuthenticatedAs($user);
-
-        $this->post(route('logout'));
-        $engagement->update(['role_id' => null]);
-
-        $this->post('/login', [
-            'email' => $user->email,
-            'password' => 'password',
-        ])->assertSessionHasErrors('email');
         $this->assertGuest();
+    }
 
-        $engagement->update(['role_id' => $role->id]);
+    public function test_non_admin_with_an_active_role_and_login_enabled_can_sign_in(): void
+    {
+        $user = User::factory()->create();
+        $event = $this->event();
+        $role = Role::query()->create(['name' => 'Staff']);
+        $this->engagement($user, $event, $role);
+
         $this->post('/login', [
             'email' => $user->email,
             'password' => 'password',
         ])->assertRedirect('/setup/event');
+
         $this->assertAuthenticatedAs($user);
     }
 
@@ -84,6 +98,20 @@ class LoginRoleAccessTest extends TestCase
         ])->assertRedirect('/setup/event');
 
         $this->assertAuthenticatedAs($admin);
+    }
+
+    public function test_admin_with_login_turned_off_cannot_sign_in(): void
+    {
+        $admin = User::factory()->create();
+        $admin->forceFill(['is_admin' => true])->save();
+        $admin->person->update(['can_log_in' => false]);
+
+        $this->post('/login', [
+            'email' => $admin->email,
+            'password' => 'password',
+        ])->assertSessionHasErrors(['email' => __('auth.no_event_access')]);
+
+        $this->assertGuest();
     }
 
     private function event(): Event

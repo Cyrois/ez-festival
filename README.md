@@ -21,6 +21,7 @@ php artisan key:generate
 npm install
 npm run build
 php artisan migrate
+php artisan app:make-admin you@example.com
 php artisan serve
 ```
 

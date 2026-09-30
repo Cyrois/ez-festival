@@ -524,6 +524,7 @@ class RoleControllerTest extends TestCase
         $organization->setDefaultEvent($this->event);
         $organization->markSetupComplete();
         $user->setCurrentEvent($this->event);
+        $this->grantAdminAccess($user);
 
         return $user;
     }

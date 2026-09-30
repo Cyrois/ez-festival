@@ -25,6 +25,7 @@ class EventControllerTest extends TestCase
     public function test_user_can_open_and_submit_the_create_event_form(): void
     {
         $user = User::factory()->create();
+        $this->grantAdminAccess($user);
         $organization = app(OrganizationContext::class)->organization();
         $organization->markSetupComplete();
 
@@ -54,6 +55,7 @@ class EventControllerTest extends TestCase
     public function test_create_event_requires_valid_dates(): void
     {
         $user = User::factory()->create();
+        $this->grantAdminAccess($user);
         app(OrganizationContext::class)->organization()->markSetupComplete();
 
         $this->actingAs($user)
@@ -73,6 +75,7 @@ class EventControllerTest extends TestCase
     public function test_user_can_delete_an_unlocked_event(): void
     {
         $user = User::factory()->create();
+        $this->grantAdminAccess($user);
         app(OrganizationContext::class)->organization()->markSetupComplete();
         $event = Event::query()->create([
             'name' => 'Coastal Folk Festival 2027',
@@ -91,6 +94,7 @@ class EventControllerTest extends TestCase
     public function test_user_can_delete_an_event_that_has_shifts(): void
     {
         $user = User::factory()->create();
+        $this->grantAdminAccess($user);
         app(OrganizationContext::class)->organization()->markSetupComplete();
         $event = Event::query()->create([
             'name' => 'Coastal Folk Festival 2027',
@@ -159,6 +163,7 @@ class EventControllerTest extends TestCase
     public function test_user_cannot_delete_a_locked_event(): void
     {
         $user = User::factory()->create();
+        $this->grantAdminAccess($user);
         app(OrganizationContext::class)->organization()->markSetupComplete();
         $event = Event::query()->create([
             'name' => 'Coastal Folk Festival 2027',

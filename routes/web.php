@@ -87,7 +87,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::get('ui', UiKitController::class)->name('ui');
     }
 
-    Route::middleware(['organization', 'setup.complete'])->group(function () {
+    Route::middleware(['organization', 'setup.complete', 'login.access', 'event.access'])->group(function () {
         Route::get('dashboard', DashboardController::class)->name('dashboard');
 
         Route::get('check-in', [ArtistCheckInController::class, 'index'])->name('check-in.index');
@@ -273,7 +273,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         });
     });
 
-    Route::middleware('organization')->prefix('setup')->name('setup.')->group(function () {
+    Route::middleware(['organization', 'login.access'])->prefix('setup')->name('setup.')->group(function () {
         // Event-scoped writes: blocked when active event is locked or non-active context.
         Route::middleware('event.writable')->group(function () {
             Route::get('event', [SetupEventController::class, 'show'])->name('event');

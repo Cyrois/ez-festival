@@ -19,6 +19,10 @@ const settingsLayout = read('resources/js/layouts/SettingsLayout.vue');
 const eventEditShell = read(
     'resources/js/components/settings/EventEditShell.vue',
 );
+const adminAccessToggle = read(
+    'resources/js/components/settings/AdminAccessToggle.vue',
+);
+const loginPage = read('resources/js/pages/Auth/Login.vue');
 
 test('Global Team add uses the locked defaults and enables login by default', () => {
     assert.match(addPage, /status: 'applied'/);
@@ -90,6 +94,49 @@ test('Global Team list renders the Login column from server data', () => {
     assert.match(listPage, /settings\.team\.login\.disabled/);
 });
 
+test('admin access is visible only on the saved person page and uses the signed-off copy', () => {
+    assert.match(personPage, /viewerCanManageAdmin && person\.has_login/);
+    assert.match(personPage, /v-model="form\.is_admin"/);
+    assert.match(personPage, /person\.admin_disable_reason/);
+    assert.match(adminAccessToggle, /settings\.team\.admin\.hint/);
+    assert.doesNotMatch(addPage, /is_admin|settings\.team\.admin/);
+    assert.equal(
+        lang['settings.team.admin.hint'],
+        'Admins can see every event without needing a role.',
+    );
+});
+
+test('admins render the locked all-events label on person and list views', () => {
+    assert.match(personPage, /v-if="adminAccessEnabled"/);
+    assert.match(personPage, /settings\.team\.access\.admin_all_events/);
+    assert.match(listPage, /v-if="rowData\.is_admin"/);
+    assert.equal(
+        lang['settings.team.access.admin_all_events'],
+        'All events · org owner (no role needed)',
+    );
+});
+
+test('toggling admin access immediately disables event role selectors', () => {
+    assert.match(
+        personPage,
+        /const adminAccessEnabled = computed\(\s*\(\) => form\.is_admin \?\? props\.person\.is_admin/,
+    );
+    assert.match(
+        personPage,
+        /:disabled="\s*adminAccessEnabled \|\|\s*event\.locked \|\|\s*form\.processing\s*"/,
+    );
+});
+
+test('no-event login failures use the generic warning above the email field', () => {
+    assert.match(loginPage, /const noEventAccess = computed/);
+    assert.match(loginPage, /v-if="noEventAccess"/);
+    assert.match(loginPage, /role="alert"/);
+    assert.equal(
+        lang['auth.no_event_access'],
+        "You don't have access to any events yet. Please talk to your system administrator.",
+    );
+});
+
 test('new event access starts as Hired and only appears for a new role', () => {
     assert.match(personPage, /originalRoles\[event\.id\] === ''/);
     assert.match(personPage, /const wasNoAccess = access\.role_id === ''/);
@@ -122,14 +169,50 @@ test('Global Team uses the shared server-side DataTable with person links', () =
     assert.doesNotMatch(listPage, /people\.links\.(prev|next)/);
 });
 
-test('Global Team save panels align to their page containers', () => {
+test('Global Team forms and save panels match the full-width list container', () => {
     const teamActionLayout =
-        /container mx-auto px-4 md:px-6[\s\S]*mx-auto flex max-w-5xl items-center justify-between/;
+        /container mx-auto px-4 md:px-6[\s\S]*flex items-center justify-between/;
 
-    assert.match(addPage, /container mx-auto max-w-5xl pb-24/);
-    assert.match(personPage, /container mx-auto max-w-5xl pb-24/);
+    assert.match(addPage, /container mx-auto pb-24/);
+    assert.match(personPage, /container mx-auto pb-24/);
+    assert.doesNotMatch(addPage, /max-w-5xl/);
+    assert.doesNotMatch(personPage, /max-w-5xl/);
     assert.match(addPage, teamActionLayout);
     assert.match(personPage, teamActionLayout);
+});
+
+test('Global Team forms place Details and Security in two columns', () => {
+    for (const page of [addPage, personPage]) {
+        assert.match(page, /grid gap-4 lg:grid-cols-2/);
+        assert.doesNotMatch(page, /items-start gap-4 lg:grid-cols-2/);
+        assert.doesNotMatch(page, /settings\.team\.back/);
+        assert.match(page, /settings\.team\.details/);
+        assert.match(page, /settings\.team\.security/);
+    }
+
+    const securityStart = personPage.indexOf('settings.team.security');
+    const eventAccessStart = personPage.indexOf('settings.team.access.title');
+    const securityPanel = personPage.slice(securityStart, eventAccessStart);
+
+    assert.ok(securityStart >= 0);
+    assert.ok(eventAccessStart > securityStart);
+    assert.match(securityPanel, /v-model="form\.can_log_in"/);
+    assert.match(securityPanel, /settings\.team\.login\.generate_password/);
+    assert.match(securityPanel, /settings\.team\.login\.resend/);
+    assert.doesNotMatch(securityPanel, /form\.is_admin|AdminAccessToggle/);
+    const eventAccessPanel = personPage.slice(eventAccessStart);
+    assert.match(eventAccessPanel, /<AdminAccessToggle/);
+    assert.match(eventAccessPanel, /v-model="form\.is_admin"/);
+    assert.match(
+        personPage,
+        /sm:justify-between[\s\S]*<AdminAccessToggle/,
+    );
+    assert.match(adminAccessToggle, /<Switch/);
+    assert.match(adminAccessToggle, /settings\.team\.admin\.hint/);
+    assert.equal(
+        lang['settings.team.login.generate_password'],
+        'Reset password',
+    );
 });
 
 test('the obsolete event Users surfaces are absent', () => {
