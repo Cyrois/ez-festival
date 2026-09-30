@@ -1,9 +1,18 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
     isWithinTeamNoteEditWindow,
     teamNoteEditState,
 } from '../../resources/js/lib/teamNoteEditWindow.js';
+
+const noteLog = readFileSync(
+    new URL(
+        '../../resources/js/components/notes/TeamEngagementNoteLog.vue',
+        import.meta.url,
+    ),
+    'utf8',
+);
 
 test('an open page stops offering note edit when five minutes pass', () => {
     const savedAt = Date.parse('2026-09-30T12:00:00Z');
@@ -45,4 +54,12 @@ test('the note screen hides Edit and closes an open edit after expiry', () => {
         }),
         { showEdit: false, shouldCloseOpenEdit: true },
     );
+});
+
+test('a staged note uses the signed-off teal pending treatment', () => {
+    assert.match(noteLog, /note\.pending/);
+    assert.match(noteLog, /border-primary\/30/);
+    assert.match(noteLog, /border-l-4/);
+    assert.match(noteLog, /border-l-primary/);
+    assert.match(noteLog, /bg-primary-soft\/50/);
 });

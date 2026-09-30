@@ -254,7 +254,12 @@ onUnmounted(() => window.clearInterval(clock));
             <div
                 v-for="note in visibleNotes"
                 :key="note.pending ? note.client_id : note.id"
-                class="rounded-lg border border-line bg-page p-3"
+                :class="[
+                    'rounded-lg border p-3',
+                    note.pending
+                        ? 'border-l-4 border-primary/30 border-l-primary bg-primary-soft/50'
+                        : 'border-line bg-page',
+                ]"
             >
                 <div
                     class="flex flex-wrap items-center justify-between gap-2 text-xs"
