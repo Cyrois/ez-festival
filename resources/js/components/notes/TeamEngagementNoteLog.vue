@@ -266,14 +266,7 @@ onUnmounted(() => window.clearInterval(clock));
                 >
                     <div class="flex flex-wrap items-center gap-2">
                         <Badge
-                            v-if="note.pending"
-                            pill
-                            variant="primary"
-                        >
-                            {{ $t('team.member.notes.new') }}
-                        </Badge>
-                        <Badge
-                            v-else-if="editingId === note.id"
+                            v-if="!note.pending && editingId === note.id"
                             pill
                             variant="warning"
                         >
@@ -288,13 +281,25 @@ onUnmounted(() => window.clearInterval(clock));
                         </strong>
                         <span
                             v-if="note.pending"
+                            aria-hidden="true"
+                            class="h-3 border-l border-primary/30"
+                        />
+                        <span
+                            v-if="note.pending"
                             class="text-muted"
                         >
                             {{ $t('team.member.notes.pending') }}
                         </span>
                     </div>
+                    <Badge
+                        v-if="note.pending"
+                        pill
+                        variant="primary"
+                    >
+                        {{ $t('team.member.notes.new') }}
+                    </Badge>
                     <div
-                        v-if="!note.pending"
+                        v-else
                         class="flex items-center gap-2 text-muted"
                     >
                         <span>{{ formatNoteTime(note.created_at) }}</span>

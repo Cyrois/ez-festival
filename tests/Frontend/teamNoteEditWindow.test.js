@@ -62,4 +62,6 @@ test('a staged note uses the signed-off teal pending treatment', () => {
     assert.match(noteLog, /border-l-4/);
     assert.match(noteLog, /border-l-primary/);
     assert.match(noteLog, /bg-primary-soft\/50/);
+    assert.match(noteLog, /class="h-3 border-l border-primary\/30"/);
+    assert.match(noteLog, /v-if="note\.pending"[\s\S]*variant="primary"/);
 });
