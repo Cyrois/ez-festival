@@ -71,7 +71,6 @@ class TeamController extends Controller
 
     public function show(Request $request, Person $person): Response
     {
-        abort_unless($this->onGlobalTeam($person), 404);
         $person->load(['teamEngagements.role']);
         $engagements = $person->teamEngagements->keyBy('event_id');
 
@@ -101,7 +100,6 @@ class TeamController extends Controller
 
     public function update(UpdateGlobalTeamPersonRequest $request, Person $person): RedirectResponse
     {
-        abort_unless($this->onGlobalTeam($person), 404);
         $this->teamService->update($person, $request->validated());
 
         if (! $this->onGlobalTeam($person)) {

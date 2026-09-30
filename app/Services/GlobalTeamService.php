@@ -33,24 +33,18 @@ class GlobalTeamService
     public function create(array $data): Person
     {
         return DB::transaction(function () use ($data): Person {
-            $person = $this->people->findByEmail($data['email']);
-
-            if ($person !== null && Person::query()->onGlobalTeam()->whereKey($person->id)->exists()) {
+            if ($this->people->findByEmail($data['email']) !== null) {
                 throw ValidationException::withMessages([
-                    'email' => __('settings.team.validation.already_on_team'),
+                    'email' => __('settings.team.validation.email_exists'),
                 ]);
             }
 
-            if ($person === null) {
-                $person = Person::query()->create([
-                    'name' => $data['name'],
-                    'email' => $this->people->normalizeEmail($data['email']),
-                    'phone' => $this->normalizePhone($data['phone'] ?? null),
-                    'can_log_in' => $data['can_log_in'],
-                ]);
-            } else {
-                $person->update(['can_log_in' => $data['can_log_in']]);
-            }
+            $person = Person::query()->create([
+                'name' => $data['name'],
+                'email' => $this->people->normalizeEmail($data['email']),
+                'phone' => $this->normalizePhone($data['phone'] ?? null),
+                'can_log_in' => $data['can_log_in'],
+            ]);
 
             foreach ($data['event_access'] as $access) {
                 $event = Event::query()->lockForUpdate()->findOrFail($access['event_id']);

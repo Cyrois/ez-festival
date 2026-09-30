@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests\Settings;
 
+use App\Services\PersonService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreGlobalTeamPersonRequest extends FormRequest
 {
@@ -33,6 +35,19 @@ class StoreGlobalTeamPersonRequest extends FormRequest
             'event_access.*.event_id' => ['required', 'integer', 'distinct', Rule::exists('events', 'id')->where('locked', 0)],
             'event_access.*.role_id' => ['required', 'integer', Rule::exists('roles', 'id')->where('active', 1)],
         ];
+    }
+
+    public function after(): array
+    {
+        return [function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            if (app(PersonService::class)->findByEmail($this->input('email')) !== null) {
+                $validator->errors()->add('email', __('settings.team.validation.email_exists'));
+            }
+        }];
     }
 
     public function messages(): array

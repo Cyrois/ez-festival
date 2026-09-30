@@ -30,6 +30,18 @@ test('Global Team add uses the locked defaults and enables login by default', ()
     );
 });
 
+test('Global Team add warns and links instead of merging an existing person', () => {
+    assert.match(addPage, /lookup\.value\?\.exists/);
+    assert.match(addPage, /lookup\?\.exists/);
+    assert.match(addPage, /settings\.team\.add\.existing_contact/);
+    assert.match(addPage, /settings\.team\.add\.open_existing/);
+    assert.match(addPage, /`\/settings\/team\/\$\{lookup\.person\.id\}`/);
+    assert.equal(
+        lang['settings.team.validation.email_exists'],
+        'This email already belongs to an existing person. Open their person page to make changes.',
+    );
+});
+
 test('Global Team person page saves login access with the main form', () => {
     assert.match(personPage, /can_log_in: props\.person\.can_log_in/);
     assert.match(personPage, /v-model="form\.can_log_in"/);

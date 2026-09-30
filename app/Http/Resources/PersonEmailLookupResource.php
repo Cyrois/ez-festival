@@ -13,7 +13,7 @@ class PersonEmailLookupResource extends JsonResource
             'exists' => (bool) $this->resource['person'],
             'on_global_team' => (bool) $this->resource['on_global_team'],
             'person' => $this->when(
-                $this->resource['on_global_team'],
+                $this->resource['person'] !== null,
                 fn (): array => [
                     'id' => $this->resource['person']->id,
                     'name' => $this->resource['person']->name,

@@ -240,10 +240,58 @@ class TeamControllerTest extends TestCase
             'can_log_in' => true,
             'status' => 'hired',
             'event_access' => [['event_id' => $event->id, 'role_id' => $role->id]],
-        ])->assertSessionHasErrors('email');
+        ])->assertSessionHasErrors([
+            'email' => __('settings.team.validation.email_exists'),
+        ]);
 
         $this->assertTrue($knownUser->person->fresh()->can_log_in);
         $this->assertFalse($knownUser->person->teamEngagements()->exists());
+    }
+
+    public function test_add_person_cannot_turn_off_their_own_login_by_reusing_their_email(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        $role = Role::query()->create(['name' => 'Staff']);
+        $user->person->update(['can_log_in' => true]);
+
+        $this->actingAs($user)->post(route('settings.team.store'), [
+            'name' => 'Changed Name',
+            'email' => '  '.mb_strtoupper($user->email).'  ',
+            'phone' => 'changed phone',
+            'can_log_in' => false,
+            'status' => 'hired',
+            'event_access' => [['event_id' => $event->id, 'role_id' => $role->id]],
+        ])->assertSessionHasErrors([
+            'email' => __('settings.team.validation.email_exists'),
+        ]);
+
+        $this->assertTrue($user->person->fresh()->can_log_in);
+        $this->assertSame($user->name, $user->person->fresh()->name);
+        $this->assertFalse($user->person->teamEngagements()->exists());
+    }
+
+    public function test_add_person_cannot_turn_off_an_admin_login_by_reusing_their_email(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        $role = Role::query()->create(['name' => 'Staff']);
+        $admin = User::factory()->create();
+        $admin->forceFill(['is_admin' => true])->save();
+        $admin->person->update(['can_log_in' => true]);
+
+        $this->actingAs($user)->post(route('settings.team.store'), [
+            'name' => 'Changed Admin',
+            'email' => $admin->email,
+            'phone' => 'changed phone',
+            'can_log_in' => false,
+            'status' => 'hired',
+            'event_access' => [['event_id' => $event->id, 'role_id' => $role->id]],
+        ])->assertSessionHasErrors([
+            'email' => __('settings.team.validation.email_exists'),
+        ]);
+
+        $this->assertTrue($admin->person->fresh()->can_log_in);
+        $this->assertSame($admin->name, $admin->person->fresh()->name);
+        $this->assertFalse($admin->person->teamEngagements()->exists());
     }
 
     public function test_add_person_validates_required_access_and_refuses_locked_events_or_off_roles(): void
@@ -295,7 +343,7 @@ class TeamControllerTest extends TestCase
         $this->assertSame('Morgan West', $existing->person->fresh()->name);
     }
 
-    public function test_add_person_reuses_a_known_contact_and_updates_an_existing_no_role_record(): void
+    public function test_add_person_rejects_a_known_contact_without_mutating_person_or_team_records(): void
     {
         [$user, $event] = $this->userWithCompletedSetup();
         $role = Role::query()->create(['name' => 'Event manager']);
@@ -320,16 +368,20 @@ class TeamControllerTest extends TestCase
             'can_log_in' => true,
             'status' => 'hired',
             'event_access' => [['event_id' => $event->id, 'role_id' => $role->id]],
-        ])->assertRedirect(route('settings.team.show', $person));
+        ])->assertSessionHasErrors([
+            'email' => __('settings.team.validation.email_exists'),
+        ]);
 
         $this->assertDatabaseCount('people', $peopleBefore);
         $this->assertSame('Stored Name', $person->fresh()->name);
         $this->assertSame('stored phone', $person->fresh()->phone);
+        $this->assertFalse($person->fresh()->can_log_in);
         $engagement->refresh();
-        $this->assertSame($role->id, $engagement->role_id);
-        $this->assertSame('hired', $engagement->status);
+        $this->assertNull($engagement->role_id);
+        $this->assertSame('applied', $engagement->status);
         $this->assertSame('paid', $engagement->employment_type);
         $this->assertSame('25.00', $engagement->hourly_pay);
+        $this->assertDatabaseCount('team_engagements', 1);
     }
 
     public function test_email_lookup_distinguishes_known_contacts_from_global_team_people(): void
@@ -342,7 +394,10 @@ class TeamControllerTest extends TestCase
             'email' => 'login-only@example.test',
             'can_log_in' => true,
         ]);
-        Person::query()->create(['name' => 'Known Contact', 'email' => 'known@example.test']);
+        $known = Person::query()->create([
+            'name' => 'Known Contact',
+            'email' => 'known@example.test',
+        ]);
 
         $this->actingAs($user)
             ->getJson(route('settings.team.lookup', ['email' => 'GLOBAL-PERSON@example.test']))
@@ -361,7 +416,15 @@ class TeamControllerTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.exists', true)
             ->assertJsonPath('data.on_global_team', false)
-            ->assertJsonMissingPath('data.person');
+            ->assertJsonPath('data.person.id', $known->id)
+            ->assertJsonPath('data.person.name', 'Known Contact');
+
+        $this->actingAs($user)
+            ->get(route('settings.team.show', $known))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Settings/Team/Show')
+                ->where('person.id', $known->id));
     }
 
     public function test_person_page_updates_profile_and_access_together_while_preserving_team_records(): void
@@ -563,7 +626,7 @@ class TeamControllerTest extends TestCase
         $this->actingAs($user)->get(route('settings.team.show', $engagement->person))->assertOk();
     }
 
-    public function test_removing_the_last_role_and_login_access_removes_the_person_from_global_team(): void
+    public function test_removing_the_last_role_and_login_access_removes_the_person_from_the_list_but_keeps_the_person_page_editable(): void
     {
         [$user, $event] = $this->userWithCompletedSetup();
         $role = Role::query()->create(['name' => 'Staff']);
@@ -582,7 +645,7 @@ class TeamControllerTest extends TestCase
 
         $this->assertFalse($engagement->person->fresh()->can_log_in);
         $this->assertNull($engagement->fresh()->role_id);
-        $this->actingAs($user)->get(route('settings.team.show', $engagement->person))->assertNotFound();
+        $this->actingAs($user)->get(route('settings.team.show', $engagement->person))->assertOk();
     }
 
     public function test_removed_event_users_routes_return_not_found(): void
