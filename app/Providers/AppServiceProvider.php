@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\TeamEngagement;
 use App\Models\User;
 use App\Support\OrganizationContext;
 use Illuminate\Support\Arr;
@@ -40,5 +41,22 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('view-team', fn (User $user): bool => $user !== null);
         Gate::define('manage-team', fn (User $user): bool => $user !== null);
         Gate::define('manage-global-team', fn (User $user): bool => $user->isAdmin());
+        Gate::define('manage-roles', fn (User $user): bool => $user->isAdmin());
+        Gate::define('can-read-team-notes', function (User $user, TeamEngagement $engagement): bool {
+            if ($user->isAdmin()) {
+                return true;
+            }
+
+            return TeamEngagement::query()
+                ->where('event_id', $engagement->event_id)
+                ->where('person_id', $user->person_id)
+                ->whereHas(
+                    'role',
+                    fn ($query) => $query
+                        ->where('active', true)
+                        ->where('can_read_team_notes', true),
+                )
+                ->exists();
+        });
     }
 }

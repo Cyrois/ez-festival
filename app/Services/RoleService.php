@@ -12,14 +12,25 @@ class RoleService
 {
     public function __construct(private readonly RoleRepository $roles) {}
 
-    public function create(string $name): Role
+    public function create(string $name, bool $canReadTeamNotes = false): Role
     {
-        return $this->guardUniqueName($name, null, fn (): Role => Role::query()->create(['name' => $name]));
+        return $this->guardUniqueName($name, null, fn (): Role => Role::query()->create([
+            'name' => $name,
+            'can_read_team_notes' => $canReadTeamNotes,
+        ]));
+    }
+
+    public function update(Role $role, string $name, bool $canReadTeamNotes): void
+    {
+        $this->guardUniqueName($name, $role, fn (): bool => $role->update([
+            'name' => $name,
+            'can_read_team_notes' => $canReadTeamNotes,
+        ]));
     }
 
     public function rename(Role $role, string $name): void
     {
-        $this->guardUniqueName($name, $role, fn (): bool => $role->update(['name' => $name]));
+        $this->update($role, $name, $role->can_read_team_notes);
     }
 
     public function setActive(Role $role, bool $active): void

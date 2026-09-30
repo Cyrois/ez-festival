@@ -23,6 +23,7 @@ trait ValidatesRoleName
     {
         return [
             'name' => ['required', 'string', 'max:255'],
+            'can_read_team_notes' => ['sometimes', 'boolean'],
         ];
     }
 

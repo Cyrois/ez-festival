@@ -11,11 +11,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * A named job for Team, shared by the whole organization (one database per organization).
  * Roles are turned off instead of deleted.
  */
-#[Fillable(['name', 'active'])]
+#[Fillable(['name', 'active', 'can_read_team_notes'])]
 class Role extends Model
 {
     protected $attributes = [
         'active' => true,
+        'can_read_team_notes' => false,
     ];
 
     protected static function booted(): void
@@ -33,6 +34,7 @@ class Role extends Model
     {
         return [
             'active' => 'boolean',
+            'can_read_team_notes' => 'boolean',
         ];
     }
 

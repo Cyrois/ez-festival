@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Team;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Team\CreateTeamMemberRequest;
-use App\Http\Requests\Team\StoreTeamMemberNoteRequest;
 use App\Http\Requests\Team\StoreTeamMemberRequest;
 use App\Http\Requests\Team\UpdateTeamMemberRequest;
 use App\Http\Requests\Team\ViewTeamMemberRequest;
@@ -69,15 +68,20 @@ class MemberController extends Controller
                 ])
                 ->latest('id'),
         ]);
-        $notes = $engagement->notes()
-            ->with('user:id,name,email')
-            ->latest('created_at')
-            ->latest('id')
-            ->get();
+        $canReadNotes = Gate::allows('can-read-team-notes', $engagement);
+        $notes = $canReadNotes
+            ? $engagement->notes()
+                ->with('user:id,name,email')
+                ->latest('created_at')
+                ->latest('id')
+                ->get()
+            : null;
 
         return Inertia::render('Team/Member', [
             'engagement' => (new TeamEngagementResource($engagement))->resolve(),
-            'notes' => TeamEngagementNoteResource::collection($notes)->resolve(),
+            ...($canReadNotes ? [
+                'notes' => TeamEngagementNoteResource::collection($notes)->resolve(),
+            ] : []),
             'event' => $event->only('id', 'name', 'locked', 'timezone'),
             'groups' => $this->groups->optionsFor($event),
             'statuses' => TeamEngagement::STATUSES,
@@ -90,6 +94,7 @@ class MemberController extends Controller
                 $this->passTypes->optionsFor($event, withEntitlements: true),
             )->resolve(),
             'canWrite' => ! $event->isLocked() && Gate::allows('manage-team'),
+            'canReadNotes' => $canReadNotes,
         ]);
     }
 
@@ -97,29 +102,23 @@ class MemberController extends Controller
     {
         $this->resolveEvent($request, $engagement, writable: true);
         $engagement->loadMissing('person');
-        $this->engagements->update($engagement, $request->validated());
-
-        return redirect()->route('team.members.show', $engagement)
-            ->with('success', __('team.advancement.toast.updated'))
-            ->with('success_title', __('toast.saved_title'));
-    }
-
-    public function storeNote(StoreTeamMemberNoteRequest $request, TeamEngagement $engagement): RedirectResponse
-    {
-        $this->resolveEvent($request, $engagement, writable: true);
-        $this->engagements->addNote(
+        $lateEditSkipped = $this->engagements->update(
             $engagement,
             $request->user(),
-            $request->validated('body'),
+            $request->validated(),
         );
 
-        return redirect()->route('team.members.show', $engagement)
-            ->with('success', __('team.member.toast.note_posted'))
+        $response = redirect()->route('team.members.show', $engagement)
+            ->with('success', __('team.advancement.toast.updated'))
             ->with('success_title', __('toast.saved_title'));
+
+        return $lateEditSkipped
+            ? $response->with('warning', __('team.member.notes.errors.edit_window_closed'))
+            : $response;
     }
 
     private function resolveEvent(
-        ViewTeamMemberRequest|UpdateTeamMemberRequest|StoreTeamMemberNoteRequest $request,
+        ViewTeamMemberRequest|UpdateTeamMemberRequest $request,
         TeamEngagement $engagement,
         bool $writable = false,
     ): Event {
