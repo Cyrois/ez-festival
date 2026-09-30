@@ -207,6 +207,30 @@ class TeamMemberNotesTest extends TestCase
         $this->assertSame('Second edit', $note->fresh()->body);
     }
 
+    public function test_unchanged_edit_does_not_mark_the_note_as_edited(): void
+    {
+        Carbon::setTestNow('2026-09-30 12:00:00');
+        $event = $this->event();
+        $role = Role::query()->create([
+            'name' => 'Notes reader',
+            'can_read_team_notes' => true,
+        ]);
+        $author = $this->nonAdminFor($event, $role);
+        $target = $this->engagement($event, 'Unchanged edit target');
+        $note = TeamEngagementNote::query()->create([
+            'team_engagement_id' => $target->id,
+            'user_id' => $author->id,
+            'body' => 'No typo here',
+        ]);
+
+        Carbon::setTestNow('2026-09-30 12:04:00');
+        $this->actingAs($author)->put(route('team.members.update', $target), $this->payload($target, [
+            'note_edits' => [['id' => $note->id, 'body' => 'No typo here']],
+        ]))->assertSessionHasNoErrors();
+
+        $this->assertNull($note->fresh()->edited_at);
+    }
+
     public function test_another_person_cannot_edit_a_note_and_notes_have_no_delete_route(): void
     {
         $event = $this->event();

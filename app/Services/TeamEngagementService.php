@@ -119,6 +119,10 @@ class TeamEngagementService
                     ]);
                 }
 
+                if ($edit['body'] === $note->body) {
+                    continue;
+                }
+
                 if ($note->created_at->copy()->addMinutes(5)->lessThanOrEqualTo(now())) {
                     $lateEditSkipped = true;
 

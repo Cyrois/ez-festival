@@ -5,7 +5,7 @@ import { Card } from '../ui/card';
 import { FormField } from '../ui/form-field';
 import { Icon } from '../ui/icon';
 import { Textarea } from '../ui/textarea';
-import { isWithinTeamNoteEditWindow } from '../../lib/teamNoteEditWindow';
+import { teamNoteEditState } from '../../lib/teamNoteEditWindow';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
@@ -83,9 +83,12 @@ const removeNewNote = (clientId) => {
 };
 
 const canEdit = (note) =>
-    props.canWrite &&
-    !note.pending &&
-    isWithinTeamNoteEditWindow(note.editable_until, now.value);
+    teamNoteEditState({
+        note,
+        now: now.value,
+        canWrite: props.canWrite,
+        editingId: editingId.value,
+    }).showEdit;
 
 const openEdit = async (note) => {
     if (!canEdit(note)) return;
@@ -115,6 +118,16 @@ const finishEdit = (note) => {
     }
 
     const edit = { id: note.id, body: editingBody.value.trim() };
+    if (edit.body === note.body) {
+        emit(
+            'update:noteEdits',
+            props.noteEdits.filter((item) => item.id !== note.id),
+        );
+        cancelEdit();
+
+        return;
+    }
+
     emit('update:noteEdits', [
         ...props.noteEdits.filter((item) => item.id !== note.id),
         edit,
@@ -143,7 +156,17 @@ const formatNoteTime = (iso) => {
 watch(now, () => {
     if (editingId.value === null) return;
     const note = props.notes.find((item) => item.id === editingId.value);
-    if (!note || !canEdit(note)) cancelEdit();
+    if (
+        !note ||
+        teamNoteEditState({
+            note,
+            now: now.value,
+            canWrite: props.canWrite,
+            editingId: editingId.value,
+        }).shouldCloseOpenEdit
+    ) {
+        cancelEdit();
+    }
 });
 
 onMounted(() => {

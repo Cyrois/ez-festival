@@ -57,9 +57,10 @@ class RoleController extends Controller
 
     public function store(StoreRoleRequest $request): RedirectResponse
     {
+        $data = $request->validated();
         $this->roleService->create(
-            $request->validated('name'),
-            $request->boolean('can_read_team_notes'),
+            $data['name'],
+            (bool) ($data['can_read_team_notes'] ?? false),
         );
 
         return back()->with('success', __('settings.roles.toast.created'));
@@ -67,12 +68,11 @@ class RoleController extends Controller
 
     public function update(UpdateRoleRequest $request, Role $role): RedirectResponse
     {
+        $data = $request->validated();
         $this->roleService->update(
             $role,
-            $request->validated('name'),
-            $request->has('can_read_team_notes')
-                ? $request->boolean('can_read_team_notes')
-                : $role->can_read_team_notes,
+            $data['name'],
+            (bool) ($data['can_read_team_notes'] ?? $role->can_read_team_notes),
         );
 
         return back()->with('success', __('settings.roles.toast.updated'));

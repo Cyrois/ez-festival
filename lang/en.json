@@ -431,7 +431,7 @@
     "team.member.notes.errors.edit_window_closed": "This note couldn't be changed because its 5-minute edit window has closed.",
     "team.member.unsaved.new_notes": "Unsaved: :count new note|Unsaved: :count new notes",
     "team.member.unsaved.edited_notes": "Unsaved: :count edited note|Unsaved: :count edited notes",
-    "team.member.unsaved.both": "Unsaved: :new new note(s) · :edited edited note(s)",
+    "team.member.unsaved.edited_notes_short": ":count edited note|:count edited notes",
     "team.member.unsaved.changes": "Unsaved changes",
     "team.member.passes.title": "Passes",
     "team.member.passes.description": "New passes are stored when you save the team member. Saved passes can't be edited; remove one and give a new pass instead. Claimed passes can't be removed.",

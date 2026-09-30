@@ -94,10 +94,14 @@ const unsavedSummary = computed(() => {
     const editedCount = form.note_edits.length;
 
     if (newCount && editedCount) {
-        return trans('team.member.unsaved.both', {
-            new: newCount,
-            edited: editedCount,
-        });
+        return [
+            transChoice('team.member.unsaved.new_notes', newCount, {
+                count: newCount,
+            }),
+            transChoice('team.member.unsaved.edited_notes_short', editedCount, {
+                count: editedCount,
+            }),
+        ].join(' · ');
     }
     if (newCount) {
         return transChoice('team.member.unsaved.new_notes', newCount, {
