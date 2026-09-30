@@ -340,25 +340,31 @@ onUnmounted(() => window.clearInterval(clock));
                         </Button>
                     </div>
                 </FormField>
-                <template v-else>
-                    <p class="mt-1 mb-0 text-sm whitespace-pre-wrap">
-                        {{ note.pending ? note.body : noteBody(note) }}
-                    </p>
-                    <div
-                        v-if="note.pending || canEdit(note)"
-                        class="mt-2 flex justify-end"
-                    >
+                <template v-else-if="note.pending">
+                    <div class="mt-1 flex items-start justify-between gap-3">
+                        <p class="m-0 text-sm whitespace-pre-wrap">
+                            {{ note.body }}
+                        </p>
                         <Button
-                            v-if="note.pending"
                             type="button"
                             size="sm"
                             variant="outline"
+                            class="shrink-0"
                             @click="removeNewNote(note.client_id)"
                         >
                             {{ $t('team.member.notes.remove') }}
                         </Button>
+                    </div>
+                </template>
+                <template v-else>
+                    <p class="mt-1 mb-0 text-sm whitespace-pre-wrap">
+                        {{ noteBody(note) }}
+                    </p>
+                    <div
+                        v-if="canEdit(note)"
+                        class="mt-2 flex justify-end"
+                    >
                         <Button
-                            v-else
                             type="button"
                             size="sm"
                             variant="outline"
