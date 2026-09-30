@@ -6,7 +6,9 @@ use App\Http\Controllers\ArtistEngagementPersonController;
 use App\Http\Controllers\ArtistPassAssignmentController;
 use App\Http\Controllers\ArtistStatusController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\InvitePasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\Auth\TemporaryPasswordController;
 use App\Http\Controllers\Credentials\EntitlementItemController;
 use App\Http\Controllers\Credentials\PassTypeController;
 use App\Http\Controllers\Credentials\ProductsController;
@@ -25,6 +27,7 @@ use App\Http\Controllers\Settings\PrimaryEventSettingsController;
 use App\Http\Controllers\Settings\RoleController;
 use App\Http\Controllers\Settings\RoleStatusController;
 use App\Http\Controllers\Settings\TeamController;
+use App\Http\Controllers\Settings\TeamInviteController;
 use App\Http\Controllers\Settings\VendorTypeController as SettingsVendorTypeController;
 use App\Http\Controllers\Setup\ArtistTypeController;
 use App\Http\Controllers\Setup\EventController as SetupEventController;
@@ -61,6 +64,10 @@ Route::middleware('guest')->group(function () {
     Route::post('login', [AuthenticatedSessionController::class, 'store']);
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])->name('password.request');
+    Route::get('team-invitations/{token}', [InvitePasswordController::class, 'show'])
+        ->name('team-invitations.show');
+    Route::put('team-invitations/{token}', [InvitePasswordController::class, 'update'])
+        ->name('team-invitations.update');
 });
 
 Route::get('form/{slug}', [TeamPublicFormController::class, 'show'])->name('team.forms.public.show');
@@ -68,8 +75,12 @@ Route::post('form/{slug}', [TeamPublicFormController::class, 'store'])->name('te
 Route::get('form/{slug}/confirmation', [TeamPublicFormController::class, 'confirmation'])
     ->name('team.forms.public.confirmation');
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'password.changed'])->group(function () {
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
+    Route::get('change-temporary-password', [TemporaryPasswordController::class, 'edit'])
+        ->name('password.temporary.edit');
+    Route::put('change-temporary-password', [TemporaryPasswordController::class, 'update'])
+        ->name('password.temporary.update');
 
     if (app()->environment('local') || config('app.debug')) {
         Route::get('ui', UiKitController::class)->name('ui');
@@ -233,6 +244,10 @@ Route::middleware('auth')->group(function () {
             Route::post('team', [TeamController::class, 'store'])->name('team.store');
             Route::get('team/{person}', [TeamController::class, 'show'])->name('team.show');
             Route::put('team/{person}', [TeamController::class, 'update'])->name('team.update');
+            Route::post('team/{person}/invite', [TeamInviteController::class, 'store'])
+                ->name('team.invite.store');
+            Route::post('team/{person}/temporary-password', [TemporaryPasswordController::class, 'store'])
+                ->name('team.temporary-password.store');
             Route::get('account', [AccountController::class, 'index'])->name('account');
             Route::put('account', [AccountController::class, 'update'])->name('account.update');
             Route::put('account/password', [AccountController::class, 'updatePassword'])->name('account.password.update');

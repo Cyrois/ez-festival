@@ -49,6 +49,22 @@ test('Global Team person page saves login access with the main form', () => {
     assert.doesNotMatch(memberPage, /can_log_in|settings\.team\.login/);
 });
 
+test('Global Team login tools follow the saved switch state', () => {
+    assert.match(
+        personPage,
+        /props\.person\.can_log_in && form\.can_log_in/,
+    );
+    assert.match(personPage, /inviteWillBeSent/);
+    assert.match(personPage, /person\.has_set_password/);
+    assert.match(personPage, /temporary-password/);
+    assert.match(personPage, /navigator\.clipboard\.writeText/);
+    assert.match(personPage, /inviteCancelledLocally\.value = true/);
+});
+
+test('temporary passwords are never included in the normal person page props', () => {
+    assert.doesNotMatch(personPage, /props\.person\.temporary_password/);
+});
+
 test('Global Team list renders the Login column from server data', () => {
     assert.match(listPage, /#loginCell/);
     assert.match(listPage, /settings\.team\.login\.enabled/);

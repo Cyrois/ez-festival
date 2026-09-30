@@ -10,8 +10,8 @@ import { Input } from '../../../components/ui/input';
 import { Switch } from '../../../components/ui/switch';
 import { useFlashToast } from '../../../composables/useFlashToast';
 import { toastFormErrors } from '../../../lib/fieldError';
-import { useForm } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { router, useForm } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
 const props = defineProps({
@@ -35,6 +35,23 @@ const form = useForm({
     })),
 });
 const { showError, showFormError } = useFlashToast();
+const temporaryPassword = ref('');
+const generatingPassword = ref(false);
+const copied = ref(false);
+const inviteCancelledLocally = ref(false);
+
+const inviteWillBeSent = computed(
+    () =>
+        !props.person.can_log_in &&
+        form.can_log_in &&
+        !props.person.has_set_password,
+);
+const canGeneratePassword = computed(
+    () => props.person.can_log_in && form.can_log_in,
+);
+const canResendInvite = computed(
+    () => props.person.can_resend_invite && !inviteCancelledLocally.value,
+);
 
 const breadcrumbs = computed(() => [
     { label: trans('app.name'), href: '/dashboard' },
@@ -87,6 +104,52 @@ const submit = () => {
         onError: (errors) =>
             toastFormErrors(form, errors, { showError, showFormError }),
     });
+};
+const resendInvite = () => {
+    router.post(
+        `/settings/team/${props.person.id}/invite`,
+        {},
+        {
+            preserveScroll: true,
+            onError: () =>
+                showError(trans('settings.team.login.action_failed')),
+        },
+    );
+};
+const generatePassword = async () => {
+    generatingPassword.value = true;
+    copied.value = false;
+
+    try {
+        const response = await fetch(
+            `/settings/team/${props.person.id}/temporary-password`,
+            {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': document
+                        .querySelector('meta[name="csrf-token"]')
+                        .getAttribute('content'),
+                },
+            },
+        );
+
+        if (!response.ok) throw new Error('Password generation failed');
+
+        temporaryPassword.value = (
+            await response.json()
+        ).data.temporary_password;
+        inviteCancelledLocally.value = true;
+    } catch {
+        showError(trans('settings.team.login.action_failed'));
+    } finally {
+        generatingPassword.value = false;
+    }
+};
+const copyPassword = async () => {
+    await navigator.clipboard.writeText(temporaryPassword.value);
+    copied.value = true;
 };
 </script>
 
@@ -202,6 +265,129 @@ const submit = () => {
                         >
                             {{ form.errors.can_log_in }}
                         </p>
+                        <div
+                            v-if="inviteWillBeSent"
+                            class="mt-4 flex items-start gap-2 rounded-lg border border-secondary/30 bg-secondary/10 p-3 text-sm text-secondary"
+                        >
+                            <Icon
+                                :name="['fas', 'envelope']"
+                                size="sm"
+                                class="mt-0.5"
+                            />
+                            <p class="m-0">
+                                {{
+                                    $t('settings.team.login.invite_note', {
+                                        email: person.email,
+                                    })
+                                }}
+                            </p>
+                        </div>
+
+                        <div
+                            v-if="canGeneratePassword"
+                            class="mt-5 space-y-3"
+                        >
+                            <div
+                                v-if="temporaryPassword"
+                                class="rounded-lg border border-line bg-page p-4"
+                            >
+                                <p class="m-0 text-xs font-bold text-muted">
+                                    {{
+                                        $t(
+                                            'settings.team.login.temporary_label',
+                                        )
+                                    }}
+                                </p>
+                                <div
+                                    class="mt-2 flex flex-wrap items-center gap-2"
+                                >
+                                    <code
+                                        class="rounded-lg bg-white px-3 py-2 font-mono text-sm font-bold"
+                                        >{{ temporaryPassword }}</code
+                                    >
+                                    <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        @click="copyPassword"
+                                    >
+                                        <Icon
+                                            :name="['fas', 'copy']"
+                                            size="sm"
+                                        />
+                                        {{
+                                            copied
+                                                ? $t(
+                                                      'settings.team.login.copied',
+                                                  )
+                                                : $t('settings.team.login.copy')
+                                        }}
+                                    </Button>
+                                </div>
+                                <div class="mt-3 space-y-1 text-xs text-muted">
+                                    <p class="m-0">
+                                        {{
+                                            $t(
+                                                'settings.team.login.temporary_change',
+                                            )
+                                        }}
+                                    </p>
+                                    <p class="m-0">
+                                        {{
+                                            $t(
+                                                'settings.team.login.temporary_no_email',
+                                            )
+                                        }}
+                                    </p>
+                                    <p class="m-0">
+                                        {{
+                                            $t(
+                                                'settings.team.login.temporary_once',
+                                            )
+                                        }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <Button
+                                    variant="secondary"
+                                    :loading="generatingPassword"
+                                    @click="generatePassword"
+                                >
+                                    <Icon
+                                        :name="['fas', 'key']"
+                                        size="sm"
+                                    />
+                                    {{
+                                        $t(
+                                            'settings.team.login.generate_password',
+                                        )
+                                    }}
+                                </Button>
+                                <p class="mt-1.5 mb-0 text-xs text-muted">
+                                    {{
+                                        $t(
+                                            temporaryPassword
+                                                ? 'settings.team.login.generate_again_hint'
+                                                : 'settings.team.login.generate_hint',
+                                        )
+                                    }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <button
+                            v-if="
+                                canResendInvite &&
+                                person.can_log_in &&
+                                form.can_log_in
+                            "
+                            type="button"
+                            class="mt-4 text-sm font-bold text-secondary hover:underline"
+                            @click="resendInvite"
+                        >
+                            {{ $t('settings.team.login.resend') }}
+                        </button>
                     </div>
                 </Card>
 

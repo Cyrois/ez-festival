@@ -12,7 +12,10 @@ use Illuminate\Validation\ValidationException;
 
 class GlobalTeamService
 {
-    public function __construct(private readonly PersonService $people) {}
+    public function __construct(
+        private readonly PersonService $people,
+        private readonly LoginInvitationService $invitations,
+    ) {}
 
     public function loginLockReason(User $actor, Person $person): ?string
     {
@@ -30,9 +33,9 @@ class GlobalTeamService
     }
 
     /** @param array<string, mixed> $data */
-    public function create(array $data): Person
+    public function create(array $data, User $actor): Person
     {
-        return DB::transaction(function () use ($data): Person {
+        $person = DB::transaction(function () use ($data): Person {
             if ($this->people->findByEmail($data['email']) !== null) {
                 throw ValidationException::withMessages([
                     'email' => __('settings.team.validation.email_exists'),
@@ -81,13 +84,20 @@ class GlobalTeamService
 
             return $person;
         });
+
+        if ($person->can_log_in) {
+            $this->invitations->send($person, $actor);
+        }
+
+        return $person;
     }
 
     /** @param array<string, mixed> $data */
-    public function update(Person $person, array $data): void
+    public function update(Person $person, array $data, User $actor): void
     {
-        DB::transaction(function () use ($person, $data): void {
+        $loginChange = DB::transaction(function () use ($person, $data): ?string {
             $person = Person::query()->lockForUpdate()->findOrFail($person->id);
+            $wasEnabled = $person->can_log_in;
             $person->update([
                 'name' => $data['name'],
                 'phone' => $this->normalizePhone($data['phone'] ?? null),
@@ -152,7 +162,20 @@ class GlobalTeamService
 
                 $engagement->update(['role_id' => $role->id]);
             }
+
+            if ($wasEnabled === $person->can_log_in) {
+                return null;
+            }
+
+            return $person->can_log_in ? 'enabled' : 'disabled';
         });
+
+        $person->refresh();
+        if ($loginChange === 'disabled') {
+            $this->invitations->cancel($person);
+        } elseif ($loginChange === 'enabled' && ! $this->invitations->hasEverSetPassword($person)) {
+            $this->invitations->send($person, $actor);
+        }
     }
 
     private function normalizePhone(mixed $phone): ?string

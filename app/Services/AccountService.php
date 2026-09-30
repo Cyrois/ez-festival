@@ -31,6 +31,10 @@ class AccountService
 
     public function updatePassword(User $user, string $password): void
     {
-        $user->update(['password' => $password]);
+        $user->update([
+            'password' => $password,
+            'has_set_password' => true,
+            'must_change_password' => false,
+        ]);
     }
 }
