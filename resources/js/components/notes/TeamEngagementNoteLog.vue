@@ -308,6 +308,13 @@ onUnmounted(() => window.clearInterval(clock));
                             @click="openEdit(note)"
                         />
                     </div>
+                    <IconButton
+                        v-else
+                        :icon="['fas', 'xmark']"
+                        :label="$t('team.member.notes.remove')"
+                        tone="delete"
+                        @click="removeNewNote(note.client_id)"
+                    />
                 </div>
 
                 <FormField
@@ -342,18 +349,9 @@ onUnmounted(() => window.clearInterval(clock));
                     </div>
                 </FormField>
                 <template v-else-if="note.pending">
-                    <div class="mt-1 flex items-start justify-between gap-3">
-                        <p class="m-0 text-sm whitespace-pre-wrap">
-                            {{ note.body }}
-                        </p>
-                        <IconButton
-                            :icon="['fas', 'xmark']"
-                            :label="$t('team.member.notes.remove')"
-                            tone="delete"
-                            class="shrink-0"
-                            @click="removeNewNote(note.client_id)"
-                        />
-                    </div>
+                    <p class="mt-1 mb-0 text-sm whitespace-pre-wrap">
+                        {{ note.body }}
+                    </p>
                 </template>
                 <template v-else>
                     <p class="mt-1 mb-0 text-sm whitespace-pre-wrap">

@@ -65,9 +65,8 @@ test('a staged note uses the signed-off teal pending treatment', () => {
     assert.match(noteLog, /class="h-3 border-l border-primary\/30"/);
     assert.match(
         noteLog,
-        /v-else-if="note\.pending"[\s\S]*mt-1 flex items-start justify-between gap-3/,
+        /<IconButton\s+v-else\s+:icon="\['fas', 'xmark'\]"/,
     );
-    assert.match(noteLog, /\['fas', 'xmark'\]/);
     assert.match(noteLog, /\['fas', 'pen'\]/);
     assert.match(noteLog, /tone="delete"/);
     assert.match(noteLog, /tone="edit"/);
