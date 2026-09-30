@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Settings;
 
 use App\Models\Event;
+use App\Services\GlobalTeamService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -47,19 +48,17 @@ class UpdateGlobalTeamPersonRequest extends FormRequest
                 $validator->errors()->add('event_access', __('settings.team.validation.all_events_required'));
             }
 
-            $person = $this->route('person');
-            if (! $person->can_log_in || $this->boolean('can_log_in')) {
+            if ($this->boolean('can_log_in')) {
                 return;
             }
 
-            if ((int) $this->user()->person_id === (int) $person->id) {
-                $validator->errors()->add('can_log_in', __('settings.team.validation.own_login'));
+            $reason = app(GlobalTeamService::class)->loginLockReason(
+                $this->user(),
+                $this->route('person'),
+            );
 
-                return;
-            }
-
-            if ($person->user()->where('is_admin', true)->exists()) {
-                $validator->errors()->add('can_log_in', __('settings.team.validation.admin_login'));
+            if ($reason !== null) {
+                $validator->errors()->add('can_log_in', $reason);
             }
         }];
     }

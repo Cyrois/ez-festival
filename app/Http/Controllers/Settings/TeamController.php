@@ -16,6 +16,7 @@ use App\Repositories\GlobalTeamRepository;
 use App\Services\GlobalTeamService;
 use App\Services\PersonService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -68,7 +69,7 @@ class TeamController extends Controller
             ->with('success_title', __('toast.saved_title'));
     }
 
-    public function show(Person $person): Response
+    public function show(Request $request, Person $person): Response
     {
         abort_unless($person->teamEngagements()->whereNotNull('role_id')->exists(), 404);
         $person->load(['teamEngagements.role']);
@@ -81,7 +82,7 @@ class TeamController extends Controller
                 'email' => $person->email,
                 'phone' => $person->phone,
                 'can_log_in' => $person->can_log_in,
-                'login_disable_reason' => $this->loginDisableReason($person),
+                'login_disable_reason' => $this->teamService->loginLockReason($request->user(), $person),
             ],
             'events' => collect($this->eventOptions())->map(function (array $event) use ($engagements): array {
                 $engagement = $engagements->get($event['id']);
@@ -150,22 +151,5 @@ class TeamController extends Controller
             ->get(['id', 'name'])
             ->map(fn (Role $role): array => ['id' => $role->id, 'name' => $role->name])
             ->all();
-    }
-
-    private function loginDisableReason(Person $person): ?string
-    {
-        if (! $person->can_log_in) {
-            return null;
-        }
-
-        if ((int) request()->user()->person_id === (int) $person->id) {
-            return __('settings.team.login.own_disabled');
-        }
-
-        if ($person->user()->where('is_admin', true)->exists()) {
-            return __('settings.team.login.admin_disabled');
-        }
-
-        return null;
     }
 }

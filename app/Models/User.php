@@ -45,6 +45,7 @@ class User extends Authenticatable
                 'name' => $user->name,
                 'email' => $user->email,
                 'phone' => $user->phone,
+                'can_log_in' => true,
             ]);
 
             $user->forceFill(['person_id' => $person->id])->saveQuietly();
@@ -111,6 +112,12 @@ class User extends Authenticatable
     public function effectiveEvent(): ?Event
     {
         return $this->currentEvent()->first() ?? app(OrganizationContext::class)->defaultEvent();
+    }
+
+    public function canSignIn(): bool
+    {
+        return $this->is_admin
+            || ($this->person?->teamEngagements()->whereNotNull('role_id')->exists() ?? false);
     }
 
     public function setCurrentEvent(Event $event): void

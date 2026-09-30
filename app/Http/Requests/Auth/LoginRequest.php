@@ -53,13 +53,7 @@ class LoginRequest extends FormRequest
 
         RateLimiter::clear($this->throttleKey());
 
-        $user = Auth::user();
-        $hasEventRole = $user?->person
-            ?->teamEngagements()
-            ->whereNotNull('role_id')
-            ->exists() ?? false;
-
-        if (! $user?->is_admin && ! $hasEventRole) {
+        if (! Auth::user()?->canSignIn()) {
             Auth::logout();
 
             throw ValidationException::withMessages([

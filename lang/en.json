@@ -986,8 +986,6 @@
     "settings.team.validation.all_events_required": "Submit access for every event.",
     "settings.team.validation.status_required": "Pick a status for this event.",
     "settings.team.validation.already_on_team": "This person is already on Global Team.",
-    "settings.team.validation.own_login": "You can't turn off your own back office login.",
-    "settings.team.validation.admin_login": "Only the owner can turn off an admin's back office login.",
     "auth.no_event_access": "You don't have access to any events yet.",
     "settings.team.toast.created": "Person added to Global Team.",
     "settings.team.toast.updated": "Global Team person updated.",
