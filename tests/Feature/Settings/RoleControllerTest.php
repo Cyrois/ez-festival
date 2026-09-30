@@ -4,6 +4,7 @@ namespace Tests\Feature\Settings;
 
 use App\Models\Event;
 use App\Models\Role;
+use App\Models\TeamEngagement;
 use App\Models\User;
 use App\Services\RoleService;
 use App\Support\OrganizationContext;
@@ -39,6 +40,7 @@ class RoleControllerTest extends TestCase
         $this->assertTrue(Schema::hasTable('roles'));
         $this->assertFalse(Schema::hasColumn('roles', 'organization_id'));
         $this->assertFalse(Schema::hasColumn('roles', 'event_id'));
+        $this->assertTrue(Schema::hasColumn('roles', 'can_read_team_notes'));
     }
 
     public function test_roles_list_starts_on_the_on_filter(): void
@@ -53,6 +55,7 @@ class RoleControllerTest extends TestCase
                 ->where('filters.status', 'on')
                 ->where('filters.search', '')
                 ->where('hasAnyRoles', true)
+                ->where('canManageRoles', true)
                 ->has('roles.data', 1)
                 ->where('roles.data.0.name', 'Stage manager')
                 ->where('roles.data.0.active', true),
@@ -193,7 +196,74 @@ class RoleControllerTest extends TestCase
             'name' => 'Stage manager',
             'name_key' => 'stage manager',
             'active' => true,
+            'can_read_team_notes' => false,
         ]);
+    }
+
+    public function test_admin_can_create_and_update_the_team_notes_permission(): void
+    {
+        $user = $this->userWithCompletedSetup();
+
+        $this->actingAs($user)
+            ->post(route('settings.roles.store'), [
+                'name' => 'Team manager',
+                'can_read_team_notes' => true,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $role = Role::query()->where('name', 'Team manager')->sole();
+        $this->assertTrue($role->can_read_team_notes);
+
+        $this->put(route('settings.roles.update', $role), [
+            'name' => 'Team lead',
+            'can_read_team_notes' => false,
+        ])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('roles', [
+            'id' => $role->id,
+            'name' => 'Team lead',
+            'can_read_team_notes' => false,
+        ]);
+    }
+
+    public function test_non_admin_can_view_roles_but_cannot_create_edit_or_toggle_them(): void
+    {
+        $user = $this->userWithCompletedSetup();
+        $accessRole = Role::query()->create(['name' => 'Access']);
+        $protectedRole = Role::query()->create([
+            'name' => 'Protected',
+            'can_read_team_notes' => false,
+        ]);
+        $user->forceFill(['is_admin' => false])->save();
+        $user->person()->update(['can_log_in' => true]);
+        TeamEngagement::query()->create([
+            'event_id' => $this->event->id,
+            'person_id' => $user->person_id,
+            'role_id' => $accessRole->id,
+            'status' => 'hired',
+            'employment_type' => 'volunteer',
+        ]);
+
+        $this->actingAs($user)->get(route('settings.roles'))->assertInertia(
+            fn (Assert $page) => $page->where('canManageRoles', false),
+        );
+        $this->post(route('settings.roles.store'), [
+            'name' => 'Not allowed',
+            'can_read_team_notes' => true,
+        ])->assertForbidden();
+        $this->put(route('settings.roles.update', $protectedRole), [
+            'name' => 'Changed',
+            'can_read_team_notes' => true,
+        ])->assertForbidden();
+        $this->put(route('settings.roles.status.update', $protectedRole), [
+            'active' => false,
+        ])->assertForbidden();
+
+        $protectedRole->refresh();
+        $this->assertSame('Protected', $protectedRole->name);
+        $this->assertFalse($protectedRole->can_read_team_notes);
+        $this->assertTrue($protectedRole->active);
+        $this->assertDatabaseMissing('roles', ['name' => 'Not allowed']);
     }
 
     public function test_added_name_is_trimmed_and_inner_spaces_squashed(): void

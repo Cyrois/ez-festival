@@ -8,11 +8,11 @@ use App\Models\PassAssignment;
 use App\Models\PassType;
 use App\Models\Person;
 use App\Models\TeamEngagement;
-use App\Models\TeamEngagementNote;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
 class TeamEngagementService
@@ -50,12 +50,20 @@ class TeamEngagementService
     }
 
     /** @param array<string, mixed> $data */
-    public function update(TeamEngagement $engagement, array $data): void
+    public function update(TeamEngagement $engagement, User $user, array $data): bool
     {
-        DB::transaction(function () use ($engagement, $data): void {
+        return DB::transaction(function () use ($engagement, $user, $data): bool {
             $event = Event::query()->lockForUpdate()->findOrFail($engagement->event_id);
             $event->ensureWritable();
             $engagement = TeamEngagement::query()->lockForUpdate()->findOrFail($engagement->id);
+            $hasNoteChanges = ($data['notes'] ?? []) !== [] || ($data['note_edits'] ?? []) !== [];
+
+            if ($hasNoteChanges && Gate::forUser($user)->denies('can-read-team-notes', $engagement)) {
+                throw ValidationException::withMessages([
+                    'notes' => __('team.member.notes.errors.forbidden'),
+                ]);
+            }
+
             $wasHired = $engagement->status === 'hired';
             $person = Person::query()->lockForUpdate()->findOrFail($engagement->person_id);
             $email = $this->people->normalizeEmail($data['email']);
@@ -89,6 +97,41 @@ class TeamEngagementService
             if (array_key_exists('pass_assignments', $data)) {
                 $this->syncPassAssignments($engagement, $data['pass_assignments'], $wasHired);
             }
+
+            foreach (array_reverse($data['notes'] ?? []) as $note) {
+                $engagement->notes()->create([
+                    'user_id' => $user->id,
+                    'body' => $note['body'],
+                ]);
+            }
+
+            $lateEditSkipped = false;
+            foreach ($data['note_edits'] ?? [] as $edit) {
+                $note = $engagement->notes()
+                    ->whereKey($edit['id'])
+                    ->where('user_id', $user->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($note === null) {
+                    throw ValidationException::withMessages([
+                        'note_edits' => __('team.member.notes.errors.not_editable'),
+                    ]);
+                }
+
+                if ($note->created_at->copy()->addMinutes(5)->lessThanOrEqualTo(now())) {
+                    $lateEditSkipped = true;
+
+                    continue;
+                }
+
+                $note->update([
+                    'body' => $edit['body'],
+                    'edited_at' => now(),
+                ]);
+            }
+
+            return $lateEditSkipped;
         });
     }
 
@@ -99,22 +142,6 @@ class TeamEngagementService
             $event->ensureWritable();
 
             $engagement->update(['status' => $status]);
-        });
-    }
-
-    public function addNote(
-        TeamEngagement $engagement,
-        User $user,
-        string $body,
-    ): TeamEngagementNote {
-        return DB::transaction(function () use ($engagement, $user, $body): TeamEngagementNote {
-            $event = Event::query()->lockForUpdate()->findOrFail($engagement->event_id);
-            $event->ensureWritable();
-
-            return $engagement->notes()->create([
-                'user_id' => $user->id,
-                'body' => $body,
-            ]);
         });
     }
 

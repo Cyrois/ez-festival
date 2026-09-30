@@ -2,6 +2,7 @@
 import SettingsLayout from '../../layouts/SettingsLayout.vue';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
+import { Checkbox } from '../../components/ui/checkbox';
 import { DataTable } from '../../components/ui/data-table';
 import { Dialog } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/form-field';
@@ -22,6 +23,7 @@ const props = defineProps({
     roles: { type: Object, required: true },
     filters: { type: Object, required: true },
     hasAnyRoles: { type: Boolean, required: true },
+    canManageRoles: { type: Boolean, required: true },
 });
 
 const breadcrumbs = computed(() => [
@@ -69,7 +71,7 @@ const dataTableOptions = computed(() => ({
         topStart: null,
         topEnd: null,
     },
-    columnDefs: [{ targets: 2, className: 'text-right' }],
+    columnDefs: [{ targets: 3, className: 'text-right' }],
     language: {
         emptyTable: trans('settings.roles.empty'),
         zeroRecords: trans('settings.roles.empty_filtered'),
@@ -116,12 +118,12 @@ onUnmounted(() => window.clearTimeout(searchTimer));
 // Add / rename dialog.
 const editing = ref(null);
 const formOpen = ref(false);
-const form = useForm({ name: '' });
+const form = useForm({ name: '', can_read_team_notes: false });
 
 const isRename = computed(() => editing.value !== null);
 const formTitle = computed(() =>
     isRename.value
-        ? trans('settings.roles.form.rename_title', {
+        ? trans('settings.roles.form.edit_title', {
               name: editing.value.name,
           })
         : trans('settings.roles.form.add_title'),
@@ -148,6 +150,7 @@ const focusName = async () => {
 const openAdd = () => {
     editing.value = null;
     form.reset();
+    form.can_read_team_notes = false;
     form.clearErrors();
     formOpen.value = true;
     focusName();
@@ -156,6 +159,7 @@ const openAdd = () => {
 const openRename = (role) => {
     editing.value = role;
     form.name = role.name;
+    form.can_read_team_notes = role.can_read_team_notes;
     form.clearErrors();
     formOpen.value = true;
     focusName();
@@ -248,6 +252,7 @@ const confirmTurnOff = () => {
                     </p>
                 </div>
                 <Button
+                    v-if="canManageRoles"
                     type="button"
                     class="min-h-11 w-full sm:min-h-10 sm:w-auto"
                     @click="openAdd"
@@ -315,7 +320,23 @@ const confirmTurnOff = () => {
                     <div class="mt-0.5 text-sm text-muted">
                         {{ peopleLabel(role.people_count) }}
                     </div>
-                    <div class="mt-4 flex flex-wrap justify-end gap-2">
+                    <div
+                        class="mt-2 flex items-center gap-2 text-sm text-muted"
+                    >
+                        <Icon
+                            :name="
+                                role.can_read_team_notes
+                                    ? ['fas', 'check']
+                                    : ['fas', 'minus']
+                            "
+                            size="sm"
+                        />
+                        {{ $t('settings.roles.columns.team_notes') }}
+                    </div>
+                    <div
+                        v-if="canManageRoles"
+                        class="mt-4 flex flex-wrap justify-end gap-2"
+                    >
                         <IconButton
                             :icon="['fas', 'pencil']"
                             :label="
@@ -402,8 +423,32 @@ const confirmTurnOff = () => {
                             {{ peopleLabel(rowData.people_count) }}
                         </span>
                     </template>
+                    <template #teamNotesCell="{ rowData }">
+                        <Icon
+                            :name="
+                                rowData.can_read_team_notes
+                                    ? ['fas', 'check']
+                                    : ['fas', 'minus']
+                            "
+                            :class="
+                                rowData.can_read_team_notes
+                                    ? 'text-success'
+                                    : 'text-muted'
+                            "
+                            :aria-label="
+                                $t(
+                                    rowData.can_read_team_notes
+                                        ? 'settings.roles.permissions.enabled'
+                                        : 'settings.roles.permissions.disabled',
+                                )
+                            "
+                        />
+                    </template>
                     <template #actionsCell="{ rowData }">
-                        <div class="flex items-center justify-end gap-2">
+                        <div
+                            v-if="canManageRoles"
+                            class="flex items-center justify-end gap-2"
+                        >
                             <IconButton
                                 :icon="['fas', 'pencil']"
                                 :label="
@@ -489,21 +534,6 @@ const confirmTurnOff = () => {
                     {{ $t('settings.roles.admins_note') }}
                 </p>
             </div>
-
-            <p
-                class="m-0 flex items-center gap-2 rounded-lg border border-dashed border-line bg-page px-3 py-2.5 text-xs text-muted"
-            >
-                <Icon
-                    :name="['fas', 'lock']"
-                    size="sm"
-                />
-                <span>
-                    <strong class="font-bold">
-                        {{ $t('settings.roles.permissions.coming_later') }}
-                    </strong>
-                    {{ $t('settings.roles.permissions.none_yet') }}
-                </span>
-            </p>
         </div>
 
         <Dialog
@@ -572,6 +602,30 @@ const confirmTurnOff = () => {
                         })
                     }}
                 </p>
+                <div class="mt-4 border-t border-line pt-4">
+                    <h3 class="m-0 text-sm font-bold text-charcoal">
+                        {{ $t('settings.roles.permissions.title') }}
+                    </h3>
+                    <Checkbox
+                        v-model="form.can_read_team_notes"
+                        class="mt-3"
+                    >
+                        <span class="font-semibold">
+                            {{
+                                $t(
+                                    'settings.roles.permissions.can_read_team_notes',
+                                )
+                            }}
+                        </span>
+                    </Checkbox>
+                    <p class="mt-1 mb-0 pl-6 text-xs leading-snug text-muted">
+                        {{
+                            $t(
+                                'settings.roles.permissions.can_read_team_notes_help',
+                            )
+                        }}
+                    </p>
+                </div>
             </form>
         </Dialog>
 

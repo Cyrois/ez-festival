@@ -13,6 +13,7 @@ class RoleResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'active' => $this->active,
+            'can_read_team_notes' => $this->can_read_team_notes,
             'people_count' => (int) ($this->people_count ?? 0),
         ];
     }

@@ -228,9 +228,6 @@ class TeamAdvancementTest extends TestCase
         $this->actingAs($user)
             ->patch(route('team.members.status.update', $foreign), ['status' => 'hired'])
             ->assertNotFound();
-        $this->actingAs($user)
-            ->post(route('team.members.notes.store', $foreign), ['body' => 'Nope'])
-            ->assertNotFound();
         $this->assertDatabaseCount('team_engagement_notes', 0);
     }
 
@@ -318,17 +315,17 @@ class TeamAdvancementTest extends TestCase
         $this->assertFalse($target->fresh()->can_log_in);
     }
 
-    public function test_staff_can_post_trimmed_notes_and_view_them_newest_first(): void
+    public function test_admin_can_save_trimmed_notes_with_the_member_and_view_them_newest_first(): void
     {
         [$user, $event] = $this->userWithCompletedSetup();
         $engagement = $this->engagement($event, 'Notes Member');
 
         $this->actingAs($user)
-            ->post(route('team.members.notes.store', $engagement), [
-                'body' => '  First interview completed.  ',
-            ])
+            ->put(route('team.members.update', $engagement), $this->memberPayload($engagement, [
+                'notes' => [['body' => '  First interview completed.  ']],
+            ]))
             ->assertRedirect(route('team.members.show', $engagement))
-            ->assertSessionHas('success', __('team.member.toast.note_posted'));
+            ->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('team_engagement_notes', [
             'team_engagement_id' => $engagement->id,
@@ -336,9 +333,9 @@ class TeamAdvancementTest extends TestCase
             'body' => 'First interview completed.',
         ]);
 
-        $this->post(route('team.members.notes.store', $engagement), [
-            'body' => 'References confirmed.',
-        ])->assertRedirect(route('team.members.show', $engagement));
+        $this->put(route('team.members.update', $engagement), $this->memberPayload($engagement, [
+            'notes' => [['body' => 'References confirmed.']],
+        ]))->assertRedirect(route('team.members.show', $engagement));
 
         $this->get(route('team.members.show', $engagement))->assertInertia(
             fn (Assert $page) => $page
@@ -354,11 +351,15 @@ class TeamAdvancementTest extends TestCase
         $engagement = $this->engagement($event, 'Locked Notes Member');
 
         $this->actingAs($user)
-            ->post(route('team.members.notes.store', $engagement), ['body' => '   '])
-            ->assertSessionHasErrors('body');
+            ->put(route('team.members.update', $engagement), $this->memberPayload($engagement, [
+                'notes' => [['body' => '   ']],
+            ]))
+            ->assertSessionHasErrors('notes.0.body');
 
         $event->lock();
-        $this->post(route('team.members.notes.store', $engagement), ['body' => 'Blocked'])
+        $this->put(route('team.members.update', $engagement), $this->memberPayload($engagement, [
+            'notes' => [['body' => 'Blocked']],
+        ]))
             ->assertForbidden();
 
         $this->assertDatabaseCount('team_engagement_notes', 0);
@@ -375,9 +376,6 @@ class TeamAdvancementTest extends TestCase
         $this->actingAs($user)->put(route('team.members.update', $engagement), [])->assertForbidden();
         $this->actingAs($user)
             ->patch(route('team.members.status.update', $engagement), ['status' => 'hired'])
-            ->assertForbidden();
-        $this->actingAs($user)
-            ->post(route('team.members.notes.store', $engagement), ['body' => 'No permission'])
             ->assertForbidden();
         $this->assertDatabaseCount('team_engagement_notes', 0);
     }

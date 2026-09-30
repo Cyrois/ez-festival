@@ -1,6 +1,6 @@
 <script setup>
 import AppLayout from '../../layouts/AppLayout.vue';
-import EngagementNoteLog from '../../components/notes/EngagementNoteLog.vue';
+import TeamEngagementNoteLog from '../../components/notes/TeamEngagementNoteLog.vue';
 import TeamPassAssignmentsPanel from '../../components/team/TeamPassAssignmentsPanel.vue';
 import TeamMemberFields from '../../components/team/TeamMemberFields.vue';
 import { Avatar } from '../../components/ui/avatar';
@@ -13,11 +13,11 @@ import { useFlashToast } from '../../composables/useFlashToast';
 import { toastFormErrors } from '../../lib/fieldError';
 import { Link, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import { trans } from 'laravel-vue-i18n';
+import { trans, transChoice } from 'laravel-vue-i18n';
 
 const props = defineProps({
     engagement: { type: Object, required: true },
-    notes: { type: Array, required: true },
+    notes: { type: Array, default: () => [] },
     event: { type: Object, required: true },
     groups: { type: Array, required: true },
     statuses: { type: Array, required: true },
@@ -25,6 +25,7 @@ const props = defineProps({
     roles: { type: Array, required: true },
     passes: { type: Array, default: () => [] },
     canWrite: { type: Boolean, required: true },
+    canReadNotes: { type: Boolean, required: true },
 });
 
 const form = useForm({
@@ -42,6 +43,8 @@ const form = useForm({
         issue_state: assignment.issue_state,
         can_remove: assignment.can_remove,
     })),
+    notes: [],
+    note_edits: [],
 });
 const { showError, showFormError } = useFlashToast();
 const readOnly = computed(() => !props.canWrite);
@@ -86,9 +89,37 @@ const roleItems = computed(() => {
 
     return items;
 });
+const unsavedSummary = computed(() => {
+    const newCount = form.notes.length;
+    const editedCount = form.note_edits.length;
+
+    if (newCount && editedCount) {
+        return trans('team.member.unsaved.both', {
+            new: newCount,
+            edited: editedCount,
+        });
+    }
+    if (newCount) {
+        return transChoice('team.member.unsaved.new_notes', newCount, {
+            count: newCount,
+        });
+    }
+    if (editedCount) {
+        return transChoice('team.member.unsaved.edited_notes', editedCount, {
+            count: editedCount,
+        });
+    }
+
+    return form.isDirty ? trans('team.member.unsaved.changes') : '';
+});
 const submit = () => {
     if (readOnly.value) return;
     form.put(`/team/members/${props.engagement.id}`, {
+        onSuccess: () => {
+            form.notes = [];
+            form.note_edits = [];
+            form.defaults();
+        },
         onError: (errors) => {
             if (
                 Object.keys(errors).some((key) =>
@@ -268,13 +299,15 @@ const submit = () => {
                     </div>
                 </Card>
 
-                <EngagementNoteLog
+                <TeamEngagementNoteLog
+                    v-if="canReadNotes"
+                    v-model:new-notes="form.notes"
+                    v-model:note-edits="form.note_edits"
                     class="mt-4"
                     :notes="notes"
-                    :post-url="`/team/members/${engagement.id}/notes`"
                     :can-write="canWrite"
                     :timezone="event.timezone"
-                    translation-namespace="team.member"
+                    :errors="form.errors"
                 />
 
                 <p
@@ -302,13 +335,21 @@ const submit = () => {
                         >
                             {{ $t('setup.actions.cancel') }}
                         </Button>
-                        <Button
-                            form="team-member-details"
-                            type="submit"
-                            :loading="form.processing"
-                        >
-                            {{ $t('team.member.save') }}
-                        </Button>
+                        <div class="flex items-center gap-3">
+                            <span
+                                v-if="unsavedSummary"
+                                class="text-xs font-semibold text-warning"
+                            >
+                                {{ unsavedSummary }}
+                            </span>
+                            <Button
+                                form="team-member-details"
+                                type="submit"
+                                :loading="form.processing"
+                            >
+                                {{ $t('team.member.save') }}
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </div>
