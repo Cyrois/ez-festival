@@ -24,6 +24,7 @@ class TestUserSeeder extends Seeder
                 'email_verified_at' => now(),
             ],
         );
+        $user->forceFill(['is_admin' => true])->saveQuietly();
 
         $person = $user->person ?? Person::query()->create([
             'name' => $user->name,
@@ -34,6 +35,7 @@ class TestUserSeeder extends Seeder
             'name' => $user->name,
             'email' => $user->email,
             'phone' => $user->phone,
+            'can_log_in' => true,
         ]);
 
         if ($user->person_id !== $person->id) {

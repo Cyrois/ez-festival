@@ -7,6 +7,7 @@ import { CustomDropdown } from '../../../components/ui/custom-dropdown';
 import { FormField } from '../../../components/ui/form-field';
 import { Icon } from '../../../components/ui/icon';
 import { Input } from '../../../components/ui/input';
+import { Switch } from '../../../components/ui/switch';
 import { useFlashToast } from '../../../composables/useFlashToast';
 import { toastFormErrors } from '../../../lib/fieldError';
 import { useForm } from '@inertiajs/vue3';
@@ -26,6 +27,7 @@ const originalRoles = Object.fromEntries(
 const form = useForm({
     name: props.person.name,
     phone: props.person.phone ?? '',
+    can_log_in: props.person.can_log_in,
     event_access: props.events.map((event) => ({
         event_id: event.id,
         role_id: event.role_id ?? '',
@@ -169,6 +171,37 @@ const submit = () => {
                                 maxlength="50"
                             />
                         </FormField>
+                    </div>
+                    <div class="mt-5 border-t border-line pt-5">
+                        <Switch
+                            v-model="form.can_log_in"
+                            :disabled="
+                                form.processing ||
+                                Boolean(person.login_disable_reason)
+                            "
+                        >
+                            {{ $t('settings.team.login.label') }}
+                        </Switch>
+                        <p
+                            class="mt-1.5 mb-0 text-xs"
+                            :class="
+                                person.login_disable_reason
+                                    ? 'text-warning'
+                                    : 'text-muted'
+                            "
+                        >
+                            {{
+                                person.login_disable_reason ||
+                                $t('settings.team.login.edit_hint')
+                            }}
+                        </p>
+                        <p
+                            v-if="form.errors.can_log_in"
+                            class="mt-1.5 mb-0 text-sm text-danger"
+                            role="alert"
+                        >
+                            {{ form.errors.can_log_in }}
+                        </p>
                     </div>
                 </Card>
 

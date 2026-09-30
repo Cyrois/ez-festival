@@ -2,14 +2,17 @@
 
 namespace App\Http\Requests\Settings;
 
+use App\Services\PersonService;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreGlobalTeamPersonRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        return Gate::allows('manage-team');
     }
 
     protected function prepareForValidation(): void
@@ -26,11 +29,25 @@ class StoreGlobalTeamPersonRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
+            'can_log_in' => ['required', 'boolean'],
             'status' => ['required', Rule::in(['applied', 'reviewing', 'hired'])],
             'event_access' => ['required', 'array', 'min:1'],
             'event_access.*.event_id' => ['required', 'integer', 'distinct', Rule::exists('events', 'id')->where('locked', 0)],
             'event_access.*.role_id' => ['required', 'integer', Rule::exists('roles', 'id')->where('active', 1)],
         ];
+    }
+
+    public function after(): array
+    {
+        return [function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            if (app(PersonService::class)->findByEmail($this->input('email')) !== null) {
+                $validator->errors()->add('email', __('settings.team.validation.email_exists'));
+            }
+        }];
     }
 
     public function messages(): array

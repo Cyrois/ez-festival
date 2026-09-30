@@ -3,7 +3,9 @@
 namespace App\Http\Requests\Settings;
 
 use App\Models\Event;
+use App\Services\GlobalTeamService;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -11,7 +13,7 @@ class UpdateGlobalTeamPersonRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        return Gate::allows('manage-team');
     }
 
     protected function prepareForValidation(): void
@@ -24,6 +26,7 @@ class UpdateGlobalTeamPersonRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
+            'can_log_in' => ['required', 'boolean'],
             'event_access' => ['required', 'array'],
             'event_access.*.event_id' => ['required', 'integer', 'distinct', Rule::exists('events', 'id')],
             'event_access.*.role_id' => ['nullable', 'integer', Rule::exists('roles', 'id')],
@@ -43,6 +46,19 @@ class UpdateGlobalTeamPersonRequest extends FormRequest
 
             if ($submitted->all() !== $events->all()) {
                 $validator->errors()->add('event_access', __('settings.team.validation.all_events_required'));
+            }
+
+            if ($this->boolean('can_log_in')) {
+                return;
+            }
+
+            $reason = app(GlobalTeamService::class)->loginLockReason(
+                $this->user(),
+                $this->route('person'),
+            );
+
+            if ($reason !== null) {
+                $validator->errors()->add('can_log_in', $reason);
             }
         }];
     }

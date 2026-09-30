@@ -16,6 +16,7 @@ use App\Repositories\GlobalTeamRepository;
 use App\Services\GlobalTeamService;
 use App\Services\PersonService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -68,9 +69,8 @@ class TeamController extends Controller
             ->with('success_title', __('toast.saved_title'));
     }
 
-    public function show(Person $person): Response
+    public function show(Request $request, Person $person): Response
     {
-        abort_unless($person->teamEngagements()->whereNotNull('role_id')->exists(), 404);
         $person->load(['teamEngagements.role']);
         $engagements = $person->teamEngagements->keyBy('event_id');
 
@@ -80,6 +80,8 @@ class TeamController extends Controller
                 'name' => $person->name,
                 'email' => $person->email,
                 'phone' => $person->phone,
+                'can_log_in' => $person->can_log_in,
+                'login_disable_reason' => $this->teamService->loginLockReason($request->user(), $person),
             ],
             'events' => collect($this->eventOptions())->map(function (array $event) use ($engagements): array {
                 $engagement = $engagements->get($event['id']);
@@ -98,10 +100,9 @@ class TeamController extends Controller
 
     public function update(UpdateGlobalTeamPersonRequest $request, Person $person): RedirectResponse
     {
-        abort_unless($person->teamEngagements()->whereNotNull('role_id')->exists(), 404);
         $this->teamService->update($person, $request->validated());
 
-        if (! $person->teamEngagements()->whereNotNull('role_id')->exists()) {
+        if (! $this->onGlobalTeam($person)) {
             return redirect()->route('settings.team')
                 ->with('success', __('settings.team.toast.updated'))
                 ->with('success_title', __('toast.saved_title'));
@@ -118,7 +119,7 @@ class TeamController extends Controller
 
         return new PersonEmailLookupResource([
             'person' => $person,
-            'on_global_team' => $person?->teamEngagements()->whereNotNull('role_id')->exists() ?? false,
+            'on_global_team' => $person !== null && $this->onGlobalTeam($person),
         ]);
     }
 
@@ -148,5 +149,10 @@ class TeamController extends Controller
             ->get(['id', 'name'])
             ->map(fn (Role $role): array => ['id' => $role->id, 'name' => $role->name])
             ->all();
+    }
+
+    private function onGlobalTeam(Person $person): bool
+    {
+        return Person::query()->onGlobalTeam()->whereKey($person->id)->exists();
     }
 }

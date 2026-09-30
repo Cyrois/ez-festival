@@ -13,6 +13,14 @@ export const teamColumns = (trans) => [
         title: trans('settings.team.columns.email'),
     },
     {
+        data: 'can_log_in',
+        name: 'login',
+        orderable: false,
+        render: { display: '#loginCell' },
+        searchable: false,
+        title: trans('settings.team.columns.login'),
+    },
+    {
         data: 'events',
         name: 'events',
         orderable: false,

@@ -52,6 +52,14 @@ class LoginRequest extends FormRequest
         }
 
         RateLimiter::clear($this->throttleKey());
+
+        if (! Auth::user()?->canSignIn()) {
+            Auth::logout();
+
+            throw ValidationException::withMessages([
+                'email' => __('auth.no_event_access'),
+            ]);
+        }
     }
 
     /**

@@ -36,7 +36,7 @@ const options = computed(() => ({
         topStart: null,
         topEnd: null,
     },
-    columnDefs: [{ targets: 3, className: 'text-right' }],
+    columnDefs: [{ targets: 4, className: 'text-right' }],
     createdRow: (row, person) => {
         row.classList.add('cursor-pointer');
         row.addEventListener('click', (event) => {
@@ -144,6 +144,26 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                             />
                             {{ rowData.name }}
                         </Link>
+                    </template>
+                    <template #loginCell="{ cellData }">
+                        <Badge
+                            v-if="cellData"
+                            variant="primary"
+                            class="gap-1.5"
+                            pill
+                        >
+                            <Icon
+                                :name="['fas', 'key']"
+                                size="sm"
+                            />
+                            {{ $t('settings.team.login.enabled') }}
+                        </Badge>
+                        <span
+                            v-else
+                            class="text-sm text-muted"
+                        >
+                            {{ $t('settings.team.login.disabled') }}
+                        </span>
                     </template>
                     <template #eventsCell="{ cellData }">
                         <div class="flex flex-wrap gap-1.5">

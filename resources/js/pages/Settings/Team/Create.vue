@@ -7,9 +7,10 @@ import { Dialog } from '../../../components/ui/dialog';
 import { FormField } from '../../../components/ui/form-field';
 import { Icon } from '../../../components/ui/icon';
 import { Input } from '../../../components/ui/input';
+import { Switch } from '../../../components/ui/switch';
 import { toastFormErrors } from '../../../lib/fieldError';
 import { useFlashToast } from '../../../composables/useFlashToast';
-import { router, useForm } from '@inertiajs/vue3';
+import { Link, router, useForm } from '@inertiajs/vue3';
 import { computed, onUnmounted, reactive, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
@@ -23,6 +24,7 @@ const form = useForm({
     name: '',
     email: '',
     phone: '',
+    can_log_in: true,
     status: 'applied',
     event_access: [],
 });
@@ -86,7 +88,7 @@ watch(
 onUnmounted(() => window.clearTimeout(lookupTimer));
 
 const submit = () => {
-    if (lookupBusy.value || lookup.value?.on_global_team) return;
+    if (lookupBusy.value || lookup.value?.exists) return;
 
     form.event_access = props.events
         .filter((event) => !event.locked && selectedRoles[event.id] !== '')
@@ -170,9 +172,20 @@ const submit = () => {
                             />
                             <p
                                 v-if="lookup?.exists && !lookup.on_global_team"
-                                class="mt-1.5 mb-0 text-xs text-secondary"
+                                class="mt-1.5 mb-0 text-xs text-warning"
+                                role="alert"
                             >
-                                {{ $t('settings.team.add.known_contact') }}
+                                {{
+                                    $t('settings.team.add.existing_contact', {
+                                        name: lookup.person.name,
+                                    })
+                                }}
+                                <Link
+                                    :href="`/settings/team/${lookup.person.id}`"
+                                    class="font-semibold text-secondary underline underline-offset-2"
+                                >
+                                    {{ $t('settings.team.add.open_existing') }}
+                                </Link>
                             </p>
                         </FormField>
                         <FormField
@@ -188,6 +201,17 @@ const submit = () => {
                                 maxlength="50"
                             />
                         </FormField>
+                    </div>
+                    <div class="mt-5 border-t border-line pt-5">
+                        <Switch
+                            v-model="form.can_log_in"
+                            :disabled="form.processing"
+                        >
+                            {{ $t('settings.team.login.label') }}
+                        </Switch>
+                        <p class="mt-1.5 mb-0 text-xs text-muted">
+                            {{ $t('settings.team.login.add_hint') }}
+                        </p>
                     </div>
                 </Card>
 
@@ -277,9 +301,7 @@ const submit = () => {
                             type="submit"
                             :loading="form.processing"
                             :disabled="
-                                form.processing ||
-                                lookupBusy ||
-                                lookup?.on_global_team
+                                form.processing || lookupBusy || lookup?.exists
                             "
                         >
                             <Icon

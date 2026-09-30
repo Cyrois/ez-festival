@@ -4,7 +4,9 @@ namespace Database\Seeders;
 
 use App\Models\Organization;
 use App\Models\Person;
+use App\Models\Role;
 use App\Models\TeamEngagement;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 
 class TestTeamSeeder extends Seeder
@@ -21,6 +23,26 @@ class TestTeamSeeder extends Seeder
 
             return [$name => $group];
         });
+        $administratorRole = Role::query()->firstOrCreate([
+            'name' => 'Administrator',
+        ]);
+        $seededUser = User::query()
+            ->where('email', 'calvinkylechan@gmail.com')
+            ->firstOrFail();
+
+        TeamEngagement::query()->updateOrCreate(
+            [
+                'event_id' => $event->id,
+                'person_id' => $seededUser->person_id,
+            ],
+            [
+                'group_id' => $groups['Headquarters']->id,
+                'role_id' => $administratorRole->id,
+                'status' => 'hired',
+                'employment_type' => 'volunteer',
+                'hourly_pay' => null,
+            ],
+        );
 
         $members = [
             [

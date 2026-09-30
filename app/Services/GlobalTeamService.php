@@ -6,6 +6,7 @@ use App\Models\Event;
 use App\Models\Person;
 use App\Models\Role;
 use App\Models\TeamEngagement;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -13,25 +14,37 @@ class GlobalTeamService
 {
     public function __construct(private readonly PersonService $people) {}
 
+    public function loginLockReason(User $actor, Person $person): ?string
+    {
+        if (! $person->can_log_in) {
+            return null;
+        }
+
+        if ((int) $actor->person_id === (int) $person->id) {
+            return __('settings.team.login.own_disabled');
+        }
+
+        return $person->user()->where('is_admin', true)->exists()
+            ? __('settings.team.login.admin_disabled')
+            : null;
+    }
+
     /** @param array<string, mixed> $data */
     public function create(array $data): Person
     {
         return DB::transaction(function () use ($data): Person {
-            $person = $this->people->findByEmail($data['email']);
-
-            if ($person?->teamEngagements()->whereNotNull('role_id')->exists()) {
+            if ($this->people->findByEmail($data['email']) !== null) {
                 throw ValidationException::withMessages([
-                    'email' => __('settings.team.validation.already_on_team'),
+                    'email' => __('settings.team.validation.email_exists'),
                 ]);
             }
 
-            if ($person === null) {
-                $person = Person::query()->create([
-                    'name' => $data['name'],
-                    'email' => $this->people->normalizeEmail($data['email']),
-                    'phone' => $this->normalizePhone($data['phone'] ?? null),
-                ]);
-            }
+            $person = Person::query()->create([
+                'name' => $data['name'],
+                'email' => $this->people->normalizeEmail($data['email']),
+                'phone' => $this->normalizePhone($data['phone'] ?? null),
+                'can_log_in' => $data['can_log_in'],
+            ]);
 
             foreach ($data['event_access'] as $access) {
                 $event = Event::query()->lockForUpdate()->findOrFail($access['event_id']);
@@ -78,6 +91,7 @@ class GlobalTeamService
             $person->update([
                 'name' => $data['name'],
                 'phone' => $this->normalizePhone($data['phone'] ?? null),
+                'can_log_in' => $data['can_log_in'],
             ]);
 
             foreach ($data['event_access'] as $index => $access) {
