@@ -3,13 +3,14 @@
 namespace App\Http\Requests\Settings;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 class StoreGlobalTeamPersonRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        return Gate::allows('manage-team');
     }
 
     protected function prepareForValidation(): void
@@ -26,6 +27,7 @@ class StoreGlobalTeamPersonRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
+            'can_log_in' => ['required', 'boolean'],
             'status' => ['required', Rule::in(['applied', 'reviewing', 'hired'])],
             'event_access' => ['required', 'array', 'min:1'],
             'event_access.*.event_id' => ['required', 'integer', 'distinct', Rule::exists('events', 'id')->where('locked', 0)],

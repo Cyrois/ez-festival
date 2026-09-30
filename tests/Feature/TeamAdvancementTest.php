@@ -292,6 +292,32 @@ class TeamAdvancementTest extends TestCase
         $this->assertSame('shared@example.test', $sharedUser->fresh()->email);
     }
 
+    public function test_moving_a_team_record_to_another_person_keeps_both_login_switches_unchanged(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        $role = Role::query()->create(['name' => 'Staff']);
+        $engagement = $this->engagement($event, 'Original Person');
+        $engagement->update(['role_id' => $role->id]);
+        $engagement->person->update(['can_log_in' => true]);
+        $original = $engagement->person;
+        $target = Person::query()->create([
+            'name' => 'Known Contact',
+            'email' => 'known-contact@example.test',
+            'can_log_in' => false,
+        ]);
+
+        $this->actingAs($user)
+            ->put(route('team.members.update', $engagement), $this->memberPayload($engagement, [
+                'name' => $target->name,
+                'email' => $target->email,
+            ]))
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame($target->id, $engagement->fresh()->person_id);
+        $this->assertTrue($original->fresh()->can_log_in);
+        $this->assertFalse($target->fresh()->can_log_in);
+    }
+
     public function test_staff_can_post_trimmed_notes_and_view_them_newest_first(): void
     {
         [$user, $event] = $this->userWithCompletedSetup();
@@ -379,6 +405,7 @@ class TeamAdvancementTest extends TestCase
         $first = Role::query()->create(['name' => 'Staff']);
         $second = Role::query()->create(['name' => 'Manager']);
         $engagement = $this->engagement($event, 'Access Member');
+        $engagement->person->update(['can_log_in' => true]);
 
         $this->actingAs($user)
             ->put(route('team.members.update', $engagement), $this->memberPayload($engagement, [
@@ -399,6 +426,7 @@ class TeamAdvancementTest extends TestCase
             'role_id' => null,
         ]))->assertSessionHasNoErrors();
         $this->assertNull($engagement->fresh()->role_id);
+        $this->assertTrue($engagement->person->fresh()->can_log_in);
         $this->assertDatabaseHas('team_engagements', ['id' => $engagement->id]);
         $this->get(route('settings.team'))->assertInertia(
             fn (Assert $page) => $page->where('hasAnyPeople', false),

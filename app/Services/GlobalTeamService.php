@@ -30,7 +30,10 @@ class GlobalTeamService
                     'name' => $data['name'],
                     'email' => $this->people->normalizeEmail($data['email']),
                     'phone' => $this->normalizePhone($data['phone'] ?? null),
+                    'can_log_in' => $data['can_log_in'],
                 ]);
+            } else {
+                $person->update(['can_log_in' => $data['can_log_in']]);
             }
 
             foreach ($data['event_access'] as $access) {
@@ -78,6 +81,7 @@ class GlobalTeamService
             $person->update([
                 'name' => $data['name'],
                 'phone' => $this->normalizePhone($data['phone'] ?? null),
+                'can_log_in' => $data['can_log_in'],
             ]);
 
             foreach ($data['event_access'] as $index => $access) {

@@ -7,6 +7,7 @@ import { Dialog } from '../../../components/ui/dialog';
 import { FormField } from '../../../components/ui/form-field';
 import { Icon } from '../../../components/ui/icon';
 import { Input } from '../../../components/ui/input';
+import { Switch } from '../../../components/ui/switch';
 import { toastFormErrors } from '../../../lib/fieldError';
 import { useFlashToast } from '../../../composables/useFlashToast';
 import { router, useForm } from '@inertiajs/vue3';
@@ -23,6 +24,7 @@ const form = useForm({
     name: '',
     email: '',
     phone: '',
+    can_log_in: true,
     status: 'applied',
     event_access: [],
 });
@@ -188,6 +190,17 @@ const submit = () => {
                                 maxlength="50"
                             />
                         </FormField>
+                    </div>
+                    <div class="mt-5 border-t border-line pt-5">
+                        <Switch
+                            v-model="form.can_log_in"
+                            :disabled="form.processing"
+                        >
+                            {{ $t('settings.team.login.label') }}
+                        </Switch>
+                        <p class="mt-1.5 mb-0 text-xs text-muted">
+                            {{ $t('settings.team.login.add_hint') }}
+                        </p>
                     </div>
                 </Card>
 

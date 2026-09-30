@@ -80,6 +80,8 @@ class TeamController extends Controller
                 'name' => $person->name,
                 'email' => $person->email,
                 'phone' => $person->phone,
+                'can_log_in' => $person->can_log_in,
+                'login_disable_reason' => $this->loginDisableReason($person),
             ],
             'events' => collect($this->eventOptions())->map(function (array $event) use ($engagements): array {
                 $engagement = $engagements->get($event['id']);
@@ -148,5 +150,22 @@ class TeamController extends Controller
             ->get(['id', 'name'])
             ->map(fn (Role $role): array => ['id' => $role->id, 'name' => $role->name])
             ->all();
+    }
+
+    private function loginDisableReason(Person $person): ?string
+    {
+        if (! $person->can_log_in) {
+            return null;
+        }
+
+        if ((int) request()->user()->person_id === (int) $person->id) {
+            return __('settings.team.login.own_disabled');
+        }
+
+        if ($person->user()->where('is_admin', true)->exists()) {
+            return __('settings.team.login.admin_disabled');
+        }
+
+        return null;
     }
 }

@@ -15,13 +15,32 @@ const eventEditShell = read(
     'resources/js/components/settings/EventEditShell.vue',
 );
 
-test('Global Team add uses the locked status defaults and optional phone field', () => {
+test('Global Team add uses the locked defaults and enables login by default', () => {
     assert.match(addPage, /status: 'applied'/);
     assert.match(addPage, /v-model="form\.phone"/);
     assert.match(addPage, /settings\.team\.fields\.phone/);
     assert.match(addPage, /event\.locked \|\| form\.processing/);
     assert.match(addPage, /settings\.team\.access\.locked/);
-    assert.doesNotMatch(addPage, /Can log in|back office login/i);
+    assert.match(addPage, /can_log_in: true/);
+    assert.match(addPage, /v-model="form\.can_log_in"/);
+    assert.match(addPage, /settings\.team\.login\.add_hint/);
+    assert.equal(
+        lang['settings.team.login.add_hint'],
+        'Turning this on sends them an invite email.',
+    );
+});
+
+test('Global Team person page saves login access with the main form', () => {
+    assert.match(personPage, /can_log_in: props\.person\.can_log_in/);
+    assert.match(personPage, /v-model="form\.can_log_in"/);
+    assert.match(personPage, /person\.login_disable_reason/);
+    assert.doesNotMatch(memberPage, /can_log_in|settings\.team\.login/);
+});
+
+test('Global Team list renders the Login column from server data', () => {
+    assert.match(listPage, /#loginCell/);
+    assert.match(listPage, /settings\.team\.login\.enabled/);
+    assert.match(listPage, /settings\.team\.login\.disabled/);
 });
 
 test('new event access starts as Hired and only appears for a new role', () => {

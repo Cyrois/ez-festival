@@ -6,10 +6,23 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['name', 'email', 'phone'])]
+#[Fillable(['name', 'email', 'phone', 'can_log_in'])]
 class Person extends Model
 {
+    protected function casts(): array
+    {
+        return [
+            'can_log_in' => 'boolean',
+        ];
+    }
+
+    public function user(): HasOne
+    {
+        return $this->hasOne(User::class);
+    }
+
     public function artistEngagements(): BelongsToMany
     {
         return $this->belongsToMany(ArtistEngagement::class, 'artist_engagement_people')
