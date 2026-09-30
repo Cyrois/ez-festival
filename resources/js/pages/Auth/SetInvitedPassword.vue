@@ -3,6 +3,7 @@ import { Head, useForm } from '@inertiajs/vue3';
 
 const props = defineProps({
     token: { type: String, required: true },
+    authenticated: { type: Boolean, required: true },
     valid: { type: Boolean, required: true },
 });
 
@@ -10,11 +11,15 @@ const form = useForm({
     password: '',
     password_confirmation: '',
 });
+const signOutForm = useForm({});
 
 const submit = () => {
     form.put(`/team-invitations/${props.token}`, {
         onFinish: () => form.reset(),
     });
+};
+const signOut = () => {
+    signOutForm.post('/logout');
 };
 </script>
 
@@ -38,7 +43,23 @@ const submit = () => {
             </div>
 
             <div class="rounded-xl border border-line bg-white px-7 pt-8 pb-7">
-                <template v-if="valid">
+                <template v-if="authenticated">
+                    <h2 class="mb-3 text-[22px] font-bold tracking-tight">
+                        {{ $t('auth.invitation.signed_in_title') }}
+                    </h2>
+                    <p class="mb-6 text-sm leading-relaxed text-muted">
+                        {{ $t('auth.invitation.signed_in_body') }}
+                    </p>
+                    <button
+                        type="button"
+                        :disabled="signOutForm.processing"
+                        class="h-[42px] w-full rounded-lg bg-brand text-sm font-bold text-white disabled:opacity-70"
+                        @click="signOut"
+                    >
+                        {{ $t('auth.invitation.sign_out') }}
+                    </button>
+                </template>
+                <template v-else-if="valid">
                     <h2 class="mb-6 text-[22px] font-bold tracking-tight">
                         {{ $t('auth.invitation.title') }}
                     </h2>

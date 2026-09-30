@@ -31,10 +31,10 @@ class AccountService
 
     public function updatePassword(User $user, string $password): void
     {
-        $user->update([
+        $user->forceFill([
             'password' => $password,
             'has_set_password' => true,
             'must_change_password' => false,
-        ]);
+        ])->save();
     }
 }

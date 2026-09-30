@@ -53,6 +53,14 @@ export function useFlashToast() {
         });
     };
 
+    const showWarning = (text, heading = '') => {
+        show({
+            variant: 'warning',
+            title: heading || trans('toast.warning_title'),
+            message: text,
+        });
+    };
+
     const showInfo = (text, heading = '') => {
         show({
             variant: 'info',
@@ -82,6 +90,7 @@ export function useFlashToast() {
         show,
         showError,
         showSuccess,
+        showWarning,
         showInfo,
         showFormError,
         dismiss,

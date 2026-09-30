@@ -10,19 +10,29 @@ use App\Support\TeamPassword;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
 class LoginInvitationService
 {
-    public function send(Person $person, User $actor): void
+    public function send(Person $person, User $actor): bool
     {
         $token = Str::random(64);
 
         $user = DB::transaction(function () use ($person, $token): User {
             $person = Person::query()->lockForUpdate()->findOrFail($person->id);
-            abort_unless($person->can_log_in, 422);
+            if (! $person->can_log_in) {
+                throw ValidationException::withMessages([
+                    'can_log_in' => __('settings.team.login.must_be_enabled'),
+                ]);
+            }
 
             $user = $this->loginFor($person);
-            abort_if($user->has_set_password, 422);
+            if ($user->has_set_password) {
+                throw ValidationException::withMessages([
+                    'invite' => __('settings.team.login.invite_unavailable'),
+                ]);
+            }
 
             $user->loginInvitation()->delete();
             $user->loginInvitation()->create([
@@ -33,11 +43,19 @@ class LoginInvitationService
             return $user;
         });
 
-        Mail::to($user->email)->send(new TeamInvitationMail(
-            $person,
-            $actor->name,
-            route('team-invitations.show', $token),
-        ));
+        try {
+            Mail::to($user->email)->send(new TeamInvitationMail(
+                $person,
+                $actor->name,
+                route('team-invitations.show', $token),
+            ));
+        } catch (TransportExceptionInterface $exception) {
+            report($exception);
+
+            return false;
+        }
+
+        return true;
     }
 
     public function cancel(Person $person): void
@@ -99,7 +117,11 @@ class LoginInvitationService
     {
         return DB::transaction(function () use ($person): string {
             $person = Person::query()->lockForUpdate()->findOrFail($person->id);
-            abort_unless($person->can_log_in, 422, __('settings.team.login.must_be_enabled'));
+            if (! $person->can_log_in) {
+                throw ValidationException::withMessages([
+                    'can_log_in' => __('settings.team.login.must_be_enabled'),
+                ]);
+            }
 
             $password = TeamPassword::temporary();
             $user = $this->loginFor($person);
@@ -115,10 +137,20 @@ class LoginInvitationService
 
     private function loginFor(Person $person): User
     {
-        return $person->user()->firstOrCreate([], [
+        $user = $person->user()->first();
+
+        if ($user !== null) {
+            return $user;
+        }
+
+        $user = new User;
+        $user->forceFill([
+            'person_id' => $person->id,
             'password' => null,
             'has_set_password' => false,
             'must_change_password' => false,
-        ]);
+        ])->save();
+
+        return $user;
     }
 }

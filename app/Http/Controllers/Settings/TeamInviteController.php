@@ -14,7 +14,11 @@ class TeamInviteController extends Controller
 
     public function store(ResendGlobalTeamInviteRequest $request, Person $person): RedirectResponse
     {
-        $this->invitations->send($person, $request->user());
+        if (! $this->invitations->send($person, $request->user())) {
+            return back()
+                ->with('warning', __('settings.team.toast.invite_failed'))
+                ->with('warning_title', __('toast.warning_title'));
+        }
 
         return back()->with('success', __('settings.team.toast.invite_resent'));
     }

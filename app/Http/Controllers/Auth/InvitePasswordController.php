@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\SetInvitedPasswordRequest;
 use App\Services\LoginInvitationService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -13,11 +14,14 @@ class InvitePasswordController extends Controller
 {
     public function __construct(private readonly LoginInvitationService $invitations) {}
 
-    public function show(string $token): Response
+    public function show(Request $request, string $token): Response
     {
+        $authenticated = $request->user() !== null;
+
         return Inertia::render('Auth/SetInvitedPassword', [
             'token' => $token,
-            'valid' => $this->invitations->isValid($token),
+            'authenticated' => $authenticated,
+            'valid' => ! $authenticated && $this->invitations->isValid($token),
         ]);
     }
 

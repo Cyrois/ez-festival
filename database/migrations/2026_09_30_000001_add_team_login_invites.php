@@ -2,7 +2,10 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 return new class extends Migration
 {
@@ -24,7 +27,18 @@ return new class extends Migration
 
     public function down(): void
     {
-        // Intentionally irreversible: invited users can have null passwords,
-        // so restoring the old NOT NULL column would destroy valid login state.
+        Schema::dropIfExists('login_invitations');
+
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn(['has_set_password', 'must_change_password']);
+        });
+
+        DB::table('users')
+            ->whereNull('password')
+            ->update(['password' => Hash::make(Str::random(64))]);
+
+        Schema::table('users', function (Blueprint $table) {
+            $table->string('password')->nullable(false)->change();
+        });
     }
 };

@@ -10,6 +10,7 @@ import { Input } from '../../../components/ui/input';
 import { Switch } from '../../../components/ui/switch';
 import { useFlashToast } from '../../../composables/useFlashToast';
 import { toastFormErrors } from '../../../lib/fieldError';
+import { xsrfToken } from '../../../lib/http';
 import { router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { trans } from 'laravel-vue-i18n';
@@ -128,9 +129,7 @@ const generatePassword = async () => {
                 credentials: 'same-origin',
                 headers: {
                     Accept: 'application/json',
-                    'X-CSRF-TOKEN': document
-                        .querySelector('meta[name="csrf-token"]')
-                        .getAttribute('content'),
+                    'X-XSRF-TOKEN': xsrfToken(),
                 },
             },
         );

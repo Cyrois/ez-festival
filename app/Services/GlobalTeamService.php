@@ -32,8 +32,11 @@ class GlobalTeamService
             : null;
     }
 
-    /** @param array<string, mixed> $data */
-    public function create(array $data, User $actor): Person
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array{person: Person, invite_sent: ?bool}
+     */
+    public function create(array $data, User $actor): array
     {
         $person = DB::transaction(function () use ($data): Person {
             if ($this->people->findByEmail($data['email']) !== null) {
@@ -85,15 +88,16 @@ class GlobalTeamService
             return $person;
         });
 
-        if ($person->can_log_in) {
-            $this->invitations->send($person, $actor);
-        }
-
-        return $person;
+        return [
+            'person' => $person,
+            'invite_sent' => $person->can_log_in
+                ? $this->invitations->send($person, $actor)
+                : null,
+        ];
     }
 
     /** @param array<string, mixed> $data */
-    public function update(Person $person, array $data, User $actor): void
+    public function update(Person $person, array $data, User $actor): ?bool
     {
         $loginChange = DB::transaction(function () use ($person, $data): ?string {
             $person = Person::query()->lockForUpdate()->findOrFail($person->id);
@@ -174,8 +178,10 @@ class GlobalTeamService
         if ($loginChange === 'disabled') {
             $this->invitations->cancel($person);
         } elseif ($loginChange === 'enabled' && ! $this->invitations->hasEverSetPassword($person)) {
-            $this->invitations->send($person, $actor);
+            return $this->invitations->send($person, $actor);
         }
+
+        return null;
     }
 
     private function normalizePhone(mixed $phone): ?string

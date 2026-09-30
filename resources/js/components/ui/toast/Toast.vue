@@ -19,6 +19,12 @@ const toastMeta = computed(() => {
             icon: ['fas', 'circle-exclamation'],
         };
     }
+    if (variant.value === 'warning') {
+        return {
+            wrap: 'bg-warning',
+            icon: ['fas', 'circle-exclamation'],
+        };
+    }
     return {
         wrap: 'bg-secondary',
         icon: ['fas', 'circle-info'],

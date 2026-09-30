@@ -231,6 +231,7 @@ class TeamControllerTest extends TestCase
 
     public function test_add_person_refuses_a_person_who_is_already_on_global_team_through_login_access(): void
     {
+        Mail::fake();
         [$user, $event] = $this->userWithCompletedSetup();
         $role = Role::query()->create(['name' => 'Staff']);
         $knownUser = User::factory()->create();
@@ -249,6 +250,7 @@ class TeamControllerTest extends TestCase
 
         $this->assertTrue($knownUser->person->fresh()->can_log_in);
         $this->assertFalse($knownUser->person->teamEngagements()->exists());
+        Mail::assertNothingSent();
     }
 
     public function test_add_person_cannot_turn_off_their_own_login_by_reusing_their_email(): void

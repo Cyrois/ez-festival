@@ -64,7 +64,14 @@ class TeamController extends Controller
 
     public function store(StoreGlobalTeamPersonRequest $request): RedirectResponse
     {
-        $person = $this->teamService->create($request->validated(), $request->user());
+        $result = $this->teamService->create($request->validated(), $request->user());
+        $person = $result['person'];
+
+        if ($result['invite_sent'] === false) {
+            return redirect()->route('settings.team.show', $person)
+                ->with('warning', __('settings.team.toast.invite_failed'))
+                ->with('warning_title', __('toast.warning_title'));
+        }
 
         return redirect()->route('settings.team.show', $person)
             ->with('success', __('settings.team.toast.created'))
@@ -104,7 +111,13 @@ class TeamController extends Controller
 
     public function update(UpdateGlobalTeamPersonRequest $request, Person $person): RedirectResponse
     {
-        $this->teamService->update($person, $request->validated(), $request->user());
+        $inviteSent = $this->teamService->update($person, $request->validated(), $request->user());
+
+        if ($inviteSent === false) {
+            return redirect()->route('settings.team.show', $person)
+                ->with('warning', __('settings.team.toast.invite_failed'))
+                ->with('warning_title', __('toast.warning_title'));
+        }
 
         if (! $this->onGlobalTeam($person)) {
             return redirect()->route('settings.team')

@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
+use Symfony\Component\Mailer\Exception\TransportException;
 use Tests\TestCase;
 
 class TeamLoginInvitationTest extends TestCase
@@ -61,7 +62,10 @@ class TeamLoginInvitationTest extends TestCase
         $this->post(route('logout'));
 
         $this->get(route('team-invitations.show', $token))->assertInertia(
-            fn (Assert $page) => $page->component('Auth/SetInvitedPassword')->where('valid', true),
+            fn (Assert $page) => $page
+                ->component('Auth/SetInvitedPassword')
+                ->where('authenticated', false)
+                ->where('valid', true),
         );
         $this->put(route('team-invitations.update', $token), [
             'password' => 'festival1',
@@ -80,7 +84,7 @@ class TeamLoginInvitationTest extends TestCase
             fn (Assert $page) => $page->where('valid', false),
         );
 
-        $person->user->update(['has_set_password' => false, 'password' => null]);
+        $person->user->forceFill(['has_set_password' => false, 'password' => null])->save();
         $expiredToken = $this->sendInviteAndToken($actor, $person);
         $this->travel(8)->days();
         $this->actingAs($actor)->get(route('settings.team.show', $person))->assertInertia(
@@ -90,6 +94,27 @@ class TeamLoginInvitationTest extends TestCase
         $this->get(route('team-invitations.show', $expiredToken))->assertInertia(
             fn (Assert $page) => $page->where('valid', false),
         );
+    }
+
+    public function test_signed_in_user_is_told_to_sign_out_and_cannot_use_an_invitation(): void
+    {
+        [$actor, $person, $event] = $this->teamPerson();
+        $token = $this->enableAndToken($actor, $person, $event);
+
+        $this->actingAs($actor)
+            ->get(route('team-invitations.show', $token))
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Auth/SetInvitedPassword')
+                ->where('authenticated', true)
+                ->where('valid', false));
+
+        $this->actingAs($actor)->put(route('team-invitations.update', $token), [
+            'password' => 'festival1',
+            'password_confirmation' => 'festival1',
+        ])->assertForbidden();
+
+        $this->assertNull($person->user->fresh()->password);
+        $this->assertTrue($person->user->loginInvitation()->exists());
     }
 
     public function test_password_rule_is_applied_to_invite_and_temporary_change_pages(): void
@@ -105,12 +130,76 @@ class TeamLoginInvitationTest extends TestCase
             ])->assertSessionHasErrors('password');
         }
 
-        $login = $person->user;
-        $login->forceFill(['password' => 'Temporary1!', 'must_change_password' => true])->save();
-        $this->actingAs($login)->put(route('password.temporary.update'), [
-            'password' => 'onlyletters',
-            'password_confirmation' => 'onlyletters',
-        ])->assertSessionHasErrors('password');
+        foreach (['short1', 'onlyletters', '12345678'] as $password) {
+            $login = $person->user;
+            $login->forceFill(['password' => 'Temporary1!', 'must_change_password' => true])->save();
+            $this->actingAs($login)->put(route('password.temporary.update'), [
+                'password' => $password,
+                'password_confirmation' => $password,
+            ])->assertSessionHasErrors('password');
+        }
+    }
+
+    public function test_invite_mail_failure_keeps_a_new_person_and_flashes_a_warning(): void
+    {
+        [$actor, $unusedPerson, $event] = $this->teamPerson();
+        $role = Role::query()->where('name', 'Staff')->sole();
+        $this->makeMailFail();
+
+        $response = $this->actingAs($actor)->post(route('settings.team.store'), [
+            'name' => 'Avery Stone',
+            'email' => 'avery.stone@example.test',
+            'phone' => null,
+            'can_log_in' => true,
+            'status' => 'hired',
+            'event_access' => [[
+                'event_id' => $event->id,
+                'role_id' => $role->id,
+            ]],
+        ]);
+
+        $person = Person::query()->where('email', 'avery.stone@example.test')->sole();
+        $response
+            ->assertRedirect(route('settings.team.show', $person))
+            ->assertSessionHas('warning', __('settings.team.toast.invite_failed'));
+        $this->assertTrue($person->can_log_in);
+        $this->assertNotNull($person->user);
+        $this->assertTrue($person->user->loginInvitation()->exists());
+    }
+
+    public function test_invite_mail_failure_keeps_person_page_changes_and_flashes_a_warning(): void
+    {
+        [$actor, $person, $event] = $this->teamPerson();
+        $this->makeMailFail();
+
+        $this->actingAs($actor)
+            ->put(route('settings.team.update', $person), [
+                ...$this->updateData($person, $event, true),
+                'name' => 'Morgan Updated',
+            ])
+            ->assertRedirect(route('settings.team.show', $person))
+            ->assertSessionHas('warning', __('settings.team.toast.invite_failed'));
+
+        $this->assertSame('Morgan Updated', $person->fresh()->name);
+        $this->assertTrue($person->fresh()->can_log_in);
+        $this->assertNotNull($person->user);
+        $this->assertTrue($person->user->loginInvitation()->exists());
+    }
+
+    public function test_resend_mail_failure_keeps_the_invite_and_flashes_a_warning(): void
+    {
+        [$actor, $person, $event] = $this->teamPerson();
+        $this->enableAndToken($actor, $person, $event);
+        $invitationId = $person->user->loginInvitation()->sole()->id;
+        $this->makeMailFail();
+
+        $this->actingAs($actor)
+            ->post(route('settings.team.invite.store', $person))
+            ->assertRedirect()
+            ->assertSessionHas('warning', __('settings.team.toast.invite_failed'));
+
+        $this->assertDatabaseCount('login_invitations', 1);
+        $this->assertNotSame($invitationId, $person->user->loginInvitation()->sole()->id);
     }
 
     public function test_resending_replaces_the_old_link_and_disabling_login_cancels_it(): void
@@ -154,6 +243,73 @@ class TeamLoginInvitationTest extends TestCase
 
         Mail::assertNothingSent();
         $this->assertTrue(Hash::check('festival1', $login->fresh()->password));
+    }
+
+    public function test_saving_other_changes_while_login_is_already_on_sends_no_invite(): void
+    {
+        [$actor, $person, $event] = $this->teamPerson();
+        $this->enableAndToken($actor, $person, $event);
+        Mail::fake();
+
+        $this->actingAs($actor)->put(route('settings.team.update', $person), [
+            ...$this->updateData($person, $event, true),
+            'name' => 'Morgan Renamed',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame('Morgan Renamed', $person->fresh()->name);
+        Mail::assertNothingSent();
+    }
+
+    public function test_resend_availability_ends_when_login_is_disabled_or_the_invite_is_used(): void
+    {
+        [$actor, $person, $event] = $this->teamPerson();
+        $this->enableAndToken($actor, $person, $event);
+
+        $this->actingAs($actor)->get(route('settings.team.show', $person))->assertInertia(
+            fn (Assert $page) => $page->where('person.can_resend_invite', true),
+        );
+
+        $this->actingAs($actor)->put(
+            route('settings.team.update', $person),
+            $this->updateData($person, $event, false),
+        );
+        $this->actingAs($actor)->get(route('settings.team.show', $person))->assertInertia(
+            fn (Assert $page) => $page->where('person.can_resend_invite', false),
+        );
+
+        $token = $this->enableAndToken($actor, $person, $event);
+        $this->post(route('logout'));
+        $this->put(route('team-invitations.update', $token), [
+            'password' => 'festival1',
+            'password_confirmation' => 'festival1',
+        ]);
+
+        $this->actingAs($actor)->get(route('settings.team.show', $person))->assertInertia(
+            fn (Assert $page) => $page
+                ->where('person.can_resend_invite', false)
+                ->where('person.has_set_password', true),
+        );
+    }
+
+    public function test_temporary_password_can_replace_an_accepted_invite_password(): void
+    {
+        [$actor, $person, $event] = $this->teamPerson();
+        $token = $this->enableAndToken($actor, $person, $event);
+        $this->post(route('logout'));
+        $this->put(route('team-invitations.update', $token), [
+            'password' => 'festival1',
+            'password_confirmation' => 'festival1',
+        ]);
+
+        $temporaryPassword = $this->actingAs($actor)
+            ->postJson(route('settings.team.temporary-password.store', $person))
+            ->assertOk()
+            ->json('data.temporary_password');
+
+        $login = $person->user->fresh();
+        $this->assertTrue(Hash::check($temporaryPassword, $login->password));
+        $this->assertTrue($login->must_change_password);
+        $this->assertTrue($login->has_set_password);
     }
 
     public function test_generating_a_password_returns_it_once_hashes_it_and_cancels_the_invite(): void
@@ -324,5 +480,11 @@ class TeamLoginInvitationTest extends TestCase
         });
 
         return Str::afterLast($url, '/');
+    }
+
+    private function makeMailFail(): void
+    {
+        Mail::shouldReceive('to')->once()->andReturnSelf();
+        Mail::shouldReceive('send')->once()->andThrow(new TransportException('down'));
     }
 }

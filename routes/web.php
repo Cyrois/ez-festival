@@ -28,6 +28,7 @@ use App\Http\Controllers\Settings\RoleController;
 use App\Http\Controllers\Settings\RoleStatusController;
 use App\Http\Controllers\Settings\TeamController;
 use App\Http\Controllers\Settings\TeamInviteController;
+use App\Http\Controllers\Settings\TeamTemporaryPasswordController;
 use App\Http\Controllers\Settings\VendorTypeController as SettingsVendorTypeController;
 use App\Http\Controllers\Setup\ArtistTypeController;
 use App\Http\Controllers\Setup\EventController as SetupEventController;
@@ -64,11 +65,12 @@ Route::middleware('guest')->group(function () {
     Route::post('login', [AuthenticatedSessionController::class, 'store']);
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])->name('password.request');
-    Route::get('team-invitations/{token}', [InvitePasswordController::class, 'show'])
-        ->name('team-invitations.show');
-    Route::put('team-invitations/{token}', [InvitePasswordController::class, 'update'])
-        ->name('team-invitations.update');
 });
+
+Route::get('team-invitations/{token}', [InvitePasswordController::class, 'show'])
+    ->name('team-invitations.show');
+Route::put('team-invitations/{token}', [InvitePasswordController::class, 'update'])
+    ->name('team-invitations.update');
 
 Route::get('form/{slug}', [TeamPublicFormController::class, 'show'])->name('team.forms.public.show');
 Route::post('form/{slug}', [TeamPublicFormController::class, 'store'])->name('team.forms.public.store');
@@ -246,7 +248,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::put('team/{person}', [TeamController::class, 'update'])->name('team.update');
             Route::post('team/{person}/invite', [TeamInviteController::class, 'store'])
                 ->name('team.invite.store');
-            Route::post('team/{person}/temporary-password', [TemporaryPasswordController::class, 'store'])
+            Route::post('team/{person}/temporary-password', [TeamTemporaryPasswordController::class, 'store'])
                 ->name('team.temporary-password.store');
             Route::get('account', [AccountController::class, 'index'])->name('account');
             Route::put('account', [AccountController::class, 'update'])->name('account.update');
