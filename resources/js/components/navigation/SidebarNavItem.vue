@@ -52,7 +52,7 @@ const densityClass = computed(() => {
     }
 
     if (props.density === 'settings') {
-        return 'min-h-11 gap-2 px-2 py-2.5 text-[13px]';
+        return 'min-h-11 gap-2 px-2 py-2.5 text-[13px] lg:h-8 lg:min-h-8 lg:py-1.5';
     }
 
     return 'min-h-11 gap-2.5 px-3 py-2.5 text-[13px] lg:h-8 lg:min-h-8 lg:py-1.5';

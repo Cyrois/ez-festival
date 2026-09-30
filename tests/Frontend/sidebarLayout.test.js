@@ -104,6 +104,13 @@ test('sidebar navigation stays vertically anchored during hover expansion', () =
     assert.match(sidebarNavItem, /whitespace-nowrap/);
 });
 
+test('settings navigation uses the reduced main sidebar row height on desktop', () => {
+    assert.match(
+        sidebarNavItem,
+        /if \(props\.density === 'settings'\) \{\s+return '[^']*lg:h-8 lg:min-h-8 lg:py-1\.5';\s+\}/,
+    );
+});
+
 test('sidebar labels animate without replacing navigation rows', () => {
     assert.match(sidebarNavItem, /transition-\[max-width,opacity\]/);
     assert.match(sidebarNavItem, /lg:max-w-0 lg:opacity-0/);
