@@ -21,7 +21,7 @@ class LoginRoleAccessTest extends TestCase
             'email' => $user->email,
             'password' => 'password',
         ])->assertSessionHasErrors([
-            'email' => __('auth.no_event_access'),
+            'access' => __('auth.no_event_access'),
         ]);
 
         $this->assertGuest();
@@ -51,7 +51,7 @@ class LoginRoleAccessTest extends TestCase
         $this->post('/login', [
             'email' => $user->email,
             'password' => 'password',
-        ])->assertSessionHasErrors(['email' => __('auth.no_event_access')]);
+        ])->assertSessionHasErrors(['access' => __('auth.no_event_access')]);
 
         $this->assertGuest();
     }
@@ -67,7 +67,7 @@ class LoginRoleAccessTest extends TestCase
         $this->post('/login', [
             'email' => $user->email,
             'password' => 'password',
-        ])->assertSessionHasErrors(['email' => __('auth.no_event_access')]);
+        ])->assertSessionHasErrors(['access' => __('auth.no_event_access')]);
 
         $this->assertGuest();
     }
@@ -109,7 +109,7 @@ class LoginRoleAccessTest extends TestCase
         $this->post('/login', [
             'email' => $admin->email,
             'password' => 'password',
-        ])->assertSessionHasErrors(['email' => __('auth.no_event_access')]);
+        ])->assertSessionHasErrors(['access' => __('auth.no_event_access')]);
 
         $this->assertGuest();
     }

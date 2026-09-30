@@ -57,9 +57,7 @@ class EventAccessTest extends TestCase
         $this->assertFalse($user->isAdmin());
         $this->actingAs($user)->get(route('events.show', $first))->assertOk();
         $this->get(route('events.show', $second))->assertNotFound();
-        $this->get(route('settings.team.show', $user->person))->assertInertia(
-            fn (Assert $page) => $page->where('viewerCanManageAdmin', false),
-        );
+        $this->get(route('settings.team.show', $user->person))->assertForbidden();
     }
 
     public function test_role_changes_take_effect_on_the_next_request_without_signing_out(): void
@@ -82,11 +80,14 @@ class EventAccessTest extends TestCase
 
         $role->update(['active' => false]);
 
-        $this->get(route('events.show', $second))->assertForbidden();
+        $this->get(route('events.show', $second))
+            ->assertRedirect(route('login'))
+            ->assertSessionHasErrors(['access' => __('auth.no_event_access')]);
+        $this->assertGuest();
 
         $role->update(['active' => true]);
 
-        $this->get(route('events.show', $second))->assertOk();
+        $this->actingAs($user)->get(route('events.show', $second))->assertOk();
     }
 
     public function test_turning_login_off_refuses_the_next_request_for_non_admin_and_admin(): void
@@ -96,7 +97,10 @@ class EventAccessTest extends TestCase
 
         $this->actingAs($user)->get(route('dashboard'))->assertOk();
         $user->person->update(['can_log_in' => false]);
-        $this->get(route('dashboard'))->assertForbidden();
+        $this->get(route('dashboard'))
+            ->assertRedirect(route('login'))
+            ->assertSessionHasErrors(['access' => __('auth.no_event_access')]);
+        $this->assertGuest();
 
         $admin = User::factory()->create();
         $admin->forceFill(['is_admin' => true])->save();
@@ -104,7 +108,23 @@ class EventAccessTest extends TestCase
 
         $this->actingAs($admin)->get(route('dashboard'))->assertOk();
         $admin->person->update(['can_log_in' => false]);
-        $this->get(route('dashboard'))->assertForbidden();
+        $this->get(route('dashboard'))
+            ->assertRedirect(route('login'))
+            ->assertSessionHasErrors(['access' => __('auth.no_event_access')]);
+        $this->assertGuest();
+    }
+
+    public function test_json_request_is_forbidden_and_logged_out_when_access_is_removed(): void
+    {
+        $event = $this->event('Festival');
+        $user = $this->userWithAccessTo($event);
+        $user->person->update(['can_log_in' => false]);
+
+        $this->actingAs($user)
+            ->getJson(route('dashboard'))
+            ->assertForbidden();
+
+        $this->assertGuest();
     }
 
     public function test_admin_can_open_every_event_without_a_role(): void
@@ -118,6 +138,22 @@ class EventAccessTest extends TestCase
 
         $this->actingAs($admin)->get(route('events.show', $first))->assertOk();
         $this->get(route('events.show', $second))->assertOk();
+    }
+
+    public function test_shared_auth_props_expose_fresh_admin_status(): void
+    {
+        $event = $this->event('Festival');
+        $user = $this->userWithAccessTo($event);
+
+        $this->actingAs($user)->get(route('dashboard'))->assertInertia(
+            fn (Assert $page) => $page->where('auth.user.is_admin', false),
+        );
+
+        $user->forceFill(['is_admin' => true])->save();
+
+        $this->get(route('dashboard'))->assertInertia(
+            fn (Assert $page) => $page->where('auth.user.is_admin', true),
+        );
     }
 
     public function test_route_cannot_mix_resources_from_different_events(): void

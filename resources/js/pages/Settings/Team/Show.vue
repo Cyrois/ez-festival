@@ -31,9 +31,7 @@ const form = useForm({
     name: props.person.name,
     phone: props.person.phone ?? '',
     can_log_in: props.person.can_log_in,
-    ...(props.viewerCanManageAdmin && props.person.has_login
-        ? { is_admin: props.person.is_admin }
-        : {}),
+    ...(props.viewerCanManageAdmin ? { is_admin: props.person.is_admin } : {}),
     event_access: props.events.map((event) => ({
         event_id: event.id,
         role_id: event.role_id ?? '',
@@ -409,7 +407,7 @@ const copyPassword = async () => {
                             </p>
                         </div>
                         <AdminAccessToggle
-                            v-if="viewerCanManageAdmin && person.has_login"
+                            v-if="viewerCanManageAdmin && form.can_log_in"
                             v-model="form.is_admin"
                             class="sm:max-w-sm sm:text-right"
                             :disabled="

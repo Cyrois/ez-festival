@@ -12,7 +12,7 @@ class StoreGlobalTeamPersonRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Gate::allows('manage-team');
+        return Gate::allows('manage-global-team');
     }
 
     protected function prepareForValidation(): void

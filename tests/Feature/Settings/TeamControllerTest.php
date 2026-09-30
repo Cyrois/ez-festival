@@ -467,7 +467,7 @@ class TeamControllerTest extends TestCase
         $this->assertTrue($engagement->person->fresh()->can_log_in);
     }
 
-    public function test_non_admin_cannot_change_admin_flag(): void
+    public function test_non_admin_cannot_reach_global_team_update(): void
     {
         [$user, $event] = $this->userWithCompletedSetup();
         $user->forceFill(['is_admin' => false])->save();
@@ -493,9 +493,7 @@ class TeamControllerTest extends TestCase
                 'role_id' => $role->id,
                 'status' => null,
             ]],
-        ])->assertSessionHasErrors([
-            'is_admin' => __('settings.team.admin.unauthorized'),
-        ]);
+        ])->assertForbidden();
 
         $this->assertTrue($engagement->person->fresh()->can_log_in);
         $this->assertSame($role->id, $engagement->fresh()->role_id);
@@ -536,20 +534,18 @@ class TeamControllerTest extends TestCase
         $this->assertTrue($user->person->fresh()->can_log_in);
     }
 
-    public function test_nobody_can_turn_off_an_admin_login_before_owners_exist(): void
+    public function test_admin_can_turn_off_another_admins_login(): void
     {
         [$user, $event] = $this->userWithCompletedSetup();
         $role = Role::query()->create(['name' => 'Staff']);
         $engagement = $this->engagement($event, 'Admin Person', $role);
         $admin = User::factory()->create(['person_id' => $engagement->person_id]);
         $admin->forceFill(['is_admin' => true])->save();
+        $admin->setCurrentEvent($event);
         $engagement->person->update(['can_log_in' => true]);
 
         $this->actingAs($user)->get(route('settings.team.show', $engagement->person))->assertInertia(
-            fn (Assert $page) => $page->where(
-                'person.login_disable_reason',
-                __('settings.team.login.admin_disabled'),
-            ),
+            fn (Assert $page) => $page->where('person.login_disable_reason', null),
         );
 
         $this->actingAs($user)->put(route('settings.team.update', $engagement->person), [
@@ -561,9 +557,22 @@ class TeamControllerTest extends TestCase
                 'role_id' => $role->id,
                 'status' => null,
             ]],
-        ])->assertSessionHasErrors('can_log_in');
+        ])->assertSessionHasNoErrors();
 
-        $this->assertTrue($engagement->person->fresh()->can_log_in);
+        $this->assertFalse($engagement->person->fresh()->can_log_in);
+        $this->assertTrue($admin->fresh()->is_admin);
+        $this->assertSame($role->id, $engagement->fresh()->role_id);
+
+        $this->actingAs($admin)->get(route('dashboard'))
+            ->assertRedirect(route('login'))
+            ->assertSessionHasErrors(['access' => __('auth.no_event_access')]);
+        $this->assertGuest();
+
+        $this->post(route('login'), [
+            'email' => $admin->email,
+            'password' => 'password',
+        ])->assertSessionHasErrors(['access' => __('auth.no_event_access')]);
+        $this->assertGuest();
     }
 
     public function test_admin_sees_switch_and_can_promote_a_login_without_changing_role_or_login_access(): void
@@ -597,6 +606,66 @@ class TeamControllerTest extends TestCase
         $this->assertTrue($target->fresh()->is_admin);
         $this->assertTrue($engagement->person->fresh()->can_log_in);
         $this->assertSame($role->id, $engagement->fresh()->role_id);
+    }
+
+    public function test_admin_can_promote_a_login_enabled_person_before_their_user_row_exists(): void
+    {
+        [$admin, $event] = $this->userWithCompletedSetup();
+        $role = Role::query()->create(['name' => 'Staff']);
+        $engagement = $this->engagement($event, 'Legacy Login', $role);
+        $engagement->person->update(['can_log_in' => true]);
+
+        $this->assertNull($engagement->person->user);
+        $this->actingAs($admin)->get(route('settings.team.show', $engagement->person))->assertInertia(
+            fn (Assert $page) => $page
+                ->where('viewerCanManageAdmin', true)
+                ->where('person.can_log_in', true)
+                ->where('person.has_login', false)
+                ->where('person.is_admin', false),
+        );
+
+        $this->put(route('settings.team.update', $engagement->person), [
+            'name' => $engagement->person->name,
+            'phone' => null,
+            'can_log_in' => true,
+            'is_admin' => true,
+            'event_access' => [[
+                'event_id' => $event->id,
+                'role_id' => $role->id,
+                'status' => null,
+            ]],
+        ])->assertSessionHasNoErrors();
+
+        $target = User::query()->whereBelongsTo($engagement->person)->firstOrFail();
+        $this->assertTrue($target->is_admin);
+        $this->assertNull($target->password);
+        $this->assertSame($role->id, $engagement->fresh()->role_id);
+    }
+
+    public function test_admin_cannot_promote_a_person_while_back_office_login_is_disabled(): void
+    {
+        [$admin, $event] = $this->userWithCompletedSetup();
+        $role = Role::query()->create(['name' => 'Staff']);
+        $engagement = $this->engagement($event, 'No Login Admin', $role);
+
+        $this->actingAs($admin)->put(route('settings.team.update', $engagement->person), [
+            'name' => $engagement->person->name,
+            'phone' => null,
+            'can_log_in' => false,
+            'is_admin' => true,
+            'event_access' => [[
+                'event_id' => $event->id,
+                'role_id' => $role->id,
+                'status' => null,
+            ]],
+        ])->assertSessionHasErrors([
+            'is_admin' => __('settings.team.admin.login_required'),
+        ]);
+
+        $this->assertDatabaseMissing('users', [
+            'person_id' => $engagement->person_id,
+            'is_admin' => true,
+        ]);
     }
 
     public function test_admin_cannot_turn_off_their_own_admin_access(): void
@@ -653,6 +722,32 @@ class TeamControllerTest extends TestCase
         $this->assertSame(1, User::query()->where('is_admin', true)->count());
     }
 
+    public function test_admin_can_demote_another_admin_and_change_their_role_in_one_save(): void
+    {
+        [$admin, $event] = $this->userWithCompletedSetup();
+        $role = Role::query()->create(['name' => 'Staff']);
+        $newRole = Role::query()->create(['name' => 'Manager']);
+        $engagement = $this->engagement($event, 'Other Admin', $role);
+        $target = User::factory()->create(['person_id' => $engagement->person_id]);
+        $target->forceFill(['is_admin' => true])->save();
+        $engagement->person->update(['can_log_in' => true]);
+
+        $this->actingAs($admin)->put(route('settings.team.update', $engagement->person), [
+            'name' => $engagement->person->name,
+            'phone' => null,
+            'can_log_in' => true,
+            'is_admin' => false,
+            'event_access' => [[
+                'event_id' => $event->id,
+                'role_id' => $newRole->id,
+                'status' => null,
+            ]],
+        ])->assertSessionHasNoErrors();
+
+        $this->assertFalse($target->fresh()->is_admin);
+        $this->assertSame($newRole->id, $engagement->fresh()->role_id);
+    }
+
     public function test_admin_event_roles_cannot_be_changed_even_by_direct_request(): void
     {
         [$admin, $event] = $this->userWithCompletedSetup();
@@ -681,7 +776,7 @@ class TeamControllerTest extends TestCase
         $this->assertTrue($target->fresh()->is_admin);
     }
 
-    public function test_admin_switch_is_hidden_for_non_admin_viewers_and_people_without_a_login(): void
+    public function test_non_admin_cannot_open_global_team_person_page(): void
     {
         [$actor, $event] = $this->userWithCompletedSetup();
         $actor->forceFill(['is_admin' => false])->save();
@@ -695,11 +790,9 @@ class TeamControllerTest extends TestCase
         ]);
         $person = $this->engagement($event, 'No Login', $role)->person;
 
-        $this->actingAs($actor)->get(route('settings.team.show', $person))->assertInertia(
-            fn (Assert $page) => $page
-                ->where('viewerCanManageAdmin', false)
-                ->where('person.has_login', false),
-        );
+        $this->actingAs($actor)
+            ->get(route('settings.team.show', $person))
+            ->assertForbidden();
     }
 
     public function test_admin_without_roles_is_listed_as_having_all_event_access(): void
@@ -719,12 +812,12 @@ class TeamControllerTest extends TestCase
             ->assertJsonPath('data.0.events', []);
     }
 
-    public function test_login_switch_writes_require_manage_team_permission(): void
+    public function test_login_switch_writes_require_manage_global_team_permission(): void
     {
         [$user, $event] = $this->userWithCompletedSetup();
         $role = Role::query()->create(['name' => 'Staff']);
         $engagement = $this->engagement($event, 'Permission Person', $role);
-        Gate::define('manage-team', fn (): bool => false);
+        Gate::define('manage-global-team', fn (): bool => false);
 
         $this->actingAs($user)->post(route('settings.team.store'), [
             'name' => 'Blocked Person',
@@ -744,6 +837,71 @@ class TeamControllerTest extends TestCase
                 'status' => null,
             ]],
         ])->assertForbidden();
+    }
+
+    public function test_non_admin_is_forbidden_from_every_global_team_route(): void
+    {
+        Mail::fake();
+        [$actor, $event] = $this->userWithCompletedSetup();
+        $actor->forceFill(['is_admin' => false])->save();
+        $role = Role::query()->create(['name' => 'Administrator']);
+        TeamEngagement::query()->create([
+            'event_id' => $event->id,
+            'person_id' => $actor->person_id,
+            'role_id' => $role->id,
+            'status' => 'hired',
+            'employment_type' => 'volunteer',
+        ]);
+        $engagement = $this->engagement($event, 'Protected Person', $role);
+        $target = User::factory()->create(['person_id' => $engagement->person_id]);
+        $engagement->person->update(['can_log_in' => true]);
+        $originalPassword = $target->password;
+        $personCount = Person::query()->count();
+        $engagementCount = TeamEngagement::query()->count();
+
+        $this->actingAs($actor);
+        $responses = [
+            $this->get(route('settings.team')),
+            $this->getJson(route('settings.team.data', [
+                'draw' => 1,
+                'start' => 0,
+                'length' => 25,
+            ])),
+            $this->get(route('settings.team.create')),
+            $this->get(route('settings.team.lookup', ['email' => $target->email])),
+            $this->post(route('settings.team.store'), [
+                'name' => 'Blocked Person',
+                'email' => 'blocked@example.test',
+                'can_log_in' => true,
+                'status' => 'hired',
+                'event_access' => [['event_id' => $event->id, 'role_id' => $role->id]],
+            ]),
+            $this->get(route('settings.team.show', $engagement->person)),
+            $this->put(route('settings.team.update', $engagement->person), [
+                'name' => 'Unauthorized Change',
+                'phone' => null,
+                'can_log_in' => false,
+                'event_access' => [[
+                    'event_id' => $event->id,
+                    'role_id' => null,
+                    'status' => null,
+                ]],
+            ]),
+            $this->post(route('settings.team.invite.store', $engagement->person)),
+            $this->postJson(route('settings.team.temporary-password.store', $engagement->person)),
+        ];
+
+        foreach ($responses as $response) {
+            $response->assertForbidden();
+        }
+
+        $this->assertSame($personCount, Person::query()->count());
+        $this->assertSame($engagementCount, TeamEngagement::query()->count());
+        $this->assertSame('Protected Person', $engagement->person->fresh()->name);
+        $this->assertTrue($engagement->person->fresh()->can_log_in);
+        $this->assertSame($role->id, $engagement->fresh()->role_id);
+        $this->assertSame($originalPassword, $target->fresh()->password);
+        Mail::assertNothingSent();
     }
 
     public function test_person_page_refuses_locked_event_access_changes_and_rolls_back_profile_changes(): void

@@ -168,10 +168,10 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                     <template #eventsCell="{ rowData }">
                         <Badge
                             v-if="rowData.is_admin"
-                            variant="primary"
+                            variant="orange"
                             pill
                         >
-                            {{ $t('settings.team.access.admin_all_events') }}
+                            {{ $t('settings.team.access.admin_badge') }}
                         </Badge>
                         <div
                             v-else

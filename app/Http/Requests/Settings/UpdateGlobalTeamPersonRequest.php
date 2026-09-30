@@ -13,7 +13,7 @@ class UpdateGlobalTeamPersonRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Gate::allows('manage-team');
+        return Gate::allows('manage-global-team');
     }
 
     protected function prepareForValidation(): void
@@ -80,20 +80,15 @@ class UpdateGlobalTeamPersonRequest extends FormRequest
             return;
         }
 
-        if (! $this->user()->isAdmin()) {
-            $validator->errors()->add('is_admin', __('settings.team.admin.unauthorized'));
+        $error = app(GlobalTeamService::class)->adminChangeError(
+            $this->user(),
+            $target,
+            $this->boolean('is_admin'),
+            $this->boolean('can_log_in'),
+        );
 
-            return;
-        }
-
-        if ($target === null) {
-            $validator->errors()->add('is_admin', __('settings.team.admin.login_required'));
-
-            return;
-        }
-
-        if (! $this->boolean('is_admin') && (int) $this->user()->getKey() === (int) $target->getKey()) {
-            $validator->errors()->add('is_admin', __('settings.team.admin.own_disabled'));
+        if ($error !== null) {
+            $validator->errors()->add('is_admin', $error);
         }
     }
 }

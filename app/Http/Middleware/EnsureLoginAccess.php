@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsureLoginAccess
@@ -18,7 +19,19 @@ class EnsureLoginAccess
     {
         $user = $request->user();
 
-        abort_if($user !== null && ! $user->canSignIn(), 403);
+        if ($user !== null && ! $user->canSignIn()) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            if ($request->expectsJson()) {
+                abort(403);
+            }
+
+            return redirect()
+                ->route('login')
+                ->withErrors(['access' => __('auth.no_event_access')]);
+        }
 
         return $next($request);
     }

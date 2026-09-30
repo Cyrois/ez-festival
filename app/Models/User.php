@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Http\Request;
 use Illuminate\Notifications\Notifiable;
 
 #[Fillable(['person_id', 'name', 'email', 'phone', 'password'])]
@@ -120,27 +121,14 @@ class User extends Authenticatable
 
     public function effectiveEvent(): ?Event
     {
-        $currentEventId = self::query()->whereKey($this->getKey())->value('current_event_id');
-
-        if ($currentEventId !== null) {
-            $current = $this->accessibleEvents()->whereKey($currentEventId)->first();
-
-            if ($current !== null) {
-                return $current;
-            }
-        }
-
+        $currentEventId = $this->accessIdentity()?->current_event_id;
         $defaultEventId = app(OrganizationContext::class)->defaultEvent()?->getKey();
 
-        if ($defaultEventId !== null) {
-            $default = $this->accessibleEvents()->whereKey($defaultEventId)->first();
-
-            if ($default !== null) {
-                return $default;
-            }
-        }
-
         return $this->accessibleEvents()
+            ->orderByRaw(
+                'CASE WHEN events.id = ? THEN 0 WHEN events.id = ? THEN 1 ELSE 2 END',
+                [$currentEventId ?? -1, $defaultEventId ?? -1],
+            )
             ->orderByDesc('starts_on')
             ->orderByDesc('id')
             ->first();
@@ -163,7 +151,7 @@ class User extends Authenticatable
 
     public function isAdmin(): bool
     {
-        return (bool) (self::query()->whereKey($this->getKey())->value('is_admin') ?? false);
+        return (bool) ($this->accessIdentity()?->is_admin ?? false);
     }
 
     public function canAccessEvent(Event|int $event): bool
@@ -200,13 +188,30 @@ class User extends Authenticatable
 
     private function accessIdentity(): ?object
     {
-        return self::query()
+        $resolve = fn () => self::query()
             ->leftJoin('people', 'people.id', '=', 'users.person_id')
             ->where('users.id', $this->getKey())
             ->first([
                 'users.is_admin',
+                'users.current_event_id',
                 'people.can_log_in',
                 'people.id as access_person_id',
             ]);
+
+        if (! app()->bound('request')) {
+            return $resolve();
+        }
+
+        $request = app(Request::class);
+        if ($request->route() === null) {
+            return $resolve();
+        }
+
+        $cacheKey = 'access_identity_user_'.$this->getKey();
+        if (! $request->attributes->has($cacheKey)) {
+            $request->attributes->set($cacheKey, $resolve());
+        }
+
+        return $request->attributes->get($cacheKey);
     }
 }

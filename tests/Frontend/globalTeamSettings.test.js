@@ -95,7 +95,7 @@ test('Global Team list renders the Login column from server data', () => {
 });
 
 test('admin access is visible only on the saved person page and uses the signed-off copy', () => {
-    assert.match(personPage, /viewerCanManageAdmin && person\.has_login/);
+    assert.match(personPage, /viewerCanManageAdmin && form\.can_log_in/);
     assert.match(personPage, /v-model="form\.is_admin"/);
     assert.match(personPage, /person\.admin_disable_reason/);
     assert.match(adminAccessToggle, /settings\.team\.admin\.hint/);
@@ -112,8 +112,11 @@ test('admins render the locked all-events label on person and list views', () =>
     assert.match(listPage, /v-if="rowData\.is_admin"/);
     assert.equal(
         lang['settings.team.access.admin_all_events'],
-        'All events · org owner (no role needed)',
+        'All events · admin',
     );
+    assert.match(listPage, /variant="orange"/);
+    assert.match(listPage, /settings\.team\.access\.admin_badge/);
+    assert.equal(lang['settings.team.access.admin_badge'], 'Administrator');
 });
 
 test('toggling admin access immediately disables event role selectors', () => {
@@ -128,13 +131,29 @@ test('toggling admin access immediately disables event role selectors', () => {
 });
 
 test('no-event login failures use the generic warning above the email field', () => {
-    assert.match(loginPage, /const noEventAccess = computed/);
-    assert.match(loginPage, /v-if="noEventAccess"/);
+    assert.match(loginPage, /v-if="form\.errors\.access"/);
+    assert.match(loginPage, /\{\{ form\.errors\.access \}\}/);
+    assert.doesNotMatch(loginPage, /noEventAccess|trans\('auth\.no_event_access'\)/);
     assert.match(loginPage, /role="alert"/);
     assert.equal(
         lang['auth.no_event_access'],
         "You don't have access to any events yet. Please talk to your system administrator.",
     );
+});
+
+test('Global Team navigation is visible only to admins', () => {
+    assert.match(
+        settingsLayout,
+        /key: 'team'[\s\S]*enabled: page\.props\.auth\.user\?\.is_admin === true/,
+    );
+    assert.match(settingsLayout, /organizationItems\.filter/);
+    assert.match(settingsLayout, /v-for="item in visibleOrganizationItems"/);
+});
+
+test('user-facing copy does not invent an organization owner', () => {
+    for (const value of Object.values(lang)) {
+        assert.doesNotMatch(String(value), /\bowners?\b/i);
+    }
 });
 
 test('new event access starts as Hired and only appears for a new role', () => {

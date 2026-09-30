@@ -20,13 +20,20 @@ const currentPath = computed(() => page.url.split('?')[0]);
 
 const organizationItems = [
     { key: 'events', href: '/settings/events', enabled: true },
-    { key: 'team', href: '/settings/team', enabled: true },
+    {
+        key: 'team',
+        href: '/settings/team',
+        enabled: page.props.auth.user?.is_admin === true,
+    },
     { key: 'roles', href: '/settings/roles', enabled: true },
     { key: 'artist_types', href: '/settings/artist-types', enabled: true },
     { key: 'vendor_types', href: '/settings/vendor-types', enabled: true },
     { key: 'custom_fields', href: '/settings/custom-fields', enabled: true },
     { key: 'feature_flags', href: '/settings/feature-flags', enabled: true },
 ];
+const visibleOrganizationItems = computed(() =>
+    organizationItems.filter((item) => item.enabled),
+);
 
 const personalItems = [
     { key: 'account', href: '/settings/account', enabled: true },
@@ -98,7 +105,7 @@ const isPersonalNavActive = (key) =>
                     </p>
                     <nav class="flex flex-col gap-0.5">
                         <SidebarNavItem
-                            v-for="item in organizationItems"
+                            v-for="item in visibleOrganizationItems"
                             :key="item.key"
                             :href="item.enabled ? item.href : undefined"
                             :enabled="item.enabled"
