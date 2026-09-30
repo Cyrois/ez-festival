@@ -25,7 +25,7 @@ class TeamControllerTest extends TestCase
         $this->withoutVite();
     }
 
-    public function test_team_settings_renders_for_an_authenticated_user_with_completed_setup(): void
+    public function test_team_settings_includes_an_authenticated_user_with_login_access_and_no_role(): void
     {
         $user = User::factory()->create();
         $event = Event::query()->create([
@@ -42,11 +42,11 @@ class TeamControllerTest extends TestCase
         $this->actingAs($user)->get(route('settings.team'))->assertInertia(
             fn (Assert $page) => $page
                 ->component('Settings/Team')
-                ->where('hasAnyPeople', false),
+                ->where('hasAnyPeople', true),
         );
     }
 
-    public function test_global_team_lists_only_people_with_a_role_and_off_roles_still_count(): void
+    public function test_global_team_lists_people_with_login_or_event_access(): void
     {
         [$user, $event] = $this->userWithCompletedSetup();
         $on = Role::query()->create(['name' => 'Staff']);
@@ -54,6 +54,11 @@ class TeamControllerTest extends TestCase
         $listed = $this->engagement($event, 'Listed Person', $on);
         $historical = $this->engagement($event, 'Historical Person', $off);
         $this->engagement($event, 'No Access Person');
+        $loginOnly = Person::query()->create([
+            'name' => 'Login Only Person',
+            'email' => 'login-only@example.test',
+            'can_log_in' => true,
+        ]);
         Person::query()->create([
             'name' => 'Artist Contact',
             'email' => 'artist@example.test',
@@ -74,12 +79,14 @@ class TeamControllerTest extends TestCase
             ]))
             ->assertOk()
             ->assertJsonPath('draw', 4)
-            ->assertJsonPath('recordsTotal', 2)
-            ->assertJsonPath('recordsFiltered', 2)
-            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('recordsTotal', 3)
+            ->assertJsonPath('recordsFiltered', 3)
+            ->assertJsonCount(3, 'data')
             ->assertJsonPath('data.0.id', $historical->person_id)
             ->assertJsonPath('data.0.events.0.role_active', false)
-            ->assertJsonPath('data.1.id', $listed->person_id);
+            ->assertJsonPath('data.1.id', $listed->person_id)
+            ->assertJsonPath('data.2.id', $loginOnly->id)
+            ->assertJsonPath('data.2.events', []);
     }
 
     public function test_global_team_data_table_filters_sorts_and_pages_on_the_server(): void
@@ -106,12 +113,14 @@ class TeamControllerTest extends TestCase
             ->assertJsonPath('data.0.id', $matching->person_id);
     }
 
-    public function test_global_team_list_and_person_page_show_login_access_state(): void
+    public function test_global_team_list_and_person_page_include_login_only_people(): void
     {
         [$user, $event] = $this->userWithCompletedSetup();
-        $role = Role::query()->create(['name' => 'Staff']);
-        $engagement = $this->engagement($event, 'Login Person', $role);
-        $engagement->person->update(['can_log_in' => true]);
+        $person = Person::query()->create([
+            'name' => 'Login Person',
+            'email' => 'login-person@example.test',
+            'can_log_in' => true,
+        ]);
 
         $this->actingAs($user)
             ->getJson(route('settings.team.data', [
@@ -122,8 +131,9 @@ class TeamControllerTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.can_log_in', true);
 
-        $this->actingAs($user)->get(route('settings.team.show', $engagement->person))->assertInertia(
+        $this->actingAs($user)->get(route('settings.team.show', $person))->assertInertia(
             fn (Assert $page) => $page
+                ->where('person.id', $person->id)
                 ->where('person.can_log_in', true)
                 ->where('person.login_disable_reason', null),
         );
@@ -216,7 +226,7 @@ class TeamControllerTest extends TestCase
         $this->assertFalse(Person::query()->where('email', 'no-login@example.test')->sole()->can_log_in);
     }
 
-    public function test_add_person_keeps_login_on_when_reusing_a_person_with_a_login(): void
+    public function test_add_person_refuses_a_person_who_is_already_on_global_team_through_login_access(): void
     {
         [$user, $event] = $this->userWithCompletedSetup();
         $role = Role::query()->create(['name' => 'Staff']);
@@ -230,9 +240,10 @@ class TeamControllerTest extends TestCase
             'can_log_in' => true,
             'status' => 'hired',
             'event_access' => [['event_id' => $event->id, 'role_id' => $role->id]],
-        ])->assertRedirect(route('settings.team.show', $knownUser->person));
+        ])->assertSessionHasErrors('email');
 
         $this->assertTrue($knownUser->person->fresh()->can_log_in);
+        $this->assertFalse($knownUser->person->teamEngagements()->exists());
     }
 
     public function test_add_person_validates_required_access_and_refuses_locked_events_or_off_roles(): void
@@ -326,6 +337,11 @@ class TeamControllerTest extends TestCase
         [$user, $event] = $this->userWithCompletedSetup();
         $role = Role::query()->create(['name' => 'Staff']);
         $global = $this->engagement($event, 'Global Person', $role)->person;
+        $loginOnly = Person::query()->create([
+            'name' => 'Login Only',
+            'email' => 'login-only@example.test',
+            'can_log_in' => true,
+        ]);
         Person::query()->create(['name' => 'Known Contact', 'email' => 'known@example.test']);
 
         $this->actingAs($user)
@@ -333,6 +349,12 @@ class TeamControllerTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.on_global_team', true)
             ->assertJsonPath('data.person.id', $global->id);
+
+        $this->actingAs($user)
+            ->getJson(route('settings.team.lookup', ['email' => 'login-only@example.test']))
+            ->assertOk()
+            ->assertJsonPath('data.on_global_team', true)
+            ->assertJsonPath('data.person.id', $loginOnly->id);
 
         $this->actingAs($user)
             ->getJson(route('settings.team.lookup', ['email' => ' known@example.test ']))
@@ -516,7 +538,7 @@ class TeamControllerTest extends TestCase
         $this->assertSame($role->id, $engagement->fresh()->role_id);
     }
 
-    public function test_removing_the_last_role_drops_the_person_from_global_team_but_keeps_the_record(): void
+    public function test_removing_the_last_role_keeps_a_person_with_login_access_on_global_team(): void
     {
         [$user, $event] = $this->userWithCompletedSetup();
         $role = Role::query()->create(['name' => 'Staff']);
@@ -531,13 +553,35 @@ class TeamControllerTest extends TestCase
                 'role_id' => null,
                 'status' => null,
             ]],
-        ])->assertRedirect(route('settings.team'));
+        ])->assertRedirect(route('settings.team.show', $engagement->person));
 
         $this->assertDatabaseHas('team_engagements', [
             'id' => $engagement->id,
             'role_id' => null,
         ]);
         $this->assertTrue($engagement->person->fresh()->can_log_in);
+        $this->actingAs($user)->get(route('settings.team.show', $engagement->person))->assertOk();
+    }
+
+    public function test_removing_the_last_role_and_login_access_removes_the_person_from_global_team(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        $role = Role::query()->create(['name' => 'Staff']);
+        $engagement = $this->engagement($event, 'No Remaining Access', $role);
+
+        $this->actingAs($user)->put(route('settings.team.update', $engagement->person), [
+            'name' => 'No Remaining Access',
+            'phone' => null,
+            'can_log_in' => false,
+            'event_access' => [[
+                'event_id' => $event->id,
+                'role_id' => null,
+                'status' => null,
+            ]],
+        ])->assertRedirect(route('settings.team'));
+
+        $this->assertFalse($engagement->person->fresh()->can_log_in);
+        $this->assertNull($engagement->fresh()->role_id);
         $this->actingAs($user)->get(route('settings.team.show', $engagement->person))->assertNotFound();
     }
 
@@ -564,6 +608,7 @@ class TeamControllerTest extends TestCase
         $organization->setDefaultEvent($event);
         $organization->markSetupComplete();
         $user->setCurrentEvent($event);
+        $user->person->update(['can_log_in' => false]);
 
         return [$user, $event];
     }

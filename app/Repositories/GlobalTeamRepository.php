@@ -57,7 +57,6 @@ class GlobalTeamRepository
     /** @return Builder<Person> */
     private function query(): Builder
     {
-        return Person::query()
-            ->whereHas('teamEngagements', fn (Builder $query) => $query->whereNotNull('role_id'));
+        return Person::query()->onGlobalTeam();
     }
 }

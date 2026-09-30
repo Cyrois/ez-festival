@@ -429,7 +429,7 @@ class TeamAdvancementTest extends TestCase
         $this->assertTrue($engagement->person->fresh()->can_log_in);
         $this->assertDatabaseHas('team_engagements', ['id' => $engagement->id]);
         $this->get(route('settings.team'))->assertInertia(
-            fn (Assert $page) => $page->where('hasAnyPeople', false),
+            fn (Assert $page) => $page->where('hasAnyPeople', true),
         );
     }
 

@@ -35,7 +35,7 @@ class GlobalTeamService
         return DB::transaction(function () use ($data): Person {
             $person = $this->people->findByEmail($data['email']);
 
-            if ($person?->teamEngagements()->whereNotNull('role_id')->exists()) {
+            if ($person !== null && Person::query()->onGlobalTeam()->whereKey($person->id)->exists()) {
                 throw ValidationException::withMessages([
                     'email' => __('settings.team.validation.already_on_team'),
                 ]);
