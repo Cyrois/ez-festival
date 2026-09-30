@@ -28,7 +28,6 @@ use App\Http\Controllers\Settings\RoleController;
 use App\Http\Controllers\Settings\RoleStatusController;
 use App\Http\Controllers\Settings\TeamController;
 use App\Http\Controllers\Settings\TeamInviteController;
-use App\Http\Controllers\Settings\TeamTemporaryPasswordController;
 use App\Http\Controllers\Settings\VendorTypeController as SettingsVendorTypeController;
 use App\Http\Controllers\Setup\ArtistTypeController;
 use App\Http\Controllers\Setup\EventController as SetupEventController;
@@ -248,7 +247,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::put('team/{person}', [TeamController::class, 'update'])->name('team.update');
             Route::post('team/{person}/invite', [TeamInviteController::class, 'store'])
                 ->name('team.invite.store');
-            Route::post('team/{person}/temporary-password', [TeamTemporaryPasswordController::class, 'store'])
+            Route::post('team/{person}/temporary-password', [TemporaryPasswordController::class, 'store'])
                 ->name('team.temporary-password.store');
             Route::get('account', [AccountController::class, 'index'])->name('account');
             Route::put('account', [AccountController::class, 'update'])->name('account.update');
