@@ -39,7 +39,7 @@ class DatabaseSeederTest extends TestCase
         $this->assertTrue($user->is_admin);
         $this->assertTrue($user->person->can_log_in);
         $this->assertSame(
-            'Festival director',
+            'Administrator',
             $user->person
                 ->teamEngagements()
                 ->whereBelongsTo($event)

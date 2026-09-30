@@ -23,8 +23,8 @@ class TestTeamSeeder extends Seeder
 
             return [$name => $group];
         });
-        $festivalDirectorRole = Role::query()->firstOrCreate([
-            'name' => 'Festival director',
+        $administratorRole = Role::query()->firstOrCreate([
+            'name' => 'Administrator',
         ]);
         $seededUser = User::query()
             ->where('email', 'calvinkylechan@gmail.com')
@@ -37,7 +37,7 @@ class TestTeamSeeder extends Seeder
             ],
             [
                 'group_id' => $groups['Headquarters']->id,
-                'role_id' => $festivalDirectorRole->id,
+                'role_id' => $administratorRole->id,
                 'status' => 'hired',
                 'employment_type' => 'volunteer',
                 'hourly_pay' => null,
