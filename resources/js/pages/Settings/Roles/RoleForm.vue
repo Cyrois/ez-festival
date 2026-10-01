@@ -5,7 +5,6 @@ import SettingsLayout from '../../../layouts/SettingsLayout.vue';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
 import { Checkbox } from '../../../components/ui/checkbox';
-import { Dialog } from '../../../components/ui/dialog';
 import { FormField } from '../../../components/ui/form-field';
 import { Icon } from '../../../components/ui/icon';
 import { Input } from '../../../components/ui/input';
@@ -79,24 +78,6 @@ const submit = () => {
     if (props.role) form.put(`/settings/roles/${props.role.id}`, options);
     else form.post('/settings/roles', options);
 };
-const turnOffOpen = ref(false);
-const statusBusy = ref(false);
-const turnOff = () => {
-    statusBusy.value = true;
-    router.put(
-        `/settings/roles/${props.role.id}/status`,
-        { active: false },
-        {
-            onSuccess: () => {
-                turnOffOpen.value = false;
-                router.visit('/settings/roles');
-            },
-            onFinish: () => {
-                statusBusy.value = false;
-            },
-        },
-    );
-};
 </script>
 
 <template>
@@ -114,16 +95,6 @@ const turnOff = () => {
             </Link>
             <div class="mt-4 flex items-center justify-between gap-4">
                 <h1 class="text-2xl font-bold text-charcoal">{{ title }}</h1>
-                <Button
-                    v-if="role?.active"
-                    variant="outline"
-                    @click="turnOffOpen = true"
-                    >{{
-                        $t('settings.roles.actions.turn_off', {
-                            name: role.name,
-                        })
-                    }}</Button
-                >
             </div>
             <p class="mt-1 text-sm text-muted">
                 {{ $t('permissions.role_intro') }}
@@ -269,20 +240,5 @@ const turnOff = () => {
                 </div>
             </div>
         </div>
-        <Dialog
-            :open="turnOffOpen"
-            :title="$t('settings.roles.turn_off.title')"
-            :confirm-label="$t('settings.roles.turn_off.confirm')"
-            :busy="statusBusy"
-            @update:open="turnOffOpen = $event"
-            @confirm="turnOff"
-        >
-            {{
-                $t('settings.roles.turn_off.body', {
-                    name: role?.name,
-                    people: role?.people_count ?? 0,
-                })
-            }}
-        </Dialog>
     </SettingsLayout>
 </template>

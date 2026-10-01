@@ -162,7 +162,6 @@ test('phones get role cards and md+ uses the server-side DataTable', () => {
     const cards = rolesPage.slice(cardsStart, tableWrapper);
     assert.match(cards, /v-for="role in roles\.data"/);
     assert.match(cards, /openRename\(role\)/);
-    assert.match(cards, /turningOff = role/);
     assert.match(cards, /setActive\(role, true\)/);
     assert.match(cards, /min-h-11/);
 });

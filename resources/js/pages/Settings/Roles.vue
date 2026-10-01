@@ -3,12 +3,10 @@ import SettingsLayout from '../../layouts/SettingsLayout.vue';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { DataTable } from '../../components/ui/data-table';
-import { Dialog } from '../../components/ui/dialog';
 import { Icon } from '../../components/ui/icon';
 import { IconButton } from '../../components/ui/icon-button';
 import { Input } from '../../components/ui/input';
 import { SegmentedControl } from '../../components/ui/segmented-control';
-import { emphasisParts } from '../../lib/emphasisParts';
 import { roleColumns } from './roleColumns';
 import { ROLE_STATUSES, rolesQuery } from './rolesFilters';
 import { router } from '@inertiajs/vue3';
@@ -131,18 +129,8 @@ onUnmounted(() => window.clearTimeout(searchTimer));
 const openAdd = () => router.visit('/settings/roles/create');
 const openRename = (role) => router.visit(`/settings/roles/${role.id}/edit`);
 
-// Turn off (asks first) / turn on.
-const turningOff = ref(null);
+// Turn on inactive roles.
 const statusBusy = ref(false);
-
-const turnOffParts = computed(() =>
-    turningOff.value
-        ? emphasisParts(trans, 'settings.roles.turn_off.body', {
-              name: turningOff.value.name,
-              people: peopleLabel(turningOff.value.people_count),
-          })
-        : [],
-);
 
 const setActive = (role, active, onSuccess = () => {}) => {
     statusBusy.value = true;
@@ -161,15 +149,6 @@ const setActive = (role, active, onSuccess = () => {}) => {
             },
         },
     );
-};
-
-const confirmTurnOff = () => {
-    if (!turningOff.value) {
-        return;
-    }
-    setActive(turningOff.value, false, () => {
-        turningOff.value = null;
-    });
 };
 </script>
 
@@ -273,22 +252,7 @@ const confirmTurnOff = () => {
                             @click="openRename(role)"
                         />
                         <Button
-                            v-if="role.active"
-                            type="button"
-                            variant="outline-secondary"
-                            size="sm"
-                            class="min-h-11"
-                            :disabled="statusBusy"
-                            @click="turningOff = role"
-                        >
-                            <Icon
-                                :name="['fas', 'power-off']"
-                                size="sm"
-                            />
-                            {{ $t('settings.roles.actions.turn_off') }}
-                        </Button>
-                        <Button
-                            v-else
+                            v-if="!role.active"
                             type="button"
                             variant="outline-primary"
                             size="sm"
@@ -363,21 +327,7 @@ const confirmTurnOff = () => {
                                 @click="openRename(rowData)"
                             />
                             <Button
-                                v-if="rowData.active"
-                                type="button"
-                                variant="outline-secondary"
-                                size="sm"
-                                :disabled="statusBusy"
-                                @click="turningOff = rowData"
-                            >
-                                <Icon
-                                    :name="['fas', 'power-off']"
-                                    size="sm"
-                                />
-                                {{ $t('settings.roles.actions.turn_off') }}
-                            </Button>
-                            <Button
-                                v-else
+                                v-if="!rowData.active"
                                 type="button"
                                 variant="outline-primary"
                                 size="sm"
@@ -438,33 +388,5 @@ const confirmTurnOff = () => {
                 </p>
             </div>
         </div>
-
-        <Dialog
-            :open="turningOff !== null"
-            :title="$t('settings.roles.turn_off.title')"
-            :confirm-label="$t('settings.roles.turn_off.confirm')"
-            :cancel-label="$t('settings.roles.form.cancel')"
-            confirm-variant="danger"
-            cancel-variant="outline-primary"
-            :confirm-icon="['fas', 'power-off']"
-            :busy="statusBusy"
-            sectioned
-            @update:open="(open) => !open && (turningOff = null)"
-            @confirm="confirmTurnOff"
-        >
-            <template #description>
-                <template
-                    v-for="(part, index) in turnOffParts"
-                    :key="index"
-                >
-                    <strong
-                        v-if="part.emphasis"
-                        class="font-bold"
-                        >{{ part.text }}</strong
-                    >
-                    <template v-else>{{ part.text }}</template>
-                </template>
-            </template>
-        </Dialog>
     </SettingsLayout>
 </template>
