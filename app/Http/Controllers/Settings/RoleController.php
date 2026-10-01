@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\IndexRoleDataTableRequest;
+use App\Http\Requests\Settings\IndexRolePeopleRequest;
 use App\Http\Requests\Settings\IndexRolesRequest;
 use App\Http\Requests\Settings\StoreRoleRequest;
 use App\Http\Requests\Settings\UpdateRoleRequest;
 use App\Http\Resources\RoleDataTableResource;
+use App\Http\Resources\RolePeopleDataTableResource;
 use App\Http\Resources\RoleResource;
 use App\Models\Role;
 use App\Repositories\RoleRepository;
@@ -59,6 +61,20 @@ class RoleController extends Controller
     public function create(): Response
     {
         return Inertia::render('Settings/Roles/Create', ['permissionGroups' => Permissions::groups()]);
+    }
+
+    public function people(IndexRolePeopleRequest $request, Role $role): RolePeopleDataTableResource
+    {
+        return new RolePeopleDataTableResource([
+            'draw' => (int) $request->validated('draw'),
+            ...$this->roles->peopleDataTable(
+                $role,
+                trim((string) $request->validated('search.value', '')),
+                (int) $request->validated('start'),
+                (int) $request->validated('length'),
+                $request->validated('order.0.dir', 'asc'),
+            ),
+        ]);
     }
 
     public function edit(Role $role): Response

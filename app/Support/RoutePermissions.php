@@ -139,5 +139,6 @@ final class RoutePermissions
         'vendors.people.destroy' => 'vendors.edit',
         'settings.roles.create' => 'admin',
         'settings.roles.edit' => 'admin',
+        'settings.roles.people' => 'admin',
     ];
 }

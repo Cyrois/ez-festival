@@ -3,6 +3,7 @@
 namespace Tests\Feature\Settings;
 
 use App\Models\Event;
+use App\Models\Person;
 use App\Models\Role;
 use App\Models\TeamEngagement;
 use App\Models\User;
@@ -588,5 +589,35 @@ class RoleControllerTest extends TestCase
         $this->grantAdminAccess($user);
 
         return $user;
+    }
+
+    public function test_role_people_are_distinct_scoped_searchable_and_paginated(): void
+    {
+        $user = $this->userWithCompletedSetup();
+        $role = Role::create(['name' => 'Crew', 'permissions' => ['team.view']]);
+        $otherRole = Role::create(['name' => 'Other', 'permissions' => ['team.view']]);
+        $otherEvent = Event::create(['name' => 'Second event', 'starts_on' => '2027-07-01', 'ends_on' => '2027-07-03', 'timezone' => 'UTC']);
+        foreach (['Alice', 'Bob', 'Crew 100%'] as $name) {
+            $person = Person::create(['name' => $name, 'email' => str_replace(' ', '', $name).'@example.test']);
+            foreach ([$this->event, $otherEvent] as $event) {
+                TeamEngagement::create(['event_id' => $event->id, 'person_id' => $person->id, 'role_id' => $role->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+            }
+        }
+        $outsider = Person::create(['name' => 'Outsider', 'email' => 'outsider@example.test']);
+        TeamEngagement::create(['event_id' => $this->event->id, 'person_id' => $outsider->id, 'role_id' => $otherRole->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+        $url = route('settings.roles.people', $role);
+        $params = ['draw' => 1, 'start' => 0, 'length' => 2];
+        $this->actingAs($user)->getJson($url.'?'.http_build_query($params))
+            ->assertOk()->assertJsonPath('recordsTotal', 3)->assertJsonPath('recordsFiltered', 3)
+            ->assertJsonCount(2, 'data')->assertJsonPath('data.0.name', 'Alice')->assertJsonPath('data.1.name', 'Bob')
+            ->assertJsonMissingPath('data.0.email');
+        $this->getJson($url.'?'.http_build_query([...$params, 'start' => 2]))
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.name', 'Crew 100%');
+        $role->update(['active' => false]);
+        $this->getJson($url.'?'.http_build_query([...$params, 'search' => ['value' => '100%']]))
+            ->assertOk()->assertJsonPath('recordsFiltered', 1)->assertJsonPath('data.0.name', 'Crew 100%');
+        $this->getJson($url.'?'.http_build_query([...$params, 'length' => 101]))->assertUnprocessable()->assertJsonValidationErrors('length');
+        $this->grantRoleAccess($user);
+        $this->getJson($url.'?'.http_build_query($params))->assertForbidden();
     }
 }

@@ -1,6 +1,7 @@
 <script setup>
 import { emphasisParts } from '../../../lib/emphasisParts';
 import { roleMatchHint } from '../roleMatchHint';
+import RolePeopleCard from './RolePeopleCard.vue';
 import SettingsLayout from '../../../layouts/SettingsLayout.vue';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
@@ -10,7 +11,7 @@ import { Icon } from '../../../components/ui/icon';
 import { Input } from '../../../components/ui/input';
 import { toastFormErrors } from '../../../lib/fieldError';
 import { useFlashToast } from '../../../composables/useFlashToast';
-import { Link, router, useForm } from '@inertiajs/vue3';
+import { router, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
@@ -84,16 +85,11 @@ const submit = () => {
     <SettingsLayout
         :title="title"
         :breadcrumbs="breadcrumbs"
+        back-href="/settings/roles"
+        :back-label="$t('permissions.back_roles')"
     >
         <div class="container mx-auto max-w-6xl pb-24">
-            <Link
-                href="/settings/roles"
-                class="inline-flex items-center gap-2 text-sm font-semibold text-secondary no-underline hover:underline"
-            >
-                <Icon :name="['fas', 'arrow-left']" />
-                {{ $t('permissions.back_roles') }}
-            </Link>
-            <div class="mt-4 flex items-center justify-between gap-4">
+            <div class="flex items-center justify-between gap-4">
                 <h1 class="text-2xl font-bold text-charcoal">{{ title }}</h1>
             </div>
             <p class="mt-1 text-sm text-muted">
@@ -218,6 +214,10 @@ const submit = () => {
                     </div>
                 </Card>
             </form>
+            <RolePeopleCard
+                v-if="role"
+                :role-id="role.id"
+            />
         </div>
         <div
             class="fixed right-0 bottom-0 left-0 z-30 border-t border-line bg-ground lg:left-[var(--app-sidebar-width)]"

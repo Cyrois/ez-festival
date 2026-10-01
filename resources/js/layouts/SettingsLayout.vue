@@ -13,6 +13,14 @@ defineProps({
         type: Array,
         default: () => [],
     },
+    backHref: {
+        type: String,
+        default: '',
+    },
+    backLabel: {
+        type: String,
+        default: '',
+    },
 });
 
 const page = usePage();
@@ -87,6 +95,8 @@ const isPersonalNavActive = (key) =>
     <AppLayout
         :title="title"
         :breadcrumbs="breadcrumbs"
+        :back-href="backHref"
+        :back-label="backLabel"
         settings-nav
     >
         <template #settings-nav>

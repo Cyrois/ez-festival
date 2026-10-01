@@ -1345,5 +1345,7 @@
     "permissions.groups.team": "Team",
     "permissions.groups.patrons": "Patrons",
     "actions.cancel": "Cancel",
-    "actions.save": "Save"
+    "actions.save": "Save",
+    "settings.roles.people.title": "People",
+    "settings.roles.people.empty": "No people have this role."
 }
