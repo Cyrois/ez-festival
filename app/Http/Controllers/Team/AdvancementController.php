@@ -21,7 +21,7 @@ class AdvancementController extends Controller
         $filters = $request->validated();
         $search = trim($filters['search'] ?? '');
         $employmentTypes = $filters['employment_types'] ?? [];
-        $view = $filters['view'] ?? 'list';
+        $view = $filters['view'] ?? 'columns';
 
         $engagements = $view === 'columns'
             ? $this->engagements->all($event, $search, $employmentTypes)

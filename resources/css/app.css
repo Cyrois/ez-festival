@@ -162,15 +162,15 @@
      * Keep the leading record label consistent even when a slotted cell has
      * its own text and font utility classes.
      */
-    table.dataTable tbody td:first-child,
-    table.dataTable tbody td:first-child > :first-child,
-    table.dataTable tbody td:first-child a {
+    table.dataTable tbody tr[data-row-link] td:first-child,
+    table.dataTable tbody tr[data-row-link] td:first-child > :first-child,
+    table.dataTable tbody tr[data-row-link] td:first-child a {
         @apply font-semibold text-primary;
     }
 
-    table.dataTable tbody tr:hover td:first-child,
-    table.dataTable tbody tr:hover td:first-child > :first-child,
-    table.dataTable tbody tr:hover td:first-child a {
+    table.dataTable tbody tr[data-row-link]:hover td:first-child,
+    table.dataTable tbody tr[data-row-link]:hover td:first-child > :first-child,
+    table.dataTable tbody tr[data-row-link]:hover td:first-child a {
         @apply underline underline-offset-2;
     }
 
