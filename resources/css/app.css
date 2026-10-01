@@ -173,4 +173,11 @@
     table.dataTable tbody tr:hover td:first-child a {
         @apply underline underline-offset-2;
     }
+
+    table.dataTable tbody td.dt-empty,
+    table.dataTable tbody td.dataTables_empty,
+    table.dataTable tbody tr:hover td.dt-empty,
+    table.dataTable tbody tr:hover td.dataTables_empty {
+        @apply text-center align-middle font-normal text-muted no-underline;
+    }
 }
