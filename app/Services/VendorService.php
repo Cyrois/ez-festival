@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\Vendor;
 use App\Models\VendorEngagement;
 use App\Models\VendorEngagementNote;
+use App\Repositories\PassTypeRepository;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +20,10 @@ use Illuminate\Validation\ValidationException;
 
 class VendorService
 {
-    public function __construct(private CustomFieldValueService $customFieldValueService) {}
+    public function __construct(
+        private CustomFieldValueService $customFieldValueService,
+        private readonly PassTypeRepository $passTypes,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $data
@@ -124,6 +128,10 @@ class VendorService
                 throw ValidationException::withMessages(['name' => __('vendors.errors.name_taken')]);
             }
         });
+
+        if (array_key_exists('pass_assignments', $data)) {
+            $this->passTypes->forgetList($engagement->event_id);
+        }
     }
 
     /** @param array<int, array<string, mixed>> $people */

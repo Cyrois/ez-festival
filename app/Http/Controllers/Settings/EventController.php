@@ -21,16 +21,17 @@ class EventController extends Controller
 {
     use InteractsWithSettings;
 
+    public function __construct(
+        private readonly EventService $events,
+    ) {}
+
     public function index(Request $request): Response
     {
         /** @var User $user */
         $user = $request->user();
         $primaryEventId = $user->effectiveEvent()?->id;
 
-        $events = Event::query()
-            ->orderByDesc('starts_on')
-            ->orderByDesc('id')
-            ->get()
+        $events = $this->events->list()
             ->map(fn (Event $event) => EventResource::toArray($event, $primaryEventId));
 
         return Inertia::render('Settings/Events/Index', [
@@ -47,7 +48,7 @@ class EventController extends Controller
 
     public function store(StoreEventRequest $request): RedirectResponse
     {
-        Event::query()->create($request->validated());
+        $this->events->create($request->validated());
 
         return redirect()
             ->route('settings.events.index')
@@ -66,8 +67,7 @@ class EventController extends Controller
 
     public function update(UpdateEventRequest $request, Event $event): RedirectResponse
     {
-        $event->ensureWritable();
-        $event->update($request->validated());
+        $this->events->update($event, $request->validated());
 
         return redirect()
             ->route('settings.events.index')
@@ -75,9 +75,9 @@ class EventController extends Controller
             ->with('success_title', __('toast.saved_title'));
     }
 
-    public function destroy(DestroyEventRequest $request, Event $event, EventService $events): RedirectResponse
+    public function destroy(DestroyEventRequest $request, Event $event): RedirectResponse
     {
-        $events->delete($event);
+        $this->events->delete($event);
 
         return redirect()
             ->route('settings.events.index')

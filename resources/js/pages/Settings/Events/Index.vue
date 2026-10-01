@@ -5,13 +5,14 @@ import { Button } from '../../../components/ui/button';
 import { DataTable } from '../../../components/ui/data-table';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { Icon } from '../../../components/ui/icon';
+import { Input } from '../../../components/ui/input';
 import { navigateDataTableRow } from '../../../lib/dataTableRowNavigation';
 import { Link, router } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 import { eventColumns } from './eventColumns';
 
-defineProps({
+const props = defineProps({
     events: {
         type: Array,
         default: () => [],
@@ -19,6 +20,8 @@ defineProps({
 });
 
 const setPrimaryBusy = ref(false);
+const search = ref('');
+const table = ref(null);
 
 const setPrimary = (event) => {
     if (event.is_active || setPrimaryBusy.value) {
@@ -73,17 +76,31 @@ const statusVariant = {
     locked: 'warning',
     past: 'neutral',
 };
+const filteredEvents = computed(() => {
+    const query = search.value.trim().toLocaleLowerCase();
+
+    if (query === '') {
+        return props.events;
+    }
+
+    return props.events.filter((event) =>
+        [event.name, event.starts_on, event.ends_on]
+            .join(' ')
+            .toLocaleLowerCase()
+            .includes(query),
+    );
+});
 const columns = computed(() => eventColumns(trans));
 const tableOptions = computed(() => ({
-    searching: false,
-    ordering: false,
-    paging: false,
-    info: false,
+    lengthChange: false,
+    pageLength: 25,
+    order: [
+        [1, 'desc'],
+        [0, 'asc'],
+    ],
     layout: {
         topStart: null,
         topEnd: null,
-        bottomStart: null,
-        bottomEnd: null,
     },
     columnDefs: [{ targets: 4, className: 'text-right' }],
     createdRow: (row, event) =>
@@ -92,7 +109,12 @@ const tableOptions = computed(() => ({
             event,
             (item) => `/settings/events/${item.id}/edit`,
         ),
+    language: {
+        zeroRecords: trans('settings.events.empty.filtered'),
+    },
 }));
+
+watch(search, (value) => table.value?.search(value));
 </script>
 
 <template>
@@ -139,10 +161,29 @@ const tableOptions = computed(() => ({
             </EmptyState>
 
             <template v-else>
+                <form
+                    class="relative mb-4 w-full sm:w-64"
+                    role="search"
+                    @submit.prevent
+                >
+                    <Icon
+                        :name="['fas', 'magnifying-glass']"
+                        class="pointer-events-none absolute top-3.5 left-3 z-10 text-muted"
+                        size="sm"
+                    />
+                    <Input
+                        v-model="search"
+                        type="search"
+                        class="min-h-11 pl-9"
+                        :aria-label="$t('settings.events.search')"
+                        :placeholder="$t('settings.events.search')"
+                    />
+                </form>
+
                 <!-- Phone: card stack -->
                 <div class="flex flex-col gap-3 md:hidden">
                     <div
-                        v-for="event in events"
+                        v-for="event in filteredEvents"
                         :key="`card-${event.id}`"
                         class="rounded-xl border border-line bg-ground p-4"
                     >
@@ -203,6 +244,7 @@ const tableOptions = computed(() => ({
                 <!-- md+: table -->
                 <div class="hidden md:block">
                     <DataTable
+                        ref="table"
                         :columns="columns"
                         :data="events"
                         :options="tableOptions"

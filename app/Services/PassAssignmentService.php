@@ -10,6 +10,7 @@ use App\Models\PassAssignment;
 use App\Models\PassType;
 use App\Models\Person;
 use App\Models\VendorEngagement;
+use App\Repositories\PassTypeRepository;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,8 @@ use Illuminate\Validation\ValidationException;
 
 class PassAssignmentService
 {
+    public function __construct(private readonly PassTypeRepository $passTypes) {}
+
     public function give(ArtistEngagement|VendorEngagement|EventPatron $owner, PassType $passType, int $quantity): void
     {
         DB::transaction(function () use ($owner, $passType, $quantity): void {
@@ -45,6 +48,8 @@ class PassAssignmentService
                 );
             }
         });
+
+        $this->passTypes->forgetList($owner->event_id);
     }
 
     public function assignPerson(PassAssignment $assignment, Person $person): void
@@ -70,6 +75,8 @@ class PassAssignmentService
 
     public function remove(PassAssignment $assignment): void
     {
+        $eventId = $this->owner($assignment)->event_id;
+
         DB::transaction(function () use ($assignment): void {
             $assignment = PassAssignment::query()->lockForUpdate()->findOrFail($assignment->id);
             $owner = $this->owner($assignment);
@@ -84,6 +91,8 @@ class PassAssignmentService
 
             $assignment->delete();
         });
+
+        $this->passTypes->forgetList($eventId);
     }
 
     /** @return HasMany<PassAssignment, Model> */

@@ -7,6 +7,7 @@ use App\Http\Requests\UnlockEventRequest;
 use App\Http\Resources\EventResource;
 use App\Models\Event;
 use App\Models\User;
+use App\Services\EventService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -14,6 +15,8 @@ use Inertia\Response;
 
 class EventController extends Controller
 {
+    public function __construct(private readonly EventService $events) {}
+
     public function index(): RedirectResponse
     {
         return redirect()->route('settings.events.index');
@@ -32,7 +35,7 @@ class EventController extends Controller
 
     public function lock(LockEventRequest $request, Event $event): RedirectResponse
     {
-        $event->lock();
+        $this->events->lock($event);
 
         return redirect()
             ->route('settings.events.index')
@@ -42,7 +45,7 @@ class EventController extends Controller
 
     public function unlock(UnlockEventRequest $request, Event $event): RedirectResponse
     {
-        $event->unlock();
+        $this->events->unlock($event);
 
         return redirect()
             ->route('settings.events.index')

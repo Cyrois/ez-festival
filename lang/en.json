@@ -868,6 +868,8 @@
     "settings.nav.items.labels": "Labels",
     "settings.nav.items.events": "Events",
     "settings.events.title": "Events",
+    "settings.events.search": "Search events",
+    "settings.events.empty.filtered": "No events match your search.",
     "settings.events.lead": "Manage events for your festival. Day-to-day work stays on your primary event.",
     "settings.events.create.title": "Create event",
     "settings.events.create.lead": "Add another event to your festival.",

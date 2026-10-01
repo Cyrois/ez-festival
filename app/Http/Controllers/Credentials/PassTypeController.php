@@ -13,6 +13,7 @@ use App\Models\CustomField;
 use App\Models\Event;
 use App\Models\PassType;
 use App\Models\PassTypeLabel;
+use App\Repositories\PassTypeRepository;
 use App\Services\PassTypeService;
 use App\Support\EventContext;
 use App\Support\LabelColors;
@@ -26,6 +27,7 @@ class PassTypeController extends Controller
     public function __construct(
         private readonly EventContext $eventContext,
         private readonly PassTypeService $passTypes,
+        private readonly PassTypeRepository $passTypeRepository,
     ) {}
 
     public function index(): Response
@@ -35,7 +37,7 @@ class PassTypeController extends Controller
 
         return Inertia::render('Credentials/Passes', [
             'passes' => PassTypeResource::collection(
-                $event->passTypes()->with('labels')->withCount('assignments')->orderBy('name')->get(),
+                $this->passTypeRepository->list($event),
             )->resolve(),
             'labels' => PassTypeLabel::query()->orderBy('name')->get(['id', 'name', 'color']),
             'canWrite' => ! $event->isLocked(),

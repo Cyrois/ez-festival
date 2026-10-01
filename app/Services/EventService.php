@@ -3,12 +3,65 @@
 namespace App\Services;
 
 use App\Models\Event;
+use App\Repositories\PassTypeRepository;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class EventService
 {
+    private const LIST_KEY = 'lists.events.v1';
+
+    public function __construct(
+        private readonly EntitlementItemService $entitlementItems,
+        private readonly PassTypeRepository $passTypes,
+    ) {}
+
+    /** @return Collection<int, Event> */
+    public function list(): Collection
+    {
+        return Cache::rememberForever(
+            self::LIST_KEY,
+            fn (): Collection => Event::query()
+                ->orderByDesc('starts_on')
+                ->orderByDesc('id')
+                ->get(),
+        );
+    }
+
+    /** @param array<string, mixed> $data */
+    public function create(array $data): Event
+    {
+        $event = Event::query()->create($data);
+        $this->forgetList();
+
+        return $event;
+    }
+
+    /** @param array<string, mixed> $data */
+    public function update(Event $event, array $data): void
+    {
+        $event->ensureWritable();
+        $event->update($data);
+        $this->forgetList();
+    }
+
+    public function lock(Event $event): void
+    {
+        $event->lock();
+        $this->forgetList();
+    }
+
+    public function unlock(Event $event): void
+    {
+        $event->unlock();
+        $this->forgetList();
+    }
+
     public function delete(Event $event): void
     {
+        $eventId = $event->id;
+
         DB::transaction(function () use ($event): void {
             $event = Event::query()->lockForUpdate()->findOrFail($event->id);
             $event->ensureWritable();
@@ -53,5 +106,14 @@ class EventService
             $event->shifts()->delete();
             $event->delete();
         });
+
+        $this->entitlementItems->forgetList($eventId);
+        $this->passTypes->forgetList($eventId);
+        $this->forgetList();
+    }
+
+    private function forgetList(): void
+    {
+        Cache::forget(self::LIST_KEY);
     }
 }

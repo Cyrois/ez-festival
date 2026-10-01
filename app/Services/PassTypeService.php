@@ -7,6 +7,7 @@ use App\Models\EntitlementItem;
 use App\Models\Event;
 use App\Models\PassType;
 use App\Models\PassTypeLabel;
+use App\Repositories\PassTypeRepository;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +15,10 @@ use Illuminate\Validation\ValidationException;
 
 class PassTypeService
 {
-    public function __construct(private readonly CustomFieldValueService $customFieldValueService) {}
+    public function __construct(
+        private readonly CustomFieldValueService $customFieldValueService,
+        private readonly PassTypeRepository $passTypes,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $data
@@ -22,7 +26,7 @@ class PassTypeService
      */
     public function create(Event $event, array $data, Collection $customFields): PassType
     {
-        return DB::transaction(function () use ($event, $data, $customFields): PassType {
+        $passType = DB::transaction(function () use ($event, $data, $customFields): PassType {
             $event = Event::query()->lockForUpdate()->findOrFail($event->id);
             $event->ensureWritable();
 
@@ -41,6 +45,10 @@ class PassTypeService
                 ]);
             }
         });
+
+        $this->passTypes->forgetList($event->id);
+
+        return $passType;
     }
 
     /**
@@ -49,6 +57,8 @@ class PassTypeService
      */
     public function update(PassType $passType, array $data, Collection $customFields): void
     {
+        $eventId = $passType->event_id;
+
         DB::transaction(function () use ($passType, $data, $customFields): void {
             $passType = PassType::query()->lockForUpdate()->findOrFail($passType->id);
             $event = Event::query()->lockForUpdate()->findOrFail($passType->event_id);
@@ -73,10 +83,14 @@ class PassTypeService
                 ]);
             }
         });
+
+        $this->passTypes->forgetList($eventId);
     }
 
     public function destroy(PassType $passType): void
     {
+        $eventId = $passType->event_id;
+
         DB::transaction(function () use ($passType): void {
             $passType = PassType::query()->lockForUpdate()->findOrFail($passType->id);
             $event = Event::query()->lockForUpdate()->findOrFail($passType->event_id);
@@ -90,6 +104,8 @@ class PassTypeService
 
             $passType->delete();
         });
+
+        $this->passTypes->forgetList($eventId);
     }
 
     /**

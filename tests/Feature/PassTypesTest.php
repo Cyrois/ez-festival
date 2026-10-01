@@ -8,8 +8,11 @@ use App\Models\Event;
 use App\Models\PassType;
 use App\Models\PassTypeLabel;
 use App\Models\User;
+use App\Services\PassAssignmentService;
 use App\Support\OrganizationContext;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -36,6 +39,89 @@ class PassTypesTest extends TestCase
                 ->component('Credentials/Passes')
                 ->where('labels.0.id', $label->id)
                 ->where('passes.0.labels.0.id', $label->id),
+        );
+    }
+
+    public function test_catalog_is_event_scoped_and_repeat_load_uses_the_cached_list(): void
+    {
+        [$user, $event] = $this->createEventContext();
+        $event->passTypes()->create(['name' => 'Current pass']);
+        $otherEvent = Event::query()->create([
+            'name' => 'Other festival',
+            'starts_on' => '2026-08-10',
+            'ends_on' => '2026-08-12',
+            'timezone' => 'America/Vancouver',
+        ]);
+        $otherEvent->passTypes()->create(['name' => 'Foreign pass']);
+
+        $this->actingAs($user)->get(route('credentials.passes'))->assertInertia(
+            fn (Assert $page) => $page
+                ->has('passes', 1)
+                ->where('passes.0.name', 'Current pass'),
+        );
+
+        $queries = [];
+        DB::listen(function (QueryExecuted $query) use (&$queries): void {
+            $queries[] = $query->sql;
+        });
+
+        $this->get(route('credentials.passes'))->assertOk();
+
+        $this->assertFalse(collect($queries)->contains(
+            fn (string $sql): bool => str_contains(strtolower($sql), 'pass_types'),
+        ));
+    }
+
+    public function test_every_pass_list_write_clears_the_cache(): void
+    {
+        [$user, $event] = $this->createEventContext();
+        $this->actingAs($user)->get(route('credentials.passes'))->assertOk();
+
+        $this->post(route('credentials.passes.store', $event), [
+            'name' => 'Artist pass',
+            'new_labels' => [['name' => 'Backstage', 'color' => 'teal']],
+        ])->assertRedirect(route('credentials.passes'));
+        $passType = PassType::query()->where('name', 'Artist pass')->sole();
+        $this->get(route('credentials.passes'))->assertInertia(
+            fn (Assert $page) => $page
+                ->where('passes.0.name', 'Artist pass')
+                ->where('passes.0.labels.0.name', 'Backstage'),
+        );
+
+        $this->put(route('credentials.passes.update', [$event, $passType]), [
+            'name' => 'Production pass',
+        ])->assertRedirect(route('credentials.passes'));
+        $this->get(route('credentials.passes'))->assertInertia(
+            fn (Assert $page) => $page->where('passes.0.name', 'Production pass'),
+        );
+
+        $this->delete(route('credentials.passes.destroy', [$event, $passType]))
+            ->assertRedirect(route('credentials.passes'));
+        $this->get(route('credentials.passes'))->assertInertia(
+            fn (Assert $page) => $page->has('passes', 0),
+        );
+    }
+
+    public function test_assignment_writes_clear_the_cached_pass_usage_count(): void
+    {
+        [$user, $event] = $this->createEventContext();
+        $passType = $event->passTypes()->create(['name' => 'Artist pass']);
+        $artist = Artist::query()->create(['name' => 'The Headliners']);
+        $engagement = $artist->engagements()->create(['event_id' => $event->id]);
+        $assignments = app(PassAssignmentService::class);
+
+        $this->actingAs($user)->get(route('credentials.passes'))->assertInertia(
+            fn (Assert $page) => $page->where('passes.0.assigned_count', 0),
+        );
+
+        $assignments->give($engagement, $passType, 1);
+        $this->get(route('credentials.passes'))->assertInertia(
+            fn (Assert $page) => $page->where('passes.0.assigned_count', 1),
+        );
+
+        $assignments->remove($passType->assignments()->sole());
+        $this->get(route('credentials.passes'))->assertInertia(
+            fn (Assert $page) => $page->where('passes.0.assigned_count', 0),
         );
     }
 

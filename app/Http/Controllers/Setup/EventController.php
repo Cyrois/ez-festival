@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Setup;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Setup\Concerns\InteractsWithSetup;
 use App\Http\Requests\Setup\StoreEventRequest;
-use App\Models\Event;
 use App\Models\User;
+use App\Services\EventService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -15,6 +15,8 @@ use Inertia\Response;
 class EventController extends Controller
 {
     use InteractsWithSetup;
+
+    public function __construct(private readonly EventService $events) {}
 
     public function show(Request $request): Response
     {
@@ -49,9 +51,9 @@ class EventController extends Controller
         }
 
         if ($event === null) {
-            $event = Event::query()->create($data);
+            $event = $this->events->create($data);
         } else {
-            $event->update($data);
+            $this->events->update($event, $data);
         }
 
         $organization->setDefaultEvent($event);

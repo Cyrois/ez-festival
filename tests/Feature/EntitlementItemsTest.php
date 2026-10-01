@@ -7,7 +7,9 @@ use App\Models\Event;
 use App\Models\ExpectedEntitlement;
 use App\Models\User;
 use App\Support\OrganizationContext;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -43,6 +45,83 @@ class EntitlementItemsTest extends TestCase
                 ->component('Credentials/Entitlements')
                 ->where('items.0.name', 'Meal voucher')
                 ->where('items.0.balance', 485),
+        );
+    }
+
+    public function test_index_is_event_scoped_and_repeat_load_uses_the_cached_list(): void
+    {
+        [$user, $event] = $this->createEventContext();
+        $event->entitlementItems()->create(['name' => 'Current item']);
+        $otherEvent = Event::query()->create([
+            'name' => 'Other festival',
+            'starts_on' => '2026-08-10',
+            'ends_on' => '2026-08-12',
+            'timezone' => 'America/Vancouver',
+        ]);
+        $otherEvent->entitlementItems()->create(['name' => 'Foreign item']);
+
+        $this->actingAs($user)->get(route('credentials.entitlements'))->assertInertia(
+            fn (Assert $page) => $page
+                ->has('items', 1)
+                ->where('items.0.name', 'Current item'),
+        );
+
+        $queries = [];
+        DB::listen(function (QueryExecuted $query) use (&$queries): void {
+            $queries[] = $query->sql;
+        });
+
+        $this->get(route('credentials.entitlements'))->assertOk();
+
+        $this->assertFalse(collect($queries)->contains(
+            fn (string $sql): bool => str_contains(strtolower($sql), 'entitlement_items'),
+        ));
+    }
+
+    public function test_every_entitlement_list_write_clears_the_cache(): void
+    {
+        [$user, $event] = $this->createEventContext();
+        $location = $event->locations()->create(['name' => 'Main stage']);
+        $this->actingAs($user)->get(route('credentials.entitlements'))->assertOk();
+
+        $this->post(route('credentials.entitlements.store', $event), [
+            'name' => 'Guest wristband',
+            'opening_balance' => 0,
+            'new_labels' => [['name' => 'Guest', 'color' => 'sky']],
+        ])->assertRedirect(route('credentials.entitlements'));
+        $item = EntitlementItem::query()->where('name', 'Guest wristband')->sole();
+        $this->get(route('credentials.entitlements'))->assertInertia(
+            fn (Assert $page) => $page
+                ->where('items.0.name', 'Guest wristband')
+                ->where('items.0.labels.0.name', 'Guest'),
+        );
+
+        $this->put(route('credentials.entitlements.update', [$event, $item]), [
+            'name' => 'Artist wristband',
+            'label_ids' => [],
+        ])->assertRedirect(route('credentials.entitlements.edit', $item));
+        $this->get(route('credentials.entitlements'))->assertInertia(
+            fn (Assert $page) => $page->where('items.0.name', 'Artist wristband'),
+        );
+
+        $this->post(route('credentials.entitlements.adjustments.store', [$event, $item]), [
+            'location_id' => $location->id,
+            'direction' => 'add',
+            'quantity' => 4,
+        ])->assertRedirect(route('credentials.entitlements.edit', $item));
+        $this->get(route('credentials.entitlements'))->assertInertia(
+            fn (Assert $page) => $page->where('items.0.balance', 4),
+        );
+
+        $this->post(route('credentials.entitlements.adjustments.store', [$event, $item]), [
+            'location_id' => $location->id,
+            'direction' => 'remove',
+            'quantity' => 4,
+        ])->assertRedirect(route('credentials.entitlements.edit', $item));
+        $this->delete(route('credentials.entitlements.destroy', [$event, $item]))
+            ->assertRedirect(route('credentials.entitlements'));
+        $this->get(route('credentials.entitlements'))->assertInertia(
+            fn (Assert $page) => $page->has('items', 0),
         );
     }
 

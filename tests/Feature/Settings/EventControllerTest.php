@@ -8,7 +8,9 @@ use App\Models\IssuedEntitlement;
 use App\Models\Organization;
 use App\Models\User;
 use App\Support\OrganizationContext;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -50,6 +52,76 @@ class EventControllerTest extends TestCase
         $event = Event::query()->sole();
         $this->assertSame('2027-07-10', $event->starts_on->toDateString());
         $this->assertSame('2027-07-12', $event->ends_on->toDateString());
+    }
+
+    public function test_event_index_repeat_load_uses_the_cached_list(): void
+    {
+        $user = User::factory()->create();
+        $this->grantAdminAccess($user);
+        app(OrganizationContext::class)->organization()->markSetupComplete();
+        Event::query()->create([
+            'name' => 'Coastal Folk Festival 2027',
+            'starts_on' => '2027-07-10',
+            'ends_on' => '2027-07-12',
+            'timezone' => 'America/Vancouver',
+        ]);
+
+        $this->actingAs($user)->get(route('settings.events.index'))->assertOk();
+        $queries = [];
+        DB::listen(function (QueryExecuted $query) use (&$queries): void {
+            $queries[] = $query->sql;
+        });
+
+        $this->get(route('settings.events.index'))->assertOk();
+
+        $this->assertFalse(collect($queries)->contains(
+            fn (string $sql): bool => str_contains(strtolower($sql), 'order by "starts_on" desc')
+                || str_contains(strtolower($sql), 'order by `starts_on` desc'),
+        ));
+    }
+
+    public function test_every_event_list_write_clears_the_cache(): void
+    {
+        $user = User::factory()->create();
+        $this->grantAdminAccess($user);
+        app(OrganizationContext::class)->organization()->markSetupComplete();
+        $this->actingAs($user)->get(route('settings.events.index'))->assertOk();
+
+        $this->post(route('settings.events.store'), [
+            'name' => 'Coastal Folk Festival 2027',
+            'starts_on' => '2027-07-10',
+            'ends_on' => '2027-07-12',
+            'timezone' => 'America/Vancouver',
+        ])->assertRedirect(route('settings.events.index'));
+        $event = Event::query()->where('name', 'Coastal Folk Festival 2027')->sole();
+        $this->get(route('settings.events.index'))->assertInertia(
+            fn (Assert $page) => $page->where('events.0.name', 'Coastal Folk Festival 2027'),
+        );
+
+        $this->put(route('settings.events.update', $event), [
+            'name' => 'Coastal Folk Festival 2028',
+            'starts_on' => '2028-07-10',
+            'ends_on' => '2028-07-12',
+            'timezone' => 'America/Vancouver',
+        ])->assertRedirect(route('settings.events.index'));
+        $this->get(route('settings.events.index'))->assertInertia(
+            fn (Assert $page) => $page->where('events.0.name', 'Coastal Folk Festival 2028'),
+        );
+
+        $this->post(route('events.lock', $event))->assertRedirect(route('settings.events.index'));
+        $this->get(route('settings.events.index'))->assertInertia(
+            fn (Assert $page) => $page->where('events.0.is_locked', true),
+        );
+        $this->post(route('events.unlock', $event))->assertRedirect(route('settings.events.index'));
+        $this->get(route('settings.events.index'))->assertInertia(
+            fn (Assert $page) => $page->where('events.0.is_locked', false),
+        );
+
+        $this->delete(route('settings.events.destroy', $event))
+            ->assertRedirect(route('settings.events.index'));
+        $this->get(route('settings.events.index'))->assertInertia(
+            fn (Assert $page) => $page->has('events', 0),
+        );
     }
 
     public function test_create_event_requires_valid_dates(): void
