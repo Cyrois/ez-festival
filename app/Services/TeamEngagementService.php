@@ -9,6 +9,7 @@ use App\Models\PassType;
 use App\Models\Person;
 use App\Models\TeamEngagement;
 use App\Models\User;
+use App\Repositories\PassTypeRepository;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +18,10 @@ use Illuminate\Validation\ValidationException;
 
 class TeamEngagementService
 {
-    public function __construct(private readonly PersonService $people) {}
+    public function __construct(
+        private readonly PersonService $people,
+        private readonly PassTypeRepository $passTypes,
+    ) {}
 
     /** @param array<string, mixed> $data */
     public function create(Event $event, array $data): TeamEngagement
@@ -52,7 +56,7 @@ class TeamEngagementService
     /** @param array<string, mixed> $data */
     public function update(TeamEngagement $engagement, User $user, array $data): bool
     {
-        return DB::transaction(function () use ($engagement, $user, $data): bool {
+        $lateEditSkipped = DB::transaction(function () use ($engagement, $user, $data): bool {
             $event = Event::query()->lockForUpdate()->findOrFail($engagement->event_id);
             $event->ensureWritable();
             $engagement = TeamEngagement::query()->lockForUpdate()->findOrFail($engagement->id);
@@ -137,6 +141,12 @@ class TeamEngagementService
 
             return $lateEditSkipped;
         });
+
+        if (array_key_exists('pass_assignments', $data)) {
+            $this->passTypes->forgetList($engagement->event_id);
+        }
+
+        return $lateEditSkipped;
     }
 
     public function updateStatus(TeamEngagement $engagement, string $status): void

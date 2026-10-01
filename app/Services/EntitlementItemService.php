@@ -8,15 +8,30 @@ use App\Models\Event;
 use App\Models\ExpectedEntitlement;
 use App\Models\Location;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class EntitlementItemService
 {
+    /** @return Collection<int, EntitlementItem> */
+    public function list(Event $event): Collection
+    {
+        return Cache::rememberForever(
+            $this->listKey($event->id),
+            fn (): Collection => $event->entitlementItems()
+                ->with('labels')
+                ->withSum('adjustments as balance', 'delta')
+                ->orderBy('name')
+                ->get(),
+        );
+    }
+
     /** @param array<string, mixed> $data */
     public function create(Event $event, array $data, User $actor): EntitlementItem
     {
-        return DB::transaction(function () use ($event, $data, $actor): EntitlementItem {
+        $item = DB::transaction(function () use ($event, $data, $actor): EntitlementItem {
             $event = Event::query()->lockForUpdate()->findOrFail($event->id);
             $event->ensureWritable();
 
@@ -34,11 +49,17 @@ class EntitlementItemService
 
             return $item;
         });
+
+        $this->forgetList($event->id);
+
+        return $item;
     }
 
     /** @param array<string, mixed> $data */
     public function update(EntitlementItem $item, array $data): void
     {
+        $eventId = $item->event_id;
+
         DB::transaction(function () use ($item, $data): void {
             $item = EntitlementItem::query()->lockForUpdate()->findOrFail($item->id);
             $event = Event::query()->lockForUpdate()->findOrFail($item->event_id);
@@ -47,6 +68,8 @@ class EntitlementItemService
             $item->update(['name' => $data['name']]);
             $this->syncLabels($item, $data, $event);
         });
+
+        $this->forgetList($eventId);
     }
 
     /** @param array<string, mixed> $data */
@@ -67,6 +90,8 @@ class EntitlementItemService
 
     public function adjust(EntitlementItem $item, int $locationId, int $delta, ?string $reason, User $actor): void
     {
+        $eventId = $item->event_id;
+
         DB::transaction(function () use ($item, $locationId, $delta, $reason, $actor): void {
             $item = EntitlementItem::query()->lockForUpdate()->findOrFail($item->id);
             $event = Event::query()->lockForUpdate()->findOrFail($item->event_id);
@@ -96,6 +121,8 @@ class EntitlementItemService
                 'user_id' => $actor->id,
             ]);
         });
+
+        $this->forgetList($eventId);
     }
 
     public function balance(EntitlementItem $item): int
@@ -165,6 +192,8 @@ class EntitlementItemService
 
     public function destroy(EntitlementItem $item): void
     {
+        $eventId = $item->event_id;
+
         DB::transaction(function () use ($item): void {
             $item = EntitlementItem::query()->lockForUpdate()->findOrFail($item->id);
             $event = Event::query()->lockForUpdate()->findOrFail($item->event_id);
@@ -181,5 +210,17 @@ class EntitlementItemService
 
             $item->delete();
         });
+
+        $this->forgetList($eventId);
+    }
+
+    public function forgetList(int $eventId): void
+    {
+        Cache::forget($this->listKey($eventId));
+    }
+
+    private function listKey(int $eventId): string
+    {
+        return "lists.events.{$eventId}.entitlement-items.v1";
     }
 }

@@ -35,11 +35,7 @@ class EntitlementItemController extends Controller
 
         return Inertia::render('Credentials/Entitlements', [
             'items' => EntitlementItemResource::collection(
-                $event->entitlementItems()
-                    ->with('labels')
-                    ->withSum('adjustments as balance', 'delta')
-                    ->orderBy('name')
-                    ->get(),
+                $this->items->list($event),
             )->resolve(),
             'labels' => $event->entitlementItemLabels()->orderBy('name')->get(['id', 'name', 'color']),
             'labelColors' => LabelColors::ALL,
