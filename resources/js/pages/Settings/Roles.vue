@@ -4,12 +4,12 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { DataTable } from '../../components/ui/data-table';
 import { Icon } from '../../components/ui/icon';
-import { IconButton } from '../../components/ui/icon-button';
 import { Input } from '../../components/ui/input';
 import { SegmentedControl } from '../../components/ui/segmented-control';
 import { roleColumns } from './roleColumns';
 import { ROLE_STATUSES, rolesQuery } from './rolesFilters';
-import { router } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
+import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import { trans, transChoice } from 'laravel-vue-i18n';
 
@@ -70,18 +70,11 @@ const dataTableOptions = computed(() => ({
             return;
         }
 
-        row.classList.add('cursor-pointer');
-        row.dataset.rowLink = '';
-        row.addEventListener('click', (event) => {
-            if (
-                event.target.closest('a, button, input, select, textarea') ||
-                window.getSelection()?.toString()
-            ) {
-                return;
-            }
-
-            openRename(role);
-        });
+        navigateDataTableRow(
+            row,
+            role,
+            (item) => `/settings/roles/${item.id}/edit`,
+        );
     },
     language: {
         emptyTable: trans('settings.roles.empty'),
@@ -127,7 +120,6 @@ watch(
 onUnmounted(() => window.clearTimeout(searchTimer));
 
 const openAdd = () => router.visit('/settings/roles/create');
-const openRename = (role) => router.visit(`/settings/roles/${role.id}/edit`);
 
 // Turn on inactive roles.
 const statusBusy = ref(false);
@@ -210,78 +202,7 @@ const setActive = (role, active, onSuccess = () => {}) => {
                 />
             </div>
 
-            <!-- Phone: card stack -->
-            <div class="flex flex-col gap-3 md:hidden">
-                <div
-                    v-for="role in roles.data"
-                    :key="`card-${role.id}`"
-                    class="rounded-xl border border-line bg-ground p-4"
-                >
-                    <div
-                        :class="[
-                            'flex flex-wrap items-center gap-2 font-bold',
-                            !role.active && 'text-muted',
-                        ]"
-                    >
-                        {{ role.name }}
-                        <Badge
-                            v-if="!role.active"
-                            pill
-                            class="font-bold text-muted"
-                        >
-                            {{ $t('settings.roles.status.off') }}
-                        </Badge>
-                    </div>
-                    <div class="mt-0.5 text-sm text-muted">
-                        {{ peopleLabel(role.people_count) }}
-                    </div>
-
-                    <div
-                        v-if="canManageRoles"
-                        class="mt-4 flex flex-wrap justify-end gap-2"
-                    >
-                        <IconButton
-                            :icon="['fas', 'pencil']"
-                            :label="
-                                $t('settings.roles.actions.rename', {
-                                    name: role.name,
-                                })
-                            "
-                            tone="edit"
-                            class="h-11 w-11"
-                            @click="openRename(role)"
-                        />
-                        <Button
-                            v-if="!role.active"
-                            type="button"
-                            variant="outline-primary"
-                            size="sm"
-                            class="min-h-11"
-                            :disabled="statusBusy"
-                            @click="setActive(role, true)"
-                        >
-                            <Icon
-                                :name="['fas', 'power-off']"
-                                size="sm"
-                            />
-                            {{ $t('settings.roles.actions.turn_on') }}
-                        </Button>
-                    </div>
-                </div>
-                <p
-                    v-if="roles.data.length === 0"
-                    class="m-0 rounded-xl border border-line bg-ground px-4 py-6 text-center text-sm text-muted"
-                >
-                    {{
-                        hasAnyRoles
-                            ? $t('settings.roles.empty_filtered')
-                            : $t('settings.roles.empty')
-                    }}
-                </p>
-            </div>
-
-            <!-- md+: table -->
-            <div class="hidden md:block">
+            <div>
                 <DataTable
                     :key="dataTableKey"
                     ref="table"
@@ -290,9 +211,17 @@ const setActive = (role, active, onSuccess = () => {}) => {
                     :options="dataTableOptions"
                 >
                     <template #roleCell="{ rowData }">
-                        <span
+                        <component
+                            :is="canManageRoles ? Link : 'span'"
+                            :href="
+                                canManageRoles
+                                    ? `/settings/roles/${rowData.id}/edit`
+                                    : undefined
+                            "
                             :class="[
-                                'inline-flex items-center gap-2 font-bold',
+                                'inline-flex items-center gap-2 font-semibold text-charcoal no-underline',
+                                canManageRoles &&
+                                    'hover:text-primary hover:underline',
                                 !rowData.active && 'text-muted',
                             ]"
                         >
@@ -304,28 +233,18 @@ const setActive = (role, active, onSuccess = () => {}) => {
                             >
                                 {{ $t('settings.roles.status.off') }}
                             </Badge>
-                        </span>
+                        </component>
                     </template>
                     <template #peopleCell="{ rowData }">
                         <span :class="!rowData.active && 'text-muted'">
                             {{ peopleLabel(rowData.people_count) }}
                         </span>
                     </template>
-                    <template #actionsCell="{ rowData }">
+                    <template #openCell="{ rowData }">
                         <div
                             v-if="canManageRoles"
                             class="flex items-center justify-end gap-2"
                         >
-                            <IconButton
-                                :icon="['fas', 'pencil']"
-                                :label="
-                                    $t('settings.roles.actions.rename', {
-                                        name: rowData.name,
-                                    })
-                                "
-                                tone="edit"
-                                @click="openRename(rowData)"
-                            />
                             <Button
                                 v-if="!rowData.active"
                                 type="button"
@@ -340,43 +259,23 @@ const setActive = (role, active, onSuccess = () => {}) => {
                                 />
                                 {{ $t('settings.roles.actions.turn_on') }}
                             </Button>
+                            <Link
+                                :href="`/settings/roles/${rowData.id}/edit`"
+                                class="inline-flex text-muted hover:text-primary"
+                                :aria-label="
+                                    $t('data_table.open', {
+                                        name: rowData.name,
+                                    })
+                                "
+                            >
+                                <Icon
+                                    :name="['fas', 'chevron-right']"
+                                    size="sm"
+                                />
+                            </Link>
                         </div>
                     </template>
                 </DataTable>
-            </div>
-
-            <div
-                v-if="roles.meta?.last_page > 1"
-                class="flex flex-wrap items-center justify-between gap-3 md:hidden"
-            >
-                <p class="m-0 text-sm text-muted">
-                    {{
-                        $t('settings.roles.pagination', {
-                            from: roles.meta.from,
-                            to: roles.meta.to,
-                            total: roles.meta.total,
-                        })
-                    }}
-                </p>
-                <nav
-                    class="flex gap-2"
-                    :aria-label="$t('settings.roles.pagination_label')"
-                >
-                    <Button
-                        :href="roles.links.prev || ''"
-                        :disabled="!roles.links.prev"
-                        variant="outline"
-                    >
-                        {{ $t('settings.roles.previous') }}
-                    </Button>
-                    <Button
-                        :href="roles.links.next || ''"
-                        :disabled="!roles.links.next"
-                        variant="outline"
-                    >
-                        {{ $t('settings.roles.next') }}
-                    </Button>
-                </nav>
             </div>
 
             <div class="flex flex-col gap-1.5">
