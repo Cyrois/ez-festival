@@ -69,7 +69,7 @@
          */
         --dt-header_padding: --spacing(3) --spacing(4);
         --dt-header_border: 1px solid var(--color-line);
-        --dt-body_padding: --spacing(3) --spacing(4);
+        --dt-body_padding: --spacing(2) --spacing(4);
         --dt-body_border: 1px solid var(--color-line);
         --dt-paging-button_color-hover: var(--color-primary);
         --dt-paging-button_color-current: var(--color-primary);
@@ -149,6 +149,28 @@
     }
 
     table.dataTable tbody tr {
-        @apply transition-colors hover:bg-page;
+        @apply h-11 transition-colors hover:bg-page;
+    }
+
+    table.dataTable tbody tr:has([data-ui='avatar']) td {
+        @apply py-3;
+    }
+}
+
+@layer utilities {
+    /*
+     * Keep the leading record label consistent even when a slotted cell has
+     * its own text and font utility classes.
+     */
+    table.dataTable tbody td:first-child,
+    table.dataTable tbody td:first-child > :first-child,
+    table.dataTable tbody td:first-child a {
+        @apply font-semibold text-primary;
+    }
+
+    table.dataTable tbody tr:hover td:first-child,
+    table.dataTable tbody tr:hover td:first-child > :first-child,
+    table.dataTable tbody tr:hover td:first-child a {
+        @apply underline underline-offset-2;
     }
 }

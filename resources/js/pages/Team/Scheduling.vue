@@ -5,6 +5,7 @@ import { EmptyState } from '../../components/ui/empty-state';
 import { Icon } from '../../components/ui/icon';
 import { Tab, TabList, TabPanel, Tabs } from '../../components/ui/tabs';
 import AppLayout from '../../layouts/AppLayout.vue';
+import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { trans } from 'laravel-vue-i18n';
@@ -30,7 +31,12 @@ const tableOptions = computed(() => ({
     order: [[2, 'asc']],
     pageLength: 25,
     serverSide: true,
-    columnDefs: [{ targets: [2, 3], className: 'text-left' }],
+    columnDefs: [
+        { targets: [2, 3], className: 'text-left' },
+        { targets: 4, className: 'text-right' },
+    ],
+    createdRow: (row, shift) =>
+        navigateDataTableRow(row, shift, (item) => `/team/shifts/${item.id}`),
     language: {
         emptyTable: trans('team.scheduling.empty_list'),
         searchPlaceholder: trans('team.scheduling.search'),
@@ -61,7 +67,7 @@ const formatDateTime = (value) =>
         :title="$t('team.scheduling.title')"
         :breadcrumbs="breadcrumbs"
     >
-        <div class="container mx-auto max-w-6xl">
+        <div class="container mx-auto">
             <header
                 class="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
             >
@@ -146,6 +152,22 @@ const formatDateTime = (value) =>
                         </template>
                         <template #endCell="{ cellData }">
                             {{ formatDateTime(cellData) }}
+                        </template>
+                        <template #openCell="{ rowData }">
+                            <Link
+                                :href="`/team/shifts/${rowData.id}`"
+                                class="inline-flex text-muted hover:text-primary"
+                                :aria-label="
+                                    $t('data_table.open', {
+                                        name: shiftName(rowData),
+                                    })
+                                "
+                            >
+                                <Icon
+                                    :name="['fas', 'chevron-right']"
+                                    size="sm"
+                                />
+                            </Link>
                         </template>
                     </DataTable>
                 </TabPanel>

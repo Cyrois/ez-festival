@@ -2,22 +2,17 @@
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
+import { DataTable } from '../../components/ui/data-table';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
 import { SegmentedControl } from '../../components/ui/segmented-control';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '../../components/ui/table';
 import { useFlashToast } from '../../composables/useFlashToast';
-import { router } from '@inertiajs/vue3';
+import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
+import { Link, router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+import { formColumns } from './formColumns';
 
 const props = defineProps({
     forms: { type: Object, required: true },
@@ -36,6 +31,22 @@ const search = ref(props.filters.search ?? '');
 const status = ref(props.filters.status ?? '');
 const { showSuccess } = useFlashToast();
 let searchTimer;
+const columns = computed(() => formColumns(trans));
+const tableOptions = computed(() => ({
+    searching: false,
+    ordering: false,
+    paging: false,
+    info: false,
+    layout: {
+        topStart: null,
+        topEnd: null,
+        bottomStart: null,
+        bottomEnd: null,
+    },
+    columnDefs: [{ targets: 3, className: 'text-right' }],
+    createdRow: (row, teamForm) =>
+        navigateDataTableRow(row, teamForm, (item) => item.edit_url),
+}));
 
 const filterOptions = computed(() => [
     { value: '', label: trans('team.forms.filters.all') },
@@ -112,81 +123,65 @@ const copyLink = async (url) => {
                 <SegmentedControl
                     v-model="status"
                     :options="filterOptions"
+                    :aria-label="$t('team.forms.filters.status')"
+                    variant="joined"
                 />
             </div>
 
-            <Table v-if="forms.data.length">
-                <TableHeader>
-                    <TableRow variant="header">
-                        <TableHead>{{ $t('team.forms.table.name') }}</TableHead>
-                        <TableHead>{{
-                            $t('team.forms.table.status')
-                        }}</TableHead>
-                        <TableHead>{{
-                            $t('team.forms.table.public_link')
-                        }}</TableHead>
-                        <TableHead class="text-right">
-                            {{ $t('team.forms.table.actions') }}
-                        </TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    <TableRow
-                        v-for="teamForm in forms.data"
-                        :key="teamForm.id"
+            <DataTable
+                v-if="forms.data.length"
+                :columns="columns"
+                :data="forms.data"
+                :options="tableOptions"
+            >
+                <template #statusCell="{ cellData }">
+                    <Badge
+                        pill
+                        :variant="cellData === 'live' ? 'success' : 'warning'"
                     >
-                        <TableCell class="font-semibold">
-                            {{ teamForm.name }}
-                        </TableCell>
-                        <TableCell>
-                            <Badge
-                                pill
-                                :variant="
-                                    teamForm.status === 'live'
-                                        ? 'success'
-                                        : 'warning'
-                                "
-                            >
-                                {{ $t(`team.forms.status.${teamForm.status}`) }}
-                            </Badge>
-                        </TableCell>
-                        <TableCell>
-                            <button
-                                v-if="teamForm.status === 'live'"
-                                type="button"
-                                class="max-w-72 truncate rounded-lg border border-line bg-page px-2 py-1 font-mono text-xs text-secondary hover:border-secondary"
-                                :title="teamForm.public_url"
-                                @click="copyLink(teamForm.public_url)"
-                            >
-                                {{ teamForm.public_url }}
-                            </button>
-                            <span
-                                v-else
-                                class="inline-flex"
-                            >
-                                <Button
-                                    :href="teamForm.preview_url"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    variant="ghost"
-                                    size="sm"
-                                >
-                                    {{ $t('team.forms.actions.preview') }}
-                                </Button>
-                            </span>
-                        </TableCell>
-                        <TableCell class="text-right">
-                            <Button
-                                :href="teamForm.edit_url"
-                                variant="ghost"
-                                size="sm"
-                            >
-                                {{ $t('team.forms.actions.edit') }}
-                            </Button>
-                        </TableCell>
-                    </TableRow>
-                </TableBody>
-            </Table>
+                        {{ $t(`team.forms.status.${cellData}`) }}
+                    </Badge>
+                </template>
+                <template #publicLinkCell="{ rowData }">
+                    <button
+                        v-if="rowData.status === 'live'"
+                        type="button"
+                        class="max-w-72 truncate rounded-lg border border-line bg-page px-2 py-1 font-mono text-xs text-secondary hover:border-secondary"
+                        :title="rowData.public_url"
+                        @click="copyLink(rowData.public_url)"
+                    >
+                        {{ rowData.public_url }}
+                    </button>
+                    <span
+                        v-else
+                        class="inline-flex"
+                    >
+                        <Button
+                            :href="rowData.preview_url"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            variant="ghost"
+                            size="xs"
+                        >
+                            {{ $t('team.forms.actions.preview') }}
+                        </Button>
+                    </span>
+                </template>
+                <template #openCell="{ rowData }">
+                    <Link
+                        :href="rowData.edit_url"
+                        class="inline-flex text-muted hover:text-primary"
+                        :aria-label="
+                            $t('data_table.open', { name: rowData.name })
+                        "
+                    >
+                        <Icon
+                            :name="['fas', 'chevron-right']"
+                            size="sm"
+                        />
+                    </Link>
+                </template>
+            </DataTable>
 
             <EmptyState
                 v-else

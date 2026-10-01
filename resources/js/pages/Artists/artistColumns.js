@@ -1,0 +1,46 @@
+export const artistColumns = (trans) => [
+    {
+        data: 'name',
+        name: 'artist',
+        render: { display: '#artistCell' },
+        title: trans('artists.columns.artist'),
+    },
+    {
+        data: 'type',
+        defaultContent: '',
+        name: 'type',
+        render: { display: '#typeCell' },
+        title: trans('artists.columns.type'),
+    },
+    {
+        data: 'status',
+        name: 'status',
+        render: { display: '#statusCell' },
+        title: trans('artists.columns.status'),
+    },
+    {
+        data: 'labels',
+        name: 'labels',
+        orderable: false,
+        render: { display: '#labelsCell' },
+        searchable: false,
+        title: trans('artists.columns.labels'),
+    },
+    {
+        data: 'custom',
+        name: 'custom',
+        orderable: false,
+        render: { display: '#customCell' },
+        searchable: false,
+        title: trans('artists.columns.custom'),
+    },
+    {
+        data: null,
+        defaultContent: '',
+        name: 'open',
+        orderable: false,
+        render: { display: '#openCell' },
+        searchable: false,
+        title: '',
+    },
+];

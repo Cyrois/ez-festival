@@ -62,6 +62,31 @@ class RoleControllerTest extends TestCase
         );
     }
 
+    public function test_admin_can_open_the_role_edit_page(): void
+    {
+        $user = $this->userWithCompletedSetup();
+        $role = Role::query()->create([
+            'name' => 'Stage manager',
+            'can_read_team_notes' => true,
+        ]);
+        TeamEngagement::query()->create([
+            'event_id' => $this->event->id,
+            'person_id' => $user->person_id,
+            'role_id' => $role->id,
+            'status' => 'hired',
+            'employment_type' => 'volunteer',
+        ]);
+
+        $this->actingAs($user)->get(route('settings.roles.edit', $role))->assertInertia(
+            fn (Assert $page) => $page
+                ->component('Settings/Roles/Edit')
+                ->where('role.id', $role->id)
+                ->where('role.name', 'Stage manager')
+                ->where('role.can_read_team_notes', true)
+                ->where('role.people_count', 1),
+        );
+    }
+
     public function test_off_and_all_filters_list_the_matching_roles(): void
     {
         $user = $this->userWithCompletedSetup();
@@ -247,6 +272,7 @@ class RoleControllerTest extends TestCase
         $this->actingAs($user)->get(route('settings.roles'))->assertInertia(
             fn (Assert $page) => $page->where('canManageRoles', false),
         );
+        $this->get(route('settings.roles.edit', $protectedRole))->assertForbidden();
         $this->post(route('settings.roles.store'), [
             'name' => 'Not allowed',
             'can_read_team_notes' => true,

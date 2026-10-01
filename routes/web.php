@@ -229,6 +229,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::get('roles', [RoleController::class, 'index'])->name('roles');
             Route::get('roles/data', [RoleController::class, 'dataTable'])->name('roles.data');
             Route::post('roles', [RoleController::class, 'store'])->name('roles.store');
+            Route::get('roles/{role}/edit', [RoleController::class, 'edit'])->name('roles.edit');
             Route::put('roles/{role}', [RoleController::class, 'update'])->name('roles.update');
             Route::put('roles/{role}/status', [RoleStatusController::class, 'update'])->name('roles.status.update');
             Route::get('vendor-types', [SettingsVendorTypeController::class, 'index'])->name('vendor-types');

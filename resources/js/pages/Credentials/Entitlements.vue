@@ -1,25 +1,19 @@
 <script setup>
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Button } from '../../components/ui/button';
+import { DataTable } from '../../components/ui/data-table';
 import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
-import { IconButton } from '../../components/ui/icon-button';
 import { Input } from '../../components/ui/input';
 import { LabelCombobox } from '../../components/ui/label-combobox';
 import { Popup } from '../../components/ui/popup';
 import { Select } from '../../components/ui/select';
 import { Tag } from '../../components/ui/tag';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '../../components/ui/table';
-import { useForm, usePage } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
+import { Link, useForm, usePage } from '@inertiajs/vue3';
+import { computed, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+import { entitlementColumns } from './entitlementColumns';
 
 const props = defineProps({
     items: { type: Array, default: () => [] },
@@ -39,6 +33,7 @@ const breadcrumbs = computed(() => [
 const addOpen = ref(false);
 const selectedLabelIds = ref([]);
 const search = ref('');
+const table = ref(null);
 const createForm = useForm({
     name: '',
     opening_balance: 0,
@@ -54,23 +49,44 @@ const createLabelError = computed(
         )?.[1] ||
         '',
 );
-const filteredItems = computed(() => {
+const columns = computed(() => entitlementColumns(trans));
+const options = computed(() => ({
+    lengthChange: false,
+    pageLength: 25,
+    order: [[0, 'asc']],
+    layout: {
+        topStart: null,
+        topEnd: null,
+    },
+    columnDefs: [
+        { targets: 2, className: 'text-right font-semibold tabular-nums' },
+        { targets: 3, className: 'text-right' },
+    ],
+    createdRow: (row, item) =>
+        navigateDataTableRow(
+            row,
+            item,
+            (record) => `/credentials/entitlements/${record.id}/edit`,
+        ),
+    language: {
+        emptyTable: trans('credentials.entitlements.items.empty'),
+        zeroRecords: trans('credentials.entitlements.items.empty_filtered'),
+    },
+}));
+const matchesFilters = (item) => {
     const query = search.value.trim().toLocaleLowerCase();
+    const matchesText =
+        query === '' ||
+        [item.name, ...item.labels.map((label) => label.name)]
+            .join(' ')
+            .toLocaleLowerCase()
+            .includes(query);
+    const matchesLabels = selectedLabelIds.value.every((labelId) =>
+        item.labels.some((label) => label.id === labelId),
+    );
 
-    return props.items.filter((item) => {
-        const matchesText =
-            query === '' ||
-            [item.name, ...item.labels.map((label) => label.name)]
-                .join(' ')
-                .toLocaleLowerCase()
-                .includes(query);
-        const matchesLabels = selectedLabelIds.value.every((labelId) =>
-            item.labels.some((label) => label.id === labelId),
-        );
-
-        return matchesText && matchesLabels;
-    });
-});
+    return matchesText && matchesLabels;
+};
 const hasFilters = computed(
     () => search.value.trim() !== '' || selectedLabelIds.value.length > 0,
 );
@@ -78,6 +94,12 @@ const clearFilters = () => {
     search.value = '';
     selectedLabelIds.value = [];
 };
+watch([search, selectedLabelIds], () => {
+    table.value?.filterRows(
+        'entitlementFilters',
+        hasFilters.value ? matchesFilters : null,
+    );
+});
 const openAdd = () => {
     createForm.reset();
     createForm.clearErrors();
@@ -187,103 +209,47 @@ const createItem = () => {
                     >
                 </div>
 
-                <Table>
-                    <TableHeader>
-                        <TableRow variant="header">
-                            <TableHead>{{
-                                $t('credentials.entitlements.items.table.name')
-                            }}</TableHead>
-                            <TableHead>{{
-                                $t(
-                                    'credentials.entitlements.items.table.labels',
-                                )
-                            }}</TableHead>
-                            <TableHead class="w-32 text-right">{{
-                                $t(
-                                    'credentials.entitlements.items.table.balance',
-                                )
-                            }}</TableHead>
-                            <TableHead class="w-36 text-right">{{
-                                $t(
-                                    'credentials.entitlements.items.table.actions',
-                                )
-                            }}</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        <TableRow
-                            v-for="item in filteredItems"
-                            :key="item.id"
-                        >
-                            <TableCell class="font-semibold">
-                                <a
-                                    :href="`/credentials/entitlements/${item.id}`"
-                                    class="text-secondary hover:underline"
-                                >
-                                    {{ item.name }}
-                                </a>
-                            </TableCell>
-                            <TableCell>
-                                <div class="flex flex-wrap gap-1.5">
-                                    <Tag
-                                        v-for="label in item.labels"
-                                        :key="label.id"
-                                        :name="label.name"
-                                        :color="label.color"
-                                    />
-                                </div>
-                            </TableCell>
-                            <TableCell
-                                class="text-right font-semibold tabular-nums"
-                                >{{ item.balance }}</TableCell
+                <DataTable
+                    ref="table"
+                    :columns="columns"
+                    :data="items"
+                    :options="options"
+                >
+                    <template #labelsCell="{ cellData }">
+                        <div class="flex flex-wrap gap-1.5">
+                            <Tag
+                                v-for="label in cellData"
+                                :key="label.id"
+                                :name="label.name"
+                                :color="label.color"
+                            />
+                            <span
+                                v-if="!cellData.length"
+                                class="text-muted"
                             >
-                            <TableCell class="text-right">
-                                <div
-                                    v-if="canWrite"
-                                    class="flex justify-end gap-2"
-                                >
-                                    <IconButton
-                                        :href="`/credentials/entitlements/${item.id}/edit`"
-                                        :icon="['fas', 'pencil']"
-                                        :label="
-                                            $t(
-                                                'credentials.entitlements.actions.edit',
-                                                { item: item.name },
-                                            )
-                                        "
-                                        tone="edit"
-                                    />
-                                    <IconButton
-                                        :icon="['fas', 'scale-balanced']"
-                                        :label="
-                                            $t(
-                                                'credentials.entitlements.actions.adjust',
-                                            )
-                                        "
-                                        tone="edit"
-                                        :href="`/credentials/entitlements/${item.id}/edit?adjust=1`"
-                                    />
-                                </div>
-                            </TableCell>
-                        </TableRow>
-                        <TableRow v-if="filteredItems.length === 0">
-                            <TableCell
-                                colspan="4"
-                                class="py-8 text-center text-muted"
+                                {{ $t('data_table.empty_value') }}
+                            </span>
+                        </div>
+                    </template>
+                    <template #actionsCell="{ rowData }">
+                        <div class="flex items-center justify-end gap-2">
+                            <Link
+                                :href="`/credentials/entitlements/${rowData.id}/edit`"
+                                class="inline-flex text-muted hover:text-primary"
+                                :aria-label="
+                                    $t('data_table.open', {
+                                        name: rowData.name,
+                                    })
+                                "
                             >
-                                {{
-                                    hasFilters
-                                        ? $t(
-                                              'credentials.entitlements.items.empty_filtered',
-                                          )
-                                        : $t(
-                                              'credentials.entitlements.items.empty',
-                                          )
-                                }}
-                            </TableCell>
-                        </TableRow>
-                    </TableBody>
-                </Table>
+                                <Icon
+                                    :name="['fas', 'chevron-right']"
+                                    size="sm"
+                                />
+                            </Link>
+                        </div>
+                    </template>
+                </DataTable>
             </section>
 
             <p

@@ -1,24 +1,18 @@
 <script setup>
 import { Button } from '../../components/ui/button';
+import { DataTable } from '../../components/ui/data-table';
 import { Dialog } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '../../components/ui/table';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { fieldError, toastFormErrors } from '../../lib/fieldError';
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Link, router, useForm } from '@inertiajs/vue3';
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+import { configureColumns } from './configureColumns';
 
 const props = defineProps({
     event: { type: Object, required: true },
@@ -73,6 +67,42 @@ const openEdit = (group) => {
     editorOpen.value = true;
 };
 
+const columns = computed(() => configureColumns(trans));
+const tableOptions = computed(() => ({
+    searching: false,
+    ordering: false,
+    paging: false,
+    info: false,
+    layout: {
+        topStart: null,
+        topEnd: null,
+        bottomStart: null,
+        bottomEnd: null,
+    },
+    columnDefs: [{ targets: 3, className: 'text-right' }],
+    language: {
+        emptyTable: trans(
+            search.value
+                ? 'team.configure.groups.no_results'
+                : 'team.configure.groups.empty',
+        ),
+    },
+    createdRow: (row, group) => {
+        if (!canWrite.value) {
+            return;
+        }
+
+        row.classList.add('cursor-pointer');
+        row.addEventListener('click', (event) => {
+            if (event.target.closest('a, button, input, select, textarea')) {
+                return;
+            }
+
+            openEdit(group);
+        });
+    },
+}));
+
 const closeEditor = (force = false) => {
     if (groupForm.processing && !force) return;
 
@@ -80,6 +110,11 @@ const closeEditor = (force = false) => {
     editing.value = null;
     groupForm.reset();
     groupForm.clearErrors();
+};
+
+const requestDelete = (group) => {
+    closeEditor();
+    deleting.value = group;
 };
 
 const submitGroup = () => {
@@ -158,7 +193,7 @@ onUnmounted(() => window.clearTimeout(searchTimer));
         :title="$t('team.configure.title')"
         :breadcrumbs="breadcrumbs"
     >
-        <div class="container mx-auto max-w-6xl">
+        <div class="container mx-auto">
             <header class="mb-6">
                 <h1 class="m-0 text-2xl font-bold tracking-tight">
                     {{ $t('team.configure.title') }}
@@ -215,120 +250,55 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                 </Button>
             </div>
 
-            <div
-                class="overflow-x-auto rounded-lg border border-line bg-ground"
+            <DataTable
+                :columns="columns"
+                :data="groups.data"
+                :options="tableOptions"
             >
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>
-                                {{ $t('team.configure.groups.columns.name') }}
-                            </TableHead>
-                            <TableHead>
-                                {{
-                                    $t(
-                                        'team.configure.groups.columns.description',
-                                    )
-                                }}
-                            </TableHead>
-                            <TableHead>
-                                {{
-                                    $t('team.configure.groups.columns.members')
-                                }}
-                            </TableHead>
-                            <TableHead class="w-36">
-                                {{
-                                    $t('team.configure.groups.columns.actions')
-                                }}
-                            </TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        <TableRow
-                            v-for="group in groups.data"
-                            :key="group.id"
-                        >
-                            <TableCell>
-                                <strong>{{ group.name }}</strong>
-                            </TableCell>
-                            <TableCell class="text-muted">
-                                {{
-                                    group.description ||
-                                    $t('team.configure.groups.no_description')
-                                }}
-                            </TableCell>
-                            <TableCell>
-                                {{
-                                    $t(
-                                        'team.configure.groups.member_count',
-                                        {
-                                            count: group.team_engagements_count,
-                                        },
-                                        group.team_engagements_count,
-                                    )
-                                }}
-                            </TableCell>
-                            <TableCell>
-                                <div
-                                    v-if="canWrite"
-                                    class="flex items-center gap-2"
-                                >
-                                    <Button
-                                        type="button"
-                                        variant="outline-secondary"
-                                        size="icon"
-                                        :aria-label="
-                                            $t('team.configure.groups.edit', {
-                                                name: group.name,
-                                            })
-                                        "
-                                        @click="openEdit(group)"
-                                    >
-                                        <Icon
-                                            :name="['fas', 'pencil']"
-                                            size="sm"
-                                        />
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="outline-danger"
-                                        size="icon"
-                                        :aria-label="
-                                            $t('team.configure.groups.delete', {
-                                                name: group.name,
-                                            })
-                                        "
-                                        @click="deleting = group"
-                                    >
-                                        <Icon
-                                            :name="['fas', 'trash-can']"
-                                            size="sm"
-                                        />
-                                    </Button>
-                                </div>
-                                <span
-                                    v-else
-                                    class="text-sm text-muted"
-                                >
-                                    {{ $t('team.configure.groups.read_only') }}
-                                </span>
-                            </TableCell>
-                        </TableRow>
-                        <TableRow v-if="groups.data.length === 0">
-                            <TableCell
-                                colspan="4"
-                                class="py-10 text-center text-muted"
-                            >
-                                {{
-                                    search
-                                        ? $t('team.configure.groups.no_results')
-                                        : $t('team.configure.groups.empty')
-                                }}
-                            </TableCell>
-                        </TableRow>
-                    </TableBody>
-                </Table>
-            </div>
+                <template #nameCell="{ cellData }">
+                    <strong>{{ cellData }}</strong>
+                </template>
+                <template #descriptionCell="{ cellData }">
+                    <span class="text-muted">
+                        {{ cellData || $t('data_table.empty_value') }}
+                    </span>
+                </template>
+                <template #membersCell="{ cellData }">
+                    {{
+                        $t(
+                            'team.configure.groups.member_count',
+                            { count: cellData },
+                            cellData,
+                        )
+                    }}
+                </template>
+                <template #openCell="{ rowData }">
+                    <Button
+                        v-if="canWrite"
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        class="w-7 px-0 text-muted hover:text-primary"
+                        :aria-label="
+                            $t('team.configure.groups.edit', {
+                                name: rowData.name,
+                            })
+                        "
+                        @click="openEdit(rowData)"
+                    >
+                        <Icon
+                            :name="['fas', 'chevron-right']"
+                            size="sm"
+                        />
+                    </Button>
+                    <span
+                        v-else
+                        class="text-sm text-muted"
+                    >
+                        {{ $t('team.configure.groups.read_only') }}
+                    </span>
+                </template>
+            </DataTable>
 
             <nav
                 v-if="groups.last_page > 1"
@@ -402,6 +372,23 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                         />
                     </template>
                 </FormField>
+                <Button
+                    v-if="editing && canWrite"
+                    type="button"
+                    variant="outline-danger"
+                    class="mt-5"
+                    @click="requestDelete(editing)"
+                >
+                    <Icon
+                        :name="['fas', 'trash-can']"
+                        size="sm"
+                    />
+                    {{
+                        $t('team.configure.groups.delete', {
+                            name: editing.name,
+                        })
+                    }}
+                </Button>
             </form>
         </Dialog>
 

@@ -12,6 +12,7 @@ export const shiftColumns = (trans) => [
     },
     {
         data: 'location',
+        defaultContent: trans('data_table.empty_value'),
         name: 'location',
         title: trans('team.scheduling.table.location'),
     },
@@ -26,5 +27,14 @@ export const shiftColumns = (trans) => [
         name: 'ends_at',
         render: { display: '#endCell' },
         title: trans('team.scheduling.table.end'),
+    },
+    {
+        data: null,
+        defaultContent: '',
+        name: 'open',
+        orderable: false,
+        render: { display: '#openCell' },
+        searchable: false,
+        title: '',
     },
 ];

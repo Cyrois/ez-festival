@@ -91,6 +91,18 @@ class TeamAdvancementTest extends TestCase
             );
     }
 
+    public function test_advancement_defaults_to_the_list_view(): void
+    {
+        [$user] = $this->userWithCompletedSetup();
+
+        $this->actingAs($user)
+            ->get(route('team.advancement'))
+            ->assertInertia(
+                fn (Assert $page) => $page
+                    ->where('filters.view', 'list'),
+            );
+    }
+
     public function test_staff_can_add_a_paid_member_to_the_pipeline(): void
     {
         [$user, $event] = $this->userWithCompletedSetup();

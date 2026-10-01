@@ -91,13 +91,13 @@ const navItems = computed(() => [
     },
     {
         key: 'team',
-        href: '/team/advancement',
+        href: '/team/advancement?view=list',
         icon: ['fas', 'users'],
         enabled: features.value.team ?? true,
         children: [
             {
                 key: 'team.advancement',
-                href: '/team/advancement',
+                href: '/team/advancement?view=list',
                 icon: ['fas', 'list'],
                 enabled: true,
             },

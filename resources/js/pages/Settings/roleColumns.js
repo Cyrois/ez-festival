@@ -26,10 +26,10 @@ export const roleColumns = (trans) => [
     {
         data: null,
         defaultContent: '',
-        name: 'actions',
+        name: 'open',
         orderable: false,
-        render: { display: '#actionsCell' },
+        render: { display: '#openCell' },
         searchable: false,
-        title: trans('settings.roles.columns.actions'),
+        title: '',
     },
 ];

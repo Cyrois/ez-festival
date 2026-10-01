@@ -1,22 +1,16 @@
 <script setup>
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Button } from '../../components/ui/button';
+import { DataTable } from '../../components/ui/data-table';
 import { Icon } from '../../components/ui/icon';
-import { IconButton } from '../../components/ui/icon-button';
 import { Input } from '../../components/ui/input';
 import { LabelCombobox } from '../../components/ui/label-combobox';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '../../components/ui/table';
 import { Tag } from '../../components/ui/tag';
-import { usePage } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
+import { Link, usePage } from '@inertiajs/vue3';
+import { computed, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+import { passColumns } from './passColumns';
 
 const props = defineProps({
     passes: { type: Array, default: () => [] },
@@ -27,6 +21,7 @@ const props = defineProps({
 const page = usePage();
 const search = ref('');
 const selectedLabelIds = ref([]);
+const table = ref(null);
 const eventName = computed(() => page.props.activeEvent?.name ?? '');
 const breadcrumbs = computed(() => [
     { label: trans('app.name'), href: '/dashboard' },
@@ -36,6 +31,27 @@ const breadcrumbs = computed(() => [
 const lead = computed(() =>
     trans('credentials.passes.lead', { event: eventName.value }),
 );
+const columns = computed(() => passColumns(trans));
+const options = computed(() => ({
+    lengthChange: false,
+    pageLength: 25,
+    order: [[0, 'asc']],
+    layout: {
+        topStart: null,
+        topEnd: null,
+    },
+    columnDefs: [{ targets: 3, className: 'text-right' }],
+    createdRow: (row, pass) =>
+        navigateDataTableRow(
+            row,
+            pass,
+            (item) => `/credentials/passes/${item.id}/edit`,
+        ),
+    language: {
+        emptyTable: trans('credentials.passes.empty.description'),
+        zeroRecords: trans('credentials.passes.empty.filtered'),
+    },
+}));
 
 const usageFor = (pass) =>
     pass.max_assignments === null
@@ -47,24 +63,22 @@ const usageFor = (pass) =>
               capacity: pass.max_assignments,
           });
 
-const filteredPasses = computed(() => {
-    const normalizedSearch = search.value.trim().toLocaleLowerCase();
-
-    return props.passes.filter((pass) => {
-        const matchesName =
-            normalizedSearch === '' ||
-            pass.name.toLocaleLowerCase().includes(normalizedSearch);
-        const matchesLabels = selectedLabelIds.value.every((labelId) =>
-            pass.labels.some((label) => label.id === labelId),
-        );
-
-        return matchesName && matchesLabels;
-    });
-});
-
 const clearLabelFilters = () => {
     selectedLabelIds.value = [];
 };
+
+watch(search, (value) => table.value?.search(value));
+watch(selectedLabelIds, (value) => {
+    table.value?.filterRows(
+        'labels',
+        value.length === 0
+            ? null
+            : (pass) =>
+                  value.every((labelId) =>
+                      pass.labels.some((label) => label.id === labelId),
+                  ),
+    );
+});
 </script>
 
 <template>
@@ -72,7 +86,7 @@ const clearLabelFilters = () => {
         :title="$t('credentials.passes.title')"
         :breadcrumbs="breadcrumbs"
     >
-        <div class="w-full">
+        <div class="container mx-auto">
             <div class="mb-3 flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <h1 class="m-0 text-2xl font-bold tracking-tight">
@@ -141,73 +155,48 @@ const clearLabelFilters = () => {
                 </Button>
             </div>
 
-            <Table>
-                <TableHeader>
-                    <TableRow variant="header">
-                        <TableHead>{{
-                            $t('credentials.passes.table.name')
-                        }}</TableHead>
-                        <TableHead>{{
-                            $t('credentials.passes.table.usage')
-                        }}</TableHead>
-                        <TableHead>{{
-                            $t('credentials.passes.table.labels')
-                        }}</TableHead>
-                        <TableHead class="w-24 text-right">
-                            {{ $t('credentials.passes.table.actions') }}
-                        </TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    <TableRow
-                        v-for="pass in filteredPasses"
-                        :key="pass.id"
-                    >
-                        <TableCell class="font-semibold">{{
-                            pass.name
-                        }}</TableCell>
-                        <TableCell class="text-muted">{{
-                            usageFor(pass)
-                        }}</TableCell>
-                        <TableCell>
-                            <div class="flex flex-wrap gap-1.5">
-                                <Tag
-                                    v-for="label in pass.labels"
-                                    :key="label.id"
-                                    :name="label.name"
-                                    :color="label.color"
-                                />
-                            </div>
-                        </TableCell>
-                        <TableCell class="text-right">
-                            <div class="flex justify-end gap-2">
-                                <IconButton
-                                    :icon="['fas', 'pen']"
-                                    :label="
-                                        $t('credentials.passes.edit', {
-                                            pass: pass.name,
-                                        })
-                                    "
-                                    tone="edit"
-                                    :href="`/credentials/passes/${pass.id}/edit`"
-                                />
-                            </div>
-                        </TableCell>
-                    </TableRow>
-                    <TableRow v-if="filteredPasses.length === 0">
-                        <TableCell
-                            colspan="4"
-                            class="py-8 text-center text-muted"
+            <DataTable
+                ref="table"
+                :columns="columns"
+                :data="passes"
+                :options="options"
+            >
+                <template #usageCell="{ rowData }">
+                    <span class="text-muted">
+                        {{ usageFor(rowData) }}
+                    </span>
+                </template>
+                <template #labelsCell="{ cellData }">
+                    <div class="flex flex-wrap gap-1.5">
+                        <Tag
+                            v-for="label in cellData"
+                            :key="label.id"
+                            :name="label.name"
+                            :color="label.color"
+                        />
+                        <span
+                            v-if="!cellData.length"
+                            class="text-muted"
                         >
-                            {{
-                                props.passes.length === 0
-                                    ? $t('credentials.passes.empty.description')
-                                    : $t('credentials.passes.empty.filtered')
-                            }}
-                        </TableCell>
-                    </TableRow>
-                </TableBody>
-            </Table>
+                            {{ $t('data_table.empty_value') }}
+                        </span>
+                    </div>
+                </template>
+                <template #openCell="{ rowData }">
+                    <Link
+                        :href="`/credentials/passes/${rowData.id}/edit`"
+                        class="inline-flex text-muted hover:text-primary"
+                        :aria-label="
+                            $t('data_table.open', { name: rowData.name })
+                        "
+                    >
+                        <Icon
+                            :name="['fas', 'chevron-right']"
+                            size="sm"
+                        />
+                    </Link>
+                </template>
+            </DataTable>
 
             <p
                 v-if="!canWrite"

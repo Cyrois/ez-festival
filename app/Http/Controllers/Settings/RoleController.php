@@ -13,6 +13,7 @@ use App\Models\Role;
 use App\Repositories\RoleRepository;
 use App\Services\RoleService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -64,6 +65,20 @@ class RoleController extends Controller
         );
 
         return back()->with('success', __('settings.roles.toast.created'));
+    }
+
+    public function edit(Request $request, Role $role): Response
+    {
+        abort_unless($request->user()?->can('manage-roles') === true, 403);
+
+        $role->setAttribute(
+            'people_count',
+            $role->teamEngagements()->distinct()->count('person_id'),
+        );
+
+        return Inertia::render('Settings/Roles/Edit', [
+            'role' => (new RoleResource($role))->resolve($request),
+        ]);
     }
 
     public function update(UpdateRoleRequest $request, Role $role): RedirectResponse
