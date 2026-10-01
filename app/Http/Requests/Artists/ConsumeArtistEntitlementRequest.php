@@ -15,7 +15,7 @@ class ConsumeArtistEntitlementRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return Gate::allows('manage-artists');
+        return Gate::allows('checkin.edit');
     }
 
     public function rules(): array

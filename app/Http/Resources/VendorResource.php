@@ -18,7 +18,7 @@ class VendorResource extends JsonResource
             'type' => $this->vendorType?->name,
             'labels' => [],
             'people' => $this->relationLoaded('people')
-                ? PersonResource::collection($this->people)->resolve()
+                ? $this->people->map(fn ($person) => (new PersonResource($person, 'vendors', $this->event))->resolve())->all()
                 : [],
             'pass_assignments' => $this->relationLoaded('passAssignments')
                 ? PassAssignmentResource::collection($this->passAssignments)->resolve()

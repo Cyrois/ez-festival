@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Vendors\CreateVendorRequest;
 use App\Http\Requests\Vendors\StoreVendorRequest;
 use App\Http\Requests\Vendors\UpdateVendorRequest;
+use App\Http\Resources\GivePassOptionResource;
 use App\Http\Resources\VendorEngagementNoteResource;
 use App\Http\Resources\VendorResource;
 use App\Models\CustomField;
@@ -17,6 +18,7 @@ use App\Services\VendorService;
 use App\Support\EventContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -96,8 +98,8 @@ class VendorController extends Controller
                 ->orderBy('id')
                 ->get(['id', 'label', 'type', 'required', 'options']),
             'statuses' => VendorEngagement::STATUSES,
-            'passes' => $this->passTypes->optionsFor($event),
-            'canWrite' => ! $event->isLocked(),
+            'passes' => GivePassOptionResource::collection($this->passTypes->optionsFor($event))->resolve(),
+            'canWrite' => ! $event->isLocked() && Gate::allows('vendors.edit', $event),
         ]);
     }
 

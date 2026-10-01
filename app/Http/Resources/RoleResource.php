@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\Permissions;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -13,7 +14,7 @@ class RoleResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'active' => $this->active,
-            'can_read_team_notes' => $this->can_read_team_notes,
+            'permissions' => Permissions::expand($this->permissions ?? []),
             'people_count' => (int) ($this->people_count ?? 0),
         ];
     }

@@ -139,8 +139,8 @@ test('the match hint goes away once the name is edited', () => {
 });
 
 test('the page snapshots the submitted name for the match hint', () => {
-    assert.match(rolesPage, /submittedName\.value = form\.name;/);
-    assert.match(rolesPage, /submitted: submittedName\.value/);
+    assert.match(read('resources/js/pages/Settings/Roles/RoleForm.vue'), /submittedName\.value = form\.name;/);
+    assert.match(read('resources/js/pages/Settings/Roles/RoleForm.vue'), /submitted: submittedName\.value/);
     assert.doesNotMatch(rolesPage, /typed: `"\$\{form\.name\}"`/);
 });
 

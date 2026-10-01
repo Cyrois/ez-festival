@@ -12,6 +12,7 @@ use App\Http\Resources\RoleResource;
 use App\Models\Role;
 use App\Repositories\RoleRepository;
 use App\Services\RoleService;
+use App\Support\Permissions;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -55,15 +56,30 @@ class RoleController extends Controller
         ]);
     }
 
+    public function create(): Response
+    {
+        return Inertia::render('Settings/Roles/Create', ['permissionGroups' => Permissions::groups()]);
+    }
+
+    public function edit(Role $role): Response
+    {
+        $role->loadCount(['teamEngagements as people_count' => fn ($query) => $query->selectRaw('count(distinct person_id)')]);
+
+        return Inertia::render('Settings/Roles/Edit', [
+            'role' => (new RoleResource($role))->resolve(),
+            'permissionGroups' => Permissions::groups(),
+        ]);
+    }
+
     public function store(StoreRoleRequest $request): RedirectResponse
     {
         $data = $request->validated();
         $this->roleService->create(
             $data['name'],
-            (bool) ($data['can_read_team_notes'] ?? false),
+            $data['permissions'],
         );
 
-        return back()->with('success', __('settings.roles.toast.created'));
+        return redirect()->route('settings.roles')->with('success', __('settings.roles.toast.created'));
     }
 
     public function update(UpdateRoleRequest $request, Role $role): RedirectResponse
@@ -72,9 +88,9 @@ class RoleController extends Controller
         $this->roleService->update(
             $role,
             $data['name'],
-            (bool) ($data['can_read_team_notes'] ?? $role->can_read_team_notes),
+            $data['permissions'],
         );
 
-        return back()->with('success', __('settings.roles.toast.updated'));
+        return redirect()->route('settings.roles')->with('success', __('settings.roles.toast.updated'));
     }
 }

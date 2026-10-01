@@ -450,7 +450,8 @@ class TeamAdvancementTest extends TestCase
     {
         [$user, $event] = $this->userWithCompletedSetup();
         $engagement = $this->engagement($event, 'Permission Member');
-        Gate::define('manage-team', fn (): bool => false);
+        $this->grantRoleAccess($user);
+        Gate::define('team.edit', fn (): bool => false);
 
         $this->actingAs($user)
             ->get(route('team.members.show', $engagement))

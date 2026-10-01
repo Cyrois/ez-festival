@@ -31,9 +31,9 @@ class TeamMemberNotesTest extends TestCase
         $eventB = $this->event('Event B');
         $allowed = Role::query()->create([
             'name' => 'Notes reader',
-            'can_read_team_notes' => true,
+            'permissions' => ['team.edit'],
         ]);
-        $plain = Role::query()->create(['name' => 'Plain role']);
+        $plain = Role::query()->create(['name' => 'Plain role', 'permissions' => ['team.view', 'team.change_role']]);
         $user = $this->nonAdminFor($eventA, $allowed);
         $this->selfEngagement($user, $eventB, $plain);
         $targetA = $this->engagement($eventA, 'Target A');
@@ -90,7 +90,7 @@ class TeamMemberNotesTest extends TestCase
         $event = $this->event();
         $role = Role::query()->create([
             'name' => 'Original name',
-            'can_read_team_notes' => true,
+            'permissions' => ['team.edit'],
         ]);
         $user = $this->nonAdminFor($event, $role);
         $target = $this->engagement($event, 'Target');
@@ -100,12 +100,12 @@ class TeamMemberNotesTest extends TestCase
             fn (Assert $page) => $page->where('canReadNotes', true),
         );
 
-        $role->update(['can_read_team_notes' => false]);
+        $role->update(['permissions' => ['team.view']]);
         $this->get(route('team.members.show', $target))->assertInertia(
             fn (Assert $page) => $page->where('canReadNotes', false)->missing('notes'),
         );
 
-        $role->update(['can_read_team_notes' => true, 'active' => false]);
+        $role->update(['permissions' => ['team.edit'], 'active' => false]);
         $this->put(route('team.members.update', $target), $this->payload($target, [
             'notes' => [['body' => 'Blocked']],
         ]))->assertRedirect();
@@ -162,7 +162,7 @@ class TeamMemberNotesTest extends TestCase
         $event = $this->event();
         $role = Role::query()->create([
             'name' => 'Notes reader',
-            'can_read_team_notes' => true,
+            'permissions' => ['team.edit'],
         ]);
         $author = $this->nonAdminFor($event, $role);
         $target = $this->engagement($event, 'Edit target');
@@ -213,7 +213,7 @@ class TeamMemberNotesTest extends TestCase
         $event = $this->event();
         $role = Role::query()->create([
             'name' => 'Notes reader',
-            'can_read_team_notes' => true,
+            'permissions' => ['team.edit'],
         ]);
         $author = $this->nonAdminFor($event, $role);
         $target = $this->engagement($event, 'Unchanged edit target');
@@ -236,7 +236,7 @@ class TeamMemberNotesTest extends TestCase
         $event = $this->event();
         $role = Role::query()->create([
             'name' => 'Notes reader',
-            'can_read_team_notes' => true,
+            'permissions' => ['team.edit'],
         ]);
         $author = $this->nonAdminFor($event, $role);
         $other = User::factory()->create();

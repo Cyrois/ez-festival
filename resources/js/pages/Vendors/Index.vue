@@ -112,6 +112,14 @@ watch(selectedType, (value) => {
                 <Button
                     v-if="event && !event.locked"
                     href="/vendors/create"
+                    :disabled="
+                        event.locked || !$page.props.permissions['vendors.edit']
+                    "
+                    :title="
+                        !$page.props.permissions['vendors.edit']
+                            ? $t('permissions.no_add.vendors')
+                            : undefined
+                    "
                     class="min-h-11 w-full sm:w-auto"
                 >
                     <Icon

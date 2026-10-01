@@ -1,4 +1,5 @@
 <script setup>
+import HiddenPersonalInfo from '../../components/people/HiddenPersonalInfo.vue';
 import AppLayout from '../../layouts/AppLayout.vue';
 import TeamEngagementNoteLog from '../../components/notes/TeamEngagementNoteLog.vue';
 import TeamPassAssignmentsPanel from '../../components/team/TeamPassAssignmentsPanel.vue';
@@ -25,6 +26,8 @@ const props = defineProps({
     roles: { type: Array, required: true },
     passes: { type: Array, default: () => [] },
     canWrite: { type: Boolean, required: true },
+    canAddNotes: { type: Boolean, required: true },
+    canChangeRole: { type: Boolean, required: true },
     canReadNotes: { type: Boolean, required: true },
 });
 
@@ -79,10 +82,15 @@ const roleItems = computed(() => {
         ...props.roles.map((role) => ({ value: role.id, title: role.name })),
     ];
 
-    if (props.engagement.role && !props.engagement.role.active) {
+    if (
+        props.engagement.role &&
+        !items.some((item) => item.value === props.engagement.role.id)
+    ) {
         items.push({
             value: props.engagement.role.id,
-            title: `${props.engagement.role.name} ${trans('settings.team.role_off_suffix')}`,
+            title: props.engagement.role.active
+                ? props.engagement.role.name
+                : `${props.engagement.role.name} ${trans('settings.team.role_off_suffix')}`,
             disabled: true,
         });
     }
@@ -117,7 +125,21 @@ const unsavedSummary = computed(() => {
     return form.isDirty ? trans('team.member.unsaved.changes') : '';
 });
 const submit = () => {
-    if (readOnly.value) return;
+    if (!props.canWrite && !props.canAddNotes && !props.canChangeRole) return;
+    form.transform((data) => ({
+        ...(props.canWrite
+            ? Object.fromEntries(
+                  Object.entries(data).filter(
+                      ([key]) =>
+                          !['notes', 'note_edits', 'role_id'].includes(key),
+                  ),
+              )
+            : {}),
+        ...(props.canChangeRole ? { role_id: data.role_id } : {}),
+        ...(props.canAddNotes
+            ? { notes: data.notes, note_edits: data.note_edits }
+            : {}),
+    }));
     form.put(`/team/members/${props.engagement.id}`, {
         onSuccess: () => {
             form.notes = [];
@@ -167,7 +189,7 @@ const submit = () => {
                 {{ $t('team.member.unlock_summary') }}
             </p>
             <p
-                v-if="readOnly"
+                v-if="event.locked"
                 class="mb-4 flex items-center gap-2 rounded-lg border border-warning/20 bg-warning/10 p-3 text-sm text-charcoal"
                 role="status"
             >
@@ -186,7 +208,47 @@ const submit = () => {
                     <p class="mt-1 mb-4 text-xs text-muted">
                         {{ $t('team.member.details_hint') }}
                     </p>
+                    <dl
+                        v-if="readOnly"
+                        class="mt-4 grid gap-4 sm:grid-cols-2"
+                    >
+                        <div
+                            v-for="field in [
+                                'name',
+                                'status',
+                                'employment_type',
+                                'phone',
+                                'email',
+                                'group',
+                            ]"
+                            :key="field"
+                        >
+                            <dt class="text-sm text-muted">
+                                {{ $t(`team.member.fields.${field}`) }}
+                            </dt>
+                            <dd class="mt-1">
+                                <HiddenPersonalInfo
+                                    v-if="
+                                        engagement.personal_info_hidden &&
+                                        ['email', 'phone'].includes(field)
+                                    "
+                                /><span v-else>{{
+                                    field === 'group'
+                                        ? engagement.group?.name
+                                        : [
+                                                'status',
+                                                'employment_type',
+                                            ].includes(field)
+                                          ? $t(
+                                                `team.advancement.${field}.${engagement[field]}`,
+                                            )
+                                          : engagement[field]
+                                }}</span>
+                            </dd>
+                        </div>
+                    </dl>
                     <TeamMemberFields
+                        v-else
                         :form="form"
                         :groups="groups"
                         :statuses="statuses"
@@ -206,12 +268,22 @@ const submit = () => {
                             :label="$t('team.member.role.field')"
                             :error="form.errors.role_id"
                         >
+                            <p
+                                v-if="!canChangeRole"
+                                class="m-0"
+                            >
+                                {{
+                                    engagement.role?.name ??
+                                    $t('team.member.role.no_role')
+                                }}
+                            </p>
                             <CustomDropdown
+                                v-else
                                 :id="id"
                                 v-model="form.role_id"
                                 :items="roleItems"
                                 :invalid="invalid"
-                                :disabled="readOnly || form.processing"
+                                :disabled="!canChangeRole || form.processing"
                             />
                         </FormField>
                     </div>
@@ -233,6 +305,7 @@ const submit = () => {
                             })
                         }}
                         <Link
+                            v-if="$page.props.auth.user.is_admin"
                             href="/settings/team"
                             class="font-semibold text-secondary no-underline hover:underline"
                         >
@@ -309,7 +382,7 @@ const submit = () => {
                     v-model:note-edits="form.note_edits"
                     class="mt-4"
                     :notes="notes"
-                    :can-write="canWrite"
+                    :can-write="canAddNotes"
                     :timezone="event.timezone"
                     :errors="form.errors"
                 />
@@ -325,7 +398,7 @@ const submit = () => {
             </form>
 
             <div
-                v-if="!readOnly"
+                v-if="canWrite || canAddNotes || canChangeRole"
                 class="fixed right-0 bottom-0 left-0 z-30 border-t border-line bg-ground/95 py-3 backdrop-blur lg:left-[var(--app-sidebar-width)]"
             >
                 <div class="container mx-auto px-4 md:px-6">

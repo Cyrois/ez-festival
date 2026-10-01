@@ -15,7 +15,7 @@ class TeamEngagementNoteResource extends JsonResource
             'author' => $this->user?->name ?? $this->user?->email ?? __('team.member.notes_author_unknown'),
             'created_at' => $this->created_at?->toIso8601String(),
             'edited_at' => $this->edited_at?->toIso8601String(),
-            'editable_until' => (int) $this->user_id === (int) $request->user()?->id
+            'editable_until' => $request->user()->can('team.notes.add', $this->engagement) && (int) $this->user_id === (int) $request->user()?->id
                 ? $this->created_at?->copy()->addMinutes(5)->toIso8601String()
                 : null,
         ];

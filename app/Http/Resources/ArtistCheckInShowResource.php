@@ -12,12 +12,13 @@ class ArtistCheckInShowResource extends JsonResource
     public function toArray(Request $request): array
     {
         $isArtist = $this->resource instanceof ArtistEngagement;
+        $canSeePersonalInfo = $request->user()->can($isArtist ? 'artists.personal_info' : 'vendors.personal_info', $this->event);
         $balancesByItem = $this->balancesByItemId();
         $assignments = $this->passAssignments
             ->whereNotNull('person_id')
             ->groupBy('person_id');
 
-        $people = $this->people->map(function ($person) use ($assignments, $balancesByItem): array {
+        $people = $this->people->map(function ($person) use ($assignments, $balancesByItem, $canSeePersonalInfo): array {
             $held = $assignments->get($person->id, collect());
             $entitlements = $held->flatMap(function ($assignment) use ($balancesByItem): Collection {
                 return $assignment->expectedEntitlements->map(function ($expected) use ($assignment, $balancesByItem): array {
@@ -54,7 +55,7 @@ class ArtistCheckInShowResource extends JsonResource
             return [
                 'id' => $person->id,
                 'name' => $person->name,
-                'email' => $person->email,
+                ...($canSeePersonalInfo ? ['email' => $person->email] : ['personal_info_hidden' => true]),
                 'is_primary' => (bool) $person->pivot->is_primary,
                 'passes' => $held->pluck('passType.name')->unique()->values(),
                 'pass_labels' => $held->flatMap(fn ($assignment) => $assignment->passType->labels)

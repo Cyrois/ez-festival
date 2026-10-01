@@ -15,6 +15,7 @@ use App\Models\Role;
 use App\Models\TeamEngagement;
 use App\Repositories\GroupRepository;
 use App\Repositories\PassTypeRepository;
+use App\Services\EventAccessService;
 use App\Services\TeamEngagementService;
 use App\Support\EventContext;
 use Illuminate\Http\RedirectResponse;
@@ -68,7 +69,7 @@ class MemberController extends Controller
                 ])
                 ->latest('id'),
         ]);
-        $canReadNotes = Gate::allows('can-read-team-notes', $engagement);
+        $canReadNotes = Gate::allows('team.notes.read', $engagement);
         $notes = $canReadNotes
             ? $engagement->notes()
                 ->with('user:id,name,email')
@@ -89,12 +90,14 @@ class MemberController extends Controller
             'roles' => Role::query()
                 ->where('active', true)
                 ->orderBy('name_key')
-                ->get(['id', 'name']),
+                ->get()->filter(fn (Role $role) => app(EventAccessService::class)->canAssignRole($request->user(), $engagement, $role))->map->only(['id', 'name'])->values(),
             'passes' => TeamPassOptionResource::collection(
                 $this->passTypes->optionsFor($event, withEntitlements: true),
             )->resolve(),
-            'canWrite' => ! $event->isLocked() && Gate::allows('manage-team'),
+            'canWrite' => ! $event->isLocked() && Gate::allows('team.edit'),
             'canReadNotes' => $canReadNotes,
+            'canAddNotes' => ! $event->isLocked() && Gate::allows('team.notes.add', $engagement),
+            'canChangeRole' => ! $event->isLocked() && app(EventAccessService::class)->canAssignRole($request->user(), $engagement, null),
         ]);
     }
 

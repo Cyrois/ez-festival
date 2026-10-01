@@ -18,7 +18,7 @@ class ArtistEngagementResource extends JsonResource
             'type' => $this->artistType?->name,
             'labels' => $this->labels->map->only(['id', 'name', 'color'])->values(),
             'people' => $this->relationLoaded('people')
-                ? PersonResource::collection($this->people)->resolve()
+                ? $this->people->map(fn ($person) => (new PersonResource($person, 'artists', $this->event))->resolve())->all()
                 : [],
             'pass_assignments' => $this->relationLoaded('passAssignments')
                 ? PassAssignmentResource::collection($this->passAssignments)->resolve()

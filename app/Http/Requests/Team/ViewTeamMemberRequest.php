@@ -9,7 +9,7 @@ class ViewTeamMemberRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Gate::allows('view-team');
+        return Gate::allows('team.view');
     }
 
     public function rules(): array

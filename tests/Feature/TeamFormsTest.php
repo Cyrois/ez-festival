@@ -30,12 +30,14 @@ class TeamFormsTest extends TestCase
         $this->get(route('team.forms'))->assertRedirect(route('login'));
 
         [$user] = $this->userWithCompletedSetup();
-        Gate::define('view-team', fn (): bool => false);
+        $this->grantRoleAccess($user);
+        Gate::define('team.view', fn (): bool => false);
 
         $this->actingAs($user)->get(route('team.forms'))->assertForbidden();
 
-        Gate::define('view-team', fn (): bool => true);
-        Gate::define('manage-team', fn (): bool => false);
+        Gate::define('team.view', fn (): bool => true);
+        $this->grantRoleAccess($user);
+        Gate::define('team.edit', fn (): bool => false);
         $this->actingAs($user)->get(route('team.forms.create'))->assertForbidden();
     }
 

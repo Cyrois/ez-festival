@@ -115,7 +115,39 @@ const destroy = () => {
                         {{ $t('team.scheduling.shift_section') }}
                     </h2>
 
-                    <div class="space-y-4">
+                    <dl
+                        v-if="!canWrite"
+                        class="space-y-4"
+                    >
+                        <div
+                            v-for="field in [
+                                'name',
+                                'location',
+                                'starts_at',
+                                'ends_at',
+                            ]"
+                            :key="field"
+                        >
+                            <dt class="text-sm text-muted">
+                                {{ $t(`team.scheduling.fields.${field}`) }}
+                            </dt>
+                            <dd class="mt-1">
+                                {{
+                                    field === 'location'
+                                        ? locations.find(
+                                              (location) =>
+                                                  location.id ===
+                                                  shift.location_id,
+                                          )?.name
+                                        : shift[field]
+                                }}
+                            </dd>
+                        </div>
+                    </dl>
+                    <div
+                        v-else
+                        class="space-y-4"
+                    >
                         <FormField
                             :label="$t('team.scheduling.fields.name')"
                             :error="fieldError(form, 'name')"

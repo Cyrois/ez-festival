@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Credentials\DestroyPassAssignmentRequest;
 use App\Http\Requests\Credentials\UpdatePassAssignmentRequest;
 use App\Models\PassAssignment;
 use App\Models\Person;
@@ -25,9 +26,9 @@ class PassAssignmentController extends Controller
         return back()->with('success', __('credentials.assignments.toast.assigned'));
     }
 
-    public function destroy(PassAssignment $assignment): RedirectResponse
+    public function destroy(DestroyPassAssignmentRequest $request, PassAssignment $assignment): RedirectResponse
     {
-        $this->ensureCurrentAssignmentEvent(request(), $assignment);
+        $this->ensureCurrentAssignmentEvent($request, $assignment);
         $this->assignments->remove($assignment);
 
         return back()->with('success', __('credentials.assignments.toast.removed'));

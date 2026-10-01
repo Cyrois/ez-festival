@@ -10,7 +10,7 @@ class IndexArtistCheckInRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Gate::allows('view-artists');
+        return Gate::allows('checkin.view');
     }
 
     public function rules(): array

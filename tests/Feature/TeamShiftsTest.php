@@ -335,7 +335,8 @@ class TeamShiftsTest extends TestCase
     {
         [$user, $event] = $this->eventContext();
         $location = $event->locations()->create(['name' => 'Main stage']);
-        Gate::define('manage-team', fn (): bool => false);
+        $this->grantRoleAccess($user);
+        Gate::define('team.edit', fn (): bool => false);
 
         $this->actingAs($user)
             ->post(

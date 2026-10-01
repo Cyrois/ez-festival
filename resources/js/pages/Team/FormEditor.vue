@@ -15,6 +15,7 @@ import { computed, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
 const props = defineProps({
+    canWrite: { type: Boolean, default: false },
     event: { type: Object, required: true },
     teamForm: { type: Object, default: null },
     statuses: { type: Array, default: () => [] },
@@ -164,6 +165,7 @@ const copyLink = async () => {
     showSuccess(trans('team.forms.toast.link_copied'));
 };
 const submit = () => {
+    if (!props.canWrite) return;
     form.transform((data) => ({
         ...data,
         fields: data.fields.map((field) => ({
@@ -221,274 +223,317 @@ const submit = () => {
                     {{ $t('team.forms.editor.lead') }}
                 </p>
             </div>
-            <Card :title="$t('team.forms.editor.form_card')">
-                <div class="flex flex-col gap-4">
-                    <FormField
-                        :label="$t('team.forms.editor.name')"
-                        :error="fieldError(form, 'name')"
-                        required
-                    >
-                        <template #default="{ id, invalid }">
-                            <Input
-                                :id="id"
-                                v-model="form.name"
-                                :invalid="invalid"
-                            />
-                        </template>
-                    </FormField>
-                    <FormField
-                        :label="$t('team.forms.editor.slug')"
-                        :hint="
-                            $t('team.forms.editor.slug_hint', {
-                                slug: slugPreview,
-                            })
-                        "
-                        :error="fieldError(form, 'slug')"
-                        required
-                    >
-                        <template #default="{ id, invalid }">
-                            <Input
-                                :id="id"
-                                v-model="form.slug"
-                                :invalid="invalid"
-                                :placeholder="
-                                    $t('team.forms.editor.slug_placeholder')
-                                "
-                                @update:model-value="slugEdited = true"
-                            />
-                        </template>
-                    </FormField>
-                    <FormField
-                        :label="$t('team.forms.editor.status')"
-                        :error="fieldError(form, 'status')"
-                        required
-                    >
-                        <template #default="{ id, invalid }">
-                            <CustomDropdown
-                                :id="id"
-                                v-model="form.status"
-                                :items="statusItems"
-                                :invalid="invalid"
-                            />
-                        </template>
-                    </FormField>
+            <Card v-if="!canWrite">
+                <dl class="space-y-4">
                     <div
-                        v-if="editing && form.status === 'live'"
-                        class="flex items-center gap-2 rounded-lg border border-line bg-page p-3"
+                        v-for="field in ['name', 'slug', 'status']"
+                        :key="field"
                     >
-                        <code class="min-w-0 flex-1 truncate text-xs">{{
-                            teamForm.public_url
-                        }}</code>
-                        <Button
-                            type="button"
-                            size="sm"
-                            @click="copyLink"
-                        >
-                            {{ $t('team.forms.actions.copy_link') }}
-                        </Button>
+                        <dt class="text-sm text-muted">
+                            {{ $t(`team.forms.editor.${field}`) }}
+                        </dt>
+                        <dd class="mt-1">{{ teamForm?.[field] }}</dd>
                     </div>
-                    <div
-                        v-if="editing && form.status === 'draft'"
-                        class="flex items-center justify-between gap-3 rounded-lg border border-line bg-page p-3"
-                    >
-                        <span class="text-sm text-muted">
-                            {{ $t('team.forms.editor.preview_hint') }}
-                        </span>
-                        <Button
-                            :href="teamForm.preview_url"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            type="button"
-                            variant="secondary"
-                            size="sm"
+                    <div>
+                        <dt class="text-sm text-muted">
+                            {{ $t('team.forms.editor.fields_card') }}
+                        </dt>
+                        <dd
+                            v-for="field in teamForm?.fields"
+                            :key="field.id"
+                            class="mt-1"
                         >
-                            {{ $t('team.forms.actions.preview') }}
-                        </Button>
+                            {{
+                                field.label ||
+                                $t(`team.forms.fields.${field.key}`)
+                            }}
+                        </dd>
                     </div>
-                </div>
+                </dl>
             </Card>
-            <Card>
-                <template #header>
-                    <div class="flex items-center justify-between gap-3">
-                        <div>
-                            <h2 class="m-0 text-lg font-semibold">
-                                {{ $t('team.forms.editor.fields_card') }}
-                            </h2>
-                            <p class="mt-1 mb-0 text-xs text-muted">
-                                {{ $t('team.forms.editor.fields_lead') }}
-                            </p>
-                        </div>
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            @click="addField"
+            <template v-else>
+                <Card :title="$t('team.forms.editor.form_card')">
+                    <div class="flex flex-col gap-4">
+                        <FormField
+                            :label="$t('team.forms.editor.name')"
+                            :error="fieldError(form, 'name')"
+                            required
                         >
-                            <Icon
-                                :name="['fas', 'plus']"
+                            <template #default="{ id, invalid }">
+                                <Input
+                                    :id="id"
+                                    v-model="form.name"
+                                    :invalid="invalid"
+                                />
+                            </template>
+                        </FormField>
+                        <FormField
+                            :label="$t('team.forms.editor.slug')"
+                            :hint="
+                                $t('team.forms.editor.slug_hint', {
+                                    slug: slugPreview,
+                                })
+                            "
+                            :error="fieldError(form, 'slug')"
+                            required
+                        >
+                            <template #default="{ id, invalid }">
+                                <Input
+                                    :id="id"
+                                    v-model="form.slug"
+                                    :invalid="invalid"
+                                    :placeholder="
+                                        $t('team.forms.editor.slug_placeholder')
+                                    "
+                                    @update:model-value="slugEdited = true"
+                                />
+                            </template>
+                        </FormField>
+                        <FormField
+                            :label="$t('team.forms.editor.status')"
+                            :error="fieldError(form, 'status')"
+                            required
+                        >
+                            <template #default="{ id, invalid }">
+                                <CustomDropdown
+                                    :id="id"
+                                    v-model="form.status"
+                                    :items="statusItems"
+                                    :invalid="invalid"
+                                />
+                            </template>
+                        </FormField>
+                        <div
+                            v-if="editing && form.status === 'live'"
+                            class="flex items-center gap-2 rounded-lg border border-line bg-page p-3"
+                        >
+                            <code class="min-w-0 flex-1 truncate text-xs">{{
+                                teamForm.public_url
+                            }}</code>
+                            <Button
+                                type="button"
                                 size="sm"
-                                class="mr-2"
-                            />
-                            {{ $t('team.forms.actions.add_field') }}
-                        </Button>
+                                @click="copyLink"
+                            >
+                                {{ $t('team.forms.actions.copy_link') }}
+                            </Button>
+                        </div>
+                        <div
+                            v-if="editing && form.status === 'draft'"
+                            class="flex items-center justify-between gap-3 rounded-lg border border-line bg-page p-3"
+                        >
+                            <span class="text-sm text-muted">
+                                {{ $t('team.forms.editor.preview_hint') }}
+                            </span>
+                            <Button
+                                :href="teamForm.preview_url"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                            >
+                                {{ $t('team.forms.actions.preview') }}
+                            </Button>
+                        </div>
                     </div>
-                </template>
-                <div
-                    ref="fieldList"
-                    class="flex flex-col gap-2"
-                >
-                    <template
-                        v-for="(field, index) in form.fields"
-                        :key="field.key"
+                </Card>
+                <Card>
+                    <template #header>
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <h2 class="m-0 text-lg font-semibold">
+                                    {{ $t('team.forms.editor.fields_card') }}
+                                </h2>
+                                <p class="mt-1 mb-0 text-xs text-muted">
+                                    {{ $t('team.forms.editor.fields_lead') }}
+                                </p>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                @click="addField"
+                            >
+                                <Icon
+                                    :name="['fas', 'plus']"
+                                    size="sm"
+                                    class="mr-2"
+                                />
+                                {{ $t('team.forms.actions.add_field') }}
+                            </Button>
+                        </div>
+                    </template>
+                    <div
+                        ref="fieldList"
+                        class="flex flex-col gap-2"
                     >
+                        <template
+                            v-for="(field, index) in form.fields"
+                            :key="field.key"
+                        >
+                            <div
+                                v-if="
+                                    draggedFieldKey !== null &&
+                                    activeDropIndex === index
+                                "
+                                class="flex min-h-[64px] items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/10 text-sm font-medium text-primary"
+                            >
+                                {{ $t('team.forms.editor.drop_here') }}
+                            </div>
+                            <div
+                                :data-field-index="index"
+                                class="rounded-lg border border-line p-3"
+                                :class="{
+                                    'ring-2 ring-primary/40':
+                                        draggedFieldKey === field.key,
+                                }"
+                            >
+                                <div class="flex flex-wrap items-start gap-3">
+                                    <div class="self-center">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            class="cursor-grab touch-none px-2 text-muted active:cursor-grabbing"
+                                            :aria-label="
+                                                $t(
+                                                    'team.forms.actions.drag_field',
+                                                )
+                                            "
+                                            :disabled="form.processing"
+                                            data-field-drag-handle
+                                            @pointerdown="
+                                                startFieldDrag(
+                                                    $event,
+                                                    field.key,
+                                                )
+                                            "
+                                            @pointermove="updateFieldDropIndex"
+                                            @pointerup="dropField"
+                                            @pointercancel="endFieldDrag"
+                                        >
+                                            <Icon
+                                                :name="['fas', 'grip-lines']"
+                                                fixed-width
+                                            />
+                                        </Button>
+                                    </div>
+                                    <div
+                                        class="grid min-w-64 flex-1 grid-cols-1 gap-3 md:grid-cols-2"
+                                    >
+                                        <FormField
+                                            :label="
+                                                $t(
+                                                    'team.forms.editor.field_label',
+                                                )
+                                            "
+                                        >
+                                            <template #default="{ id }">
+                                                <Input
+                                                    :id="id"
+                                                    v-model="field.label"
+                                                    :disabled="isBuiltin(field)"
+                                                />
+                                            </template>
+                                        </FormField>
+                                        <FormField
+                                            :label="
+                                                $t(
+                                                    'team.forms.editor.field_type',
+                                                )
+                                            "
+                                        >
+                                            <template #default="{ id }">
+                                                <Input
+                                                    v-if="isBuiltin(field)"
+                                                    :id="id"
+                                                    :model-value="
+                                                        $t(
+                                                            `team.forms.field_type.${field.type}`,
+                                                        )
+                                                    "
+                                                    disabled
+                                                />
+                                                <CustomDropdown
+                                                    v-else
+                                                    :id="id"
+                                                    v-model="field.type"
+                                                    :items="typeItems"
+                                                />
+                                            </template>
+                                        </FormField>
+                                        <FormField
+                                            v-if="
+                                                !isBuiltin(field) &&
+                                                field.type === 'select'
+                                            "
+                                            class="md:col-span-2"
+                                            :label="
+                                                $t('team.forms.editor.options')
+                                            "
+                                            :hint="
+                                                $t(
+                                                    'team.forms.editor.options_hint',
+                                                )
+                                            "
+                                        >
+                                            <template #default="{ id }">
+                                                <Textarea
+                                                    :id="id"
+                                                    v-model="field.optionsText"
+                                                    :placeholder="
+                                                        field.options.join('\n')
+                                                    "
+                                                />
+                                            </template>
+                                        </FormField>
+                                    </div>
+                                    <div class="flex items-center gap-3 pt-7">
+                                        <Checkbox
+                                            v-model="field.required"
+                                            :disabled="
+                                                ['name', 'email'].includes(
+                                                    field.key,
+                                                )
+                                            "
+                                            :label="
+                                                $t('team.forms.editor.required')
+                                            "
+                                        />
+                                        <Button
+                                            v-if="!isBuiltin(field)"
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            :aria-label="
+                                                $t(
+                                                    'team.forms.actions.remove_field',
+                                                )
+                                            "
+                                            @click="removeField(index)"
+                                        >
+                                            <Icon
+                                                :name="['fas', 'trash']"
+                                                size="sm"
+                                            />
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
                         <div
                             v-if="
                                 draggedFieldKey !== null &&
-                                activeDropIndex === index
+                                activeDropIndex === form.fields.length
                             "
                             class="flex min-h-[64px] items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/10 text-sm font-medium text-primary"
                         >
                             {{ $t('team.forms.editor.drop_here') }}
                         </div>
-                        <div
-                            :data-field-index="index"
-                            class="rounded-lg border border-line p-3"
-                            :class="{
-                                'ring-2 ring-primary/40':
-                                    draggedFieldKey === field.key,
-                            }"
-                        >
-                            <div class="flex flex-wrap items-start gap-3">
-                                <div class="self-center">
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        class="cursor-grab touch-none px-2 text-muted active:cursor-grabbing"
-                                        :aria-label="
-                                            $t('team.forms.actions.drag_field')
-                                        "
-                                        :disabled="form.processing"
-                                        data-field-drag-handle
-                                        @pointerdown="
-                                            startFieldDrag($event, field.key)
-                                        "
-                                        @pointermove="updateFieldDropIndex"
-                                        @pointerup="dropField"
-                                        @pointercancel="endFieldDrag"
-                                    >
-                                        <Icon
-                                            :name="['fas', 'grip-lines']"
-                                            fixed-width
-                                        />
-                                    </Button>
-                                </div>
-                                <div
-                                    class="grid min-w-64 flex-1 grid-cols-1 gap-3 md:grid-cols-2"
-                                >
-                                    <FormField
-                                        :label="
-                                            $t('team.forms.editor.field_label')
-                                        "
-                                    >
-                                        <template #default="{ id }">
-                                            <Input
-                                                :id="id"
-                                                v-model="field.label"
-                                                :disabled="isBuiltin(field)"
-                                            />
-                                        </template>
-                                    </FormField>
-                                    <FormField
-                                        :label="
-                                            $t('team.forms.editor.field_type')
-                                        "
-                                    >
-                                        <template #default="{ id }">
-                                            <Input
-                                                v-if="isBuiltin(field)"
-                                                :id="id"
-                                                :model-value="
-                                                    $t(
-                                                        `team.forms.field_type.${field.type}`,
-                                                    )
-                                                "
-                                                disabled
-                                            />
-                                            <CustomDropdown
-                                                v-else
-                                                :id="id"
-                                                v-model="field.type"
-                                                :items="typeItems"
-                                            />
-                                        </template>
-                                    </FormField>
-                                    <FormField
-                                        v-if="
-                                            !isBuiltin(field) &&
-                                            field.type === 'select'
-                                        "
-                                        class="md:col-span-2"
-                                        :label="$t('team.forms.editor.options')"
-                                        :hint="
-                                            $t('team.forms.editor.options_hint')
-                                        "
-                                    >
-                                        <template #default="{ id }">
-                                            <Textarea
-                                                :id="id"
-                                                v-model="field.optionsText"
-                                                :placeholder="
-                                                    field.options.join('\n')
-                                                "
-                                            />
-                                        </template>
-                                    </FormField>
-                                </div>
-                                <div class="flex items-center gap-3 pt-7">
-                                    <Checkbox
-                                        v-model="field.required"
-                                        :disabled="
-                                            ['name', 'email'].includes(
-                                                field.key,
-                                            )
-                                        "
-                                        :label="
-                                            $t('team.forms.editor.required')
-                                        "
-                                    />
-                                    <Button
-                                        v-if="!isBuiltin(field)"
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        :aria-label="
-                                            $t(
-                                                'team.forms.actions.remove_field',
-                                            )
-                                        "
-                                        @click="removeField(index)"
-                                    >
-                                        <Icon
-                                            :name="['fas', 'trash']"
-                                            size="sm"
-                                        />
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-                    </template>
-                    <div
-                        v-if="
-                            draggedFieldKey !== null &&
-                            activeDropIndex === form.fields.length
-                        "
-                        class="flex min-h-[64px] items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/10 text-sm font-medium text-primary"
-                    >
-                        {{ $t('team.forms.editor.drop_here') }}
                     </div>
-                </div>
-            </Card>
+                </Card>
+            </template>
         </form>
         <div
             class="fixed right-0 bottom-0 left-0 z-30 border-t border-line bg-ground/95 py-3 backdrop-blur lg:left-[var(--app-sidebar-width)]"

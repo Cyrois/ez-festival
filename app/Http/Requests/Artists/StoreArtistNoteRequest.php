@@ -8,7 +8,7 @@ class StoreArtistNoteRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->can('artists.edit') ?? false;
     }
 
     protected function prepareForValidation(): void

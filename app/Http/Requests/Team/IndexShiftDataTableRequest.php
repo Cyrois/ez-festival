@@ -10,7 +10,7 @@ class IndexShiftDataTableRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Gate::allows('view-team');
+        return Gate::allows('team.view');
     }
 
     /** @return array<string, mixed> */

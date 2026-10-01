@@ -58,96 +58,109 @@ const organizationName = computed(() => page.props.organization?.name ?? null);
 const currentPath = computed(() => page.url.split('?')[0]);
 const features = computed(() => page.props.features ?? {});
 
-const navItems = computed(() => [
-    {
-        key: 'home',
-        href: '/dashboard',
-        icon: ['fas', 'house'],
-        enabled: true,
-    },
-    {
-        key: 'check_in',
-        href: '/check-in',
-        icon: ['fas', 'clipboard-check'],
-        enabled: true,
-    },
-    {
-        key: 'artists',
-        href: '/artists/advancing',
-        icon: ['fas', 'music'],
-        enabled: true,
-    },
-    {
-        key: 'vendors',
-        href: '/vendors/advancing',
-        icon: ['fas', 'store'],
-        enabled: true,
-    },
-    {
-        key: 'patrons',
-        href: '/patrons',
-        icon: ['fas', 'address-book'],
-        enabled: features.value.patrons ?? true,
-    },
-    {
-        key: 'team',
-        href: '/team/advancement',
-        icon: ['fas', 'users'],
-        enabled: features.value.team ?? true,
-        children: [
-            {
-                key: 'team.advancement',
-                href: '/team/advancement',
-                icon: ['fas', 'list'],
-                enabled: true,
-            },
-            {
-                key: 'team.scheduling',
-                href: '/team/scheduling',
-                icon: ['fas', 'calendar-days'],
-                enabled: true,
-            },
-            {
-                key: 'team.forms',
-                href: '/team/forms',
-                icon: ['fas', 'clipboard-check'],
-                enabled: true,
-            },
-            {
-                key: 'team.configure',
-                href: '/team/configure',
-                icon: ['fas', 'gear'],
-                enabled: true,
-            },
-        ],
-    },
-    {
-        key: 'credentials',
-        href: '/credentials/passes',
-        icon: ['fas', 'id-card'],
-        enabled: true,
-        children: [
-            {
-                key: 'credentials.products',
-                href: null,
-                icon: ['fas', 'store'],
-                enabled: false,
-            },
-            {
-                key: 'credentials.passes',
-                href: '/credentials/passes',
-                icon: ['fas', 'id-card'],
-                enabled: true,
-            },
-            {
-                key: 'credentials.entitlements',
-                href: '/credentials/entitlements',
-                icon: ['fas', 'lock-open'],
-                enabled: true,
-            },
-        ],
-    },
-]);
+const navItems = computed(() =>
+    [
+        {
+            key: 'home',
+            href: '/dashboard',
+            icon: ['fas', 'house'],
+            enabled: true,
+        },
+        {
+            key: 'check_in',
+            href: '/check-in',
+            icon: ['fas', 'clipboard-check'],
+            enabled: true,
+        },
+        {
+            key: 'artists',
+            href: '/artists/advancing',
+            icon: ['fas', 'music'],
+            enabled: true,
+        },
+        {
+            key: 'vendors',
+            href: '/vendors/advancing',
+            icon: ['fas', 'store'],
+            enabled: true,
+        },
+        {
+            key: 'patrons',
+            href: '/patrons',
+            icon: ['fas', 'address-book'],
+            enabled: features.value.patrons ?? true,
+        },
+        {
+            key: 'team',
+            href: '/team/advancement',
+            icon: ['fas', 'users'],
+            enabled: features.value.team ?? true,
+            children: [
+                {
+                    key: 'team.advancement',
+                    href: '/team/advancement',
+                    icon: ['fas', 'list'],
+                    enabled: true,
+                },
+                {
+                    key: 'team.scheduling',
+                    href: '/team/scheduling',
+                    icon: ['fas', 'calendar-days'],
+                    enabled: true,
+                },
+                {
+                    key: 'team.forms',
+                    href: '/team/forms',
+                    icon: ['fas', 'clipboard-check'],
+                    enabled: true,
+                },
+                {
+                    key: 'team.configure',
+                    href: '/team/configure',
+                    icon: ['fas', 'gear'],
+                    enabled: true,
+                },
+            ],
+        },
+        {
+            key: 'credentials',
+            href: '/credentials/passes',
+            icon: ['fas', 'id-card'],
+            enabled: true,
+            children: [
+                {
+                    key: 'credentials.products',
+                    href: null,
+                    icon: ['fas', 'store'],
+                    enabled: false,
+                },
+                {
+                    key: 'credentials.passes',
+                    href: '/credentials/passes',
+                    icon: ['fas', 'id-card'],
+                    enabled: true,
+                },
+                {
+                    key: 'credentials.entitlements',
+                    href: '/credentials/entitlements',
+                    icon: ['fas', 'lock-open'],
+                    enabled: true,
+                },
+            ],
+        },
+    ].filter((item) => {
+        const permission = {
+            artists: 'artists.view',
+            vendors: 'vendors.view',
+            check_in: 'checkin.view',
+            team: 'team.view',
+            patrons: 'patrons.view',
+        }[item.key];
+        return item.key === 'credentials'
+            ? user.value?.is_admin
+            : !permission || page.props.permissions?.[permission];
+    }),
+);
 
 const settingsActive = computed(
     () =>
@@ -409,6 +422,7 @@ const railClass = computed(() => {
                     </SidebarNavItem>
                 </template>
                 <SidebarNavItem
+                    v-if="user?.is_admin"
                     href="/settings/events"
                     :active="settingsActive"
                     :icon="['fas', 'gear']"

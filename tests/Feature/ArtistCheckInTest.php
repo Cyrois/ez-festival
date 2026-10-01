@@ -76,7 +76,8 @@ class ArtistCheckInTest extends TestCase
         $this->heldEntitlement($event, 'Amber Field', 'Jordan Blake', 'Guest pass');
         [, $vendorPerson] = $this->heldVendorEntitlement($event, 'Cedar Craft Co', 'Priya Nair');
 
-        Gate::define('manage-artists', fn (): bool => false);
+        $this->grantRoleAccess($user);
+        Gate::define('checkin.edit', fn (): bool => false);
 
         $this->actingAs($user)->get(route('check-in.index', [
             'type' => 'artist',
@@ -327,11 +328,13 @@ class ArtistCheckInTest extends TestCase
         [$engagement, , $expected] = $this->heldEntitlement($event, 'River Hollow');
         $location = $event->locations()->create(['name' => 'Main stage']);
 
-        Gate::define('view-artists', fn (): bool => false);
+        $this->grantRoleAccess($user);
+        Gate::define('checkin.view', fn (): bool => false);
         $this->actingAs($user)->get(route('check-in.index'))->assertForbidden();
         $this->get(route('check-in.show', $engagement))->assertForbidden();
 
-        Gate::define('manage-artists', fn (): bool => false);
+        $this->grantRoleAccess($user);
+        Gate::define('checkin.edit', fn (): bool => false);
         $this->post(route('check-in.issues.store', $expected), [
             'location_id' => $location->id,
         ])->assertForbidden();

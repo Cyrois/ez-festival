@@ -15,7 +15,7 @@ class PassAssignmentResource extends JsonResource
             'pass_name' => $this->whenLoaded('passType', fn (): string => $this->passType->name),
             'person' => $this->whenLoaded('person', fn (): ?array => $this->person === null
                 ? null
-                : (new PersonResource($this->person))->resolve()),
+                : (new PersonResource($this->person, $this->artist_engagement_id !== null ? 'artists' : ($this->vendor_engagement_id !== null ? 'vendors' : 'team'), $this->passType->event))->resolve()),
         ];
     }
 }

@@ -12,6 +12,7 @@ use App\Http\Controllers\Auth\TemporaryPasswordController;
 use App\Http\Controllers\Credentials\EntitlementItemController;
 use App\Http\Controllers\Credentials\PassTypeController;
 use App\Http\Controllers\Credentials\ProductsController;
+use App\Http\Controllers\CurrentEventController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\PassAssignmentController;
@@ -49,6 +50,7 @@ use App\Http\Controllers\VendorController;
 use App\Http\Controllers\VendorEngagementPersonController;
 use App\Models\ExpectedEntitlement;
 use App\Support\PostLoginRedirect;
+use App\Support\RoutePermissions;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -212,6 +214,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             ->middleware('event.writable')->name('pass-assignments.destroy');
 
         Route::get('events', [EventController::class, 'index'])->name('events.index');
+        Route::put('events/{event}/current', [CurrentEventController::class, 'update'])->name('events.current.update');
         Route::get('events/{event}', [EventController::class, 'show'])->name('events.show');
         Route::post('events/{event}/lock', [EventController::class, 'lock'])->name('events.lock');
         Route::post('events/{event}/unlock', [EventController::class, 'unlock'])->name('events.unlock');
@@ -227,6 +230,8 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::delete('artist-types/{artistType}', [SettingsArtistTypeController::class, 'destroy'])->name('artist-types.destroy');
             Route::post('artist-types/reorder', [SettingsArtistTypeController::class, 'reorder'])->name('artist-types.reorder');
             Route::get('roles', [RoleController::class, 'index'])->name('roles');
+            Route::get('roles/create', [RoleController::class, 'create'])->name('roles.create');
+            Route::get('roles/{role}/edit', [RoleController::class, 'edit'])->name('roles.edit');
             Route::get('roles/data', [RoleController::class, 'dataTable'])->name('roles.data');
             Route::post('roles', [RoleController::class, 'store'])->name('roles.store');
             Route::put('roles/{role}', [RoleController::class, 'update'])->name('roles.update');
@@ -305,3 +310,14 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::post('ready', [ReadyController::class, 'complete'])->name('ready.complete');
     });
 });
+
+// Explicit declarations keep newly added routes visible to the route coverage test.
+foreach (Route::getRoutes() as $route) {
+    $ability = RoutePermissions::ABILITIES[$route->getName()] ?? null;
+    if ($ability !== null) {
+        $route->middleware('can:'.$ability);
+    }
+    if (str_starts_with($route->uri(), 'setup/')) {
+        $route->middleware('can:admin');
+    }
+}

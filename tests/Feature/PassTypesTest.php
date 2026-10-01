@@ -216,6 +216,7 @@ class PassTypesTest extends TestCase
         [$user, $event] = $this->createEventContext();
         $passType = $event->passTypes()->create(['name' => 'Artist']);
 
+        $this->grantRoleAccess($user);
         Gate::define('manage-credentials', fn (): bool => false);
 
         $this->actingAs($user)

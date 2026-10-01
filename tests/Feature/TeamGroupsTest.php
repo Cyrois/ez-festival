@@ -202,7 +202,8 @@ class TeamGroupsTest extends TestCase
     public function test_group_mutations_require_the_manage_team_permission(): void
     {
         [$user, $event] = $this->userWithCompletedSetup();
-        Gate::define('manage-team', fn (): bool => false);
+        $this->grantRoleAccess($user);
+        Gate::define('team.edit', fn (): bool => false);
 
         $this->actingAs($user)->post(route('team.groups.store', $event), [
             'name' => 'Parking',

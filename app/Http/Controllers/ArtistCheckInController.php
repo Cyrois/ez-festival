@@ -33,7 +33,7 @@ class ArtistCheckInController extends Controller
         $status = $filters['status'] ?? 'all';
         $passId = isset($filters['pass']) ? (int) $filters['pass'] : null;
         $search = trim($filters['search'] ?? '');
-        $canEdit = Gate::allows('manage-artists');
+        $canEdit = Gate::allows('artists.edit') || Gate::allows('vendors.edit');
 
         $people = in_array($type, ['all', 'artist', 'vendor'], true)
             ? $this->artistCheckInPeople->paginate($event->id, $passId, $search, $status, $type, $canEdit)
@@ -81,7 +81,7 @@ class ArtistCheckInController extends Controller
         return Inertia::render('CheckIn/Show', [
             'engagement' => (new ArtistCheckInShowResource($engagement))->resolve(),
             'event' => $event->only('id', 'name', 'locked', 'timezone'),
-            'canWrite' => ! $event->isLocked(),
+            'canWrite' => ! $event->isLocked() && Gate::allows('checkin.edit', $event),
             'selectedPersonId' => $engagement->people->contains('id', $requestedPersonId)
                 ? $requestedPersonId
                 : null,

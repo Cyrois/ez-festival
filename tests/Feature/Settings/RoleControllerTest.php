@@ -40,7 +40,8 @@ class RoleControllerTest extends TestCase
         $this->assertTrue(Schema::hasTable('roles'));
         $this->assertFalse(Schema::hasColumn('roles', 'organization_id'));
         $this->assertFalse(Schema::hasColumn('roles', 'event_id'));
-        $this->assertTrue(Schema::hasColumn('roles', 'can_read_team_notes'));
+        $this->assertFalse(Schema::hasColumn('roles', 'can_read_team_notes'));
+        $this->assertTrue(Schema::hasColumn('roles', 'permissions'));
     }
 
     public function test_roles_list_starts_on_the_on_filter(): void
@@ -183,21 +184,11 @@ class RoleControllerTest extends TestCase
         );
     }
 
-    public function test_staff_can_add_a_role_with_no_permissions(): void
+    public function test_role_with_no_permissions_is_refused(): void
     {
         $user = $this->userWithCompletedSetup();
-
-        $this->actingAs($user)
-            ->post(route('settings.roles.store'), ['name' => 'Stage manager'])
-            ->assertRedirect()
-            ->assertSessionHasNoErrors();
-
-        $this->assertDatabaseHas('roles', [
-            'name' => 'Stage manager',
-            'name_key' => 'stage manager',
-            'active' => true,
-            'can_read_team_notes' => false,
-        ]);
+        $this->actingAs($user)->post(route('settings.roles.store'), ['name' => 'Empty', 'permissions' => []])->assertSessionHasErrors('permissions');
+        $this->assertDatabaseMissing('roles', ['name' => 'Empty']);
     }
 
     public function test_admin_can_create_and_update_the_team_notes_permission(): void
@@ -207,32 +198,32 @@ class RoleControllerTest extends TestCase
         $this->actingAs($user)
             ->post(route('settings.roles.store'), [
                 'name' => 'Team manager',
-                'can_read_team_notes' => true,
+                'permissions' => ['team.notes.read'],
             ])
             ->assertSessionHasNoErrors();
 
         $role = Role::query()->where('name', 'Team manager')->sole();
-        $this->assertTrue($role->can_read_team_notes);
+        $this->assertContains('team.notes.read', $role->permissions);
 
         $this->put(route('settings.roles.update', $role), [
             'name' => 'Team lead',
-            'can_read_team_notes' => false,
+            'permissions' => ['team.view'],
         ])->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('roles', [
             'id' => $role->id,
             'name' => 'Team lead',
-            'can_read_team_notes' => false,
         ]);
+        $this->assertSame(['team.view'], $role->fresh()->permissions);
     }
 
-    public function test_non_admin_can_view_roles_but_cannot_create_edit_or_toggle_them(): void
+    public function test_non_admin_cannot_view_create_edit_or_toggle_roles(): void
     {
         $user = $this->userWithCompletedSetup();
         $accessRole = Role::query()->create(['name' => 'Access']);
         $protectedRole = Role::query()->create([
             'name' => 'Protected',
-            'can_read_team_notes' => false,
+            'permissions' => ['team.view'],
         ]);
         $user->forceFill(['is_admin' => false])->save();
         $user->person()->update(['can_log_in' => true]);
@@ -244,16 +235,16 @@ class RoleControllerTest extends TestCase
             'employment_type' => 'volunteer',
         ]);
 
-        $this->actingAs($user)->get(route('settings.roles'))->assertInertia(
-            fn (Assert $page) => $page->where('canManageRoles', false),
-        );
+        $this->actingAs($user)->get(route('settings.roles'))->assertForbidden();
+        $this->get(route('settings.roles.create'))->assertForbidden();
+        $this->get(route('settings.roles.edit', $protectedRole))->assertForbidden();
         $this->post(route('settings.roles.store'), [
             'name' => 'Not allowed',
-            'can_read_team_notes' => true,
+            'permissions' => ['team.notes.read'],
         ])->assertForbidden();
         $this->put(route('settings.roles.update', $protectedRole), [
             'name' => 'Changed',
-            'can_read_team_notes' => true,
+            'permissions' => ['team.notes.read'],
         ])->assertForbidden();
         $this->put(route('settings.roles.status.update', $protectedRole), [
             'active' => false,
@@ -261,7 +252,7 @@ class RoleControllerTest extends TestCase
 
         $protectedRole->refresh();
         $this->assertSame('Protected', $protectedRole->name);
-        $this->assertFalse($protectedRole->can_read_team_notes);
+        $this->assertNotContains('team.notes.read', $protectedRole->permissions);
         $this->assertTrue($protectedRole->active);
         $this->assertDatabaseMissing('roles', ['name' => 'Not allowed']);
     }
@@ -271,7 +262,7 @@ class RoleControllerTest extends TestCase
         $user = $this->userWithCompletedSetup();
 
         $this->actingAs($user)
-            ->post(route('settings.roles.store'), ['name' => "  Stage \t  Manager  "])
+            ->post(route('settings.roles.store'), ['name' => "  Stage \t  Manager  ", 'permissions' => ['team.view']])
             ->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('roles', ['name' => 'Stage Manager', 'name_key' => 'stage manager']);
@@ -283,7 +274,7 @@ class RoleControllerTest extends TestCase
 
         foreach (['', '     ', "\u{00A0}\u{00A0}"] as $name) {
             $this->actingAs($user)
-                ->post(route('settings.roles.store'), ['name' => $name])
+                ->post(route('settings.roles.store'), ['name' => $name, 'permissions' => ['team.view']])
                 ->assertSessionHasErrors(['name' => __('settings.roles.validation.name_required')]);
         }
 
@@ -296,7 +287,7 @@ class RoleControllerTest extends TestCase
         Role::query()->create(['name' => 'Stage Manager']);
 
         $this->actingAs($user)
-            ->post(route('settings.roles.store'), ['name' => 'stage manager'])
+            ->post(route('settings.roles.store'), ['name' => 'stage manager', 'permissions' => ['team.view']])
             ->assertSessionHasErrors([
                 'name' => __('settings.roles.validation.name_taken'),
                 'name_match' => 'Stage Manager',
@@ -311,7 +302,7 @@ class RoleControllerTest extends TestCase
         Role::query()->create(['name' => 'Stage Manager']);
 
         $this->actingAs($user)
-            ->post(route('settings.roles.store'), ['name' => ' Stage   Manager '])
+            ->post(route('settings.roles.store'), ['name' => ' Stage   Manager ', 'permissions' => ['team.view']])
             ->assertSessionHasErrors(['name' => __('settings.roles.validation.name_taken')]);
 
         $this->assertDatabaseCount('roles', 1);
@@ -323,7 +314,7 @@ class RoleControllerTest extends TestCase
         Role::query()->create(['name' => 'Cafe']);
 
         $this->actingAs($user)
-            ->post(route('settings.roles.store'), ['name' => 'Café'])
+            ->post(route('settings.roles.store'), ['name' => 'Café', 'permissions' => ['team.view']])
             ->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('roles', ['name' => 'Café', 'name_key' => 'café']);
@@ -337,11 +328,11 @@ class RoleControllerTest extends TestCase
         $other = Role::query()->create(['name' => 'Bartender']);
 
         $this->actingAs($user)
-            ->post(route('settings.roles.store'), ['name' => 'stage manager'])
+            ->post(route('settings.roles.store'), ['name' => 'stage manager', 'permissions' => ['team.view']])
             ->assertSessionHasErrors(['name' => __('settings.roles.validation.name_taken')]);
 
         $this->actingAs($user)
-            ->put(route('settings.roles.update', $other), ['name' => 'STAGE MANAGER'])
+            ->put(route('settings.roles.update', $other), ['name' => 'STAGE MANAGER', 'permissions' => ['team.view']])
             ->assertSessionHasErrors(['name' => __('settings.roles.validation.name_taken')]);
 
         $this->assertSame('Bartender', $other->fresh()->name);
@@ -353,7 +344,7 @@ class RoleControllerTest extends TestCase
         $role = Role::query()->create(['name' => 'Volunteer lead']);
 
         $this->actingAs($user)
-            ->put(route('settings.roles.update', $role), ['name' => 'Volunteer  coordinator '])
+            ->put(route('settings.roles.update', $role), ['name' => 'Volunteer  coordinator ', 'permissions' => ['team.view']])
             ->assertRedirect()
             ->assertSessionHasNoErrors();
 
@@ -367,7 +358,7 @@ class RoleControllerTest extends TestCase
         $role = Role::query()->create(['name' => 'volunteer lead']);
 
         $this->actingAs($user)
-            ->put(route('settings.roles.update', $role), ['name' => 'Volunteer Lead'])
+            ->put(route('settings.roles.update', $role), ['name' => 'Volunteer Lead', 'permissions' => ['team.view']])
             ->assertSessionHasNoErrors();
 
         $this->assertSame('Volunteer Lead', $role->fresh()->name);
@@ -380,7 +371,7 @@ class RoleControllerTest extends TestCase
         $role = Role::query()->create(['name' => 'Volunteer lead']);
 
         $this->actingAs($user)
-            ->put(route('settings.roles.update', $role), ['name' => ' staff '])
+            ->put(route('settings.roles.update', $role), ['name' => ' staff ', 'permissions' => ['team.view']])
             ->assertSessionHasErrors([
                 'name' => __('settings.roles.validation.name_taken'),
                 'name_match' => 'Staff',
@@ -395,7 +386,7 @@ class RoleControllerTest extends TestCase
         $role = Role::query()->create(['name' => 'Volunteer lead']);
 
         $this->actingAs($user)
-            ->put(route('settings.roles.update', $role), ['name' => '   '])
+            ->put(route('settings.roles.update', $role), ['name' => '   ', 'permissions' => ['team.view']])
             ->assertSessionHasErrors('name');
 
         $this->assertSame('Volunteer lead', $role->fresh()->name);
@@ -476,7 +467,7 @@ class RoleControllerTest extends TestCase
         Role::query()->create(['name' => 'Stage Manager']);
 
         try {
-            app(RoleService::class)->create('STAGE MANAGER');
+            app(RoleService::class)->create('STAGE MANAGER', ['team.view']);
             $this->fail('Expected a validation error.');
         } catch (ValidationException $exception) {
             $this->assertSame(
@@ -505,7 +496,7 @@ class RoleControllerTest extends TestCase
         Role::query()->create(['name' => 'Stage Manager']);
 
         try {
-            DB::transaction(fn () => app(RoleService::class)->create('STAGE MANAGER'));
+            DB::transaction(fn () => app(RoleService::class)->create('STAGE MANAGER', ['team.view']));
             $this->fail('Expected a validation error.');
         } catch (ValidationException $exception) {
             $this->assertSame(
@@ -523,7 +514,7 @@ class RoleControllerTest extends TestCase
 
         foreach (["Staff\u{200B}", "\u{FEFF}Staff", "St\u{200C}a\u{200D}ff", "Staff\u{2060}", "Sta\u{00AD}ff"] as $name) {
             $this->actingAs($user)
-                ->post(route('settings.roles.store'), ['name' => $name])
+                ->post(route('settings.roles.store'), ['name' => $name, 'permissions' => ['team.view']])
                 ->assertSessionHasErrors(['name' => __('settings.roles.validation.name_taken')]);
         }
 
@@ -536,11 +527,11 @@ class RoleControllerTest extends TestCase
         $role = Role::query()->create(['name' => 'Volunteer lead']);
 
         $this->actingAs($user)
-            ->post(route('settings.roles.store'), ['name' => "\u{200B}Stage\u{2060} \u{FEFF}manager\u{200D}"])
+            ->post(route('settings.roles.store'), ['name' => "\u{200B}Stage\u{2060} \u{FEFF}manager\u{200D}", 'permissions' => ['team.view']])
             ->assertSessionHasNoErrors();
 
         $this->actingAs($user)
-            ->put(route('settings.roles.update', $role), ['name' => "Volunteer\u{200B} coordinator"])
+            ->put(route('settings.roles.update', $role), ['name' => "Volunteer\u{200B} coordinator", 'permissions' => ['team.view']])
             ->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('roles', ['name' => 'Stage manager', 'name_key' => 'stage manager']);
@@ -552,7 +543,7 @@ class RoleControllerTest extends TestCase
         $user = $this->userWithCompletedSetup();
 
         $this->actingAs($user)
-            ->post(route('settings.roles.store'), ['name' => "\u{200B}\u{FEFF}\u{2060}"])
+            ->post(route('settings.roles.store'), ['name' => "\u{200B}\u{FEFF}\u{2060}", 'permissions' => ['team.view']])
             ->assertSessionHasErrors(['name' => __('settings.roles.validation.name_required')]);
 
         $this->assertDatabaseCount('roles', 0);

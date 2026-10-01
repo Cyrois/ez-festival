@@ -10,7 +10,6 @@ import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
 import { IconButton } from '../../components/ui/icon-button';
 import { Input } from '../../components/ui/input';
-import { Select } from '../../components/ui/select';
 import { Textarea } from '../../components/ui/textarea';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { toastFormErrors } from '../../lib/fieldError';
@@ -69,6 +68,8 @@ const passItems = computed(() =>
     props.passes.map((pass) => ({
         value: pass.id,
         title: pass.name,
+        description: pass.full ? trans('permissions.pass_full') : '',
+        disabled: pass.full,
     })),
 );
 const contactItems = computed(() => [
@@ -100,9 +101,9 @@ const stageNote = () => {
     }
 };
 const addPass = () => {
-    if (props.passes[0])
+    if (props.passes.find((pass) => !pass.full))
         form.pass_assignments.push({
-            pass_type_id: props.passes[0].id,
+            pass_type_id: props.passes.find((pass) => !pass.full).id,
             person_id: null,
         });
 };
@@ -140,7 +141,7 @@ const noteTime = (iso) =>
                 {{ $t('vendors.view_lead', { name: event.name }) }}
             </p>
             <p
-                v-if="readOnly"
+                v-if="event.locked"
                 class="mb-4 flex items-center gap-2 rounded-lg border border-warning/20 bg-warning/10 p-3 text-sm text-charcoal"
             >
                 <Icon :name="['fas', 'lock']" />{{ $t('vendors.view_locked') }}
@@ -157,7 +158,44 @@ const noteTime = (iso) =>
                         <p class="mt-1 mb-4 text-xs text-muted">
                             {{ $t('vendors.details_hint') }}
                         </p>
-                        <div class="space-y-4">
+                        <dl
+                            v-if="readOnly"
+                            class="space-y-4"
+                        >
+                            <div>
+                                <dt class="text-sm text-muted">
+                                    {{ $t('vendors.name') }}
+                                </dt>
+                                <dd class="mt-1">{{ engagement.name }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm text-muted">
+                                    {{ $t('vendors.columns.status') }}
+                                </dt>
+                                <dd class="mt-1">
+                                    {{
+                                        $t(
+                                            `vendors.status.${engagement.status}`,
+                                        )
+                                    }}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm text-muted">
+                                    {{ $t('vendors.columns.type') }}
+                                </dt>
+                                <dd class="mt-1">
+                                    {{
+                                        engagement.type ||
+                                        $t('vendors.type_optional')
+                                    }}
+                                </dd>
+                            </div>
+                        </dl>
+                        <div
+                            v-else
+                            class="space-y-4"
+                        >
                             <FormField
                                 v-slot="{ id, invalid }"
                                 :label="$t('vendors.name')"
@@ -232,8 +270,11 @@ const noteTime = (iso) =>
                             :label="field.label"
                             :error="form.errors[`custom_fields.${field.id}`]"
                             :required="field.required"
+                            ><span v-if="readOnly">{{
+                                form.custom_fields[field.id]
+                            }}</span
                             ><Checkbox
-                                v-if="field.type === 'checkbox'"
+                                v-else-if="field.type === 'checkbox'"
                                 :id="id"
                                 v-model="form.custom_fields[field.id]"
                                 :disabled="readOnly" /><Textarea
@@ -298,12 +339,26 @@ const noteTime = (iso) =>
                             :key="assignment.id ?? `new-${index}`"
                             class="grid items-center gap-2 rounded-lg border border-line p-3 sm:grid-cols-[1fr_1fr_auto]"
                         >
+                            <span v-if="readOnly">{{
+                                passes.find(
+                                    (pass) =>
+                                        pass.id === assignment.pass_type_id,
+                                )?.name
+                            }}</span>
                             <CustomDropdown
+                                v-else
                                 v-model="assignment.pass_type_id"
                                 :items="passItems"
                                 :disabled="readOnly"
                             />
+                            <span v-if="readOnly">{{
+                                engagement.people.find(
+                                    (person) =>
+                                        person.id === assignment.person_id,
+                                )?.name
+                            }}</span>
                             <CustomDropdown
+                                v-else
                                 v-model="assignment.person_id"
                                 :items="contactItems"
                                 :disabled="readOnly"

@@ -80,10 +80,12 @@ const formatDateTime = (value) =>
                     </p>
                 </div>
                 <Button
-                    v-if="canWrite"
+                    :title="
+                        !canWrite ? $t('permissions.no_add.shifts') : undefined
+                    "
                     href="/team/shifts/create"
                     class="w-full sm:w-auto"
-                    :disabled="locations.length === 0"
+                    :disabled="!canWrite || locations.length === 0"
                 >
                     <Icon
                         :name="['fas', 'plus']"

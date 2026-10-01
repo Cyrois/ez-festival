@@ -2,20 +2,16 @@
 import SettingsLayout from '../../layouts/SettingsLayout.vue';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
-import { Checkbox } from '../../components/ui/checkbox';
 import { DataTable } from '../../components/ui/data-table';
 import { Dialog } from '../../components/ui/dialog';
-import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
 import { IconButton } from '../../components/ui/icon-button';
 import { Input } from '../../components/ui/input';
 import { SegmentedControl } from '../../components/ui/segmented-control';
 import { emphasisParts } from '../../lib/emphasisParts';
-import { fieldError } from '../../lib/fieldError';
 import { roleColumns } from './roleColumns';
-import { roleMatchHint } from './roleMatchHint';
 import { ROLE_STATUSES, rolesQuery } from './rolesFilters';
-import { router, useForm } from '@inertiajs/vue3';
+import { router } from '@inertiajs/vue3';
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import { trans, transChoice } from 'laravel-vue-i18n';
 
@@ -70,7 +66,7 @@ const dataTableOptions = computed(() => ({
         topStart: null,
         topEnd: null,
     },
-    columnDefs: [{ targets: 3, className: 'text-right' }],
+    columnDefs: [{ targets: 2, className: 'text-right' }],
     createdRow: (row, role) => {
         if (!props.canManageRoles) {
             return;
@@ -132,84 +128,8 @@ watch(
 
 onUnmounted(() => window.clearTimeout(searchTimer));
 
-// Add / rename dialog.
-const editing = ref(null);
-const formOpen = ref(false);
-const form = useForm({ name: '', can_read_team_notes: false });
-
-const isRename = computed(() => editing.value !== null);
-const formTitle = computed(() =>
-    isRename.value
-        ? trans('settings.roles.form.edit_title', {
-              name: editing.value.name,
-          })
-        : trans('settings.roles.form.add_title'),
-);
-// Name as last sent to the server, so the "matches" hint never follows later typing.
-const submittedName = ref(null);
-const matchParts = computed(() => {
-    const hint = roleMatchHint({
-        match: form.errors.name_match,
-        submitted: submittedName.value,
-        current: form.name,
-    });
-
-    return hint
-        ? emphasisParts(trans, 'settings.roles.form.match_hint', hint)
-        : [];
-});
-
-const focusName = async () => {
-    await nextTick();
-    document.getElementById('role-name')?.focus();
-};
-
-const openAdd = () => {
-    editing.value = null;
-    form.reset();
-    form.can_read_team_notes = false;
-    form.clearErrors();
-    formOpen.value = true;
-    focusName();
-};
-
-const openRename = (role) => {
-    editing.value = role;
-    form.name = role.name;
-    form.can_read_team_notes = role.can_read_team_notes;
-    form.clearErrors();
-    formOpen.value = true;
-    focusName();
-};
-
-const closeForm = () => {
-    formOpen.value = false;
-    editing.value = null;
-    submittedName.value = null;
-    form.reset();
-    form.clearErrors();
-};
-
-const submitForm = () => {
-    const options = {
-        preserveScroll: true,
-        onSuccess: async () => {
-            closeForm();
-            await nextTick();
-            table.value?.reload(false);
-        },
-    };
-
-    form.clearErrors();
-    submittedName.value = form.name;
-
-    if (isRename.value) {
-        form.put(`/settings/roles/${editing.value.id}`, options);
-        return;
-    }
-
-    form.post('/settings/roles', options);
-};
+const openAdd = () => router.visit('/settings/roles/create');
+const openRename = (role) => router.visit(`/settings/roles/${role.id}/edit`);
 
 // Turn off (asks first) / turn on.
 const turningOff = ref(null);
@@ -336,19 +256,7 @@ const confirmTurnOff = () => {
                     <div class="mt-0.5 text-sm text-muted">
                         {{ peopleLabel(role.people_count) }}
                     </div>
-                    <div
-                        class="mt-2 flex items-center gap-2 text-sm text-muted"
-                    >
-                        <Icon
-                            :name="
-                                role.can_read_team_notes
-                                    ? ['fas', 'check']
-                                    : ['fas', 'minus']
-                            "
-                            size="sm"
-                        />
-                        {{ $t('settings.roles.columns.team_notes') }}
-                    </div>
+
                     <div
                         v-if="canManageRoles"
                         class="mt-4 flex flex-wrap justify-end gap-2"
@@ -438,27 +346,6 @@ const confirmTurnOff = () => {
                         <span :class="!rowData.active && 'text-muted'">
                             {{ peopleLabel(rowData.people_count) }}
                         </span>
-                    </template>
-                    <template #teamNotesCell="{ rowData }">
-                        <Icon
-                            :name="
-                                rowData.can_read_team_notes
-                                    ? ['fas', 'check']
-                                    : ['fas', 'minus']
-                            "
-                            :class="
-                                rowData.can_read_team_notes
-                                    ? 'text-success'
-                                    : 'text-muted'
-                            "
-                            :aria-label="
-                                $t(
-                                    rowData.can_read_team_notes
-                                        ? 'settings.roles.permissions.enabled'
-                                        : 'settings.roles.permissions.disabled',
-                                )
-                            "
-                        />
                     </template>
                     <template #actionsCell="{ rowData }">
                         <div
@@ -551,99 +438,6 @@ const confirmTurnOff = () => {
                 </p>
             </div>
         </div>
-
-        <Dialog
-            :open="formOpen"
-            :title="formTitle"
-            :confirm-label="
-                isRename
-                    ? $t('settings.roles.form.save')
-                    : $t('settings.roles.form.submit_add')
-            "
-            :cancel-label="$t('settings.roles.form.cancel')"
-            confirm-variant="primary"
-            cancel-variant="outline-primary"
-            :busy="form.processing"
-            sectioned
-            @update:open="(open) => !open && closeForm()"
-            @confirm="submitForm"
-        >
-            <form
-                class="flex flex-col gap-1.5"
-                @submit.prevent="submitForm"
-            >
-                <FormField
-                    :label="$t('settings.roles.form.name')"
-                    :error="fieldError(form, 'name')"
-                    html-for="role-name"
-                    required
-                >
-                    <template #default="{ id, invalid }">
-                        <Input
-                            :id="id"
-                            v-model="form.name"
-                            type="text"
-                            :invalid="invalid"
-                            maxlength="255"
-                            autocomplete="off"
-                        />
-                    </template>
-                </FormField>
-                <p class="m-0 text-xs leading-snug text-muted">
-                    {{ $t('settings.roles.form.unique_hint') }}
-                    <template v-if="matchParts.length">
-                        <template
-                            v-for="(part, index) in matchParts"
-                            :key="index"
-                        >
-                            <code
-                                v-if="part.emphasis"
-                                class="rounded border border-line bg-page px-1 font-mono text-[11px] whitespace-pre text-charcoal"
-                                >{{ part.text }}</code
-                            >
-                            <template v-else>{{ part.text }}</template>
-                        </template>
-                    </template>
-                    <template v-else-if="!isRename">
-                        {{ $t('settings.roles.form.new_hint') }}
-                    </template>
-                </p>
-                <p
-                    v-if="isRename"
-                    class="mt-2 mb-0 text-xs leading-snug text-muted"
-                >
-                    {{
-                        $t('settings.roles.form.rename_keeps', {
-                            people: peopleLabel(editing.people_count),
-                        })
-                    }}
-                </p>
-                <div class="mt-4 border-t border-line pt-4">
-                    <h3 class="m-0 text-sm font-bold text-charcoal">
-                        {{ $t('settings.roles.permissions.title') }}
-                    </h3>
-                    <Checkbox
-                        v-model="form.can_read_team_notes"
-                        class="mt-3"
-                    >
-                        <span class="font-semibold">
-                            {{
-                                $t(
-                                    'settings.roles.permissions.can_read_team_notes',
-                                )
-                            }}
-                        </span>
-                    </Checkbox>
-                    <p class="mt-1 mb-0 pl-6 text-xs leading-snug text-muted">
-                        {{
-                            $t(
-                                'settings.roles.permissions.can_read_team_notes_help',
-                            )
-                        }}
-                    </p>
-                </div>
-            </form>
-        </Dialog>
 
         <Dialog
             :open="turningOff !== null"

@@ -121,6 +121,20 @@ class User extends Authenticatable
 
     public function effectiveEvent(): ?Event
     {
+        $request = app(Request::class);
+        if ($request->route() === null) {
+            return $this->resolveEffectiveEvent();
+        }
+        $key = 'effective_event_'.$this->id;
+        if (! $request->attributes->has($key)) {
+            $request->attributes->set($key, $this->resolveEffectiveEvent());
+        }
+
+        return $request->attributes->get($key);
+    }
+
+    private function resolveEffectiveEvent(): ?Event
+    {
         $currentEventId = $this->accessIdentity()?->current_event_id;
         $defaultEventId = app(OrganizationContext::class)->defaultEvent()?->getKey();
 

@@ -10,7 +10,7 @@ class StoreGroupRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Gate::allows('manage-team');
+        return Gate::allows('team.edit');
     }
 
     /**

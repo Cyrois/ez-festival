@@ -16,14 +16,6 @@ export const roleColumns = (trans) => [
         title: trans('settings.roles.columns.people'),
     },
     {
-        data: 'can_read_team_notes',
-        name: 'team_notes',
-        orderable: false,
-        render: { display: '#teamNotesCell' },
-        searchable: false,
-        title: trans('settings.roles.columns.team_notes'),
-    },
-    {
         data: null,
         defaultContent: '',
         name: 'actions',

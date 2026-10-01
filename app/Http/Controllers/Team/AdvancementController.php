@@ -38,7 +38,7 @@ class AdvancementController extends Controller
                 'view' => $view,
             ],
             'event' => $event?->only('id', 'name', 'locked'),
-            'canWrite' => $event !== null && ! $event->isLocked() && Gate::allows('manage-team'),
+            'canWrite' => $event !== null && ! $event->isLocked() && Gate::allows('team.edit'),
         ]);
     }
 }
