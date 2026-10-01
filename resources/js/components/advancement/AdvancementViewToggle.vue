@@ -27,6 +27,7 @@ const options = computed(() => [
         :model-value="modelValue"
         :options="options"
         :aria-label="$t('advancement.views.mode')"
+        variant="joined"
         @update:model-value="emit('update:modelValue', $event)"
     />
 </template>

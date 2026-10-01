@@ -6,6 +6,7 @@ import { Avatar } from '../../components/ui/avatar';
 import { Badge } from '../../components/ui/badge';
 import { Board } from '../../components/ui/board';
 import { Button } from '../../components/ui/button';
+import { DataTable } from '../../components/ui/data-table';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
@@ -13,17 +14,11 @@ import { LabelCombobox } from '../../components/ui/label-combobox';
 import { Tag } from '../../components/ui/tag';
 import { useAdvancementBoard } from '../../composables/useAdvancementBoard';
 import { engagementStatusPresentation } from '../../lib/engagementStatusPresentation';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '../../components/ui/table';
+import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
 import { Link } from '@inertiajs/vue3';
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+import { artistColumns } from './artistColumns';
 
 const props = defineProps({
     engagements: { type: Object, required: true },
@@ -49,6 +44,33 @@ const statusVariant = {
     confirmed: 'success',
     declined: 'danger',
 };
+const listColumns = computed(() => artistColumns(trans));
+const listOptions = computed(() => ({
+    searching: false,
+    ordering: false,
+    paging: false,
+    info: false,
+    layout: {
+        topStart: null,
+        topEnd: null,
+        bottomStart: null,
+        bottomEnd: null,
+    },
+    columnDefs: [{ targets: 5, className: 'text-right' }],
+    createdRow: (row, engagement) =>
+        navigateDataTableRow(
+            row,
+            engagement,
+            (item) => `/artists/engagements/${item.id}`,
+        ),
+    language: {
+        emptyTable: trans(
+            search.value || selectedLabels.value.length
+                ? 'artists.no_matches'
+                : 'artists.empty',
+        ),
+    },
+}));
 const boardColumns = computed(() =>
     props.statuses.map((status) => ({
         value: status,
@@ -115,353 +137,336 @@ const updateViewMode = (value) => {
         :title="$t('artists.title')"
         :breadcrumbs="breadcrumbs"
     >
-        <div class="mb-5 flex flex-wrap items-start justify-between gap-4">
-            <div>
-                <h1 class="m-0 text-2xl font-bold tracking-tight">
-                    {{ $t('artists.title') }}
-                </h1>
-                <p class="mt-1 mb-0 text-sm text-muted">
-                    {{ $t('artists.lead') }}
-                </p>
-            </div>
-            <Button
-                v-if="event && !event.locked"
-                href="/artists/create"
-                class="min-h-11 w-full sm:w-auto"
-            >
-                {{ $t('artists.add') }}
-            </Button>
-        </div>
-
-        <EmptyState
-            v-if="!event"
-            :title="$t('artists.no_event.title')"
-            :description="$t('artists.no_event.body')"
-        >
-            <Button href="/settings/events">{{
-                $t('settings.events.title')
-            }}</Button>
-        </EmptyState>
-
-        <template v-else>
-            <p
-                v-if="event.locked"
-                class="mb-4 flex items-center gap-2 rounded-lg border border-warning/20 bg-warning/10 p-3 text-sm text-charcoal"
-                role="status"
-            >
-                <Icon :name="['fas', 'lock']" />
-                {{ $t('artists.locked') }}
-            </p>
-            <div class="mb-4 flex flex-wrap items-center gap-2">
-                <form
-                    class="relative w-full sm:w-64"
-                    role="search"
-                    @submit.prevent="applyFilters"
-                >
-                    <Icon
-                        :name="['fas', 'magnifying-glass']"
-                        class="pointer-events-none absolute top-3.5 left-3 z-10 text-muted"
-                        size="sm"
-                    />
-                    <Input
-                        v-model="search"
-                        type="search"
-                        class="min-h-11 pl-9"
-                        :aria-label="$t('artists.search')"
-                        :placeholder="$t('artists.search')"
-                        maxlength="255"
-                    />
-                </form>
-                <div class="w-full sm:w-72">
-                    <LabelCombobox
-                        :model-value="selectedLabels"
-                        :labels="labels"
-                        :placeholder="$t('artists.filter_labels')"
-                        class="min-h-11"
-                        :aria-label="$t('artists.filter_labels')"
-                        @update:model-value="updateLabelFilters"
-                    />
-                    <p class="mt-1 mb-0 text-xs text-muted">
-                        {{ $t('artists.filter_hint') }}
+        <div class="container mx-auto">
+            <div class="mb-5 flex flex-wrap items-start justify-between gap-4">
+                <div>
+                    <h1 class="m-0 text-2xl font-bold tracking-tight">
+                        {{ $t('artists.title') }}
+                    </h1>
+                    <p class="mt-1 mb-0 text-sm text-muted">
+                        {{ $t('artists.lead') }}
                     </p>
                 </div>
                 <Button
-                    v-if="search || selectedLabels.length"
-                    variant="ghost"
-                    @click="clearFilters"
-                    >{{ $t('artists.clear_filters') }}</Button
+                    v-if="event && !event.locked"
+                    href="/artists/create"
+                    class="min-h-11 w-full sm:w-auto"
                 >
-                <div class="ml-auto">
-                    <AdvancementViewToggle
-                        :model-value="viewMode"
-                        @update:model-value="updateViewMode"
-                    />
-                </div>
+                    {{ $t('artists.add') }}
+                </Button>
             </div>
-            <div
-                v-if="viewMode === 'columns'"
-                class="overflow-x-auto pb-2"
-                :aria-busy="busy"
+
+            <EmptyState
+                v-if="!event"
+                :title="$t('artists.no_event.title')"
+                :description="$t('artists.no_event.body')"
             >
-                <Board
-                    :columns="boardColumns"
-                    :items="engagementItems"
-                    :disabled="event.locked"
-                    :disabled-keys="movingIds"
-                    class="min-w-[72rem] grid-cols-6"
-                    @move="moveEngagement"
+                <Button href="/settings/events">{{
+                    $t('settings.events.title')
+                }}</Button>
+            </EmptyState>
+
+            <template v-else>
+                <p
+                    v-if="event.locked"
+                    class="mb-4 flex items-center gap-2 rounded-lg border border-warning/20 bg-warning/10 p-3 text-sm text-charcoal"
+                    role="status"
                 >
-                    <template #header="{ column }">
-                        <div
-                            class="flex items-center justify-between gap-2 text-sm font-bold"
-                        >
-                            <span class="flex min-w-0 items-center gap-2">
-                                <Icon
-                                    :name="column.icon"
-                                    size="sm"
-                                />
-                                <span class="truncate">{{ column.label }}</span>
-                            </span>
-                            <span
-                                :class="[
-                                    'min-w-6 rounded-full px-1.5 py-0.5 text-center text-xs',
-                                    column.countClass,
-                                ]"
+                    <Icon :name="['fas', 'lock']" />
+                    {{ $t('artists.locked') }}
+                </p>
+                <div class="mb-4 flex flex-wrap items-center gap-2">
+                    <form
+                        class="relative w-full sm:w-64"
+                        role="search"
+                        @submit.prevent="applyFilters"
+                    >
+                        <Icon
+                            :name="['fas', 'magnifying-glass']"
+                            class="pointer-events-none absolute top-3.5 left-3 z-10 text-muted"
+                            size="sm"
+                        />
+                        <Input
+                            v-model="search"
+                            type="search"
+                            class="min-h-11 pl-9"
+                            :aria-label="$t('artists.search')"
+                            :placeholder="$t('artists.search')"
+                            maxlength="255"
+                        />
+                    </form>
+                    <div class="w-full sm:w-72">
+                        <LabelCombobox
+                            :model-value="selectedLabels"
+                            :labels="labels"
+                            :placeholder="$t('artists.filter_labels')"
+                            class="min-h-11"
+                            :aria-label="$t('artists.filter_labels')"
+                            @update:model-value="updateLabelFilters"
+                        />
+                        <p class="mt-1 mb-0 text-xs text-muted">
+                            {{ $t('artists.filter_hint') }}
+                        </p>
+                    </div>
+                    <Button
+                        v-if="search || selectedLabels.length"
+                        variant="ghost"
+                        @click="clearFilters"
+                        >{{ $t('artists.clear_filters') }}</Button
+                    >
+                    <div class="ml-auto">
+                        <AdvancementViewToggle
+                            :model-value="viewMode"
+                            @update:model-value="updateViewMode"
+                        />
+                    </div>
+                </div>
+                <div
+                    v-if="viewMode === 'columns'"
+                    class="overflow-x-auto pb-2"
+                    :aria-busy="busy"
+                >
+                    <Board
+                        :columns="boardColumns"
+                        :items="engagementItems"
+                        :disabled="event.locked"
+                        :disabled-keys="movingIds"
+                        class="min-w-[72rem] grid-cols-6"
+                        @move="moveEngagement"
+                    >
+                        <template #header="{ column }">
+                            <div
+                                class="flex items-center justify-between gap-2 text-sm font-bold"
                             >
-                                {{ localStatusCounts[column.value] }}
-                            </span>
-                        </div>
-                    </template>
-                    <template #item="{ item }">
-                        <ArtistBoardCard :engagement="item" />
-                    </template>
-                    <template #empty>
+                                <span class="flex min-w-0 items-center gap-2">
+                                    <Icon
+                                        :name="column.icon"
+                                        size="sm"
+                                    />
+                                    <span class="truncate">{{
+                                        column.label
+                                    }}</span>
+                                </span>
+                                <span
+                                    :class="[
+                                        'min-w-6 rounded-full px-1.5 py-0.5 text-center text-xs',
+                                        column.countClass,
+                                    ]"
+                                >
+                                    {{ localStatusCounts[column.value] }}
+                                </span>
+                            </div>
+                        </template>
+                        <template #item="{ item }">
+                            <ArtistBoardCard :engagement="item" />
+                        </template>
+                        <template #empty>
+                            <div
+                                class="rounded-lg border-2 border-dashed border-line bg-ground/50 px-3 py-5 text-center text-xs text-muted"
+                            >
+                                {{
+                                    $t(
+                                        event.locked
+                                            ? 'artists.board.empty'
+                                            : 'artists.board.drop_here',
+                                    )
+                                }}
+                            </div>
+                        </template>
+                    </Board>
+                </div>
+                <div
+                    v-else
+                    :aria-busy="busy"
+                >
+                    <!-- Phone: card stack -->
+                    <div class="flex flex-col gap-3 md:hidden">
                         <div
-                            class="rounded-lg border-2 border-dashed border-line bg-ground/50 px-3 py-5 text-center text-xs text-muted"
+                            v-for="engagement in engagements.data"
+                            :key="`card-${engagement.id}`"
+                            class="rounded-xl border border-line bg-ground p-4"
+                        >
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex min-w-0 items-center gap-3">
+                                    <Avatar
+                                        :name="engagement.name"
+                                        size="sm"
+                                    />
+                                    <div class="min-w-0">
+                                        <Link
+                                            :href="`/artists/engagements/${engagement.id}`"
+                                            class="font-semibold break-words text-charcoal no-underline hover:text-primary hover:underline"
+                                        >
+                                            {{ engagement.name }}
+                                        </Link>
+                                        <div class="mt-0.5 text-xs text-muted">
+                                            {{
+                                                engagement.type ||
+                                                $t('artists.not_set')
+                                            }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <Badge
+                                    :variant="statusVariant[engagement.status]"
+                                    pill
+                                >
+                                    {{
+                                        $t(
+                                            `artists.status.${engagement.status}`,
+                                        )
+                                    }}
+                                </Badge>
+                            </div>
+                            <div class="mt-3 flex flex-wrap gap-1.5">
+                                <Tag
+                                    v-for="label in engagement.labels"
+                                    :key="label.id"
+                                    :name="label.name"
+                                    :color="label.color"
+                                />
+                                <span
+                                    v-if="!engagement.labels.length"
+                                    class="text-sm text-muted"
+                                    >{{ $t('artists.not_set') }}</span
+                                >
+                            </div>
+                            <p class="mt-2 mb-0 text-sm text-muted">
+                                <span class="font-semibold text-charcoal/70">{{
+                                    $t('artists.columns.custom')
+                                }}</span>
+                                ·
+                                {{
+                                    engagement.custom.length
+                                        ? ''
+                                        : $t('artists.custom_empty')
+                                }}
+                            </p>
+                        </div>
+                        <p
+                            v-if="!engagements.data.length"
+                            class="rounded-xl border border-line bg-ground px-4 py-16 text-center text-muted"
                         >
                             {{
                                 $t(
-                                    event.locked
-                                        ? 'artists.board.empty'
-                                        : 'artists.board.drop_here',
+                                    search || selectedLabels.length
+                                        ? 'artists.no_matches'
+                                        : 'artists.empty',
                                 )
-                            }}
-                        </div>
-                    </template>
-                </Board>
-            </div>
-            <div
-                v-else
-                :aria-busy="busy"
-            >
-                <!-- Phone: card stack -->
-                <div class="flex flex-col gap-3 md:hidden">
-                    <div
-                        v-for="engagement in engagements.data"
-                        :key="`card-${engagement.id}`"
-                        class="rounded-xl border border-line bg-ground p-4"
-                    >
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="flex min-w-0 items-center gap-3">
-                                <Avatar
-                                    :name="engagement.name"
-                                    size="sm"
-                                />
-                                <div class="min-w-0">
-                                    <Link
-                                        :href="`/artists/engagements/${engagement.id}`"
-                                        class="font-semibold break-words text-charcoal no-underline hover:text-primary hover:underline"
-                                    >
-                                        {{ engagement.name }}
-                                    </Link>
-                                    <div class="mt-0.5 text-xs text-muted">
-                                        {{
-                                            engagement.type ||
-                                            $t('artists.not_set')
-                                        }}
-                                    </div>
-                                </div>
-                            </div>
-                            <Badge
-                                :variant="statusVariant[engagement.status]"
-                                pill
-                            >
-                                {{ $t(`artists.status.${engagement.status}`) }}
-                            </Badge>
-                        </div>
-                        <div class="mt-3 flex flex-wrap gap-1.5">
-                            <Tag
-                                v-for="label in engagement.labels"
-                                :key="label.id"
-                                :name="label.name"
-                                :color="label.color"
-                            />
-                            <span
-                                v-if="!engagement.labels.length"
-                                class="text-sm text-muted"
-                                >{{ $t('artists.not_set') }}</span
-                            >
-                        </div>
-                        <p class="mt-2 mb-0 text-sm text-muted">
-                            <span class="font-semibold text-charcoal/70">{{
-                                $t('artists.columns.custom')
-                            }}</span>
-                            ·
-                            {{
-                                engagement.custom.length
-                                    ? ''
-                                    : $t('artists.custom_empty')
                             }}
                         </p>
                     </div>
-                    <p
-                        v-if="!engagements.data.length"
-                        class="rounded-xl border border-line bg-ground px-4 py-16 text-center text-muted"
-                    >
-                        {{
-                            $t(
-                                search || selectedLabels.length
-                                    ? 'artists.no_matches'
-                                    : 'artists.empty',
-                            )
-                        }}
-                    </p>
-                </div>
 
-                <!-- md+: table -->
-                <div
-                    class="hidden overflow-hidden rounded-xl border border-line bg-ground md:block"
-                >
-                    <div class="overflow-x-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead
-                                        v-for="column in [
-                                            'artist',
-                                            'type',
-                                            'status',
-                                            'labels',
-                                            'custom',
-                                        ]"
-                                        :key="column"
-                                        >{{
-                                            $t(`artists.columns.${column}`)
-                                        }}</TableHead
-                                    >
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                <TableRow
-                                    v-for="engagement in engagements.data"
-                                    :key="engagement.id"
+                    <!-- md+: table -->
+                    <div class="hidden md:block">
+                        <DataTable
+                            :columns="listColumns"
+                            :data="engagements.data"
+                            :options="listOptions"
+                        >
+                            <template #artistCell="{ rowData }">
+                                <Link
+                                    :href="`/artists/engagements/${rowData.id}`"
+                                    class="flex min-w-56 items-center gap-3 font-semibold text-charcoal no-underline hover:text-primary hover:underline"
                                 >
-                                    <TableCell class="min-w-56">
-                                        <div class="flex items-center gap-3">
-                                            <Avatar
-                                                :name="engagement.name"
-                                                size="sm"
-                                            />
-                                            <Link
-                                                :href="`/artists/engagements/${engagement.id}`"
-                                                class="max-w-72 font-semibold break-words text-charcoal no-underline hover:text-primary hover:underline"
-                                            >
-                                                {{ engagement.name }}
-                                            </Link>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell class="min-w-32 text-muted">{{
-                                        engagement.type || $t('artists.not_set')
-                                    }}</TableCell>
-                                    <TableCell>
-                                        <Badge
-                                            :variant="
-                                                statusVariant[engagement.status]
-                                            "
-                                            pill
-                                            >{{
-                                                $t(
-                                                    `artists.status.${engagement.status}`,
-                                                )
-                                            }}</Badge
-                                        >
-                                    </TableCell>
-                                    <TableCell class="min-w-44">
-                                        <div class="flex flex-wrap gap-1.5">
-                                            <Tag
-                                                v-for="label in engagement.labels"
-                                                :key="label.id"
-                                                :name="label.name"
-                                                :color="label.color"
-                                            />
-                                            <span
-                                                v-if="!engagement.labels.length"
-                                                class="text-muted"
-                                                >{{
-                                                    $t('artists.not_set')
-                                                }}</span
-                                            >
-                                        </div>
-                                    </TableCell>
-                                    <TableCell class="min-w-36 text-muted">
-                                        <span
-                                            v-if="!engagement.custom.length"
-                                            >{{
-                                                $t('artists.custom_empty')
-                                            }}</span
-                                        >
-                                    </TableCell>
-                                </TableRow>
-                                <TableRow v-if="!engagements.data.length">
-                                    <TableCell
-                                        :colspan="5"
-                                        class="py-16 text-center text-muted"
+                                    <Avatar
+                                        :name="rowData.name"
+                                        size="sm"
+                                    />
+                                    <span class="max-w-72 break-words">
+                                        {{ rowData.name }}
+                                    </span>
+                                </Link>
+                            </template>
+                            <template #typeCell="{ cellData }">
+                                <span class="min-w-32 text-muted">
+                                    {{
+                                        cellData || $t('data_table.empty_value')
+                                    }}
+                                </span>
+                            </template>
+                            <template #statusCell="{ cellData }">
+                                <Badge
+                                    :variant="statusVariant[cellData]"
+                                    pill
+                                >
+                                    {{ $t(`artists.status.${cellData}`) }}
+                                </Badge>
+                            </template>
+                            <template #labelsCell="{ cellData }">
+                                <div class="flex min-w-44 flex-wrap gap-1.5">
+                                    <Tag
+                                        v-for="label in cellData"
+                                        :key="label.id"
+                                        :name="label.name"
+                                        :color="label.color"
+                                    />
+                                    <span
+                                        v-if="!cellData.length"
+                                        class="text-muted"
                                     >
-                                        {{
-                                            $t(
-                                                search || selectedLabels.length
-                                                    ? 'artists.no_matches'
-                                                    : 'artists.empty',
-                                            )
-                                        }}
-                                    </TableCell>
-                                </TableRow>
-                            </TableBody>
-                        </Table>
+                                        {{ $t('data_table.empty_value') }}
+                                    </span>
+                                </div>
+                            </template>
+                            <template #customCell>
+                                <span class="min-w-36 text-muted">
+                                    {{ $t('data_table.empty_value') }}
+                                </span>
+                            </template>
+                            <template #openCell="{ rowData }">
+                                <Link
+                                    :href="`/artists/engagements/${rowData.id}`"
+                                    class="inline-flex text-muted hover:text-primary"
+                                    :aria-label="
+                                        $t('data_table.open', {
+                                            name: rowData.name,
+                                        })
+                                    "
+                                >
+                                    <Icon
+                                        :name="['fas', 'chevron-right']"
+                                        size="sm"
+                                    />
+                                </Link>
+                            </template>
+                        </DataTable>
                     </div>
                 </div>
-            </div>
-            <div
-                v-if="viewMode === 'list' && engagements.meta?.last_page > 1"
-                class="mt-4 flex flex-wrap items-center justify-between gap-3"
-            >
-                <p class="m-0 text-sm text-muted">
-                    {{
-                        $t('artists.pagination', {
-                            from: engagements.meta.from,
-                            to: engagements.meta.to,
-                            total: engagements.meta.total,
-                        })
-                    }}
-                </p>
-                <nav
-                    class="flex gap-2"
-                    :aria-label="$t('artists.pagination_label')"
+                <div
+                    v-if="
+                        viewMode === 'list' && engagements.meta?.last_page > 1
+                    "
+                    class="mt-4 flex flex-wrap items-center justify-between gap-3"
                 >
-                    <Button
-                        :href="engagements.links.prev || ''"
-                        :disabled="!engagements.links.prev"
-                        variant="outline"
-                        >{{ $t('artists.previous') }}</Button
+                    <p class="m-0 text-sm text-muted">
+                        {{
+                            $t('artists.pagination', {
+                                from: engagements.meta.from,
+                                to: engagements.meta.to,
+                                total: engagements.meta.total,
+                            })
+                        }}
+                    </p>
+                    <nav
+                        class="flex gap-2"
+                        :aria-label="$t('artists.pagination_label')"
                     >
-                    <Button
-                        :href="engagements.links.next || ''"
-                        :disabled="!engagements.links.next"
-                        variant="outline"
-                        >{{ $t('artists.next') }}</Button
-                    >
-                </nav>
-            </div>
-        </template>
+                        <Button
+                            :href="engagements.links.prev || ''"
+                            :disabled="!engagements.links.prev"
+                            variant="outline"
+                            >{{ $t('artists.previous') }}</Button
+                        >
+                        <Button
+                            :href="engagements.links.next || ''"
+                            :disabled="!engagements.links.next"
+                            variant="outline"
+                            >{{ $t('artists.next') }}</Button
+                        >
+                    </nav>
+                </div>
+            </template>
+        </div>
     </AppLayout>
 </template>

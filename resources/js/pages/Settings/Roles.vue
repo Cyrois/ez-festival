@@ -36,7 +36,6 @@ const statusOptions = computed(() =>
     ROLE_STATUSES.map((value) => ({
         value,
         label: trans(`settings.roles.filter.${value}`),
-        selectedClass: 'rounded-none bg-primary-soft py-2 text-primary',
     })),
 );
 
@@ -72,6 +71,24 @@ const dataTableOptions = computed(() => ({
         topEnd: null,
     },
     columnDefs: [{ targets: 3, className: 'text-right' }],
+    createdRow: (row, role) => {
+        if (!props.canManageRoles) {
+            return;
+        }
+
+        row.classList.add('cursor-pointer');
+        row.dataset.rowLink = '';
+        row.addEventListener('click', (event) => {
+            if (
+                event.target.closest('a, button, input, select, textarea') ||
+                window.getSelection()?.toString()
+            ) {
+                return;
+            }
+
+            openRename(role);
+        });
+    },
     language: {
         emptyTable: trans('settings.roles.empty'),
         zeroRecords: trans('settings.roles.empty_filtered'),
@@ -289,8 +306,7 @@ const confirmTurnOff = () => {
                     :model-value="status"
                     :options="statusOptions"
                     :aria-label="$t('settings.roles.filter.label')"
-                    class="divide-x divide-line overflow-hidden border border-line bg-ground p-0"
-                    unselected-class="rounded-none bg-transparent py-2 text-muted hover:text-charcoal"
+                    variant="joined"
                     @update:model-value="updateStatus"
                 />
             </div>

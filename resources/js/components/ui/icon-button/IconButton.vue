@@ -26,6 +26,11 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    size: {
+        type: String,
+        default: 'sm',
+        validator: (value) => ['xs', 'sm'].includes(value),
+    },
     href: {
         type: String,
         default: null,
@@ -48,7 +53,9 @@ const variant = computed(() => {
     return 'outline';
 });
 
-const classes = computed(() => cn('h-8 w-8', props.class));
+const classes = computed(() =>
+    cn(props.size === 'xs' ? 'h-7 w-7' : 'h-8 w-8', props.class),
+);
 </script>
 
 <template>

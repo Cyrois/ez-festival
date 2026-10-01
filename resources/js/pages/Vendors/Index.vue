@@ -8,6 +8,7 @@ import { DataTable } from '../../components/ui/data-table';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
+import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
 import { Link } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
@@ -66,6 +67,13 @@ const options = computed(() => ({
         bottomEnd: null,
     },
     order: [[0, 'asc']],
+    columnDefs: [{ targets: 3, className: 'text-right' }],
+    createdRow: (row, vendor) =>
+        navigateDataTableRow(
+            row,
+            vendor,
+            (item) => `/vendors/engagements/${item.id}`,
+        ),
     paging: false,
     language: {
         emptyTable: trans('vendors.empty'),
@@ -231,7 +239,7 @@ watch(selectedType, (value) => {
                         </template>
                         <template #typeCell="{ cellData }">
                             <span class="text-muted">
-                                {{ cellData || $t('vendors.not_set') }}
+                                {{ cellData || $t('data_table.empty_value') }}
                             </span>
                         </template>
                         <template #statusCell="{ cellData }">
@@ -241,6 +249,22 @@ watch(selectedType, (value) => {
                             >
                                 {{ $t(`vendors.status.${cellData}`) }}
                             </Badge>
+                        </template>
+                        <template #openCell="{ rowData }">
+                            <Link
+                                :href="`/vendors/engagements/${rowData.id}`"
+                                class="inline-flex text-muted hover:text-primary"
+                                :aria-label="
+                                    $t('data_table.open', {
+                                        name: rowData.name,
+                                    })
+                                "
+                            >
+                                <Icon
+                                    :name="['fas', 'chevron-right']"
+                                    size="sm"
+                                />
+                            </Link>
                         </template>
                     </DataTable>
                 </div>

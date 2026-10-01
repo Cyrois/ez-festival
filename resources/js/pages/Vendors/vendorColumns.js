@@ -25,4 +25,13 @@ export const vendorColumns = (trans) => [
         render: { display: '#statusCell' },
         title: trans('vendors.columns.status'),
     },
+    {
+        data: null,
+        defaultContent: '',
+        name: 'open',
+        orderable: false,
+        render: { display: '#openCell' },
+        searchable: false,
+        title: '',
+    },
 ];

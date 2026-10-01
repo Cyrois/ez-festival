@@ -6,22 +6,17 @@ import { Avatar } from '../../components/ui/avatar';
 import { Badge } from '../../components/ui/badge';
 import { Board } from '../../components/ui/board';
 import { Button } from '../../components/ui/button';
+import { DataTable } from '../../components/ui/data-table';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '../../components/ui/table';
 import { useAdvancementBoard } from '../../composables/useAdvancementBoard';
 import { engagementStatusPresentation } from '../../lib/engagementStatusPresentation';
+import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
 import { Link } from '@inertiajs/vue3';
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+import { advancementColumns } from './advancementColumns';
 
 const props = defineProps({
     engagements: { type: Object, required: true },
@@ -54,6 +49,33 @@ const employmentTypePresentation = {
     volunteer: 'border-secondary/20 bg-secondary/10 text-secondary',
     paid: 'border-success/20 bg-success/10 text-success',
 };
+const listColumns = computed(() => advancementColumns(trans));
+const listOptions = computed(() => ({
+    searching: false,
+    ordering: false,
+    paging: false,
+    info: false,
+    layout: {
+        topStart: null,
+        topEnd: null,
+        bottomStart: null,
+        bottomEnd: null,
+    },
+    columnDefs: [{ targets: 4, className: 'text-right' }],
+    createdRow: (row, engagement) =>
+        navigateDataTableRow(
+            row,
+            engagement,
+            (item) => `/team/members/${item.id}`,
+        ),
+    language: {
+        emptyTable: trans(
+            search.value || selectedEmploymentTypes.value.length
+                ? 'team.advancement.no_matches'
+                : 'team.advancement.empty',
+        ),
+    },
+}));
 const {
     applyFilters: applyBoardFilters,
     busy,
@@ -350,100 +372,73 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                         </p>
                     </div>
 
-                    <div
-                        class="hidden overflow-hidden rounded-xl border border-line bg-ground md:block"
-                    >
-                        <div class="overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>{{
-                                            $t(
-                                                'team.advancement.columns.member',
-                                            )
-                                        }}</TableHead>
-                                        <TableHead>{{
-                                            $t('team.advancement.columns.type')
-                                        }}</TableHead>
-                                        <TableHead>{{
-                                            $t(
-                                                'team.advancement.columns.status',
-                                            )
-                                        }}</TableHead>
-                                        <TableHead>{{
-                                            $t('team.advancement.columns.group')
-                                        }}</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    <TableRow
-                                        v-for="engagement in engagements.data"
-                                        :key="engagement.id"
-                                    >
-                                        <TableCell class="min-w-56">
-                                            <div
-                                                class="flex items-center gap-3"
-                                            >
-                                                <Avatar
-                                                    :name="engagement.name"
-                                                    size="sm"
-                                                />
-                                                <Link
-                                                    :href="`/team/members/${engagement.id}`"
-                                                    class="font-semibold text-charcoal no-underline hover:text-primary hover:underline"
-                                                >
-                                                    {{ engagement.name }}
-                                                </Link>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell class="text-muted">
-                                            {{
-                                                $t(
-                                                    `team.advancement.employment_type.${engagement.employment_type}`,
-                                                )
-                                            }}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge
-                                                :class="
-                                                    engagementStatusPresentation[
-                                                        engagement.status
-                                                    ].headerClass
-                                                "
-                                                pill
-                                            >
-                                                {{
-                                                    $t(
-                                                        `team.advancement.status.${engagement.status}`,
-                                                    )
-                                                }}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell class="text-muted">
-                                            {{
-                                                engagement.group?.name ||
-                                                $t('team.advancement.not_set')
-                                            }}
-                                        </TableCell>
-                                    </TableRow>
-                                    <TableRow v-if="!engagements.data.length">
-                                        <TableCell
-                                            colspan="4"
-                                            class="py-16 text-center text-muted"
-                                        >
-                                            {{
-                                                $t(
-                                                    search ||
-                                                        selectedEmploymentTypes.length
-                                                        ? 'team.advancement.no_matches'
-                                                        : 'team.advancement.empty',
-                                                )
-                                            }}
-                                        </TableCell>
-                                    </TableRow>
-                                </TableBody>
-                            </Table>
-                        </div>
+                    <div class="hidden md:block">
+                        <DataTable
+                            :columns="listColumns"
+                            :data="engagements.data"
+                            :options="listOptions"
+                        >
+                            <template #memberCell="{ rowData }">
+                                <Link
+                                    :href="`/team/members/${rowData.id}`"
+                                    class="flex min-w-56 items-center gap-3 font-semibold text-charcoal no-underline hover:text-primary hover:underline"
+                                >
+                                    <Avatar
+                                        :name="rowData.name"
+                                        size="sm"
+                                    />
+                                    {{ rowData.name }}
+                                </Link>
+                            </template>
+                            <template #typeCell="{ cellData }">
+                                <span class="text-muted">
+                                    {{
+                                        $t(
+                                            `team.advancement.employment_type.${cellData}`,
+                                        )
+                                    }}
+                                </span>
+                            </template>
+                            <template #statusCell="{ cellData }">
+                                <Badge
+                                    :class="
+                                        engagementStatusPresentation[cellData]
+                                            .headerClass
+                                    "
+                                    pill
+                                >
+                                    {{
+                                        $t(
+                                            `team.advancement.status.${cellData}`,
+                                        )
+                                    }}
+                                </Badge>
+                            </template>
+                            <template #groupCell="{ rowData }">
+                                <span class="text-muted">
+                                    {{
+                                        rowData.group?.name ||
+                                        $t('data_table.empty_value')
+                                    }}
+                                </span>
+                            </template>
+                            <template #openCell="{ rowData }">
+                                <Link
+                                    :href="`/team/members/${rowData.id}`"
+                                    class="inline-flex text-muted hover:text-primary"
+                                    :aria-label="
+                                        $t('data_table.open', {
+                                            name: rowData.name,
+                                        })
+                                    "
+                                >
+                                    <Icon
+                                        :name="['fas', 'chevron-right']"
+                                        size="sm"
+                                    />
+                                </Link>
+                            </template>
+                        </DataTable>
                     </div>
                 </div>
 

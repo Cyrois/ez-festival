@@ -96,6 +96,7 @@ const onError = () => {
 
 <template>
     <span
+        data-ui="avatar"
         :class="classes"
         :role="showImage ? undefined : 'img'"
         :aria-label="showImage ? undefined : imageAlt || undefined"

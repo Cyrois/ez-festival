@@ -28,6 +28,11 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    variant: {
+        type: String,
+        default: 'default',
+        validator: (value) => ['default', 'joined'].includes(value),
+    },
     unselectedClass: {
         type: String,
         default: 'bg-transparent text-muted hover:text-charcoal',
@@ -42,7 +47,9 @@ const groupLabel = computed(() => props.ariaLabel || undefined);
 
 const trackClass = computed(() =>
     cn(
-        'inline-flex rounded-lg bg-page p-1',
+        props.variant === 'joined'
+            ? 'inline-flex divide-x divide-line overflow-hidden rounded-lg border border-line bg-ground p-0'
+            : 'inline-flex rounded-lg bg-page p-1',
         props.disabled && 'pointer-events-none opacity-45',
         props.class,
     ),
@@ -51,6 +58,10 @@ const trackClass = computed(() =>
 const selectedOptionClass = (option) => {
     if (option.selectedClass) {
         return option.selectedClass;
+    }
+
+    if (props.variant === 'joined') {
+        return 'rounded-none bg-primary-soft py-2 text-primary';
     }
 
     if (option.variant === 'danger') {
@@ -71,7 +82,9 @@ const optionClass = (option) =>
         'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/35',
         props.modelValue === option.value
             ? selectedOptionClass(option)
-            : props.unselectedClass,
+            : props.variant === 'joined'
+              ? 'rounded-none bg-transparent py-2 text-muted hover:text-charcoal'
+              : props.unselectedClass,
     );
 
 const onSelect = (value) => {
