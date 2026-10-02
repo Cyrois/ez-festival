@@ -37,7 +37,7 @@ watch(
 const breadcrumbs = computed(() => [
     {
         label: trans('events.title'),
-        href: '/settings/events',
+        href: '/events',
     },
     {
         label: props.event.name,
@@ -98,7 +98,7 @@ const readOnlyMessage = computed(() => {
                     </Badge>
                 </div>
                 <Button
-                    href="/settings/events"
+                    href="/events"
                     variant="ghost"
                     size="sm"
                     class="px-0"
@@ -107,7 +107,7 @@ const readOnlyMessage = computed(() => {
                 </Button>
             </div>
             <Button
-                v-if="!event.is_locked"
+                v-if="$page.props.auth.user.is_admin && !event.is_locked"
                 variant="secondary"
                 size="sm"
                 @click="openLock(event)"
@@ -115,7 +115,7 @@ const readOnlyMessage = computed(() => {
                 {{ $t('events.actions.lock') }}
             </Button>
             <Button
-                v-else
+                v-else-if="$page.props.auth.user.is_admin"
                 variant="secondary"
                 size="sm"
                 @click="openUnlock(event)"

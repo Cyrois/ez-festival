@@ -88,7 +88,7 @@ const formatDateTime = (value) =>
                             ? $t(
                                   event.is_locked
                                       ? 'team.scheduling.locked'
-                                      : 'team.scheduling.no_permission',
+                                      : 'permissions.no_add.shifts',
                               )
                             : undefined
                     "

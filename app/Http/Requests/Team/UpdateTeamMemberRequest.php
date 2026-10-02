@@ -4,6 +4,7 @@ namespace App\Http\Requests\Team;
 
 use App\Http\Requests\Team\Concerns\TeamMemberRules;
 use App\Models\Role;
+use App\Services\EventAccessService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -28,7 +29,7 @@ class UpdateTeamMemberRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return Gate::allows('manage-team');
+        return Gate::allows('team.member.update');
     }
 
     /** @return array<string, mixed> */
@@ -37,7 +38,8 @@ class UpdateTeamMemberRequest extends FormRequest
         $eventId = (int) $this->route('engagement')->event_id;
 
         return [
-            ...$this->memberRules($eventId),
+            // Require profile fields only for full edits; role/notes-only updates omit them.
+            ...(Gate::allows('team.edit') ? $this->memberRules($eventId) : []),
             'role_id' => ['nullable', 'integer', Rule::exists('roles', 'id')],
             'pass_assignments' => ['sometimes', 'array'],
             'pass_assignments.*.id' => [
@@ -63,6 +65,18 @@ class UpdateTeamMemberRequest extends FormRequest
     {
         return [function (Validator $validator): void {
             $engagement = $this->route('engagement');
+            $access = app(EventAccessService::class);
+            if (! Gate::allows('team.edit', $engagement)) {
+                foreach (['name', 'email', 'phone', 'status', 'employment_type', 'hourly_pay', 'group_id', 'pass_assignments'] as $field) {
+                    if ($this->has($field)) {
+                        $validator->errors()->add($field, __('permissions.forbidden'));
+                    }
+                }
+            }
+            if (! $validator->errors()->has('role_id') && $this->has('role_id') && (string) $this->input('role_id') !== (string) $engagement->role_id
+                && ! $access->canAssignRole($this->user(), $engagement, Role::find($this->input('role_id')))) {
+                $validator->errors()->add('role_id', __('permissions.forbidden'));
+            }
 
             if (! $validator->errors()->has('role_id') && $this->input('role_id') !== null) {
                 $roleId = (int) $this->input('role_id');
@@ -77,7 +91,7 @@ class UpdateTeamMemberRequest extends FormRequest
                 return;
             }
 
-            if (! Gate::allows('can-read-team-notes', $engagement)) {
+            if (! Gate::allows('team.notes.add', $engagement)) {
                 $validator->errors()->add('notes', __('team.member.notes.errors.forbidden'));
 
                 return;

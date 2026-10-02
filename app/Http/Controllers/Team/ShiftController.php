@@ -28,7 +28,7 @@ class ShiftController extends Controller
 
     public function show(Request $request, Shift $shift, EventContext $eventContext): Response
     {
-        Gate::authorize('view-team');
+        Gate::authorize('scheduling.view');
 
         $event = $eventContext->requireCurrent($request->user());
         abort_unless((int) $shift->event_id === (int) $event->id, 404);
@@ -41,8 +41,8 @@ class ShiftController extends Controller
             ],
             'shift' => (new ShiftResource($shift->load(['location:id,name', 'roleSlots.role:id,name'])))->resolve($request),
             'locations' => $this->locations->optionsFor($event),
-            'canManage' => Gate::allows('manage-team'),
-            'roles' => Gate::allows('manage-team') && ! $event->isLocked() ? ShiftSlotReferences::options() : [],
+            'canManage' => Gate::allows('scheduling.edit'),
+            'roles' => Gate::allows('scheduling.edit') && ! $event->isLocked() ? ShiftSlotReferences::options() : [],
         ]);
     }
 

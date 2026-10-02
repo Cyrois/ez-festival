@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 
 class EventService
 {
-    private const LIST_KEY = 'lists.events.v1';
+    private const LIST_KEY = 'lists.events.v2';
 
     public function __construct(
         private readonly EntitlementItemService $entitlementItems,
@@ -20,13 +20,15 @@ class EventService
     /** @return Collection<int, Event> */
     public function list(): Collection
     {
-        return Cache::rememberForever(
+        $rows = Cache::rememberForever(
             self::LIST_KEY,
-            fn (): Collection => Event::query()
+            fn (): array => Event::query()
                 ->orderByDesc('starts_on')
                 ->orderByDesc('id')
-                ->get(),
+                ->get()->map(fn (Event $event) => $event->getAttributes())->all(),
         );
+
+        return Event::hydrate($rows);
     }
 
     /** @param array<string, mixed> $data */

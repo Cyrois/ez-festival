@@ -1,4 +1,5 @@
 <script setup>
+import AppLayout from '../../../layouts/AppLayout.vue';
 import SettingsLayout from '../../../layouts/SettingsLayout.vue';
 import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
@@ -13,6 +14,7 @@ import { trans } from 'laravel-vue-i18n';
 import { eventColumns } from './eventColumns';
 
 const props = defineProps({
+    settings: { type: Boolean, default: true },
     events: {
         type: Array,
         default: () => [],
@@ -28,8 +30,10 @@ const setPrimary = (event) => {
         return;
     }
     setPrimaryBusy.value = true;
-    router.post(
-        `/settings/events/${event.id}/set-primary`,
+    router[props.settings ? 'post' : 'put'](
+        props.settings
+            ? `/settings/events/${event.id}/set-primary`
+            : `/events/${event.id}/current`,
         {},
         {
             preserveScroll: true,
@@ -40,19 +44,21 @@ const setPrimary = (event) => {
     );
 };
 
-const breadcrumbs = computed(() => [
-    {
-        label: trans('app.name'),
-        href: '/dashboard',
-    },
-    {
-        label: trans('nav.settings'),
-        href: '/settings/events',
-    },
-    {
-        label: trans('settings.events.title'),
-    },
-]);
+const breadcrumbs = computed(() =>
+    [
+        {
+            label: trans('app.name'),
+            href: '/dashboard',
+        },
+        {
+            label: trans('nav.settings'),
+            href: props.settings ? '/settings/events' : '/events',
+        },
+        {
+            label: trans('settings.events.title'),
+        },
+    ].filter((item) => props.settings || item.label !== trans('nav.settings')),
+);
 
 const formatSubtext = (event) => {
     return `${event.starts_on} – ${event.ends_on}`;
@@ -104,10 +110,10 @@ const tableOptions = computed(() => ({
     },
     columnDefs: [{ targets: 4, className: 'text-right' }],
     createdRow: (row, event) =>
-        navigateDataTableRow(
-            row,
-            event,
-            (item) => `/settings/events/${item.id}/edit`,
+        navigateDataTableRow(row, event, (item) =>
+            props.settings
+                ? `/settings/events/${item.id}/edit`
+                : `/events/${item.id}`,
         ),
     language: {
         zeroRecords: trans('settings.events.empty.filtered'),
@@ -118,7 +124,8 @@ watch(search, (value) => table.value?.search(value));
 </script>
 
 <template>
-    <SettingsLayout
+    <component
+        :is="settings ? SettingsLayout : AppLayout"
         :title="$t('settings.events.title')"
         :breadcrumbs="breadcrumbs"
     >
@@ -135,6 +142,7 @@ watch(search, (value) => table.value?.search(value));
                     </p>
                 </div>
                 <Button
+                    v-if="settings"
                     href="/settings/events/create"
                     variant="primary"
                     class="min-h-11 w-full sm:w-auto"
@@ -224,7 +232,7 @@ watch(search, (value) => table.value?.search(value));
                                 {{ $t('settings.events.actions.set_primary') }}
                             </Button>
                             <Button
-                                v-if="!event.is_locked"
+                                v-if="settings && !event.is_locked"
                                 :href="`/settings/events/${event.id}/edit`"
                                 variant="primary"
                                 size="sm"
@@ -251,7 +259,11 @@ watch(search, (value) => table.value?.search(value));
                     >
                         <template #eventCell="{ rowData }">
                             <Link
-                                :href="`/settings/events/${rowData.id}/edit`"
+                                :href="
+                                    settings
+                                        ? `/settings/events/${rowData.id}/edit`
+                                        : `/events/${rowData.id}`
+                                "
                                 class="font-semibold text-charcoal no-underline hover:text-primary hover:underline"
                             >
                                 {{ rowData.name }}
@@ -297,7 +309,11 @@ watch(search, (value) => table.value?.search(value));
                                     }}
                                 </Button>
                                 <Link
-                                    :href="`/settings/events/${rowData.id}/edit`"
+                                    :href="
+                                        settings
+                                            ? `/settings/events/${rowData.id}/edit`
+                                            : `/events/${rowData.id}`
+                                    "
                                     class="inline-flex text-muted hover:text-primary"
                                     :aria-label="
                                         $t('data_table.open', {
@@ -316,5 +332,5 @@ watch(search, (value) => table.value?.search(value));
                 </div>
             </template>
         </div>
-    </SettingsLayout>
+    </component>
 </template>

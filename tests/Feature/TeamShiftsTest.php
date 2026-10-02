@@ -333,11 +333,12 @@ class TeamShiftsTest extends TestCase
         $this->assertDatabaseHas('shifts', ['id' => $shift->id, 'name' => 'Show run']);
     }
 
-    public function test_shift_writes_require_the_manage_team_permission(): void
+    public function test_shift_writes_require_the_edit_scheduling_permission(): void
     {
         [$user, $event] = $this->eventContext();
         $location = $event->locations()->create(['name' => 'Main stage']);
-        Gate::define('manage-team', fn (): bool => false);
+        $this->grantRoleAccess($user);
+        Gate::define('scheduling.edit', fn (): bool => false);
 
         $this->actingAs($user)
             ->post(

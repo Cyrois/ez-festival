@@ -9,7 +9,7 @@ class EditTeamFormRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Gate::allows('manage-team');
+        return Gate::allows('forms.view');
     }
 
     /** @return array<string, mixed> */

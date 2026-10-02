@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Support\OrganizationContext;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -22,6 +23,8 @@ class EntitlementItemsTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
+        config(['cache.default' => 'database', 'cache.serializable_classes' => false]);
+        Cache::purge('database');
     }
 
     public function test_guests_must_sign_in(): void
@@ -423,24 +426,13 @@ class EntitlementItemsTest extends TestCase
         ])->assertForbidden();
     }
 
-    public function test_show_is_read_only_when_manage_credentials_is_denied(): void
+    public function test_credentials_pages_are_admin_only(): void
     {
         [$user, $event] = $this->createEventContext();
         $item = $event->entitlementItems()->create(['name' => 'Guest wristband']);
-
-        Gate::define('manage-credentials', fn (): bool => false);
-
-        $this->actingAs($user)->get(route('credentials.entitlements.show', $item))->assertInertia(
-            fn (Assert $page) => $page
-                ->component('Credentials/EditEntitlement')
-                ->where('is_read_only', true),
-        );
-
-        $this->actingAs($user)->get(route('credentials.entitlements'))->assertInertia(
-            fn (Assert $page) => $page
-                ->component('Credentials/Entitlements')
-                ->where('canWrite', false),
-        );
+        $this->grantRoleAccess($user);
+        $this->actingAs($user)->get(route('credentials.entitlements.show', $item))->assertForbidden();
+        $this->get(route('credentials.entitlements'))->assertForbidden();
     }
 
     public function test_destroy_without_manage_credentials_is_unauthorized(): void
@@ -448,6 +440,7 @@ class EntitlementItemsTest extends TestCase
         [$user, $event] = $this->createEventContext();
         $item = $event->entitlementItems()->create(['name' => 'Guest wristband']);
 
+        $this->grantRoleAccess($user);
         Gate::define('manage-credentials', fn (): bool => false);
 
         $this->actingAs($user)

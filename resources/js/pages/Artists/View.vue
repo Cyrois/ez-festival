@@ -1,4 +1,5 @@
 <script setup>
+import { Tag } from '../../components/ui/tag';
 import AppLayout from '../../layouts/AppLayout.vue';
 import EngagementNoteLog from '../../components/notes/EngagementNoteLog.vue';
 import { Avatar } from '../../components/ui/avatar';
@@ -11,7 +12,7 @@ import { Icon } from '../../components/ui/icon';
 import { IconButton } from '../../components/ui/icon-button';
 import { Input } from '../../components/ui/input';
 import { LabelCombobox } from '../../components/ui/label-combobox';
-import { Select } from '../../components/ui/select';
+import { CustomDropdown } from '../../components/ui/custom-dropdown';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { toastFormErrors } from '../../lib/fieldError';
 import { useForm } from '@inertiajs/vue3';
@@ -90,7 +91,7 @@ const submit = () => {
             </p>
 
             <p
-                v-if="readOnly"
+                v-if="event.locked"
                 class="mb-4 flex items-center gap-2 rounded-lg border border-warning/20 bg-warning/10 p-3 text-sm text-charcoal"
                 role="status"
             >
@@ -106,7 +107,47 @@ const submit = () => {
                     <p class="mt-1 mb-4 text-xs text-muted">
                         {{ $t('artists.details_hint') }}
                     </p>
+                    <dl
+                        v-if="readOnly"
+                        class="space-y-4"
+                    >
+                        <div>
+                            <dt class="text-sm text-muted">
+                                {{ $t('artists.name') }}
+                            </dt>
+                            <dd class="mt-1">{{ engagement.name }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm text-muted">
+                                {{ $t('artists.columns.status') }}
+                            </dt>
+                            <dd class="mt-1">
+                                {{ $t(`artists.status.${engagement.status}`) }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm text-muted">
+                                {{ $t('artists.columns.type') }}
+                            </dt>
+                            <dd class="mt-1">
+                                {{
+                                    engagement.type ||
+                                    $t('artists.type_optional')
+                                }}
+                            </dd>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <Tag
+                                v-for="label in engagement.labels"
+                                :key="label.id"
+                                :name="label.name"
+                                :color="label.color"
+                                >{{ label.name }}</Tag
+                            >
+                        </div>
+                    </dl>
                     <form
+                        v-else
                         id="artist-details"
                         class="space-y-4"
                         @submit.prevent="submit"
@@ -132,43 +173,42 @@ const submit = () => {
                                 :label="$t('artists.columns.status')"
                                 :error="form.errors.status"
                             >
-                                <Select
+                                <CustomDropdown
                                     :id="id"
                                     v-model="form.status"
                                     :invalid="invalid"
                                     :disabled="readOnly || form.processing"
-                                >
-                                    <option
-                                        v-for="status in statuses"
-                                        :key="status"
-                                        :value="status"
-                                    >
-                                        {{ $t(`artists.status.${status}`) }}
-                                    </option>
-                                </Select>
+                                    :items="
+                                        statuses.map((status) => ({
+                                            value: status,
+                                            title: $t(
+                                                `artists.status.${status}`,
+                                            ),
+                                        }))
+                                    "
+                                />
                             </FormField>
                             <FormField
                                 v-slot="{ id, invalid }"
                                 :label="$t('artists.columns.type')"
                                 :error="form.errors.artist_type_id"
                             >
-                                <Select
+                                <CustomDropdown
                                     :id="id"
                                     v-model="form.artist_type_id"
                                     :invalid="invalid"
                                     :disabled="readOnly || form.processing"
-                                >
-                                    <option value="">
-                                        {{ $t('artists.type_optional') }}
-                                    </option>
-                                    <option
-                                        v-for="type in types"
-                                        :key="type.id"
-                                        :value="type.id"
-                                    >
-                                        {{ type.name }}
-                                    </option>
-                                </Select>
+                                    :items="[
+                                        {
+                                            value: '',
+                                            title: $t('artists.type_optional'),
+                                        },
+                                        ...types.map((type) => ({
+                                            value: type.id,
+                                            title: type.name,
+                                        })),
+                                    ]"
+                                />
                             </FormField>
                         </div>
                         <FormField
@@ -205,6 +245,7 @@ const submit = () => {
                         {{ $t('artists.custom_fields') }}
                     </h2>
                     <IconButton
+                        v-if="$page.props.auth.user.is_admin"
                         href="/settings/custom-fields"
                         :icon="['fas', 'gear']"
                         :label="$t('artists.custom_fields_manage')"

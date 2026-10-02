@@ -817,6 +817,7 @@ class TeamControllerTest extends TestCase
         [$user, $event] = $this->userWithCompletedSetup();
         $role = Role::query()->create(['name' => 'Staff']);
         $engagement = $this->engagement($event, 'Permission Person', $role);
+        $this->grantRoleAccess($user);
         Gate::define('manage-global-team', fn (): bool => false);
 
         $this->actingAs($user)->post(route('settings.team.store'), [

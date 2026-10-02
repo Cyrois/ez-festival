@@ -10,7 +10,7 @@ class StorePassAssignmentRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Gate::allows('manage-credentials');
+        return Gate::allows('artists.edit');
     }
 
     public function rules(): array

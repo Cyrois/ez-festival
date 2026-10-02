@@ -19,21 +19,12 @@ const props = defineProps({
 const form = useForm({ pass_type_id: '', quantity: 1 });
 const { showFormError } = useFlashToast();
 
-const capacityLabel = (pass) =>
-    pass.max_assignments === null
-        ? trans('credentials.assignments.unlimited')
-        : trans('credentials.assignments.remaining', {
-              count: Math.max(0, pass.max_assignments - pass.assignments_count),
-          });
-
 const passItems = computed(() =>
     props.passes.map((pass) => ({
         value: pass.id,
         title: pass.name,
-        description: capacityLabel(pass),
-        disabled:
-            pass.max_assignments !== null &&
-            pass.assignments_count >= pass.max_assignments,
+        description: pass.full ? trans('permissions.pass_full') : '',
+        disabled: pass.full,
     })),
 );
 

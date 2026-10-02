@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Role;
 use App\Repositories\RoleRepository;
+use App\Support\Permissions;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -12,25 +13,25 @@ class RoleService
 {
     public function __construct(private readonly RoleRepository $roles) {}
 
-    public function create(string $name, bool $canReadTeamNotes = false): Role
+    public function create(string $name, array $permissions): Role
     {
         return $this->guardUniqueName($name, null, fn (): Role => Role::query()->create([
             'name' => $name,
-            'can_read_team_notes' => $canReadTeamNotes,
+            'permissions' => Permissions::expand($permissions),
         ]));
     }
 
-    public function update(Role $role, string $name, bool $canReadTeamNotes): void
+    public function update(Role $role, string $name, array $permissions): void
     {
         $this->guardUniqueName($name, $role, fn (): bool => $role->update([
             'name' => $name,
-            'can_read_team_notes' => $canReadTeamNotes,
+            'permissions' => Permissions::expand($permissions),
         ]));
     }
 
     public function rename(Role $role, string $name): void
     {
-        $this->update($role, $name, $role->can_read_team_notes);
+        $this->update($role, $name, $role->permissions);
     }
 
     public function setActive(Role $role, bool $active): void

@@ -7,6 +7,7 @@ use App\Models\ExpectedEntitlement;
 use App\Models\PassAssignment;
 use App\Models\PassType;
 use App\Models\Person;
+use App\Models\Role;
 use App\Models\TeamEngagement;
 use App\Models\User;
 use App\Repositories\PassTypeRepository;
@@ -62,44 +63,58 @@ class TeamEngagementService
             $engagement = TeamEngagement::query()->lockForUpdate()->findOrFail($engagement->id);
             $hasNoteChanges = ($data['notes'] ?? []) !== [] || ($data['note_edits'] ?? []) !== [];
 
-            if ($hasNoteChanges && Gate::forUser($user)->denies('can-read-team-notes', $engagement)) {
+            if ($hasNoteChanges && Gate::forUser($user)->denies('team.notes.add', $engagement)) {
                 throw ValidationException::withMessages([
                     'notes' => __('team.member.notes.errors.forbidden'),
                 ]);
             }
 
-            $wasHired = $engagement->status === 'hired';
-            $person = Person::query()->lockForUpdate()->findOrFail($engagement->person_id);
-            $email = $this->people->normalizeEmail($data['email']);
-
-            if ($email !== $person->email) {
-                $target = $this->people->findByEmail($email);
-
-                if ($target?->teamEngagements()->whereBelongsTo($event)->exists()) {
-                    throw ValidationException::withMessages([
-                        'email' => __('team.advancement.errors.already_added'),
-                    ]);
+            $access = app(EventAccessService::class);
+            if (array_key_exists('role_id', $data) && (string) $data['role_id'] !== (string) $engagement->role_id) {
+                if (! $access->canAssignRole($user, $engagement, Role::find($data['role_id']))) {
+                    throw ValidationException::withMessages(['role_id' => __('permissions.forbidden')]);
                 }
-
-                $target ??= $this->people->findOrCreateByEmail($data);
-                $engagement->update([
-                    'person_id' => $target->id,
-                    ...$this->engagementData($data),
-                ]);
-                $engagement->passAssignments()->update(['person_id' => $target->id]);
-            } else {
-                if ($this->profileChanged($person, $data) && $this->isShared($person, $engagement)) {
-                    throw ValidationException::withMessages([
-                        'email' => __('team.advancement.errors.shared_person'),
-                    ]);
-                }
-
-                $this->people->updateProfile($person, $data);
-                $engagement->update($this->engagementData($data));
+                $engagement->update(['role_id' => $data['role_id']]);
             }
+            if (! $access->allows($user, 'team.edit', $event)
+                && array_intersect(array_keys($data), ['name', 'email', 'phone', 'status', 'employment_type', 'hourly_pay', 'group_id', 'pass_assignments']) !== []) {
+                throw ValidationException::withMessages(['member' => __('permissions.forbidden')]);
+            }
+            $wasHired = $engagement->status === 'hired';
+            if ($access->allows($user, 'team.edit', $event)) {
+                $person = Person::query()->lockForUpdate()->findOrFail($engagement->person_id);
+                $email = $this->people->normalizeEmail($data['email']);
 
-            if (array_key_exists('pass_assignments', $data)) {
-                $this->syncPassAssignments($engagement, $data['pass_assignments'], $wasHired);
+                if ($email !== $person->email) {
+                    $target = $this->people->findByEmail($email);
+
+                    if ($target?->teamEngagements()->whereBelongsTo($event)->exists()) {
+                        throw ValidationException::withMessages([
+                            'email' => __('team.advancement.errors.already_added'),
+                        ]);
+                    }
+
+                    $target ??= $this->people->findOrCreateByEmail($data);
+                    $engagement->update([
+                        'person_id' => $target->id,
+                        ...$this->engagementData($data),
+                    ]);
+                    $engagement->passAssignments()->update(['person_id' => $target->id]);
+                } else {
+                    if ($this->profileChanged($person, $data) && $this->isShared($person, $engagement)) {
+                        throw ValidationException::withMessages([
+                            'email' => __('team.advancement.errors.shared_person'),
+                        ]);
+                    }
+
+                    $this->people->updateProfile($person, $data);
+                    $engagement->update($this->engagementData($data));
+                }
+
+                if (array_key_exists('pass_assignments', $data)) {
+                    $this->syncPassAssignments($engagement, $data['pass_assignments'], $wasHired);
+                }
+
             }
 
             foreach (array_reverse($data['notes'] ?? []) as $note) {
@@ -167,7 +182,7 @@ class TeamEngagementService
             'employment_type' => $data['employment_type'],
             'hourly_pay' => $data['hourly_pay'] ?? null,
             'group_id' => $data['group_id'] ?? null,
-            'role_id' => $data['role_id'] ?? null,
+            ...(array_key_exists('role_id', $data) ? ['role_id' => $data['role_id']] : []),
         ];
     }
 

@@ -14,7 +14,7 @@ class UpdateShiftRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return Gate::allows('manage-team');
+        return Gate::allows('scheduling.edit');
     }
 
     /**

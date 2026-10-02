@@ -139,30 +139,15 @@ test('the match hint goes away once the name is edited', () => {
 });
 
 test('the page snapshots the submitted name for the match hint', () => {
-    assert.match(rolesPage, /submittedName\.value = form\.name;/);
-    assert.match(rolesPage, /submitted: submittedName\.value/);
+    assert.match(read('resources/js/pages/Settings/Roles/RoleForm.vue'), /submittedName\.value = form\.name;/);
+    assert.match(read('resources/js/pages/Settings/Roles/RoleForm.vue'), /submitted: submittedName\.value/);
     assert.doesNotMatch(rolesPage, /typed: `"\$\{form\.name\}"`/);
 });
 
-test('phones get role cards and md+ uses the server-side DataTable', () => {
-    const cardsStart = rolesPage.indexOf(
-        '<div class="flex flex-col gap-3 md:hidden">',
-    );
-    const tableWrapper = rolesPage.indexOf('<div class="hidden md:block">');
-    const table = rolesPage.indexOf('<DataTable');
-
-    assert.notEqual(cardsStart, -1);
-    assert.ok(tableWrapper > cardsStart);
-    assert.ok(table > tableWrapper);
+test('roles use the shared server-side table and row navigation', () => {
     assert.match(rolesPage, /serverSide: true/);
     assert.match(rolesPage, /:ajax="dataTableUrl"/);
-    assert.match(rolesPage, /\/settings\/roles\/data/);
+    assert.match(rolesPage, /navigateDataTableRow/);
     assert.match(roleColumns, /render: \{ display: '#roleCell' \}/);
-
-    const cards = rolesPage.slice(cardsStart, tableWrapper);
-    assert.match(cards, /v-for="role in roles\.data"/);
-    assert.match(cards, /openRename\(role\)/);
-    assert.match(cards, /turningOff = role/);
-    assert.match(cards, /setActive\(role, true\)/);
-    assert.match(cards, /min-h-11/);
+    assert.match(roleColumns, /render: \{ display: '#openCell' \}/);
 });

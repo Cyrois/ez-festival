@@ -10,6 +10,7 @@ use App\Http\Requests\Artists\UpdateArtistRequest;
 use App\Http\Requests\Artists\ViewArtistRequest;
 use App\Http\Resources\ArtistEngagementNoteResource;
 use App\Http\Resources\ArtistEngagementResource;
+use App\Http\Resources\GivePassOptionResource;
 use App\Models\ArtistEngagement;
 use App\Models\ArtistLabel;
 use App\Models\ArtistType;
@@ -20,6 +21,7 @@ use App\Services\ArtistService;
 use App\Support\EventContext;
 use App\Support\LabelColors;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -96,7 +98,7 @@ class ArtistController extends Controller
         ]);
 
         $notes = $engagement->notes()
-            ->with('user:id,name,email')
+            ->with('user:id,name')
             ->latest('created_at')
             ->latest('id')
             ->get();
@@ -109,8 +111,8 @@ class ArtistController extends Controller
             'labels' => ArtistLabel::query()->orderBy('name')->get(['id', 'name', 'color']),
             'statuses' => ArtistEngagement::STATUSES,
             'labelColors' => LabelColors::ALL,
-            'passes' => $this->passTypes->optionsFor($event),
-            'canWrite' => ! $event->isLocked(),
+            'passes' => GivePassOptionResource::collection($this->passTypes->optionsFor($event))->resolve(),
+            'canWrite' => ! $event->isLocked() && Gate::allows('artists.edit', $event),
         ]);
     }
 

@@ -13,6 +13,14 @@ defineProps({
         type: Array,
         default: () => [],
     },
+    backHref: {
+        type: String,
+        default: '',
+    },
+    backLabel: {
+        type: String,
+        default: '',
+    },
 });
 
 const page = usePage();
@@ -32,7 +40,9 @@ const organizationItems = [
     { key: 'feature_flags', href: '/settings/feature-flags', enabled: true },
 ];
 const visibleOrganizationItems = computed(() =>
-    organizationItems.filter((item) => item.enabled),
+    organizationItems.filter(
+        (item) => page.props.auth.user?.is_admin && item.enabled,
+    ),
 );
 
 const personalItems = [
@@ -69,7 +79,7 @@ const isOrganizationNavActive = (key) => {
     return (
         (key === 'events' && isEventNavActive('events')) ||
         (key === 'team' && path.startsWith('/settings/team')) ||
-        (key === 'roles' && path === '/settings/roles') ||
+        (key === 'roles' && path.startsWith('/settings/roles')) ||
         (key === 'artist_types' && path === '/settings/artist-types') ||
         (key === 'vendor_types' && path === '/settings/vendor-types') ||
         (key === 'custom_fields' && path === '/settings/custom-fields') ||
@@ -85,6 +95,8 @@ const isPersonalNavActive = (key) =>
     <AppLayout
         :title="title"
         :breadcrumbs="breadcrumbs"
+        :back-href="backHref"
+        :back-label="backLabel"
         settings-nav
     >
         <template #settings-nav>
@@ -97,7 +109,7 @@ const isPersonalNavActive = (key) =>
                     {{ $t('settings.nav.back') }}
                 </SidebarNavItem>
 
-                <div>
+                <div v-if="page.props.auth.user?.is_admin">
                     <p
                         class="m-0 mb-2 px-2 text-[11px] font-bold tracking-wide text-muted uppercase"
                     >
@@ -145,7 +157,7 @@ const isPersonalNavActive = (key) =>
                         </SidebarNavItem>
                     </nav>
                 </div>
-                <div>
+                <div v-if="page.props.auth.user?.is_admin">
                     <p
                         class="m-0 mb-2 px-2 text-[11px] font-bold tracking-wide text-muted uppercase"
                     >

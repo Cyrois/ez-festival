@@ -25,17 +25,19 @@ class TeamFormsTest extends TestCase
         $this->withoutVite();
     }
 
-    public function test_admin_form_surfaces_require_authentication_and_team_permission(): void
+    public function test_admin_form_surfaces_require_authentication_and_forms_permission(): void
     {
         $this->get(route('team.forms'))->assertRedirect(route('login'));
 
         [$user] = $this->userWithCompletedSetup();
-        Gate::define('view-team', fn (): bool => false);
+        $this->grantRoleAccess($user);
+        Gate::define('forms.view', fn (): bool => false);
 
         $this->actingAs($user)->get(route('team.forms'))->assertForbidden();
 
-        Gate::define('view-team', fn (): bool => true);
-        Gate::define('manage-team', fn (): bool => false);
+        Gate::define('forms.view', fn (): bool => true);
+        $this->grantRoleAccess($user);
+        Gate::define('forms.edit', fn (): bool => false);
         $this->actingAs($user)->get(route('team.forms.create'))->assertForbidden();
     }
 
@@ -349,6 +351,44 @@ class TeamFormsTest extends TestCase
         }
 
         return $form;
+    }
+
+    public function test_forms_permissions_are_independent_and_edit_includes_view(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        $this->actingAs($user)->post(route('team.forms.store', $event), $this->formPayload())->assertSessionHasNoErrors();
+        $form = TeamForm::sole();
+        $this->grantRoleAccess($user, ['team.edit']);
+        foreach (['team.forms', 'team.forms.create'] as $route) {
+            $this->get(route($route))->assertForbidden();
+        }
+        foreach (['team.forms.edit', 'team.forms.preview'] as $route) {
+            $this->get(route($route, $form))->assertForbidden();
+        }
+        $this->post(route('team.forms.store', $event), $this->formPayload('Denied'))->assertForbidden();
+        $this->put(route('team.forms.update', $form), $this->formPayload())->assertForbidden();
+
+        $this->grantRoleAccess($user, ['forms.view']);
+        $this->get(route('team.forms'))->assertInertia(fn (Assert $page) => $page->where('canWrite', false));
+        $this->get(route('team.forms.edit', $form))->assertInertia(fn (Assert $page) => $page->where('canWrite', false));
+        $this->get(route('team.forms.preview', $form))->assertOk();
+        $this->get(route('team.advancement'))->assertForbidden();
+        $this->get(route('team.scheduling'))->assertForbidden();
+        $this->get(route('team.forms.create'))->assertForbidden();
+        $this->post(route('team.forms.store', $event), $this->formPayload('Denied'))->assertForbidden();
+        $this->put(route('team.forms.update', $form), $this->formPayload())->assertForbidden();
+
+        $this->grantRoleAccess($user, ['forms.edit']);
+        $this->get(route('team.forms'))->assertInertia(fn (Assert $page) => $page
+            ->where('canWrite', true)
+            ->where('permissions', fn ($permissions) => $permissions['forms.view'] && $permissions['forms.edit'] && ! $permissions['team.view']));
+        $this->get(route('team.forms.create'))->assertOk();
+        $this->post(route('team.forms.store', $event), $this->formPayload('Second'))->assertSessionHasNoErrors();
+        $this->put(route('team.forms.update', $form), $this->formPayload('Updated'))->assertSessionHasNoErrors();
+        $this->assertSame('Updated', $form->fresh()->name);
+        $this->post(route('team.forms.store', $event), [])->assertSessionHasErrors('name');
+        $event->lock();
+        $this->put(route('team.forms.update', $form), $this->formPayload('Locked'))->assertForbidden();
     }
 
     /** @return array<string, mixed> */

@@ -17,7 +17,7 @@ class ConfigureController extends Controller
 
     public function index(IndexGroupsRequest $request, EventContext $eventContext): Response
     {
-        Gate::authorize('view-team');
+        Gate::authorize('team.view');
 
         $event = $eventContext->requireCurrent($request->user());
 
@@ -39,7 +39,7 @@ class ConfigureController extends Controller
             ],
             'groups' => $groups,
             'filters' => ['search' => $search],
-            'canManage' => Gate::allows('manage-team'),
+            'canManage' => Gate::allows('team.edit'),
         ]);
     }
 }

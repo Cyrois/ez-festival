@@ -45,7 +45,7 @@ class FormsController extends Controller
             'filters' => ['search' => $search, 'status' => $status],
             'statuses' => TeamForm::STATUSES,
             'event' => $event?->only('id', 'name', 'locked'),
-            'canWrite' => $event !== null && ! $event->isLocked() && Gate::allows('manage-team'),
+            'canWrite' => $event !== null && ! $event->isLocked() && Gate::allows('forms.edit'),
         ]);
     }
 
@@ -58,6 +58,7 @@ class FormsController extends Controller
             'teamForm' => null,
             'statuses' => TeamForm::STATUSES,
             'initialFields' => $this->initialFields(),
+            'canWrite' => ! $event->isLocked() && Gate::allows('forms.edit', $event),
         ]);
     }
 
@@ -89,6 +90,7 @@ class FormsController extends Controller
             ],
             'statuses' => TeamForm::STATUSES,
             'initialFields' => $this->initialFields(),
+            'canWrite' => ! $event->isLocked() && Gate::allows('forms.edit', $event),
         ]);
     }
 

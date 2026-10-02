@@ -12,7 +12,6 @@ use App\Support\OrganizationContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -31,7 +30,8 @@ class TeamShiftRoleSlotsTest extends TestCase
     {
         [$user, $event, $location] = $this->context();
         $crew = Role::query()->create(['name' => 'Crew']);
-        $lead = Role::query()->create(['name' => 'Lead']);
+        $lead = Role::query()->create(['name' => 'Lead', 'permissions' => ['artists.edit']]);
+        $this->grantRoleAccess($user, ['scheduling.edit']);
         $peopleBefore = DB::table('people')->count();
         $accessBefore = DB::table('team_engagements')->count();
         $this->actingAs($user)->post(route('team.shifts.store', $event), $this->payload($location, [
@@ -193,7 +193,7 @@ class TeamShiftRoleSlotsTest extends TestCase
         [$user, $event, $location] = $this->context();
         $role = Role::query()->create(['name' => 'Crew']);
         $shift = app(ShiftService::class)->create($event, $this->payload($location, [['role_id' => $role->id, 'needed' => 2]]));
-        Gate::define('manage-team', fn () => false);
+        $this->grantRoleAccess($user, ['scheduling.view']);
         $this->actingAs($user)->get(route('team.shifts.show', $shift))->assertInertia(fn (Assert $page) => $page
             ->where('canManage', false)->has('roles', 0)->where('shift.total_needs', 2));
         $this->getJson(route('team.scheduling.shifts'))->assertOk()->assertJsonPath('data.0.total_needs', 2);
@@ -201,7 +201,7 @@ class TeamShiftRoleSlotsTest extends TestCase
         $this->put(route('team.shifts.update', [$event, $shift]), $this->payload($location))->assertForbidden();
         $this->post(route('team.shifts.store', $event), $this->payload($location))->assertForbidden();
         $this->assertDatabaseCount('shift_role_slots', 1);
-        Gate::define('view-team', fn () => false);
+        $this->grantRoleAccess($user, []);
         $this->get(route('team.shifts.show', $shift))->assertForbidden();
         $this->getJson(route('team.scheduling.shifts'))->assertForbidden();
         $this->get(route('team.scheduling'))->assertForbidden();
@@ -295,7 +295,7 @@ class TeamShiftRoleSlotsTest extends TestCase
     public function test_locked_nonadmin_editor_is_read_only_too(): void
     {
         [$user, $event, $location] = $this->context();
-        $role = Role::query()->create(['name' => 'Crew']);
+        $role = Role::query()->create(['name' => 'Crew', 'permissions' => ['scheduling.edit']]);
         $user->forceFill(['is_admin' => false])->save();
         TeamEngagement::query()->create([
             'event_id' => $event->id, 'person_id' => $user->person_id, 'role_id' => $role->id,

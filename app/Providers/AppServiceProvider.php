@@ -2,9 +2,13 @@
 
 namespace App\Providers;
 
-use App\Models\TeamEngagement;
+use App\Models\Event;
 use App\Models\User;
+use App\Services\EventAccessService;
 use App\Support\OrganizationContext;
+use App\Support\PermissionEvent;
+use App\Support\Permissions;
+use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -26,6 +30,7 @@ class AppServiceProvider extends ServiceProvider
         );
 
         $this->app->scoped(OrganizationContext::class);
+        $this->app->scoped(EventAccessService::class);
     }
 
     /**
@@ -33,30 +38,29 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Gate::define('manage-feature-flags', fn (User $user): bool => $user !== null);
-        Gate::define('view-artists', fn (User $user): bool => $user !== null);
-        Gate::define('manage-artists', fn (User $user): bool => $user !== null);
-        Gate::define('view-credentials', fn (User $user): bool => $user !== null);
-        Gate::define('manage-credentials', fn (User $user): bool => $user !== null);
-        Gate::define('view-team', fn (User $user): bool => $user !== null);
-        Gate::define('manage-team', fn (User $user): bool => $user !== null);
-        Gate::define('manage-global-team', fn (User $user): bool => $user->isAdmin());
-        Gate::define('manage-roles', fn (User $user): bool => $user->isAdmin());
-        Gate::define('can-read-team-notes', function (User $user, TeamEngagement $engagement): bool {
-            if ($user->isAdmin()) {
-                return true;
-            }
+        Gate::define('team.member.update', fn (User $user): bool => Gate::forUser($user)->any(['team.edit', 'team.notes.add', 'team.change_role']));
+        Gate::define('pass-assignment.edit', function (User $user): bool {
+            $assignment = request()->route('assignment');
+            $area = match (true) {
+                $assignment->artist_engagement_id !== null => 'artists',
+                $assignment->vendor_engagement_id !== null => 'vendors',
+                $assignment->team_engagement_id !== null => 'team',
+                default => 'patrons',
+            };
 
-            return TeamEngagement::query()
-                ->where('event_id', $engagement->event_id)
-                ->where('person_id', $user->person_id)
-                ->whereHas(
-                    'role',
-                    fn ($query) => $query
-                        ->where('active', true)
-                        ->where('can_read_team_notes', true),
-                )
-                ->exists();
+            return Gate::forUser($user)->allows($area.'.edit', $assignment->passType->event);
         });
+        Gate::before(fn (User $user) => $user->isAdmin() ? true : null);
+        foreach (Permissions::keys() as $permission) {
+            Gate::define($permission, function (User $user, mixed $record = null) use ($permission): bool {
+                $event = $record instanceof Event ? $record : $record?->event;
+                $event ??= app(PermissionEvent::class)->resolve(app(Request::class));
+
+                return app(EventAccessService::class)->allows($user, $permission, $event);
+            });
+        }
+        foreach (['manage-global-team', 'manage-roles', 'manage-feature-flags', 'view-credentials', 'manage-credentials', 'admin'] as $ability) {
+            Gate::define($ability, fn (User $user): bool => $user->isAdmin());
+        }
     }
 }

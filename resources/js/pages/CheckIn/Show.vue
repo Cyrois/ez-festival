@@ -1,4 +1,5 @@
 <script setup>
+import HiddenPersonalInfo from '../../components/people/HiddenPersonalInfo.vue';
 import { computed, ref } from 'vue';
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Avatar } from '../../components/ui/avatar';
@@ -72,7 +73,7 @@ const breadcrumbs = computed(() => [
                 </div>
             </header>
             <p
-                v-if="readOnly"
+                v-if="event.locked"
                 class="mb-4 flex items-center gap-2 rounded-lg border border-warning/20 bg-warning/10 p-3 text-sm text-charcoal"
                 role="status"
             >
@@ -104,6 +105,9 @@ const breadcrumbs = computed(() => [
                                         : $t('artists.check_in.contact')
                                 }}
                             </p>
+                            <HiddenPersonalInfo
+                                v-if="person.personal_info_hidden"
+                            />
                             <p class="mt-1 mb-0 text-xs text-muted">
                                 {{ $t('artists.check_in.consume_hint') }}
                             </p>

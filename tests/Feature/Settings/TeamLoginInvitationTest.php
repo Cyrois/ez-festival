@@ -392,6 +392,7 @@ class TeamLoginInvitationTest extends TestCase
     {
         [$actor, $person, $event] = $this->teamPerson();
         $this->enableAndToken($actor, $person, $event);
+        $this->grantRoleAccess($actor);
         Gate::define('manage-global-team', fn (): bool => false);
 
         $this->actingAs($actor)

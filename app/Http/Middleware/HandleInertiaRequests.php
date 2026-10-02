@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\EventAccessService;
 use App\Services\FeatureFlagService;
 use App\Support\OrganizationContext;
 use Illuminate\Http\Request;
@@ -54,6 +55,7 @@ class HandleInertiaRequests extends Middleware
                 'warning_title' => fn () => $request->session()->get('warning_title'),
                 'error' => fn () => $request->session()->get('error'),
             ],
+            'permissions' => $user ? fn () => app(EventAccessService::class)->map($user, $event) : [],
             'auth' => [
                 'user' => $user
                     ? [

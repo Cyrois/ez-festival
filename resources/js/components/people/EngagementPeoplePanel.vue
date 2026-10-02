@@ -1,4 +1,5 @@
 <script setup>
+import HiddenPersonalInfo from './HiddenPersonalInfo.vue';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
 import { FormField } from '../ui/form-field';
@@ -100,7 +101,11 @@ const remove = (person) => {
             >
                 <div>
                     <p class="m-0 text-sm font-semibold">{{ person.name }}</p>
-                    <p class="mt-0.5 mb-0 text-xs text-muted">
+                    <HiddenPersonalInfo v-if="person.personal_info_hidden" />
+                    <p
+                        v-else
+                        class="mt-0.5 mb-0 text-xs text-muted"
+                    >
                         {{
                             [person.email, person.phone]
                                 .filter(Boolean)

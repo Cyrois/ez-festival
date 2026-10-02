@@ -235,7 +235,10 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                 </form>
 
                 <Button
-                    v-if="canWrite"
+                    :disabled="!canWrite"
+                    :title="
+                        !canWrite ? $t('permissions.no_add.groups') : undefined
+                    "
                     type="button"
                     variant="primary"
                     class="w-full sm:w-auto"

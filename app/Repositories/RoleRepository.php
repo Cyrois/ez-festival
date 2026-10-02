@@ -2,6 +2,7 @@
 
 namespace App\Repositories;
 
+use App\Models\Person;
 use App\Models\Role;
 use App\Support\RoleName;
 use App\Support\SqlLike;
@@ -74,6 +75,21 @@ class RoleRepository
     public function exists(): bool
     {
         return Role::query()->exists();
+    }
+
+    public function peopleDataTable(Role $role, string $search, int $start, int $length, string $direction): array
+    {
+        $query = Person::query()->whereHas('teamEngagements', fn (Builder $query) => $query->where('role_id', $role->id));
+        $total = (clone $query)->count();
+        if ($search !== '') {
+            $query->whereRaw("lower(name) like ? escape '!'", ['%'.SqlLike::escape(mb_strtolower($search)).'%']);
+        }
+
+        return [
+            'total' => $total,
+            'filtered' => (clone $query)->count(),
+            'people' => $query->orderBy('name', $direction)->orderBy('id')->offset($start)->limit($length)->get(['id', 'name']),
+        ];
     }
 
     public function findByName(string $name, ?Role $ignore = null): ?Role

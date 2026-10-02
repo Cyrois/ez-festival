@@ -4,14 +4,17 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\IndexRoleDataTableRequest;
+use App\Http\Requests\Settings\IndexRolePeopleRequest;
 use App\Http\Requests\Settings\IndexRolesRequest;
 use App\Http\Requests\Settings\StoreRoleRequest;
 use App\Http\Requests\Settings\UpdateRoleRequest;
 use App\Http\Resources\RoleDataTableResource;
+use App\Http\Resources\RolePeopleDataTableResource;
 use App\Http\Resources\RoleResource;
 use App\Models\Role;
 use App\Repositories\RoleRepository;
 use App\Services\RoleService;
+use App\Support\Permissions;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -55,15 +58,44 @@ class RoleController extends Controller
         ]);
     }
 
+    public function create(): Response
+    {
+        return Inertia::render('Settings/Roles/Create', ['permissionGroups' => Permissions::groups()]);
+    }
+
+    public function people(IndexRolePeopleRequest $request, Role $role): RolePeopleDataTableResource
+    {
+        return new RolePeopleDataTableResource([
+            'draw' => (int) $request->validated('draw'),
+            ...$this->roles->peopleDataTable(
+                $role,
+                trim((string) $request->validated('search.value', '')),
+                (int) $request->validated('start'),
+                (int) $request->validated('length'),
+                $request->validated('order.0.dir', 'asc'),
+            ),
+        ]);
+    }
+
+    public function edit(Role $role): Response
+    {
+        $role->loadCount(['teamEngagements as people_count' => fn ($query) => $query->selectRaw('count(distinct person_id)')]);
+
+        return Inertia::render('Settings/Roles/Edit', [
+            'role' => (new RoleResource($role))->resolve(),
+            'permissionGroups' => Permissions::groups(),
+        ]);
+    }
+
     public function store(StoreRoleRequest $request): RedirectResponse
     {
         $data = $request->validated();
         $this->roleService->create(
             $data['name'],
-            (bool) ($data['can_read_team_notes'] ?? false),
+            $data['permissions'],
         );
 
-        return back()->with('success', __('settings.roles.toast.created'));
+        return redirect()->route('settings.roles')->with('success', __('settings.roles.toast.created'));
     }
 
     public function update(UpdateRoleRequest $request, Role $role): RedirectResponse
@@ -72,9 +104,9 @@ class RoleController extends Controller
         $this->roleService->update(
             $role,
             $data['name'],
-            (bool) ($data['can_read_team_notes'] ?? $role->can_read_team_notes),
+            $data['permissions'],
         );
 
-        return back()->with('success', __('settings.roles.toast.updated'));
+        return redirect()->route('settings.roles')->with('success', __('settings.roles.toast.updated'));
     }
 }

@@ -311,7 +311,8 @@ class TeamPassAssignmentsTest extends TestCase
             'pass_type_id' => $passType->id,
             'person_id' => $engagement->person_id,
         ]);
-        Gate::define('manage-team', fn (): bool => false);
+        $this->grantRoleAccess($user);
+        Gate::define('team.edit', fn (): bool => false);
 
         $this->actingAs($user)->put(
             route('team.members.update', $engagement),
@@ -492,7 +493,9 @@ class TeamPassAssignmentsTest extends TestCase
                 ->where('engagement.pass_assignments.0.issued_count', 1)
                 ->where('engagement.pass_assignments.0.issue_state', 'issued')
                 ->where('engagement.pass_assignments.0.can_remove', false)
-                ->where('passes.0.assignments_count', 1)
+                ->where('passes.0.full', false)
+                ->missing('passes.0.assignments_count')
+                ->missing('passes.0.max_assignments')
                 ->where('passes.0.labels.0.name', 'Backstage')
                 ->where('passes.0.entitlements.0.name', 'Wristband')
                 ->where('passes.0.entitlements.0.quantity', 2)

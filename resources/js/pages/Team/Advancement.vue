@@ -148,7 +148,11 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                     </p>
                 </div>
                 <Button
-                    v-if="event && canWrite"
+                    v-if="event"
+                    :disabled="!canWrite"
+                    :title="
+                        !canWrite ? $t('permissions.no_add.team') : undefined
+                    "
                     href="/team/members/create"
                     class="min-h-11 w-full sm:w-auto"
                 >

@@ -13,7 +13,7 @@ class UpdateVendorRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->can('vendors.edit') ?? false;
     }
 
     protected function prepareForValidation(): void

@@ -1,4 +1,5 @@
 <script setup>
+import HiddenPersonalInfo from '../../components/people/HiddenPersonalInfo.vue';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
@@ -204,7 +205,12 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer));
                                         {{ person.name }}
                                     </span>
                                     <span class="block text-xs text-muted">
-                                        {{ person.subtitle }}
+                                        <HiddenPersonalInfo
+                                            v-if="person.personal_info_hidden"
+                                        />
+                                        <span v-else>{{
+                                            person.subtitle
+                                        }}</span>
                                     </span>
                                 </div>
                             </div>

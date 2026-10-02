@@ -18,7 +18,7 @@ class SchedulingController extends Controller
         EventContext $eventContext,
         LocationRepository $locations,
     ): Response {
-        Gate::authorize('view-team');
+        Gate::authorize('scheduling.view');
 
         $event = $eventContext->requireCurrent($request->user());
 
@@ -29,8 +29,8 @@ class SchedulingController extends Controller
                 'is_locked' => $event->isLocked(),
             ],
             'locations' => $locations->optionsFor($event),
-            'canManage' => Gate::allows('manage-team'),
-            'roles' => Gate::allows('manage-team') && ! $event->isLocked() ? ShiftSlotReferences::options() : [],
+            'canManage' => Gate::allows('scheduling.edit'),
+            'roles' => Gate::allows('scheduling.edit') && ! $event->isLocked() ? ShiftSlotReferences::options() : [],
         ]);
     }
 }

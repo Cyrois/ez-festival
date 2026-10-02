@@ -16,7 +16,9 @@ class CheckInPersonResource extends JsonResource
             'person_id' => (int) $this->person_id,
             'engagement_id' => (int) $this->engagement_id,
             'name' => $this->person_name,
-            'subtitle' => $this->person_email,
+            ...($request->user()->can(match ($this->type) {
+                'artist' => 'artists.personal_info', 'vendor' => 'vendors.personal_info', 'team' => 'team.personal_info', default => 'patrons.personal_info'
+            }) ? ['subtitle' => $this->person_email] : ['personal_info_hidden' => true]),
             'type' => $this->type,
             'context' => $this->context_name,
             'pass_name' => $this->pass_name ?? '',

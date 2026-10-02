@@ -97,6 +97,9 @@ const copyLink = async (url) => {
                 <Button
                     href="/team/forms/create"
                     :disabled="!canWrite"
+                    :title="
+                        !canWrite ? $t('permissions.no_add.forms') : undefined
+                    "
                 >
                     <Icon
                         :name="['fas', 'plus']"
@@ -198,6 +201,9 @@ const copyLink = async (url) => {
                     v-if="!search && !status"
                     href="/team/forms/create"
                     :disabled="!canWrite"
+                    :title="
+                        !canWrite ? $t('permissions.no_add.forms') : undefined
+                    "
                 >
                     {{ $t('team.forms.actions.create') }}
                 </Button>

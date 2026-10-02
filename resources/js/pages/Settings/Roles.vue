@@ -2,20 +2,14 @@
 import SettingsLayout from '../../layouts/SettingsLayout.vue';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
-import { Checkbox } from '../../components/ui/checkbox';
 import { DataTable } from '../../components/ui/data-table';
-import { Dialog } from '../../components/ui/dialog';
-import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
-import { IconButton } from '../../components/ui/icon-button';
 import { Input } from '../../components/ui/input';
 import { SegmentedControl } from '../../components/ui/segmented-control';
-import { emphasisParts } from '../../lib/emphasisParts';
-import { fieldError } from '../../lib/fieldError';
 import { roleColumns } from './roleColumns';
-import { roleMatchHint } from './roleMatchHint';
 import { ROLE_STATUSES, rolesQuery } from './rolesFilters';
-import { router, useForm } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
+import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import { trans, transChoice } from 'laravel-vue-i18n';
 
@@ -70,24 +64,17 @@ const dataTableOptions = computed(() => ({
         topStart: null,
         topEnd: null,
     },
-    columnDefs: [{ targets: 3, className: 'text-right' }],
+    columnDefs: [{ targets: 2, className: 'text-right' }],
     createdRow: (row, role) => {
         if (!props.canManageRoles) {
             return;
         }
 
-        row.classList.add('cursor-pointer');
-        row.dataset.rowLink = '';
-        row.addEventListener('click', (event) => {
-            if (
-                event.target.closest('a, button, input, select, textarea') ||
-                window.getSelection()?.toString()
-            ) {
-                return;
-            }
-
-            openRename(role);
-        });
+        navigateDataTableRow(
+            row,
+            role,
+            (item) => `/settings/roles/${item.id}/edit`,
+        );
     },
     language: {
         emptyTable: trans('settings.roles.empty'),
@@ -132,97 +119,10 @@ watch(
 
 onUnmounted(() => window.clearTimeout(searchTimer));
 
-// Add / rename dialog.
-const editing = ref(null);
-const formOpen = ref(false);
-const form = useForm({ name: '', can_read_team_notes: false });
+const openAdd = () => router.visit('/settings/roles/create');
 
-const isRename = computed(() => editing.value !== null);
-const formTitle = computed(() =>
-    isRename.value
-        ? trans('settings.roles.form.edit_title', {
-              name: editing.value.name,
-          })
-        : trans('settings.roles.form.add_title'),
-);
-// Name as last sent to the server, so the "matches" hint never follows later typing.
-const submittedName = ref(null);
-const matchParts = computed(() => {
-    const hint = roleMatchHint({
-        match: form.errors.name_match,
-        submitted: submittedName.value,
-        current: form.name,
-    });
-
-    return hint
-        ? emphasisParts(trans, 'settings.roles.form.match_hint', hint)
-        : [];
-});
-
-const focusName = async () => {
-    await nextTick();
-    document.getElementById('role-name')?.focus();
-};
-
-const openAdd = () => {
-    editing.value = null;
-    form.reset();
-    form.can_read_team_notes = false;
-    form.clearErrors();
-    formOpen.value = true;
-    focusName();
-};
-
-const openRename = (role) => {
-    editing.value = role;
-    form.name = role.name;
-    form.can_read_team_notes = role.can_read_team_notes;
-    form.clearErrors();
-    formOpen.value = true;
-    focusName();
-};
-
-const closeForm = () => {
-    formOpen.value = false;
-    editing.value = null;
-    submittedName.value = null;
-    form.reset();
-    form.clearErrors();
-};
-
-const submitForm = () => {
-    const options = {
-        preserveScroll: true,
-        onSuccess: async () => {
-            closeForm();
-            await nextTick();
-            table.value?.reload(false);
-        },
-    };
-
-    form.clearErrors();
-    submittedName.value = form.name;
-
-    if (isRename.value) {
-        form.put(`/settings/roles/${editing.value.id}`, options);
-        return;
-    }
-
-    form.post('/settings/roles', options);
-};
-
-// Turn off (asks first) / turn on.
-const turningOff = ref(null);
+// Turn on inactive roles.
 const statusBusy = ref(false);
-
-const turnOffParts = computed(() =>
-    turningOff.value
-        ? emphasisParts(trans, 'settings.roles.turn_off.body', {
-              name: turningOff.value.name,
-              people: peopleLabel(turningOff.value.people_count),
-          })
-        : [],
-);
 
 const setActive = (role, active, onSuccess = () => {}) => {
     statusBusy.value = true;
@@ -241,15 +141,6 @@ const setActive = (role, active, onSuccess = () => {}) => {
             },
         },
     );
-};
-
-const confirmTurnOff = () => {
-    if (!turningOff.value) {
-        return;
-    }
-    setActive(turningOff.value, false, () => {
-        turningOff.value = null;
-    });
 };
 </script>
 
@@ -311,105 +202,7 @@ const confirmTurnOff = () => {
                 />
             </div>
 
-            <!-- Phone: card stack -->
-            <div class="flex flex-col gap-3 md:hidden">
-                <div
-                    v-for="role in roles.data"
-                    :key="`card-${role.id}`"
-                    class="rounded-xl border border-line bg-ground p-4"
-                >
-                    <div
-                        :class="[
-                            'flex flex-wrap items-center gap-2 font-bold',
-                            !role.active && 'text-muted',
-                        ]"
-                    >
-                        {{ role.name }}
-                        <Badge
-                            v-if="!role.active"
-                            pill
-                            class="font-bold text-muted"
-                        >
-                            {{ $t('settings.roles.status.off') }}
-                        </Badge>
-                    </div>
-                    <div class="mt-0.5 text-sm text-muted">
-                        {{ peopleLabel(role.people_count) }}
-                    </div>
-                    <div
-                        class="mt-2 flex items-center gap-2 text-sm text-muted"
-                    >
-                        <Icon
-                            :name="
-                                role.can_read_team_notes
-                                    ? ['fas', 'check']
-                                    : ['fas', 'minus']
-                            "
-                            size="sm"
-                        />
-                        {{ $t('settings.roles.columns.team_notes') }}
-                    </div>
-                    <div
-                        v-if="canManageRoles"
-                        class="mt-4 flex flex-wrap justify-end gap-2"
-                    >
-                        <IconButton
-                            :icon="['fas', 'pencil']"
-                            :label="
-                                $t('settings.roles.actions.rename', {
-                                    name: role.name,
-                                })
-                            "
-                            tone="edit"
-                            class="h-11 w-11"
-                            @click="openRename(role)"
-                        />
-                        <Button
-                            v-if="role.active"
-                            type="button"
-                            variant="outline-secondary"
-                            size="sm"
-                            class="min-h-11"
-                            :disabled="statusBusy"
-                            @click="turningOff = role"
-                        >
-                            <Icon
-                                :name="['fas', 'power-off']"
-                                size="sm"
-                            />
-                            {{ $t('settings.roles.actions.turn_off') }}
-                        </Button>
-                        <Button
-                            v-else
-                            type="button"
-                            variant="outline-primary"
-                            size="sm"
-                            class="min-h-11"
-                            :disabled="statusBusy"
-                            @click="setActive(role, true)"
-                        >
-                            <Icon
-                                :name="['fas', 'power-off']"
-                                size="sm"
-                            />
-                            {{ $t('settings.roles.actions.turn_on') }}
-                        </Button>
-                    </div>
-                </div>
-                <p
-                    v-if="roles.data.length === 0"
-                    class="m-0 rounded-xl border border-line bg-ground px-4 py-6 text-center text-sm text-muted"
-                >
-                    {{
-                        hasAnyRoles
-                            ? $t('settings.roles.empty_filtered')
-                            : $t('settings.roles.empty')
-                    }}
-                </p>
-            </div>
-
-            <!-- md+: table -->
-            <div class="hidden md:block">
+            <div>
                 <DataTable
                     :key="dataTableKey"
                     ref="table"
@@ -418,9 +211,17 @@ const confirmTurnOff = () => {
                     :options="dataTableOptions"
                 >
                     <template #roleCell="{ rowData }">
-                        <span
+                        <component
+                            :is="canManageRoles ? Link : 'span'"
+                            :href="
+                                canManageRoles
+                                    ? `/settings/roles/${rowData.id}/edit`
+                                    : undefined
+                            "
                             :class="[
-                                'inline-flex items-center gap-2 font-bold',
+                                'inline-flex items-center gap-2 font-semibold text-charcoal no-underline',
+                                canManageRoles &&
+                                    'hover:text-primary hover:underline',
                                 !rowData.active && 'text-muted',
                             ]"
                         >
@@ -432,65 +233,20 @@ const confirmTurnOff = () => {
                             >
                                 {{ $t('settings.roles.status.off') }}
                             </Badge>
-                        </span>
+                        </component>
                     </template>
                     <template #peopleCell="{ rowData }">
                         <span :class="!rowData.active && 'text-muted'">
                             {{ peopleLabel(rowData.people_count) }}
                         </span>
                     </template>
-                    <template #teamNotesCell="{ rowData }">
-                        <Icon
-                            :name="
-                                rowData.can_read_team_notes
-                                    ? ['fas', 'check']
-                                    : ['fas', 'minus']
-                            "
-                            :class="
-                                rowData.can_read_team_notes
-                                    ? 'text-success'
-                                    : 'text-muted'
-                            "
-                            :aria-label="
-                                $t(
-                                    rowData.can_read_team_notes
-                                        ? 'settings.roles.permissions.enabled'
-                                        : 'settings.roles.permissions.disabled',
-                                )
-                            "
-                        />
-                    </template>
-                    <template #actionsCell="{ rowData }">
+                    <template #openCell="{ rowData }">
                         <div
                             v-if="canManageRoles"
                             class="flex items-center justify-end gap-2"
                         >
-                            <IconButton
-                                :icon="['fas', 'pencil']"
-                                :label="
-                                    $t('settings.roles.actions.rename', {
-                                        name: rowData.name,
-                                    })
-                                "
-                                tone="edit"
-                                @click="openRename(rowData)"
-                            />
                             <Button
-                                v-if="rowData.active"
-                                type="button"
-                                variant="outline-secondary"
-                                size="sm"
-                                :disabled="statusBusy"
-                                @click="turningOff = rowData"
-                            >
-                                <Icon
-                                    :name="['fas', 'power-off']"
-                                    size="sm"
-                                />
-                                {{ $t('settings.roles.actions.turn_off') }}
-                            </Button>
-                            <Button
-                                v-else
+                                v-if="!rowData.active"
                                 type="button"
                                 variant="outline-primary"
                                 size="sm"
@@ -503,43 +259,23 @@ const confirmTurnOff = () => {
                                 />
                                 {{ $t('settings.roles.actions.turn_on') }}
                             </Button>
+                            <Link
+                                :href="`/settings/roles/${rowData.id}/edit`"
+                                class="inline-flex text-muted hover:text-primary"
+                                :aria-label="
+                                    $t('data_table.open', {
+                                        name: rowData.name,
+                                    })
+                                "
+                            >
+                                <Icon
+                                    :name="['fas', 'chevron-right']"
+                                    size="sm"
+                                />
+                            </Link>
                         </div>
                     </template>
                 </DataTable>
-            </div>
-
-            <div
-                v-if="roles.meta?.last_page > 1"
-                class="flex flex-wrap items-center justify-between gap-3 md:hidden"
-            >
-                <p class="m-0 text-sm text-muted">
-                    {{
-                        $t('settings.roles.pagination', {
-                            from: roles.meta.from,
-                            to: roles.meta.to,
-                            total: roles.meta.total,
-                        })
-                    }}
-                </p>
-                <nav
-                    class="flex gap-2"
-                    :aria-label="$t('settings.roles.pagination_label')"
-                >
-                    <Button
-                        :href="roles.links.prev || ''"
-                        :disabled="!roles.links.prev"
-                        variant="outline"
-                    >
-                        {{ $t('settings.roles.previous') }}
-                    </Button>
-                    <Button
-                        :href="roles.links.next || ''"
-                        :disabled="!roles.links.next"
-                        variant="outline"
-                    >
-                        {{ $t('settings.roles.next') }}
-                    </Button>
-                </nav>
             </div>
 
             <div class="flex flex-col gap-1.5">
@@ -551,126 +287,5 @@ const confirmTurnOff = () => {
                 </p>
             </div>
         </div>
-
-        <Dialog
-            :open="formOpen"
-            :title="formTitle"
-            :confirm-label="
-                isRename
-                    ? $t('settings.roles.form.save')
-                    : $t('settings.roles.form.submit_add')
-            "
-            :cancel-label="$t('settings.roles.form.cancel')"
-            confirm-variant="primary"
-            cancel-variant="outline-primary"
-            :busy="form.processing"
-            sectioned
-            @update:open="(open) => !open && closeForm()"
-            @confirm="submitForm"
-        >
-            <form
-                class="flex flex-col gap-1.5"
-                @submit.prevent="submitForm"
-            >
-                <FormField
-                    :label="$t('settings.roles.form.name')"
-                    :error="fieldError(form, 'name')"
-                    html-for="role-name"
-                    required
-                >
-                    <template #default="{ id, invalid }">
-                        <Input
-                            :id="id"
-                            v-model="form.name"
-                            type="text"
-                            :invalid="invalid"
-                            maxlength="255"
-                            autocomplete="off"
-                        />
-                    </template>
-                </FormField>
-                <p class="m-0 text-xs leading-snug text-muted">
-                    {{ $t('settings.roles.form.unique_hint') }}
-                    <template v-if="matchParts.length">
-                        <template
-                            v-for="(part, index) in matchParts"
-                            :key="index"
-                        >
-                            <code
-                                v-if="part.emphasis"
-                                class="rounded border border-line bg-page px-1 font-mono text-[11px] whitespace-pre text-charcoal"
-                                >{{ part.text }}</code
-                            >
-                            <template v-else>{{ part.text }}</template>
-                        </template>
-                    </template>
-                    <template v-else-if="!isRename">
-                        {{ $t('settings.roles.form.new_hint') }}
-                    </template>
-                </p>
-                <p
-                    v-if="isRename"
-                    class="mt-2 mb-0 text-xs leading-snug text-muted"
-                >
-                    {{
-                        $t('settings.roles.form.rename_keeps', {
-                            people: peopleLabel(editing.people_count),
-                        })
-                    }}
-                </p>
-                <div class="mt-4 border-t border-line pt-4">
-                    <h3 class="m-0 text-sm font-bold text-charcoal">
-                        {{ $t('settings.roles.permissions.title') }}
-                    </h3>
-                    <Checkbox
-                        v-model="form.can_read_team_notes"
-                        class="mt-3"
-                    >
-                        <span class="font-semibold">
-                            {{
-                                $t(
-                                    'settings.roles.permissions.can_read_team_notes',
-                                )
-                            }}
-                        </span>
-                    </Checkbox>
-                    <p class="mt-1 mb-0 pl-6 text-xs leading-snug text-muted">
-                        {{
-                            $t(
-                                'settings.roles.permissions.can_read_team_notes_help',
-                            )
-                        }}
-                    </p>
-                </div>
-            </form>
-        </Dialog>
-
-        <Dialog
-            :open="turningOff !== null"
-            :title="$t('settings.roles.turn_off.title')"
-            :confirm-label="$t('settings.roles.turn_off.confirm')"
-            :cancel-label="$t('settings.roles.form.cancel')"
-            confirm-variant="danger"
-            cancel-variant="outline-primary"
-            :confirm-icon="['fas', 'power-off']"
-            :busy="statusBusy"
-            sectioned
-            @update:open="(open) => !open && (turningOff = null)"
-            @confirm="confirmTurnOff"
-        >
-            <template #description>
-                <template
-                    v-for="(part, index) in turnOffParts"
-                    :key="index"
-                >
-                    <strong
-                        v-if="part.emphasis"
-                        class="font-bold"
-                        >{{ part.text }}</strong
-                    >
-                    <template v-else>{{ part.text }}</template>
-                </template>
-            </template>
-        </Dialog>
     </SettingsLayout>
 </template>
