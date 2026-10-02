@@ -12,6 +12,7 @@ use App\Services\PassAssignmentService;
 use App\Support\OrganizationContext;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -25,6 +26,8 @@ class PassTypesTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
+        config(['cache.default' => 'database', 'cache.serializable_classes' => false]);
+        Cache::purge('database');
     }
 
     public function test_catalog_uses_its_own_pass_type_label_taxonomy(): void

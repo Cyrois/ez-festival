@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Support\OrganizationContext;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -22,6 +23,8 @@ class EntitlementItemsTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
+        config(['cache.default' => 'database', 'cache.serializable_classes' => false]);
+        Cache::purge('database');
     }
 
     public function test_guests_must_sign_in(): void
