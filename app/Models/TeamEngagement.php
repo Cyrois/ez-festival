@@ -7,10 +7,22 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Validation\ValidationException;
 
 #[Fillable(['event_id', 'person_id', 'group_id', 'role_id', 'team_form_id', 'status', 'employment_type', 'hourly_pay', 'submitted_at'])]
 class TeamEngagement extends Model
 {
+    protected static function booted(): void
+    {
+        static::deleting(function (TeamEngagement $engagement): void {
+            if ($engagement->shiftAssignments()->exists()) {
+                throw ValidationException::withMessages([
+                    'team_engagement_id' => __('team.scheduling.assignments.errors.delete_member'),
+                ]);
+            }
+        });
+    }
+
     public const STATUSES = ['applied', 'reviewing', 'hired', 'declined'];
 
     public const EMPLOYMENT_TYPES = ['volunteer', 'paid'];
@@ -18,6 +30,11 @@ class TeamEngagement extends Model
     public static function startingStatus(): string
     {
         return self::STATUSES[0];
+    }
+
+    public function shiftAssignments(): HasMany
+    {
+        return $this->hasMany(ShiftAssignment::class);
     }
 
     protected function casts(): array

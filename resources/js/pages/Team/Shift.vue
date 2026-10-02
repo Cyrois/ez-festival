@@ -1,5 +1,7 @@
 <script setup>
 import ShiftRoleSlots from '../../components/team/ShiftRoleSlots.vue';
+import ShiftRoster from '../../components/team/ShiftRoster.vue';
+import ShiftAssignDialog from '../../components/team/ShiftAssignDialog.vue';
 import {
     draftShiftSlots,
     shiftSlotPayload,
@@ -40,6 +42,51 @@ const clearSlotError = (key, field) => {
 };
 const deleting = ref(false);
 const deleteBusy = ref(false);
+const confirmationCount = ref(0);
+const selectedSlot = ref(null);
+const assignmentBusy = ref(false);
+const assignmentCounts = computed(() =>
+    Object.fromEntries(
+        props.shift.slots.map((slot) => [slot.id, slot.assigned_count]),
+    ),
+);
+const unsaved = computed(() => form.isDirty);
+const assignmentReason = computed(() =>
+    trans(
+        props.event.is_locked
+            ? 'team.scheduling.locked'
+            : !props.canManage
+              ? 'team.scheduling.no_permission'
+              : unsaved.value
+                ? 'team.scheduling.assignments.save_first'
+                : '',
+    ),
+);
+const assignmentsEnabled = computed(
+    () =>
+        canWrite.value &&
+        !unsaved.value &&
+        !form.processing &&
+        !assignmentBusy.value,
+);
+const openDelete = () => {
+    confirmationCount.value = props.shift.assignment_count;
+    deleting.value = true;
+};
+const removeAssignment = (assignment) => {
+    if (!assignmentsEnabled.value) return;
+    assignmentBusy.value = true;
+    router.delete(
+        `/team/events/${props.event.id}/shifts/${props.shift.id}/assignments/${assignment.id}`,
+        {
+            preserveScroll: true,
+            onError: (errors) => showFormError(errors),
+            onFinish: () => {
+                assignmentBusy.value = false;
+            },
+        },
+    );
+};
 const { showError, showFormError } = useFlashToast();
 
 const canWrite = computed(() => props.canManage && !props.event.is_locked);
@@ -81,6 +128,7 @@ const submit = () => {
         },
         onSuccess: () => {
             form.slots = draftShiftSlots(props.shift.slots);
+            form.defaults();
             slotErrors.value = {};
         },
     });
@@ -93,7 +141,19 @@ const destroy = () => {
     router.delete(
         '/team/events/' + props.event.id + '/shifts/' + props.shift.id,
         {
-            onError: (errors) => showFormError(errors),
+            data: { assignment_count: confirmationCount.value },
+            onError: (errors) => {
+                showFormError(errors);
+                if (errors.assignment_count) {
+                    router.reload({
+                        only: ['shift'],
+                        onSuccess: () => {
+                            confirmationCount.value =
+                                props.shift.assignment_count;
+                        },
+                    });
+                }
+            },
             onFinish: () => {
                 deleteBusy.value = false;
             },
@@ -109,14 +169,29 @@ const destroy = () => {
         back-href="/team/scheduling?tab=list"
         :back-label="$t('team.scheduling.actions.back')"
     >
-        <div class="container mx-auto max-w-6xl pb-24">
-            <header class="mb-5">
-                <h1 class="m-0 text-2xl font-bold tracking-tight">
-                    {{ displayName }}
-                </h1>
-                <p class="mt-1 mb-0 text-sm text-muted">
-                    {{ $t('team.scheduling.shift_lead') }}
-                </p>
+        <div class="container mx-auto max-w-6xl pb-24 xl:max-w-none">
+            <header class="mb-5 flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                    <h1 class="m-0 text-2xl font-bold tracking-tight">
+                        {{ displayName }}
+                    </h1>
+                    <p class="mt-1 mb-0 text-sm text-muted">
+                        {{ $t('team.scheduling.shift_lead') }}
+                    </p>
+                </div>
+                <Button
+                    v-if="canWrite"
+                    type="button"
+                    variant="outline-danger"
+                    class="shrink-0"
+                    @click="openDelete"
+                >
+                    <Icon
+                        :name="['fas', 'trash-can']"
+                        size="sm"
+                    />
+                    {{ $t('team.scheduling.actions.delete') }}
+                </Button>
             </header>
 
             <p
@@ -137,10 +212,11 @@ const destroy = () => {
 
             <form
                 id="shift-details-form"
+                class="grid items-start gap-4 xl:grid-cols-2 xl:items-stretch"
                 novalidate
                 @submit.prevent="submit"
             >
-                <Card>
+                <Card class="min-w-0">
                     <h2 class="m-0 mb-4 text-xl font-bold text-muted">
                         {{ $t('team.scheduling.shift_section') }}
                     </h2>
@@ -254,11 +330,12 @@ const destroy = () => {
                     </div>
                 </Card>
 
-                <Card class="mt-4">
+                <Card class="min-w-0">
                     <ShiftRoleSlots
                         v-model="form.slots"
                         :roles="roles"
                         :errors="slotErrors"
+                        :assignment-counts="assignmentCounts"
                         :editable="canWrite"
                         :busy="form.processing"
                         :title="$t('team.scheduling.slots.detail_title')"
@@ -279,24 +356,18 @@ const destroy = () => {
                         {{ form.errors.slots }}
                     </p>
                 </Card>
-                <div
-                    v-if="canWrite"
-                    class="mt-4"
-                >
-                    <Button
-                        type="button"
-                        variant="danger"
-                        @click="deleting = true"
-                    >
-                        <Icon
-                            :name="['fas', 'trash-can']"
-                            size="sm"
-                            class="mr-1.5"
-                        />
-                        {{ $t('team.scheduling.actions.delete') }}
-                    </Button>
-                </div>
             </form>
+            <Card class="mt-4">
+                <ShiftRoster
+                    :shift="shift"
+                    :enabled="assignmentsEnabled"
+                    :can-remove="canWrite"
+                    :disabled-reason="assignmentReason"
+                    :busy="assignmentBusy || form.processing"
+                    @assign="selectedSlot = $event"
+                    @remove="removeAssignment"
+                />
+            </Card>
         </div>
 
         <div
@@ -305,7 +376,7 @@ const destroy = () => {
         >
             <div class="container mx-auto px-4 md:px-6">
                 <div
-                    class="mx-auto flex max-w-6xl items-center justify-between gap-3"
+                    class="mx-auto flex max-w-6xl items-center justify-between gap-3 xl:max-w-none"
                 >
                     <Button
                         href="/team/scheduling?tab=list"
@@ -323,15 +394,31 @@ const destroy = () => {
             </div>
         </div>
 
+        <ShiftAssignDialog
+            v-if="selectedSlot"
+            :key="selectedSlot.id"
+            :shift="shift"
+            :event-id="event.id"
+            :requirement="selectedSlot"
+            @close="selectedSlot = null"
+        />
         <Dialog
             v-model:open="deleting"
             :title="$t('team.scheduling.delete.title')"
             :description="
-                $t('team.scheduling.delete.description', {
-                    name: displayName,
-                })
+                confirmationCount
+                    ? $t('team.scheduling.assignments.delete_confirmation', {
+                          count: confirmationCount,
+                      })
+                    : $t('team.scheduling.delete.description', {
+                          name: displayName,
+                      })
             "
-            :confirm-label="$t('team.scheduling.actions.delete')"
+            :confirm-label="
+                confirmationCount
+                    ? $t('team.scheduling.assignments.remove')
+                    : $t('team.scheduling.actions.delete')
+            "
             :cancel-label="$t('ui.dialog.cancel')"
             :busy="deleteBusy"
             @confirm="destroy"

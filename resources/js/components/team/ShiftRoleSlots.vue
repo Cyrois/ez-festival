@@ -11,6 +11,7 @@ const props = defineProps({
     modelValue: { type: Array, required: true },
     roles: { type: Array, default: () => [] },
     errors: { type: Object, default: () => ({}) },
+    assignmentCounts: { type: Object, default: () => ({}) },
     editable: { type: Boolean, default: true },
     busy: { type: Boolean, default: false },
     title: { type: String, required: true },
@@ -27,6 +28,8 @@ const roleItems = computed(() =>
         title: role.name,
     })),
 );
+const assignedCount = (slot) =>
+    props.assignmentCounts[slot.id] ?? slot.assigned_count ?? 0;
 const error = (slot, field) => props.errors[slot._key]?.[field] ?? '';
 const update = (slot, field, value) => {
     if (!props.editable || props.busy) return;
@@ -76,7 +79,7 @@ const remove = (slot) => {
 <template>
     <section class="space-y-4">
         <div class="flex items-center justify-between gap-3">
-            <h2 class="m-0 text-base font-bold text-charcoal">{{ title }}</h2>
+            <h2 class="m-0 text-xl font-bold text-muted">{{ title }}</h2>
             <p class="m-0 shrink-0 text-sm text-muted">
                 {{ $t('team.scheduling.slots.total', { count: total }) }}
             </p>
@@ -198,6 +201,18 @@ const remove = (slot) => {
                     $t('team.scheduling.slots.count', { count: slot.needed })
                 }}</span>
             </div>
+            <p
+                v-if="slot.id && assignedCount(slot) > Number(slot.needed)"
+                class="mt-1 text-sm text-warning"
+                role="status"
+            >
+                {{
+                    $t('team.scheduling.assignments.over_qty', {
+                        assigned: assignedCount(slot),
+                        needed: slot.needed,
+                    })
+                }}
+            </p>
             <p
                 v-if="error(slot, 'id')"
                 class="m-0 text-xs text-danger"

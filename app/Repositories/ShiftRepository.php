@@ -26,6 +26,7 @@ class ShiftRepository
     ): array {
         $query = Shift::query()
             ->whereBelongsTo($event)
+            ->withCount('assignments')
             ->with(['location:id,name', 'roleSlots.role:id,name']);
         $total = (clone $query)->count();
 

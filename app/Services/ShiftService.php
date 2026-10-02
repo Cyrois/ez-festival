@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Event;
 use App\Models\Shift;
+use App\Support\ShiftAssignmentHours;
 use App\Support\ShiftSlotReferences;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -33,7 +34,11 @@ class ShiftService
             $event = Event::query()->lockForUpdate()->findOrFail($shift->event_id);
             $event->ensureWritable();
 
-            $shift = Shift::query()->lockForUpdate()->findOrFail($shift->id);
+            $shift = $event->shifts()->lockForUpdate()->findOrFail($shift->id);
+            $errors = ShiftAssignmentHours::containmentErrors($shift, $data);
+            if ($errors !== []) {
+                throw ValidationException::withMessages($errors);
+            }
             if (array_key_exists('slots', $data)) {
                 $this->syncSlots($shift, $data['slots']);
                 unset($data['slots']);
@@ -55,6 +60,9 @@ class ShiftService
             $slot = isset($data['id']) ? $existing->get((int) $data['id']) : null;
             unset($data['id']);
             if ($slot !== null) {
+                if ((int) $slot->role_id !== (int) $data['role_id']) {
+                    $slot->assignments()->update(['shift_role_slot_id' => null]);
+                }
                 $slot->update($data);
             } else {
                 $slot = $shift->roleSlots()->create([...$data, 'sort_order' => $nextOrder++]);
@@ -64,13 +72,17 @@ class ShiftService
         $shift->roleSlots()->whereNotIn('id', $kept)->delete();
     }
 
-    public function delete(Shift $shift): void
+    public function delete(Shift $shift, int $confirmationCount = 0): void
     {
-        DB::transaction(function () use ($shift): void {
+        DB::transaction(function () use ($shift, $confirmationCount): void {
             $event = Event::query()->lockForUpdate()->findOrFail($shift->event_id);
             $event->ensureWritable();
 
-            Shift::query()->lockForUpdate()->findOrFail($shift->id)->delete();
+            $shift = $event->shifts()->lockForUpdate()->findOrFail($shift->id);
+            if ($shift->assignments()->count() !== $confirmationCount) {
+                throw ValidationException::withMessages(['assignment_count' => __('team.scheduling.assignments.errors.stale_delete')]);
+            }
+            $shift->delete();
         });
     }
 }

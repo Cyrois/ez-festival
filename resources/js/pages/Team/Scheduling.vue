@@ -186,6 +186,19 @@ const formatDateTime = (value) =>
                                     count: rowData.total_needs,
                                 })
                             }}
+                            <p
+                                v-if="rowData.extra_count"
+                                class="m-0 mt-1 text-xs text-warning"
+                            >
+                                {{
+                                    $t(
+                                        rowData.extra_count === 1
+                                            ? 'team.scheduling.assignments.extra_one'
+                                            : 'team.scheduling.assignments.extra_many',
+                                        { count: rowData.extra_count },
+                                    )
+                                }}
+                            </p>
                         </template>
                         <template #openCell="{ rowData }">
                             <Link

@@ -13,6 +13,11 @@ class Shift extends Model
     /**
      * @return array<string, string>
      */
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(ShiftAssignment::class)->orderBy('shift_assignments.created_at')->orderBy('shift_assignments.id');
+    }
+
     protected function casts(): array
     {
         return [
@@ -24,6 +29,7 @@ class Shift extends Model
     public function roleSlots(): HasMany
     {
         return $this->hasMany(ShiftRoleSlot::class)
+            ->withCount(['assignments as assigned_count' => fn ($query) => $query->whereColumn('shift_assignments.role_id', 'shift_role_slots.role_id')])
             ->orderBy('sort_order')->orderBy('id');
     }
 

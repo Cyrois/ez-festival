@@ -104,8 +104,8 @@ class EventService
                 ->whereIn('pass_type_id', $passTypeIds())
                 ->delete();
 
-            $event->teamEngagements()->delete();
             $event->shifts()->delete();
+            $event->teamEngagements()->delete();
             $event->delete();
         });
 

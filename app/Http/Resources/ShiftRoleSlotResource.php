@@ -15,6 +15,10 @@ class ShiftRoleSlotResource extends JsonResource
             'role_name' => $this->whenLoaded('role', fn () => $this->role->name),
             'needed' => $this->needed,
             'sort_order' => $this->sort_order,
+            'assigned_count' => (int) ($this->assigned_count ?? 0),
+            'filled_count' => min((int) ($this->assigned_count ?? 0), $this->needed),
+            'open_count' => max($this->needed - (int) ($this->assigned_count ?? 0), 0),
+            'extra_count' => max((int) ($this->assigned_count ?? 0) - $this->needed, 0),
         ];
     }
 }
