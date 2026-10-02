@@ -98,7 +98,7 @@ class ArtistController extends Controller
         ]);
 
         $notes = $engagement->notes()
-            ->with('user:id,name,email')
+            ->with('user:id,name')
             ->latest('created_at')
             ->latest('id')
             ->get();

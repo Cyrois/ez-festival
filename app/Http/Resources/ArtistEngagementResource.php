@@ -18,10 +18,10 @@ class ArtistEngagementResource extends JsonResource
             'type' => $this->artistType?->name,
             'labels' => $this->labels->map->only(['id', 'name', 'color'])->values(),
             'people' => $this->relationLoaded('people')
-                ? $this->people->map(fn ($person) => (new PersonResource($person, 'artists', $this->event))->resolve())->all()
+                ? $this->people->map(fn ($person) => (new PersonResource($person, 'artists', $this->event))->resolve($request))->all()
                 : [],
             'pass_assignments' => $this->relationLoaded('passAssignments')
-                ? PassAssignmentResource::collection($this->passAssignments)->resolve()
+                ? PassAssignmentResource::collection($this->passAssignments)->resolve($request)
                 : [],
             // TODO: Read filled values from the shared artist custom-field system when available.
             'custom' => [],

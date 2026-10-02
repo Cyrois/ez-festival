@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Http\Requests\Artists;
+namespace App\Http\Requests\CheckIn;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 
-class ViewArtistCheckInRequest extends FormRequest
+class ViewCheckInRequest extends FormRequest
 {
     public function authorize(): bool
     {

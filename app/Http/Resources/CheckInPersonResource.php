@@ -25,7 +25,7 @@ class CheckInPersonResource extends JsonResource
             'issued' => $issued,
             'expected' => $expected,
             'check_in_status' => $this->status($issued, $expected),
-            'can_edit' => (bool) $this->can_edit && $request->user()->can($this->type === 'artist' ? 'artists.edit' : 'vendors.edit'),
+            'can_edit' => (bool) $this->can_edit,
         ];
     }
 

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Resources\PassAssignmentResource;
 use App\Models\Artist;
 use App\Models\ArtistEngagement;
 use App\Models\Event;
@@ -14,7 +15,9 @@ use App\Models\VendorEngagement;
 use App\Support\OrganizationContext;
 use App\Support\Permissions;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -195,6 +198,13 @@ class EventPermissionsTest extends TestCase
                 ->missing('engagement.people.0.email')->missing('engagement.people.0.phone')
                 ->where('passes.0.full', true)->missing('passes.0.max_assignments')->missing('passes.0.assignments_count')->missing('passes.0.assigned_count'));
         }
+        foreach ([route('artists.index'), route('vendors.advancing'), route('artists.view', $artist), route('vendors.view', $vendor), route('check-in.index'), route('check-in.show', $artist), route('check-in.vendors.show', $vendor)] as $url) {
+            $response = $this->get($url, ['X-Inertia' => 'true', 'X-Inertia-Version' => Inertia::getVersion()])->assertOk();
+            $this->assertStringNotContainsString('secret@example.test', $response->getContent());
+            $this->assertStringNotContainsString('555-secret', $response->getContent());
+        }
+        $this->get(route('artists.view', $artist))->assertInertia(fn (Assert $page) => $page
+            ->missing('engagement.pass_assignments.0.person.email')->missing('engagement.pass_assignments.0.person.phone'));
         $this->get(route('check-in.index'))->assertInertia(fn (Assert $page) => $page
             ->where('people.data.0.personal_info_hidden', true)->missing('people.data.0.subtitle'));
         $this->get(route('check-in.show', $artist))->assertInertia(fn (Assert $page) => $page
@@ -212,14 +222,55 @@ class EventPermissionsTest extends TestCase
     {
         $this->role->update(['permissions' => ['team.view', 'team.notes.read']]);
         $target = $this->membership($this->event, Person::create(['name' => 'Target', 'email' => 'team-secret@example.test', 'phone' => '555-private']));
+        $target->update(['employment_type' => 'paid', 'hourly_pay' => 42.37]);
         $target->notes()->create(['user_id' => $this->user->id, 'body' => 'Visible note']);
         $this->get(route('team.members.show', $target))->assertInertia(fn (Assert $page) => $page
             ->where('engagement.personal_info_hidden', true)->missing('engagement.email')->missing('engagement.phone')
+            ->missing('engagement.hourly_pay')
             ->where('canAddNotes', false)->where('notes.0.editable_until', null));
         $this->put(route('team.members.update', $target), ['notes' => [['body' => 'Forbidden']]])->assertForbidden();
         $this->role->update(['permissions' => ['team.view']]);
         $this->get(route('team.members.show', $target))->assertInertia(fn (Assert $page) => $page->missing('notes'));
         $this->get(route('team.advancement'))->assertInertia(fn (Assert $page) => $page->missing('engagements.data.0.email')->missing('engagements.data.0.phone'));
+        foreach ([route('team.members.show', $target), route('team.advancement', ['view' => 'list']), route('team.advancement', ['view' => 'columns'])] as $url) {
+            $response = $this->get($url, ['X-Inertia' => 'true', 'X-Inertia-Version' => Inertia::getVersion()])->assertOk();
+            foreach (['team-secret@example.test', '555-private', '42.37'] as $secret) {
+                $this->assertStringNotContainsString($secret, $response->getContent());
+            }
+        }
+    }
+
+    public function test_checkin_artist_and_vendor_permissions_do_not_grant_access_to_each_others_personal_info(): void
+    {
+        $artist = $this->artist($this->event);
+        $vendor = VendorEngagement::create(['event_id' => $this->event->id, 'vendor_id' => Vendor::create(['name' => 'Vendor'])->id, 'status' => 'confirmed']);
+        $artistPerson = Person::create(['name' => 'Artist contact', 'email' => 'artist-only@example.test', 'phone' => 'artist-phone']);
+        $vendorPerson = Person::create(['name' => 'Vendor contact', 'email' => 'vendor-only@example.test', 'phone' => 'vendor-phone']);
+        $artist->people()->attach($artistPerson);
+        $vendor->people()->attach($vendorPerson);
+        $pass = $this->event->passTypes()->create(['name' => 'Guest']);
+        foreach ([[$artist, $artistPerson], [$vendor, $vendorPerson]] as [$engagement, $person]) {
+            $engagement->passAssignments()->create(['pass_type_id' => $pass->id, 'person_id' => $person->id]);
+        }
+
+        foreach (['artists', 'vendors'] as $area) {
+            $this->role->update(['permissions' => ['checkin.view', $area.'.edit']]);
+            $artistResponse = $this->get(route('check-in.show', $artist))->assertOk();
+            $vendorResponse = $this->get(route('check-in.vendors.show', $vendor))->assertOk();
+            $visible = $area === 'artists' ? $artistResponse : $vendorResponse;
+            $hidden = $area === 'artists' ? $vendorResponse : $artistResponse;
+            $email = $area === 'artists' ? $artistPerson->email : $vendorPerson->email;
+            $privatePerson = $area === 'artists' ? $vendorPerson : $artistPerson;
+            $visible->assertInertia(fn (Assert $page) => $page->where('engagement.people.0.email', $email));
+            $hidden->assertInertia(fn (Assert $page) => $page
+                ->where('engagement.people.0.personal_info_hidden', true)
+                ->missing('engagement.people.0.email')->missing('engagement.people.0.phone'));
+            $this->assertStringNotContainsString($privatePerson->email, $hidden->getContent());
+            $this->assertStringNotContainsString($privatePerson->phone, $hidden->getContent());
+            $this->get(route('check-in.index'))->assertInertia(fn (Assert $page) => $page
+                ->where('people.data.0.can_edit', $area === 'artists')
+                ->where('people.data.1.can_edit', $area === 'vendors'));
+        }
     }
 
     public function test_notes_only_member_can_add_and_edit_own_notes_without_editing_details(): void
@@ -237,6 +288,29 @@ class EventPermissionsTest extends TestCase
         $this->travel(6)->minutes();
         $this->put(route('team.members.update', $target), ['note_edits' => [['id' => $note->id, 'body' => 'Too late']]])->assertSessionHas('warning');
         $this->assertSame('Own edited note', $note->fresh()->body);
+    }
+
+    public function test_pass_personal_info_uses_the_owners_permission_and_note_authors_never_fall_back_to_email(): void
+    {
+        $this->role->update(['permissions' => ['team.personal_info']]);
+        $person = Person::create(['name' => 'Patron', 'email' => 'patron-secret@example.test', 'phone' => 'patron-phone']);
+        $patron = $this->event->patrons()->create(['person_id' => $person->id]);
+        $pass = $this->event->passTypes()->create(['name' => 'Patron pass']);
+        $assignment = $patron->passAssignments()->create(['pass_type_id' => $pass->id, 'person_id' => $person->id])->load('person', 'passType.event');
+        $request = Request::create('/');
+        $request->setUserResolver(fn () => $this->user);
+        $data = (new PassAssignmentResource($assignment))->resolve($request);
+        $this->assertArrayNotHasKey('email', $data['person']);
+        $this->assertArrayNotHasKey('phone', $data['person']);
+        $this->assertTrue($data['person']['personal_info_hidden']);
+
+        foreach (['Artist', 'Vendor', 'Team'] as $area) {
+            $model = 'App\\Models\\'.$area.'EngagementNote';
+            $resource = 'App\\Http\\Resources\\'.$area.'EngagementNoteResource';
+            $note = (new $model)->setRelation('user', new User(['email' => 'author-secret@example.test']));
+            $note->setRelation('engagement', $this->membership($this->event, Person::create(['name' => $area, 'email' => strtolower($area).'@example.test'])));
+            $this->assertStringNotContainsString('author-secret@example.test', json_encode((new $resource($note))->resolve($request)));
+        }
     }
 
     public function test_role_change_permission_has_self_and_escalation_guards(): void

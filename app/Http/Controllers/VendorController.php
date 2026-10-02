@@ -84,7 +84,7 @@ class VendorController extends Controller
             'passAssignments.passType',
             'passAssignments.person',
         ]);
-        $notes = $engagement->notes()->with('user:id,name,email')->latest('created_at')->latest('id')->get();
+        $notes = $engagement->notes()->with('user:id,name')->latest('created_at')->latest('id')->get();
 
         return Inertia::render('Vendors/View', [
             'engagement' => (new VendorResource($engagement))->resolve(),

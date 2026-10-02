@@ -18,10 +18,10 @@ class VendorResource extends JsonResource
             'type' => $this->vendorType?->name,
             'labels' => [],
             'people' => $this->relationLoaded('people')
-                ? $this->people->map(fn ($person) => (new PersonResource($person, 'vendors', $this->event))->resolve())->all()
+                ? $this->people->map(fn ($person) => (new PersonResource($person, 'vendors', $this->event))->resolve($request))->all()
                 : [],
             'pass_assignments' => $this->relationLoaded('passAssignments')
-                ? PassAssignmentResource::collection($this->passAssignments)->resolve()
+                ? PassAssignmentResource::collection($this->passAssignments)->resolve($request)
                 : [],
             'custom' => $this->vendor->relationLoaded('customFieldValues')
                 ? $this->vendor->customFieldValues->mapWithKeys(fn ($value) => [$value->custom_field_id => $value->value])->all()

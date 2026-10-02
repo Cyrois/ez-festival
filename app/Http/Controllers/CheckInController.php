@@ -1,0 +1,75 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Requests\CheckIn\ConsumeEntitlementRequest;
+use App\Http\Requests\CheckIn\IndexCheckInRequest;
+use App\Http\Resources\CheckInPersonResource;
+use App\Models\ExpectedEntitlement;
+use App\Queries\CheckInPeopleQuery;
+use App\Services\EntitlementConsumeService;
+use App\Support\EventContext;
+use Illuminate\Http\RedirectResponse;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class CheckInController extends Controller
+{
+    public function __construct(
+        private readonly EventContext $eventContext,
+        private readonly CheckInPeopleQuery $people,
+    ) {}
+
+    public function index(IndexCheckInRequest $request): Response
+    {
+        $event = $this->eventContext->requireCurrent($request->user());
+        $filters = $request->validated();
+        $type = $filters['type'] ?? 'all';
+        $status = $filters['status'] ?? 'all';
+        $passId = isset($filters['pass']) ? (int) $filters['pass'] : null;
+        $search = trim($filters['search'] ?? '');
+
+        $people = in_array($type, ['all', 'artist', 'vendor'], true)
+            ? $this->people->paginate($event->id, $passId, $search, $status, $type)
+            : $this->people->empty();
+        $canEdit = [
+            'artist' => $request->user()->can('artists.edit', $event),
+            'vendor' => $request->user()->can('vendors.edit', $event),
+        ];
+        $people->through(function ($person) use ($canEdit) {
+            $person->can_edit = $canEdit[$person->type] ?? false;
+
+            return $person;
+        });
+
+        return Inertia::render('CheckIn/Index', [
+            'people' => CheckInPersonResource::collection($people),
+            'passes' => $event->passTypes()->orderBy('name')->get(['id', 'name']),
+            'filters' => [
+                'type' => $type,
+                'pass' => $passId,
+                'status' => $status,
+                'search' => $search,
+            ],
+            'event' => $event->only('id', 'name', 'locked', 'timezone'),
+        ]);
+    }
+
+    public function store(
+        ConsumeEntitlementRequest $request,
+        ExpectedEntitlement $expectedEntitlement,
+        EntitlementConsumeService $consume,
+    ): RedirectResponse {
+        $expectedEntitlement->loadMissing('passAssignment.artistEngagement.people');
+        $assignment = $expectedEntitlement->passAssignment;
+        $assignment->loadMissing('vendorEngagement.people');
+        $engagement = $assignment->artistEngagement ?? $assignment->vendorEngagement;
+        abort_unless($engagement !== null && $engagement->status === 'confirmed' && $assignment->person_id !== null, 404);
+        $this->eventContext->requireCurrentEvent($request->user(), $engagement->event, writable: true);
+        abort_unless($engagement->people->contains('id', $assignment->person_id), 404);
+        $data = $request->validated();
+        $consume->consume($expectedEntitlement, $request->user(), (int) $data['location_id'], $data['code'] ?? null);
+
+        return back()->with('success', __('check_in.toast.consumed'));
+    }
+}

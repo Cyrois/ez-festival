@@ -72,7 +72,7 @@ class MemberController extends Controller
         $canReadNotes = Gate::allows('team.notes.read', $engagement);
         $notes = $canReadNotes
             ? $engagement->notes()
-                ->with('user:id,name,email')
+                ->with('user:id,name')
                 ->latest('created_at')
                 ->latest('id')
                 ->get()

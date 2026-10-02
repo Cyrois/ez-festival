@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Http\Requests\Artists;
+namespace App\Http\Requests\CheckIn;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
-class ConsumeArtistEntitlementRequest extends FormRequest
+class ConsumeEntitlementRequest extends FormRequest
 {
     protected function prepareForValidation(): void
     {
