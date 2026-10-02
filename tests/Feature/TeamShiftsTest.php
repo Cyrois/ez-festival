@@ -130,15 +130,15 @@ class TeamShiftsTest extends TestCase
         ]);
     }
 
-    public function test_user_can_open_the_create_shift_page(): void
+    public function test_scheduling_supplies_the_create_popup(): void
     {
         [$user, $event] = $this->eventContext();
         $location = $event->locations()->create(['name' => 'Main stage']);
 
         $this->actingAs($user)
-            ->get(route('team.shifts.create'))
+            ->get(route('team.scheduling'))
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Team/CreateShift')
+                ->component('Team/Scheduling')
                 ->where('event.id', $event->id)
                 ->where('event.name', 'Sunrise Folk Fest 2026')
                 ->has('locations', 1)
@@ -146,14 +146,16 @@ class TeamShiftsTest extends TestCase
                 ->where('locations.0.name', 'Main stage'));
     }
 
-    public function test_locked_event_blocks_the_create_shift_page(): void
+    public function test_locked_event_does_not_supply_create_role_options(): void
     {
         [$user, $event] = $this->eventContext();
         $event->lock();
 
         $this->actingAs($user)
-            ->get(route('team.shifts.create'))
-            ->assertForbidden();
+            ->get(route('team.scheduling'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('event.is_locked', true)
+                ->has('roles', 0));
     }
 
     public function test_user_can_create_a_shift_without_a_name(): void

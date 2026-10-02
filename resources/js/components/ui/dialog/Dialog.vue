@@ -1,10 +1,18 @@
 <script setup>
-import { computed, onMounted, onUnmounted, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { cn } from '../../../lib/utils';
 import { Button } from '../button';
 import { Icon } from '../icon';
 
 const props = defineProps({
+    focusTrap: {
+        type: Boolean,
+        default: false,
+    },
+    role: {
+        type: String,
+        default: 'alertdialog',
+    },
     open: {
         type: Boolean,
         default: false,
@@ -70,6 +78,20 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['update:open', 'confirm', 'cancel']);
+const panel = ref(null);
+let previousFocus;
+const focusInside = () => {
+    if (!props.focusTrap) return;
+    previousFocus = document.activeElement;
+    nextTick(() =>
+        panel.value
+            ?.querySelector('input:not([disabled]), button:not([disabled])')
+            ?.focus(),
+    );
+};
+const restoreFocus = () => {
+    if (props.focusTrap && previousFocus?.isConnected) previousFocus.focus();
+};
 
 const panelClass = computed(() =>
     cn(
@@ -95,6 +117,26 @@ const confirm = () => {
 };
 
 const onKeydown = (event) => {
+    if (event.key === 'Tab' && props.open && props.focusTrap) {
+        const controls = [
+            ...(panel.value?.querySelectorAll(
+                'button:not([disabled]), input:not([disabled]), a[href], [tabindex="0"]',
+            ) ?? []),
+        ].filter((element) => element.getClientRects().length > 0);
+        const first = controls[0];
+        const last = controls.at(-1);
+        const outside = !panel.value?.contains(document.activeElement);
+        if (event.shiftKey && (document.activeElement === first || outside)) {
+            event.preventDefault();
+            last?.focus();
+        } else if (
+            !event.shiftKey &&
+            (document.activeElement === last || outside)
+        ) {
+            event.preventDefault();
+            first?.focus();
+        }
+    }
     if (event.key === 'Escape' && props.open) {
         close();
     }
@@ -107,15 +149,19 @@ watch(
             return;
         }
         document.body.style.overflow = isOpen ? 'hidden' : '';
+        if (isOpen) focusInside();
+        else restoreFocus();
     },
 );
 
 onMounted(() => {
     window.addEventListener('keydown', onKeydown);
+    if (props.open) focusInside();
 });
 
 onUnmounted(() => {
     window.removeEventListener('keydown', onKeydown);
+    restoreFocus();
     if (typeof document !== 'undefined') {
         document.body.style.overflow = '';
     }
@@ -135,7 +181,8 @@ onUnmounted(() => {
                 @click="close"
             />
             <div
-                role="alertdialog"
+                ref="panel"
+                :role="role"
                 aria-modal="true"
                 :aria-labelledby="title ? 'ui-dialog-title' : undefined"
                 :aria-describedby="

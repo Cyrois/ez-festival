@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Team;
 use App\Http\Controllers\Controller;
 use App\Repositories\LocationRepository;
 use App\Support\EventContext;
+use App\Support\ShiftSlotReferences;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -29,6 +30,7 @@ class SchedulingController extends Controller
             ],
             'locations' => $locations->optionsFor($event),
             'canManage' => Gate::allows('manage-team'),
+            'roles' => Gate::allows('manage-team') && ! $event->isLocked() ? ShiftSlotReferences::options() : [],
         ]);
     }
 }

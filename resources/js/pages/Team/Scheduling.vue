@@ -1,4 +1,5 @@
 <script setup>
+import CreateShiftDialog from '../../components/team/CreateShiftDialog.vue';
 import { Button } from '../../components/ui/button';
 import { DataTable } from '../../components/ui/data-table';
 import { EmptyState } from '../../components/ui/empty-state';
@@ -14,9 +15,11 @@ import { shiftColumns } from './shiftColumns';
 const props = defineProps({
     event: { type: Object, required: true },
     locations: { type: Array, required: true },
+    roles: { type: Array, default: () => [] },
     canManage: { type: Boolean, default: false },
 });
 
+const creating = ref(false);
 const page = usePage();
 const initialTab = new URLSearchParams(page.url.split('?')[1] ?? '').get('tab');
 const activeTab = ref(
@@ -33,7 +36,7 @@ const tableOptions = computed(() => ({
     serverSide: true,
     columnDefs: [
         { targets: [2, 3], className: 'text-left' },
-        { targets: 4, className: 'text-right' },
+        { targets: 6, className: 'text-right' },
     ],
     createdRow: (row, shift) =>
         navigateDataTableRow(row, shift, (item) => `/team/shifts/${item.id}`),
@@ -80,10 +83,18 @@ const formatDateTime = (value) =>
                     </p>
                 </div>
                 <Button
-                    v-if="canWrite"
-                    href="/team/shifts/create"
+                    :title="
+                        !canWrite
+                            ? $t(
+                                  event.is_locked
+                                      ? 'team.scheduling.locked'
+                                      : 'team.scheduling.no_permission',
+                              )
+                            : undefined
+                    "
                     class="w-full sm:w-auto"
-                    :disabled="locations.length === 0"
+                    :disabled="!canWrite || locations.length === 0"
+                    @click="creating = true"
                 >
                     <Icon
                         :name="['fas', 'plus']"
@@ -153,6 +164,32 @@ const formatDateTime = (value) =>
                         <template #endCell="{ cellData }">
                             {{ formatDateTime(cellData) }}
                         </template>
+                        <template #rolesCell="{ rowData }">
+                            <div class="flex flex-wrap gap-1.5">
+                                <span
+                                    v-for="slot in rowData.slots"
+                                    :key="slot.id"
+                                    class="rounded-lg border border-line bg-page px-2 py-0.5 text-xs text-charcoal"
+                                    >{{
+                                        $t('team.scheduling.slots.role_count', {
+                                            role: slot.role_name,
+                                            count: slot.needed,
+                                        })
+                                    }}</span
+                                >
+                                <span v-if="!rowData.slots.length">{{
+                                    $t('data_table.empty_value')
+                                }}</span>
+                            </div>
+                        </template>
+                        <template #needsCell="{ rowData }">
+                            {{
+                                $t('team.scheduling.slots.filled', {
+                                    filled: rowData.filled_count,
+                                    count: rowData.total_needs,
+                                })
+                            }}
+                        </template>
                         <template #openCell="{ rowData }">
                             <Link
                                 :href="`/team/shifts/${rowData.id}`"
@@ -182,5 +219,12 @@ const formatDateTime = (value) =>
                 </TabPanel>
             </Tabs>
         </div>
+        <CreateShiftDialog
+            v-if="creating && canWrite"
+            :event="event"
+            :locations="locations"
+            :roles="roles"
+            @close="creating = false"
+        />
     </AppLayout>
 </template>

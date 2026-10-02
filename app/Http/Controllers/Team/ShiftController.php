@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Team;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Team\CreateShiftRequest;
 use App\Http\Requests\Team\DestroyShiftRequest;
 use App\Http\Requests\Team\StoreShiftRequest;
 use App\Http\Requests\Team\UpdateShiftRequest;
@@ -13,6 +12,7 @@ use App\Models\Shift;
 use App\Repositories\LocationRepository;
 use App\Services\ShiftService;
 use App\Support\EventContext;
+use App\Support\ShiftSlotReferences;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -25,16 +25,6 @@ class ShiftController extends Controller
         private readonly ShiftService $shifts,
         private readonly LocationRepository $locations,
     ) {}
-
-    public function create(CreateShiftRequest $request, EventContext $eventContext): Response
-    {
-        $event = $eventContext->requireWritable($request->user());
-
-        return Inertia::render('Team/CreateShift', [
-            'event' => $event->only('id', 'name'),
-            'locations' => $this->locations->optionsFor($event),
-        ]);
-    }
 
     public function show(Request $request, Shift $shift, EventContext $eventContext): Response
     {
@@ -49,9 +39,10 @@ class ShiftController extends Controller
                 'name' => $event->name,
                 'is_locked' => $event->isLocked(),
             ],
-            'shift' => (new ShiftResource($shift))->resolve($request),
+            'shift' => (new ShiftResource($shift->load(['location:id,name', 'roleSlots.role:id,name'])))->resolve($request),
             'locations' => $this->locations->optionsFor($event),
             'canManage' => Gate::allows('manage-team'),
+            'roles' => Gate::allows('manage-team') && ! $event->isLocked() ? ShiftSlotReferences::options() : [],
         ]);
     }
 

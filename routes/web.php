@@ -131,7 +131,6 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::get('scheduling', [TeamSchedulingController::class, 'index'])->name('scheduling');
             Route::get('scheduling/shifts', [TeamShiftDataTableController::class, 'index'])
                 ->name('scheduling.shifts');
-            Route::get('shifts/create', [TeamShiftController::class, 'create'])->name('shifts.create');
             Route::get('shifts/{shift}', [TeamShiftController::class, 'show'])->name('shifts.show');
             Route::get('forms', [TeamFormsController::class, 'index'])->name('forms');
             Route::get('forms/create', [TeamFormsController::class, 'create'])->name('forms.create');

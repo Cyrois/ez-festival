@@ -6,6 +6,7 @@ use App\Models\Event;
 use App\Models\ExpectedEntitlement;
 use App\Models\IssuedEntitlement;
 use App\Models\Organization;
+use App\Models\Role;
 use App\Models\User;
 use App\Support\OrganizationContext;
 use Illuminate\Database\Events\QueryExecuted;
@@ -217,10 +218,17 @@ class EventControllerTest extends TestCase
             'ends_at' => '2026-07-12 23:00:00',
         ]);
 
+        $role = Role::query()->create(['name' => 'Teardown crew']);
+        $slot = $shift->roleSlots()->create([
+            'role_id' => $role->id, 'needed' => 3, 'is_supervisor' => true, 'sort_order' => 0,
+        ]);
+
         $this->actingAs($user)
             ->delete(route('settings.events.destroy', $event))
             ->assertRedirect(route('settings.events.index'));
 
+        $this->assertModelMissing($slot);
+        $this->assertModelExists($role);
         $this->assertModelMissing($event);
         $this->assertModelMissing($location);
         $this->assertModelMissing($issued);
