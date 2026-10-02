@@ -29,6 +29,22 @@ export const shiftColumns = (trans) => [
         title: trans('team.scheduling.table.end'),
     },
     {
+        data: 'slots',
+        name: 'roles',
+        orderable: false,
+        searchable: false,
+        render: { display: '#rolesCell' },
+        title: trans('team.scheduling.table.roles'),
+    },
+    {
+        data: 'total_needs',
+        name: 'total_needs',
+        orderable: false,
+        searchable: false,
+        render: { display: '#needsCell' },
+        title: trans('team.scheduling.table.needs'),
+    },
+    {
         data: null,
         defaultContent: '',
         name: 'open',

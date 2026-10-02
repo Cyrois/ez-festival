@@ -13,7 +13,7 @@ trait ShiftRules
     protected function shiftRules(Event $event): array
     {
         return [
-            'name' => ['nullable', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255'],
             'location_id' => [
                 'required',
                 'integer',

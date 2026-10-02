@@ -45,9 +45,10 @@ const boxClass = computed(() =>
     ),
 );
 
-const onChange = () => {
-    emit('update:modelValue', props.value);
-};
+const model = computed({
+    get: () => props.modelValue,
+    set: (value) => emit('update:modelValue', value),
+});
 </script>
 
 <template>
@@ -60,14 +61,13 @@ const onChange = () => {
         "
     >
         <input
+            v-model="model"
             type="radio"
             :value="value"
-            :checked="modelValue === value"
             :disabled="disabled"
             :class="boxClass"
             :aria-invalid="invalid ? 'true' : undefined"
             v-bind="attrs"
-            @change="onChange"
         />
         <span v-if="label || $slots.default">
             <slot>{{ label }}</slot>

@@ -13,6 +13,7 @@ use App\Models\Shift;
 use App\Repositories\LocationRepository;
 use App\Services\ShiftService;
 use App\Support\EventContext;
+use App\Support\ShiftSlotReferences;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -33,6 +34,7 @@ class ShiftController extends Controller
         return Inertia::render('Team/CreateShift', [
             'event' => $event->only('id', 'name'),
             'locations' => $this->locations->optionsFor($event),
+            'roles' => ShiftSlotReferences::options(),
         ]);
     }
 
@@ -49,9 +51,10 @@ class ShiftController extends Controller
                 'name' => $event->name,
                 'is_locked' => $event->isLocked(),
             ],
-            'shift' => (new ShiftResource($shift))->resolve($request),
+            'shift' => (new ShiftResource($shift->load(['location:id,name', 'roleSlots.role:id,name'])))->resolve($request),
             'locations' => $this->locations->optionsFor($event),
             'canManage' => Gate::allows('scheduling.edit'),
+            'roles' => Gate::allows('scheduling.edit') && ! $event->isLocked() ? ShiftSlotReferences::options() : [],
         ]);
     }
 

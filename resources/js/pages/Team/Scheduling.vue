@@ -33,7 +33,7 @@ const tableOptions = computed(() => ({
     serverSide: true,
     columnDefs: [
         { targets: [2, 3], className: 'text-left' },
-        { targets: 4, className: 'text-right' },
+        { targets: 6, className: 'text-right' },
     ],
     createdRow: (row, shift) =>
         navigateDataTableRow(row, shift, (item) => `/team/shifts/${item.id}`),
@@ -81,11 +81,17 @@ const formatDateTime = (value) =>
                 </div>
                 <Button
                     :title="
-                        !canWrite ? $t('permissions.no_add.shifts') : undefined
+                        !canWrite
+                            ? $t(
+                                  event.is_locked
+                                      ? 'team.scheduling.locked'
+                                      : 'permissions.no_add.shifts',
+                              )
+                            : undefined
                     "
-                    href="/team/shifts/create"
                     class="w-full sm:w-auto"
                     :disabled="!canWrite || locations.length === 0"
+                    href="/team/shifts/create"
                 >
                     <Icon
                         :name="['fas', 'plus']"
@@ -154,6 +160,32 @@ const formatDateTime = (value) =>
                         </template>
                         <template #endCell="{ cellData }">
                             {{ formatDateTime(cellData) }}
+                        </template>
+                        <template #rolesCell="{ rowData }">
+                            <div class="flex flex-wrap gap-1.5">
+                                <span
+                                    v-for="slot in rowData.slots"
+                                    :key="slot.id"
+                                    class="rounded-lg border border-line bg-page px-2 py-0.5 text-xs text-charcoal"
+                                    >{{
+                                        $t('team.scheduling.slots.role_count', {
+                                            role: slot.role_name,
+                                            count: slot.needed,
+                                        })
+                                    }}</span
+                                >
+                                <span v-if="!rowData.slots.length">{{
+                                    $t('data_table.empty_value')
+                                }}</span>
+                            </div>
+                        </template>
+                        <template #needsCell="{ rowData }">
+                            {{
+                                $t('team.scheduling.slots.filled', {
+                                    filled: rowData.filled_count,
+                                    count: rowData.total_needs,
+                                })
+                            }}
                         </template>
                         <template #openCell="{ rowData }">
                             <Link

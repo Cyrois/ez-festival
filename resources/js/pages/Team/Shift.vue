@@ -1,4 +1,10 @@
 <script setup>
+import ShiftRoleSlots from '../../components/team/ShiftRoleSlots.vue';
+import {
+    draftShiftSlots,
+    shiftSlotPayload,
+    shiftSlotErrors,
+} from '../../lib/shiftRoleSlots';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { CustomDropdown } from '../../components/ui/custom-dropdown';
@@ -17,6 +23,7 @@ const props = defineProps({
     event: { type: Object, required: true },
     shift: { type: Object, required: true },
     locations: { type: Array, required: true },
+    roles: { type: Array, default: () => [] },
     canManage: { type: Boolean, default: false },
 });
 
@@ -25,7 +32,12 @@ const form = useForm({
     location_id: props.shift.location_id,
     starts_at: props.shift.starts_at,
     ends_at: props.shift.ends_at,
+    slots: draftShiftSlots(props.shift.slots),
 });
+const slotErrors = ref({});
+const clearSlotError = (key, field) => {
+    if (slotErrors.value[key]) delete slotErrors.value[key][field];
+};
 const deleting = ref(false);
 const deleteBusy = ref(false);
 const { showError, showFormError } = useFlashToast();
@@ -51,12 +63,26 @@ const breadcrumbs = computed(() => [
 ]);
 
 const submit = () => {
-    if (!canWrite.value) return;
+    if (!canWrite.value || form.processing) return;
 
-    form.put('/team/events/' + props.event.id + '/shifts/' + props.shift.id, {
+    const submitted = [...form.slots];
+    form.transform((data) => ({
+        ...data,
+        slots: shiftSlotPayload(data.slots),
+    })).put('/team/events/' + props.event.id + '/shifts/' + props.shift.id, {
         preserveScroll: true,
-        onError: (errors) =>
-            toastFormErrors(form, errors, { showError, showFormError }),
+        onError: (errors) => {
+            slotErrors.value = shiftSlotErrors(submitted, errors);
+            if (Object.keys(errors).some((key) => key.startsWith('slots'))) {
+                showFormError(errors);
+            } else {
+                toastFormErrors(form, errors, { showError, showFormError });
+            }
+        },
+        onSuccess: () => {
+            form.slots = draftShiftSlots(props.shift.slots);
+            slotErrors.value = {};
+        },
     });
 };
 
@@ -109,7 +135,11 @@ const destroy = () => {
                 {{ $t('team.scheduling.no_permission') }}
             </p>
 
-            <form @submit.prevent="submit">
+            <form
+                id="shift-details-form"
+                novalidate
+                @submit.prevent="submit"
+            >
                 <Card>
                     <h2 class="m-0 mb-4 text-xl font-bold text-muted">
                         {{ $t('team.scheduling.shift_section') }}
@@ -117,7 +147,7 @@ const destroy = () => {
 
                     <dl
                         v-if="!canWrite"
-                        class="space-y-4"
+                        class="grid gap-4 sm:grid-cols-2"
                     >
                         <div
                             v-for="field in [
@@ -128,18 +158,16 @@ const destroy = () => {
                             ]"
                             :key="field"
                         >
-                            <dt class="text-sm text-muted">
-                                {{ $t(`team.scheduling.fields.${field}`) }}
-                            </dt>
-                            <dd class="mt-1">
+                            <dt class="text-xs font-bold text-muted">
                                 {{
-                                    field === 'location'
-                                        ? locations.find(
-                                              (location) =>
-                                                  location.id ===
-                                                  shift.location_id,
-                                          )?.name
-                                        : shift[field]
+                                    $t(
+                                        `team.scheduling.fields.${field === 'starts_at' ? 'start' : field === 'ends_at' ? 'end' : field}`,
+                                    )
+                                }}
+                            </dt>
+                            <dd class="mt-1 text-sm">
+                                {{
+                                    shift[field] || $t('data_table.empty_value')
                                 }}
                             </dd>
                         </div>
@@ -151,6 +179,7 @@ const destroy = () => {
                         <FormField
                             :label="$t('team.scheduling.fields.name')"
                             :error="fieldError(form, 'name')"
+                            required
                         >
                             <template #default="{ id, invalid }">
                                 <Input
@@ -225,9 +254,34 @@ const destroy = () => {
                     </div>
                 </Card>
 
+                <Card class="mt-4">
+                    <ShiftRoleSlots
+                        v-model="form.slots"
+                        :roles="roles"
+                        :errors="slotErrors"
+                        :editable="canWrite"
+                        :busy="form.processing"
+                        :title="$t('team.scheduling.slots.detail_title')"
+                        :disabled-reason="
+                            $t(
+                                event.is_locked
+                                    ? 'team.scheduling.locked'
+                                    : 'team.scheduling.no_permission',
+                            )
+                        "
+                        @clear-error="clearSlotError"
+                    />
+                    <p
+                        v-if="form.errors.slots"
+                        class="text-sm text-danger"
+                        role="alert"
+                    >
+                        {{ form.errors.slots }}
+                    </p>
+                </Card>
                 <div
                     v-if="canWrite"
-                    class="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between"
+                    class="mt-4"
                 >
                     <Button
                         type="button"
@@ -241,14 +295,32 @@ const destroy = () => {
                         />
                         {{ $t('team.scheduling.actions.delete') }}
                     </Button>
-                    <Button
-                        type="submit"
-                        :loading="form.processing"
-                    >
-                        {{ $t('team.scheduling.actions.save') }}
-                    </Button>
                 </div>
             </form>
+        </div>
+
+        <div
+            v-if="canWrite"
+            class="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-ground py-4 lg:left-[var(--app-sidebar-width)]"
+        >
+            <div class="container mx-auto px-4 md:px-6">
+                <div
+                    class="mx-auto flex max-w-6xl items-center justify-between gap-3"
+                >
+                    <Button
+                        href="/team/scheduling?tab=list"
+                        variant="cancel"
+                        :disabled="form.processing"
+                        >{{ $t('ui.dialog.cancel') }}</Button
+                    >
+                    <Button
+                        type="submit"
+                        form="shift-details-form"
+                        :loading="form.processing"
+                        >{{ $t('team.scheduling.actions.save') }}</Button
+                    >
+                </div>
+            </div>
         </div>
 
         <Dialog

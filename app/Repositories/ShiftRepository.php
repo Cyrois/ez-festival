@@ -26,7 +26,7 @@ class ShiftRepository
     ): array {
         $query = Shift::query()
             ->whereBelongsTo($event)
-            ->with('location:id,name');
+            ->with(['location:id,name', 'roleSlots.role:id,name']);
         $total = (clone $query)->count();
 
         if ($search !== '') {

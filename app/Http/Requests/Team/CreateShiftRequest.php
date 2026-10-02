@@ -12,7 +12,6 @@ class CreateShiftRequest extends FormRequest
         return Gate::allows('scheduling.edit');
     }
 
-    /** @return array<string, mixed> */
     public function rules(): array
     {
         return [];
