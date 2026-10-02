@@ -47,21 +47,24 @@ class PassAssignmentService
                     ])->all(),
                 );
             }
-        });
+        }, 3);
 
         $this->passTypes->forgetList($owner->event_id);
     }
 
     public function assignPerson(PassAssignment $assignment, Person $person): void
     {
-        DB::transaction(function () use ($assignment, $person): void {
+        $eventId = $this->owner($assignment)->event_id;
+
+        DB::transaction(function () use ($assignment, $person, $eventId): void {
+            $event = Event::query()->lockForUpdate()->findOrFail($eventId);
+            $event->ensureWritable();
             $assignment = PassAssignment::query()
                 ->with(['artistEngagement.people', 'vendorEngagement.people', 'eventPatron'])
                 ->lockForUpdate()
                 ->findOrFail($assignment->id);
             $owner = $this->owner($assignment);
-            $event = Event::query()->lockForUpdate()->findOrFail($owner->event_id);
-            $event->ensureWritable();
+            abort_unless($owner->event_id === $event->id, 404);
 
             if ($owner instanceof ArtistEngagement || $owner instanceof VendorEngagement) {
                 abort_unless($owner->people()->whereKey($person->id)->exists(), 422);
@@ -70,18 +73,19 @@ class PassAssignmentService
             }
 
             $assignment->update(['person_id' => $person->id]);
-        });
+        }, 3);
     }
 
     public function remove(PassAssignment $assignment): void
     {
         $eventId = $this->owner($assignment)->event_id;
 
-        DB::transaction(function () use ($assignment): void {
+        DB::transaction(function () use ($assignment, $eventId): void {
+            $event = Event::query()->lockForUpdate()->findOrFail($eventId);
+            $event->ensureWritable();
             $assignment = PassAssignment::query()->lockForUpdate()->findOrFail($assignment->id);
             $owner = $this->owner($assignment);
-            $event = Event::query()->lockForUpdate()->findOrFail($owner->event_id);
-            $event->ensureWritable();
+            abort_unless($owner->event_id === $event->id, 404);
 
             if ($assignment->expectedEntitlements()->whereHas('issuedEntitlement')->exists()) {
                 throw ValidationException::withMessages([
@@ -90,7 +94,7 @@ class PassAssignmentService
             }
 
             $assignment->delete();
-        });
+        }, 3);
 
         $this->passTypes->forgetList($eventId);
     }

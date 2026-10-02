@@ -19,6 +19,7 @@ return new class extends Migration
 
         Schema::create('entitlement_adjustments', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('location_id')->nullable()->constrained()->restrictOnDelete();
             $table->foreignId('entitlement_item_id')->constrained()->cascadeOnDelete();
             $table->integer('delta');
             $table->string('reason')->nullable();
@@ -26,6 +27,7 @@ return new class extends Migration
             $table->timestamp('created_at')->useCurrent();
 
             $table->index(['entitlement_item_id', 'created_at']);
+            $table->index(['entitlement_item_id', 'location_id']);
         });
 
         Schema::create('pass_type_entitlements', function (Blueprint $table) {
@@ -47,6 +49,7 @@ return new class extends Migration
         Schema::create('issued_entitlements', function (Blueprint $table) {
             $table->id();
             $table->foreignId('expected_entitlement_id')->unique()->constrained()->cascadeOnDelete();
+            $table->foreignId('location_id')->nullable()->constrained()->restrictOnDelete();
             $table->foreignId('entitlement_item_id')->constrained()->restrictOnDelete();
             $table->string('code')->nullable();
             $table->foreignId('issued_by')->nullable()->constrained('users')->nullOnDelete();

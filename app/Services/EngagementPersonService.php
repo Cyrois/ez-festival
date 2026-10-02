@@ -22,8 +22,13 @@ class EngagementPersonService
             $event = Event::query()->lockForUpdate()->findOrFail($engagement->event_id);
             $event->ensureWritable();
 
-            $person = $this->people->findOrCreateByEmail($data);
             $relation = $this->peopleRelation($engagement);
+            $person = $this->people->findByEmail($data['email']);
+            if ($person !== null && $engagement->people()->whereKey($person->id)->exists()) {
+                return $person;
+            }
+
+            $person = $this->people->findOrCreateByEmail($data);
             $isFirst = ! $relation->exists();
             $relation->attach($person->id, ['is_primary' => $isFirst]);
 

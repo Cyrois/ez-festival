@@ -9,6 +9,7 @@ use App\Http\Requests\Setup\DestroyLocationRequest;
 use App\Http\Requests\Setup\StoreLocationRequest;
 use App\Http\Requests\Setup\UpdateLocationRequest;
 use App\Models\Location;
+use App\Services\EventLocationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -17,6 +18,8 @@ use Inertia\Response;
 class LocationController extends Controller
 {
     use InteractsWithSetup;
+
+    public function __construct(private readonly EventLocationService $locations) {}
 
     public function show(Request $request): Response|RedirectResponse
     {
@@ -50,9 +53,7 @@ class LocationController extends Controller
             return redirect()->route('setup.event');
         }
 
-        $event->ensureWritable();
-
-        $event->locations()->create($request->validated());
+        $this->locations->createMany($event, [$request->validated()]);
 
         return redirect()->route('setup.locations');
     }
@@ -66,9 +67,7 @@ class LocationController extends Controller
             404,
         );
 
-        $event->ensureWritable();
-
-        $location->update($request->validated());
+        $this->locations->update($event, $location, $request->validated());
 
         return redirect()->route('setup.locations');
     }
@@ -82,9 +81,7 @@ class LocationController extends Controller
             404,
         );
 
-        $event->ensureWritable();
-
-        $location->delete();
+        $this->locations->destroy($event, $location);
 
         return redirect()->route('setup.locations');
     }
@@ -97,16 +94,14 @@ class LocationController extends Controller
             return redirect()->route('setup.event');
         }
 
-        $event->ensureWritable();
-
         $data = $request->validated();
-
-        foreach ($data['suggestions'] ?? [] as $item) {
-            $event->locations()->create([
+        $this->locations->createMany($event, array_map(
+            fn (array $item): array => [
                 'name' => $item['name'],
                 'type' => $item['type'] ?? null,
-            ]);
-        }
+            ],
+            $data['suggestions'] ?? [],
+        ));
 
         return redirect()->route('setup.vendor-types');
     }

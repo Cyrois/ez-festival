@@ -22,7 +22,7 @@ return new class extends Migration
         Schema::create('entitlement_item_label_assignments', function (Blueprint $table) {
             $table->foreignId('entitlement_item_id')->constrained()->cascadeOnDelete();
             $table->foreignId('entitlement_item_label_id')->constrained()->cascadeOnDelete();
-            $table->primary(['entitlement_item_id', 'entitlement_item_label_id']);
+            $table->primary(['entitlement_item_id', 'entitlement_item_label_id'], 'entitlement_item_label_primary');
         });
     }
 

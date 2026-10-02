@@ -16,7 +16,6 @@ return new class extends Migration
                 shift_id INTEGER NOT NULL,
                 role_id INTEGER NOT NULL,
                 needed INTEGER NOT NULL CONSTRAINT shift_slots_needed_check CHECK (needed > 0 AND needed <= 2147483647),
-                is_supervisor BOOLEAN NOT NULL DEFAULT 0,
                 sort_order INTEGER NOT NULL CONSTRAINT shift_slots_order_check CHECK (sort_order >= 0),
                 created_at DATETIME NULL,
                 updated_at DATETIME NULL,
@@ -29,7 +28,6 @@ return new class extends Migration
                 $table->foreignId('shift_id');
                 $table->foreignId('role_id');
                 $table->integer('needed');
-                $table->boolean('is_supervisor')->default(false);
                 $table->integer('sort_order');
                 $table->timestamps();
                 $table->foreign('shift_id', 'shift_slots_shift_fk')->references('id')->on('shifts')->cascadeOnDelete();
@@ -41,7 +39,7 @@ return new class extends Migration
         }
 
         Schema::table('shift_role_slots', function (Blueprint $table): void {
-            $table->index(['shift_id', 'is_supervisor', 'sort_order', 'id'], 'shift_slots_order_idx');
+            $table->index(['shift_id', 'sort_order', 'id'], 'shift_slots_order_idx');
         });
     }
 

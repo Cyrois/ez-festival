@@ -11,6 +11,7 @@ return new class extends Migration
         Schema::create('organizations', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            $table->boolean('singleton')->default(true)->unique();
             $table->unsignedBigInteger('active_event_id')->nullable();
             $table->timestamp('setup_completed_at')->nullable();
             $table->timestamps();
@@ -53,18 +54,31 @@ return new class extends Migration
         Schema::create('vendor_types', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            $table->integer('sort_order')->default(0);
             $table->timestamps();
         });
 
         Schema::create('artist_types', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            $table->integer('sort_order')->default(0);
             $table->timestamps();
+        });
+
+        Schema::table('users', function (Blueprint $table) {
+            $table->foreignId('current_event_id')
+                ->nullable()
+                ->constrained('events')
+                ->nullOnDelete();
         });
     }
 
     public function down(): void
     {
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropConstrainedForeignId('current_event_id');
+        });
+
         Schema::dropIfExists('artist_types');
         Schema::dropIfExists('vendor_types');
         Schema::dropIfExists('locations');

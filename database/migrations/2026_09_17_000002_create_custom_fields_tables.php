@@ -29,7 +29,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('custom_field_id')->constrained()->cascadeOnDelete();
             $table->foreignId('event_id')->nullable()->constrained()->cascadeOnDelete();
-            $table->morphs('custom_fieldable');
+            $table->morphs('custom_fieldable', 'custom_field_values_owner_index');
             $table->text('value_text')->nullable();
             $table->string('value_search', 255)->nullable();
             $table->decimal('value_number', 20, 6)->nullable();

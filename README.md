@@ -46,9 +46,19 @@ Artist Tree uses one deployment and one database per organization. The configure
 - Each deployment requires dedicated database credentials.
 - Run migrations, backups, restores, queue workers, and health checks independently for every organization deployment.
 
-The detailed architecture and data-split runbook are in [`docs/specs/database-per-organization-remove-organizations.md`](docs/specs/database-per-organization-remove-organizations.md).
+## Fresh database baseline
 
-For an existing database, take a verified backup before running migrations. The conversion migration preserves a database containing zero or one organization, but it is intentionally irreversible and stops if multiple organizations or case-insensitive artist/label conflicts are present. A multi-organization database must be split with the runbook before the conversion is applied.
+The migrations create the current schema directly. Historical backfills, data cleanup, and retired columns are omitted; this migration set is for new databases, not an upgrade path for databases that ran the previous history. Rebuild an existing development database before using this baseline. `migrate:fresh` deletes all data in the configured database.
+
+For a disposable local database with the full demo dataset:
+
+```bash
+php artisan migrate:fresh --seed
+```
+
+`DatabaseSeeder` runs the user, setup, catalog, artist, vendor, and team seeders in dependency order. Running `php artisan db:seed` again updates the same demo records without duplicating them. Migrations do not insert suggested types or other demo data; the setup wizard and seeders own those writes.
+
+The baseline preserves existing column defaults and nullability, including nullable account/person links, invitation passwords, inventory location links, and optional Team roles/forms. Tightening those constraints is outside this consolidation.
 
 For local frontend hot reload:
 

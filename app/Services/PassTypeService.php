@@ -44,7 +44,7 @@ class PassTypeService
                     'name' => __('credentials.passes.errors.name_taken'),
                 ]);
             }
-        });
+        }, 3);
 
         $this->passTypes->forgetList($event->id);
 
@@ -60,9 +60,9 @@ class PassTypeService
         $eventId = $passType->event_id;
 
         DB::transaction(function () use ($passType, $data, $customFields): void {
-            $passType = PassType::query()->lockForUpdate()->findOrFail($passType->id);
             $event = Event::query()->lockForUpdate()->findOrFail($passType->event_id);
             $event->ensureWritable();
+            $passType = $event->passTypes()->lockForUpdate()->findOrFail($passType->id);
 
             $maxAssignments = $data['max_assignments'] ?? null;
             if ($maxAssignments !== null && $passType->assignments()->count() > $maxAssignments) {
@@ -82,7 +82,7 @@ class PassTypeService
                     'name' => __('credentials.passes.errors.name_taken'),
                 ]);
             }
-        });
+        }, 3);
 
         $this->passTypes->forgetList($eventId);
     }
@@ -92,9 +92,9 @@ class PassTypeService
         $eventId = $passType->event_id;
 
         DB::transaction(function () use ($passType): void {
-            $passType = PassType::query()->lockForUpdate()->findOrFail($passType->id);
             $event = Event::query()->lockForUpdate()->findOrFail($passType->event_id);
             $event->ensureWritable();
+            $passType = $event->passTypes()->lockForUpdate()->findOrFail($passType->id);
 
             if ($passType->assignments()->exists()) {
                 throw ValidationException::withMessages([
@@ -103,7 +103,7 @@ class PassTypeService
             }
 
             $passType->delete();
-        });
+        }, 3);
 
         $this->passTypes->forgetList($eventId);
     }

@@ -26,10 +26,30 @@ return new class extends Migration
             $table->unique(['vendor_id', 'event_id']);
             $table->index(['event_id', 'status']);
         });
+
+        Schema::create('vendor_engagement_people', function (Blueprint $table) {
+            $table->foreignId('vendor_engagement_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('person_id')->constrained()->cascadeOnDelete();
+            $table->boolean('is_primary')->default(false);
+            $table->timestamps();
+            $table->primary(['vendor_engagement_id', 'person_id']);
+            $table->index(['vendor_engagement_id', 'is_primary']);
+        });
+
+        Schema::create('vendor_engagement_notes', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('vendor_engagement_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
+            $table->text('body');
+            $table->timestamps();
+            $table->index(['vendor_engagement_id', 'created_at']);
+        });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('vendor_engagement_notes');
+        Schema::dropIfExists('vendor_engagement_people');
         Schema::dropIfExists('vendor_engagements');
         Schema::dropIfExists('vendors');
     }

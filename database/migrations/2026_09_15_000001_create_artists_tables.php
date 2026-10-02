@@ -36,14 +36,35 @@ return new class extends Migration
         });
 
         Schema::create('artist_engagement_label_assignments', function (Blueprint $table) {
-            $table->foreignId('artist_engagement_id')->constrained('artist_engagements')->cascadeOnDelete();
+            $table->foreignId('artist_engagement_id')->constrained('artist_engagements', indexName: 'artist_label_assignment_engagement_fk')->cascadeOnDelete();
             $table->foreignId('artist_label_id')->constrained('artist_labels')->cascadeOnDelete();
             $table->primary(['artist_engagement_id', 'artist_label_id'], 'artist_engagement_label_primary');
+        });
+
+        Schema::create('artist_engagement_people', function (Blueprint $table) {
+            $table->foreignId('artist_engagement_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('person_id')->constrained()->cascadeOnDelete();
+            $table->boolean('is_primary')->default(false);
+            $table->timestamps();
+            $table->primary(['artist_engagement_id', 'person_id']);
+            $table->index(['artist_engagement_id', 'is_primary']);
+        });
+
+        Schema::create('artist_engagement_notes', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('artist_engagement_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
+            $table->text('body');
+            $table->timestamps();
+
+            $table->index(['artist_engagement_id', 'created_at']);
         });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('artist_engagement_notes');
+        Schema::dropIfExists('artist_engagement_people');
         Schema::dropIfExists('artist_engagement_label_assignments');
         Schema::dropIfExists('artist_labels');
         Schema::dropIfExists('artist_engagements');

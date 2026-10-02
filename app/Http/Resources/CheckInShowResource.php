@@ -11,28 +11,23 @@ abstract class CheckInShowResource extends JsonResource
     protected function engagementData(Request $request, string $permission, string $type, string $name): array
     {
         $canSeePersonalInfo = $request->user()->can($permission, $this->event);
-        $balancesByItem = $this->balancesByItemId();
         $assignments = $this->passAssignments
             ->whereNotNull('person_id')
             ->groupBy('person_id');
 
-        $people = $this->people->map(function ($person) use ($assignments, $balancesByItem, $canSeePersonalInfo): array {
+        $people = $this->people->map(function ($person) use ($assignments, $canSeePersonalInfo): array {
             $held = $assignments->get($person->id, collect());
-            $entitlements = $held->flatMap(function ($assignment) use ($balancesByItem): Collection {
-                return $assignment->expectedEntitlements->map(function ($expected) use ($assignment, $balancesByItem): array {
+            $entitlements = $held->flatMap(function ($assignment): Collection {
+                return $assignment->expectedEntitlements->map(function ($expected) use ($assignment): array {
                     $issued = $expected->issuedEntitlement;
-                    $balances = $balancesByItem[$expected->entitlement_item_id] ?? [];
                     $locations = $expected->entitlementItem->adjustments
-                        ->pluck('location')
-                        ->filter()
-                        ->unique('id')
-                        ->filter(fn ($location) => ($balances[$location->id] ?? 0) > 0)
-                        ->sortBy('name')
+                        ->filter(fn ($stock) => $stock->location !== null)
+                        ->sortBy('location.name')
                         ->values()
-                        ->map(fn ($location): array => [
-                            'id' => $location->id,
-                            'name' => $location->name,
-                            'in_stock' => $balances[$location->id],
+                        ->map(fn ($stock): array => [
+                            'id' => $stock->location_id,
+                            'name' => $stock->location->name,
+                            'in_stock' => (int) $stock->balance,
                         ]);
 
                     return [
@@ -73,28 +68,5 @@ abstract class CheckInShowResource extends JsonResource
             'type' => $type,
             'people' => $people,
         ];
-    }
-
-    /** @return array<int, array<int, int>> */
-    private function balancesByItemId(): array
-    {
-        $cache = [];
-
-        foreach ($this->passAssignments as $assignment) {
-            foreach ($assignment->expectedEntitlements as $expected) {
-                $item = $expected->entitlementItem;
-                if (isset($cache[$item->id])) {
-                    continue;
-                }
-
-                $cache[$item->id] = $item->adjustments
-                    ->whereNotNull('location_id')
-                    ->groupBy('location_id')
-                    ->map(fn (Collection $rows): int => (int) $rows->sum('delta'))
-                    ->all();
-            }
-        }
-
-        return $cache;
     }
 }

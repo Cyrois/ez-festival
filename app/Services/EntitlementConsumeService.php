@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\EntitlementItem;
 use App\Models\Event;
 use App\Models\ExpectedEntitlement;
 use App\Models\IssuedEntitlement;
@@ -16,13 +15,16 @@ class EntitlementConsumeService
 
     public function consume(ExpectedEntitlement $expected, User $actor, int $locationId, ?string $code = null): IssuedEntitlement
     {
-        return DB::transaction(function () use ($expected, $actor, $locationId, $code): IssuedEntitlement {
+        $eventId = $expected->passAssignment->passType->event_id;
+
+        return DB::transaction(function () use ($expected, $actor, $locationId, $code, $eventId): IssuedEntitlement {
+            $event = Event::query()->lockForUpdate()->findOrFail($eventId);
+            $event->ensureWritable();
             $expected = ExpectedEntitlement::query()
                 ->with('passAssignment.passType')
                 ->lockForUpdate()
                 ->findOrFail($expected->id);
-            $event = Event::query()->lockForUpdate()->findOrFail($expected->passAssignment->passType->event_id);
-            $event->ensureWritable();
+            abort_unless($expected->passAssignment->passType->event_id === $event->id, 404);
 
             if ($expected->status !== ExpectedEntitlement::STATUS_EXPECTED || $expected->issuedEntitlement()->exists()) {
                 throw ValidationException::withMessages([
@@ -30,7 +32,7 @@ class EntitlementConsumeService
                 ]);
             }
 
-            $item = EntitlementItem::query()->lockForUpdate()->findOrFail($expected->entitlement_item_id);
+            $item = $event->entitlementItems()->lockForUpdate()->findOrFail($expected->entitlement_item_id);
 
             $issued = $expected->issuedEntitlement()->create([
                 'entitlement_item_id' => $item->id,
@@ -43,6 +45,6 @@ class EntitlementConsumeService
             $this->items->adjust($item, $locationId, -1, null, $actor);
 
             return $issued;
-        });
+        }, 3);
     }
 }
