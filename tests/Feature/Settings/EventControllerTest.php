@@ -223,7 +223,7 @@ class EventControllerTest extends TestCase
 
         $role = Role::query()->create(['name' => 'Teardown crew']);
         $slot = $shift->roleSlots()->create([
-            'role_id' => $role->id, 'needed' => 3, 'is_supervisor' => true, 'sort_order' => 0,
+            'role_id' => $role->id, 'needed' => 3, 'sort_order' => 0,
         ]);
 
         $this->actingAs($user)

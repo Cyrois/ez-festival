@@ -6,14 +6,13 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['role_id', 'needed', 'is_supervisor', 'sort_order'])]
+#[Fillable(['role_id', 'needed', 'sort_order'])]
 class ShiftRoleSlot extends Model
 {
     protected function casts(): array
     {
         return [
             'needed' => 'integer',
-            'is_supervisor' => 'boolean',
             'sort_order' => 'integer',
         ];
     }

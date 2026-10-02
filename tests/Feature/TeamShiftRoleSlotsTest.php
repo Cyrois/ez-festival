@@ -12,6 +12,7 @@ use App\Support\OrganizationContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -26,7 +27,7 @@ class TeamShiftRoleSlotsTest extends TestCase
         $this->withoutVite();
     }
 
-    public function test_create_stores_rows_without_changing_event_access_and_reads_them_in_supervisor_order(): void
+    public function test_create_stores_rows_without_changing_event_access_and_reads_them_in_insertion_order(): void
     {
         [$user, $event, $location] = $this->context();
         $crew = Role::query()->create(['name' => 'Crew']);
@@ -36,45 +37,44 @@ class TeamShiftRoleSlotsTest extends TestCase
         $accessBefore = DB::table('team_engagements')->count();
         $this->actingAs($user)->post(route('team.shifts.store', $event), $this->payload($location, [
             ['role_id' => $crew->id, 'needed' => 2],
-            ['role_id' => $lead->id, 'needed' => 1, 'is_supervisor' => true],
+            ['role_id' => $lead->id, 'needed' => 1],
             ['role_id' => $crew->id, 'needed' => 3],
         ]))->assertSessionHasNoErrors();
 
         $shift = Shift::query()->sole();
         $slots = $shift->roleSlots()->get();
-        $this->assertSame([$lead->id, $crew->id, $crew->id], $slots->pluck('role_id')->all());
-        $this->assertFalse($slots->last()->is_supervisor);
+        $this->assertSame([$crew->id, $lead->id, $crew->id], $slots->pluck('role_id')->all());
         $this->assertSame(6, $slots->sum('needed'));
         $this->assertDatabaseCount('people', $peopleBefore);
         $this->assertDatabaseCount('team_engagements', $accessBefore);
         $this->assertEquals($lead->toArray(), $lead->fresh()->toArray());
         $this->get(route('team.shifts.show', $shift))->assertInertia(fn (Assert $page) => $page
             ->has('shift.slots', 3)
-            ->where('shift.slots.0.role_name', 'Lead')
-            ->where('shift.slots.1.role_name', 'Crew')
+            ->where('shift.slots.0.role_name', 'Crew')
+            ->where('shift.slots.1.role_name', 'Lead')
             ->where('shift.total_needs', 6)
             ->where('shift.filled_count', 0));
         $this->getJson(route('team.scheduling.shifts'))->assertOk()
-            ->assertJsonPath('data.0.slots.0.role_name', 'Lead')
-            ->assertJsonPath('data.0.slots.1.needed', 2)
+            ->assertJsonPath('data.0.slots.0.role_name', 'Crew')
+            ->assertJsonPath('data.0.slots.1.needed', 1)
             ->assertJsonPath('data.0.slots.2.needed', 3)
             ->assertJsonPath('data.0.total_needs', 6)
             ->assertJsonPath('data.0.filled_count', 0);
     }
 
-    public function test_edit_preserves_identity_and_order_while_adding_removing_and_toggling_rows(): void
+    public function test_edit_preserves_identity_and_order_while_adding_and_removing_rows(): void
     {
         [$user, $event, $location] = $this->context();
         $role = Role::query()->create(['name' => 'Crew']);
         $shift = app(ShiftService::class)->create($event, $this->payload($location, [
             ['role_id' => $role->id, 'needed' => 1],
-            ['role_id' => $role->id, 'needed' => 2, 'is_supervisor' => true],
+            ['role_id' => $role->id, 'needed' => 2],
         ]));
         $rows = $shift->roleSlots()->get()->sortBy('sort_order')->values();
         $first = $rows[0];
         $removed = $rows[1];
         $this->actingAs($user)->put(route('team.shifts.update', [$event, $shift]), $this->payload($location, [
-            ['id' => $first->id, 'role_id' => $role->id, 'needed' => 5, 'is_supervisor' => true],
+            ['id' => $first->id, 'role_id' => $role->id, 'needed' => 5],
             ['role_id' => $role->id, 'needed' => 3],
         ]))->assertSessionHasNoErrors();
         $this->assertModelMissing($removed);
@@ -82,8 +82,8 @@ class TeamShiftRoleSlotsTest extends TestCase
         $new = $shift->roleSlots()->whereKeyNot($first->id)->sole();
         $this->assertSame(2, $new->sort_order);
         $this->actingAs($user)->put(route('team.shifts.update', [$event, $shift]), $this->payload($location, [
-            ['id' => $new->id, 'role_id' => $role->id, 'needed' => 3, 'is_supervisor' => false],
-            ['id' => $first->id, 'role_id' => $role->id, 'needed' => 5, 'is_supervisor' => false],
+            ['id' => $new->id, 'role_id' => $role->id, 'needed' => 3],
+            ['id' => $first->id, 'role_id' => $role->id, 'needed' => 5],
         ]))->assertSessionHasNoErrors();
         $this->assertSame([$first->id, $new->id], $shift->roleSlots()->pluck('id')->all());
     }
@@ -107,11 +107,11 @@ class TeamShiftRoleSlotsTest extends TestCase
     {
         [$user, $event, $location] = $this->context();
         $role = Role::query()->create(['name' => 'Crew']);
-        $valid = ['role_id' => $role->id, 'needed' => 1, 'is_supervisor' => false];
+        $valid = ['role_id' => $role->id, 'needed' => 1];
         foreach ([
             ['role_id' => null], ['role_id' => $role->id + 9999], ['needed' => null],
             ['needed' => 0], ['needed' => -1], ['needed' => 1.5], ['needed' => 'many'],
-            ['needed' => 2147483648], ['is_supervisor' => 'maybe'], ['id' => 999],
+            ['needed' => 2147483648], ['id' => 999],
             ['role_name' => 'Invented'], ['sort_order' => 0], ['event_id' => $event->id],
         ] as $change) {
             $this->actingAs($user)->post(route('team.shifts.store', $event), $this->payload($location, [array_replace($valid, $change)]))
@@ -136,7 +136,7 @@ class TeamShiftRoleSlotsTest extends TestCase
         $this->post(route('team.shifts.store', $event), $this->payload($location, [['role_id' => $role->id, 'needed' => 1]]))
             ->assertSessionHasErrors('slots.0.role_id');
         $this->put(route('team.shifts.update', [$event, $shift]), $this->payload($location, [
-            ['id' => $slot->id, 'role_id' => $role->id, 'needed' => 3, 'is_supervisor' => true],
+            ['id' => $slot->id, 'role_id' => $role->id, 'needed' => 3],
         ]))->assertSessionHasNoErrors();
         $this->get(route('team.shifts.show', $shift))->assertInertia(fn (Assert $page) => $page
             ->where('shift.slots.0.role_name', 'Crew')->where('shift.total_needs', 3)->has('roles', 0));
@@ -310,56 +310,22 @@ class TeamShiftRoleSlotsTest extends TestCase
         $this->assertSame(2, $shift->roleSlots()->sum('needed'));
     }
 
-    public function test_multiple_supervisors_are_rejected_atomically_on_create_and_edit(): void
-    {
-        [$user, $event, $location] = $this->context();
-        $role = Role::query()->create(['name' => 'Crew']);
-        $rows = [
-            ['role_id' => $role->id, 'needed' => 1, 'is_supervisor' => true],
-            ['role_id' => $role->id, 'needed' => 2, 'is_supervisor' => true],
-        ];
-        $this->actingAs($user)->post(route('team.shifts.store', $event), $this->payload($location, $rows))
-            ->assertSessionHasErrors(['slots.0.is_supervisor', 'slots.1.is_supervisor']);
-        $this->assertDatabaseCount('shifts', 0);
-        $shift = app(ShiftService::class)->create($event, $this->payload($location, [$rows[0]]));
-        $slot = $shift->roleSlots()->sole();
-        $rows[0]['id'] = $slot->id;
-        $this->put(route('team.shifts.update', [$event, $shift]), $this->payload($location, $rows))
-            ->assertSessionHasErrors('slots.1.is_supervisor');
-        $this->assertSame(1, $shift->roleSlots()->count());
-        $this->assertTrue($slot->fresh()->is_supervisor);
-        try {
-            app(ShiftService::class)->update($shift, $this->payload($location, $rows));
-            $this->fail('Service must reject multiple supervisors.');
-        } catch (ValidationException $exception) {
-            $this->assertArrayHasKey('slots.0.is_supervisor', $exception->errors());
-        }
-        try {
-            DB::transaction(fn () => $shift->roleSlots()->create([
-                'role_id' => $role->id, 'needed' => 1, 'is_supervisor' => true, 'sort_order' => 1,
-            ]));
-            $this->fail('Database must reject a second supervisor.');
-        } catch (QueryException) {
-            $this->assertSame(1, $shift->roleSlots()->count());
-        }
-    }
-
-    public function test_supervisor_migration_preserves_the_first_selection_and_other_role_needs(): void
+    public function test_removing_the_legacy_field_preserves_role_counts_and_insertion_order(): void
     {
         [, $event, $location] = $this->context();
         $role = Role::query()->create(['name' => 'Crew']);
         $shift = app(ShiftService::class)->create($event, $this->payload($location, [
-            ['role_id' => $role->id, 'needed' => 2, 'is_supervisor' => true],
+            ['role_id' => $role->id, 'needed' => 2],
             ['role_id' => $role->id, 'needed' => 3],
         ]));
-        $rows = $shift->roleSlots()->get();
-        $migration = require database_path('migrations/2026_10_01_000002_limit_shift_supervisors.php');
+        $before = $shift->roleSlots()->get()->toArray();
+        $migration = require database_path('migrations/2026_10_01_000003_remove_shift_supervisors.php');
         $migration->down();
-        $rows[1]->update(['is_supervisor' => true]);
+        DB::table('shift_role_slots')->where('id', $before[1]['id'])->update(['is_supervisor' => true]);
         $migration->up();
-        $this->assertTrue($rows[0]->fresh()->is_supervisor);
-        $this->assertFalse($rows[1]->fresh()->is_supervisor);
-        $this->assertSame(5, $shift->roleSlots()->sum('needed'));
+
+        $this->assertFalse(Schema::hasColumn('shift_role_slots', 'is_supervisor'));
+        $this->assertSame($before, $shift->roleSlots()->get()->toArray());
     }
 
     private function context(): array

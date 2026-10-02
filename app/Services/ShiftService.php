@@ -49,16 +49,11 @@ class ShiftService
         if ($errors !== []) {
             throw ValidationException::withMessages($errors);
         }
-        // Clear the previous selection before selecting another row (unique index).
-        foreach ($existing->where('is_supervisor', true) as $slot) {
-            $slot->update(['is_supervisor' => false]);
-        }
         $nextOrder = ($existing->max('sort_order') ?? -1) + 1;
         $kept = [];
         foreach ($slots as $data) {
             $slot = isset($data['id']) ? $existing->get((int) $data['id']) : null;
             unset($data['id']);
-            $data['is_supervisor'] ??= false;
             if ($slot !== null) {
                 $slot->update($data);
             } else {

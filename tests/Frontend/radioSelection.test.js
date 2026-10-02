@@ -61,7 +61,7 @@ test('radio selection survives keyed row moves, new rows and repeated clicks', a
                         .map((value) =>
                             h(Radio, {
                                 key: value,
-                                name: 'supervisor',
+                                name: 'selection',
                                 value,
                                 label: value,
                                 modelValue: selected.value,

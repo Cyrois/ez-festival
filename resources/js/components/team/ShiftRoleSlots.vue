@@ -5,11 +5,7 @@ import { CustomDropdown } from '../ui/custom-dropdown';
 import { FormField } from '../ui/form-field';
 import { IconButton } from '../ui/icon-button';
 import { Input } from '../ui/input';
-import {
-    newShiftSlot,
-    orderedShiftSlots,
-    totalShiftNeeds,
-} from '../../lib/shiftRoleSlots';
+import { newShiftSlot, totalShiftNeeds } from '../../lib/shiftRoleSlots';
 
 const props = defineProps({
     modelValue: { type: Array, required: true },
@@ -23,7 +19,7 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'clear-error']);
 const pending = ref(newShiftSlot());
 const pendingErrors = ref({});
-const ordered = computed(() => orderedShiftSlots(props.modelValue));
+const ordered = computed(() => props.modelValue);
 const total = computed(() => totalShiftNeeds(props.modelValue));
 const roleItems = computed(() =>
     props.roles.map((role) => ({
@@ -203,11 +199,11 @@ const remove = (slot) => {
                 }}</span>
             </div>
             <p
-                v-if="error(slot, 'id') || error(slot, 'is_supervisor')"
+                v-if="error(slot, 'id')"
                 class="m-0 text-xs text-danger"
                 role="alert"
             >
-                {{ error(slot, 'id') || error(slot, 'is_supervisor') }}
+                {{ error(slot, 'id') }}
             </p>
         </div>
         <p

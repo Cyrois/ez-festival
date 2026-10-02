@@ -14,7 +14,6 @@ class ShiftRoleSlotResource extends JsonResource
             'role_id' => $this->role_id,
             'role_name' => $this->whenLoaded('role', fn () => $this->role->name),
             'needed' => $this->needed,
-            'is_supervisor' => $this->is_supervisor,
             'sort_order' => $this->sort_order,
         ];
     }

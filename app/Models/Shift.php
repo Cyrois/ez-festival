@@ -24,7 +24,7 @@ class Shift extends Model
     public function roleSlots(): HasMany
     {
         return $this->hasMany(ShiftRoleSlot::class)
-            ->orderByDesc('is_supervisor')->orderBy('sort_order')->orderBy('id');
+            ->orderBy('sort_order')->orderBy('id');
     }
 
     public function event(): BelongsTo

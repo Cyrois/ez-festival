@@ -7,7 +7,6 @@ export function newShiftSlot() {
         role_id: '',
         role_name: '',
         needed: 1,
-        is_supervisor: false,
     };
 }
 
@@ -15,12 +14,6 @@ export function draftShiftSlots(slots) {
     return [...slots]
         .sort((a, b) => a.sort_order - b.sort_order)
         .map((slot) => ({ ...slot, _key: `saved-${slot.id}` }));
-}
-
-export function orderedShiftSlots(slots) {
-    return [...slots].sort(
-        (a, b) => Number(b.is_supervisor) - Number(a.is_supervisor),
-    );
 }
 
 export function totalShiftNeeds(slots) {
@@ -31,11 +24,10 @@ export function totalShiftNeeds(slots) {
 }
 
 export function shiftSlotPayload(slots) {
-    return slots.map(({ id, role_id, needed, is_supervisor }) => ({
+    return slots.map(({ id, role_id, needed }) => ({
         id,
         role_id,
         needed,
-        is_supervisor,
     }));
 }
 

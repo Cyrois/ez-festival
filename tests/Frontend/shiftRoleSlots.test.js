@@ -3,38 +3,11 @@ import test from 'node:test';
 import {
     newShiftSlot,
     draftShiftSlots,
-    orderedShiftSlots,
     totalShiftNeeds,
     shiftSlotPayload,
     shiftSlotErrors,
 } from '../../resources/js/lib/shiftRoleSlots.js';
 import { shiftColumns } from '../../resources/js/pages/Team/shiftColumns.js';
-
-test('historical supervisor ordering preserves insertion order, identities and totals', () => {
-    const rows = [newShiftSlot(), newShiftSlot(), newShiftSlot()];
-    rows[0].needed = 2;
-    rows[1].needed = 1;
-    rows[2].needed = 3;
-    rows[1].is_supervisor = true;
-    assert.deepEqual(
-        orderedShiftSlots(rows).map((r) => r._key),
-        [rows[1]._key, rows[0]._key, rows[2]._key],
-    );
-    rows[1].is_supervisor = false;
-    rows[2].is_supervisor = true;
-    assert.deepEqual(
-        orderedShiftSlots(rows).map((r) => r._key),
-        [rows[2]._key, rows[0]._key, rows[1]._key],
-    );
-    assert.equal(rows.filter((row) => row.is_supervisor).length, 1);
-    assert.deepEqual(
-        orderedShiftSlots(rows).map((r) => r._key),
-        [rows[2]._key, rows[0]._key, rows[1]._key],
-    );
-    assert.equal(totalShiftNeeds(rows), 6);
-    assert.equal(rows[0].is_supervisor, false);
-    assert.equal(rows[0].role_id, '');
-});
 
 test('reload reconstructs insertion order and submission omits client metadata', () => {
     const rows = draftShiftSlots([
@@ -43,7 +16,6 @@ test('reload reconstructs insertion order and submission omits client metadata',
             role_id: 2,
             role_name: 'Lead',
             needed: 1,
-            is_supervisor: true,
             sort_order: 3,
         },
         {
@@ -51,7 +23,6 @@ test('reload reconstructs insertion order and submission omits client metadata',
             role_id: 1,
             role_name: 'Crew',
             needed: 3,
-            is_supervisor: false,
             sort_order: 0,
         },
     ]);
@@ -63,22 +34,20 @@ test('reload reconstructs insertion order and submission omits client metadata',
         id: 6,
         role_id: 1,
         needed: 3,
-        is_supervisor: false,
     });
     assert.deepEqual(
-        orderedShiftSlots(rows).map((r) => r.id),
-        [7, 6],
+        rows.map((r) => r.id),
+        [6, 7],
     );
 });
 
-test('validation messages follow submitted row keys after supervisor sort and removal', () => {
+test('validation messages follow submitted row keys after row removal', () => {
     const rows = [newShiftSlot(), newShiftSlot()];
     const messages = shiftSlotErrors([...rows], {
         'slots.0.needed': 'Required',
         'slots.1.role_id': 'Unavailable',
     });
-    rows[1].is_supervisor = true;
-    const first = orderedShiftSlots(rows)[0];
+    const first = rows[1];
     assert.equal(messages[first._key].role_id, 'Unavailable');
     rows.shift();
     assert.equal(messages[rows[0]._key].role_id, 'Unavailable');
