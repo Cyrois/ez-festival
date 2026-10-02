@@ -11,6 +11,7 @@ use App\Http\Resources\ShiftResource;
 use App\Models\Event;
 use App\Models\Shift;
 use App\Repositories\LocationRepository;
+use App\Repositories\ShiftAssignmentRepository;
 use App\Services\ShiftService;
 use App\Support\EventContext;
 use App\Support\ShiftSlotReferences;
@@ -25,6 +26,7 @@ class ShiftController extends Controller
     public function __construct(
         private readonly ShiftService $shifts,
         private readonly LocationRepository $locations,
+        private readonly ShiftAssignmentRepository $roster,
     ) {}
 
     public function create(CreateShiftRequest $request, EventContext $eventContext): Response
@@ -51,7 +53,7 @@ class ShiftController extends Controller
                 'name' => $event->name,
                 'is_locked' => $event->isLocked(),
             ],
-            'shift' => (new ShiftResource($shift->load(['location:id,name', 'roleSlots.role:id,name'])))->resolve($request),
+            'shift' => (new ShiftResource($this->roster->loadRoster($shift)))->resolve($request),
             'locations' => $this->locations->optionsFor($event),
             'canManage' => Gate::allows('scheduling.edit'),
             'roles' => Gate::allows('scheduling.edit') && ! $event->isLocked() ? ShiftSlotReferences::options() : [],
@@ -96,7 +98,7 @@ class ShiftController extends Controller
         abort_unless((int) $shift->event_id === (int) $event->id, 404);
 
         $eventContext->requireCurrentEvent($request->user(), $event);
-        $this->shifts->delete($shift);
+        $this->shifts->delete($shift, (int) ($request->validated()['assignment_count'] ?? 0));
 
         return redirect()->route('team.scheduling', ['tab' => 'list'])
             ->with('success', __('team.scheduling.toast.deleted'))

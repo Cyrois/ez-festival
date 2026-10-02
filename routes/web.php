@@ -44,6 +44,7 @@ use App\Http\Controllers\Team\MemberController as TeamMemberController;
 use App\Http\Controllers\Team\MemberStatusController as TeamMemberStatusController;
 use App\Http\Controllers\Team\PublicFormController as TeamPublicFormController;
 use App\Http\Controllers\Team\SchedulingController as TeamSchedulingController;
+use App\Http\Controllers\Team\ShiftAssignmentController;
 use App\Http\Controllers\Team\ShiftController as TeamShiftController;
 use App\Http\Controllers\Team\ShiftDataTableController as TeamShiftDataTableController;
 use App\Http\Controllers\UiKitController;
@@ -137,6 +138,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
                 ->name('scheduling.shifts');
             Route::get('shifts/create', [TeamShiftController::class, 'create'])->name('shifts.create');
             Route::get('shifts/{shift}', [TeamShiftController::class, 'show'])->name('shifts.show');
+            Route::get('shifts/{shift}/assignment-candidates', [ShiftAssignmentController::class, 'index'])->name('shifts.assignment-candidates');
             Route::get('forms', [TeamFormsController::class, 'index'])->name('forms');
             Route::get('forms/create', [TeamFormsController::class, 'create'])->name('forms.create');
             Route::get('forms/{teamForm}/preview', [TeamPublicFormController::class, 'preview'])->name('forms.preview');
@@ -153,6 +155,8 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
                 Route::put('events/{event}/groups/{group}', [TeamGroupController::class, 'update'])->name('groups.update');
                 Route::delete('events/{event}/groups/{group}', [TeamGroupController::class, 'destroy'])->name('groups.destroy');
                 Route::post('events/{event}/shifts', [TeamShiftController::class, 'store'])->name('shifts.store');
+                Route::post('events/{event}/shifts/{shift}/assignments', [ShiftAssignmentController::class, 'store'])->name('shifts.assignments.store');
+                Route::delete('events/{event}/shifts/{shift}/assignments/{assignment}', [ShiftAssignmentController::class, 'destroy'])->name('shifts.assignments.destroy');
                 Route::put('events/{event}/shifts/{shift}', [TeamShiftController::class, 'update'])->name('shifts.update');
                 Route::delete('events/{event}/shifts/{shift}', [TeamShiftController::class, 'destroy'])->name('shifts.destroy');
             });
