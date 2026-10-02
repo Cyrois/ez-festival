@@ -130,15 +130,15 @@ class TeamShiftsTest extends TestCase
         ]);
     }
 
-    public function test_scheduling_supplies_the_create_popup(): void
+    public function test_create_page_supplies_the_event_locations_and_roles(): void
     {
         [$user, $event] = $this->eventContext();
         $location = $event->locations()->create(['name' => 'Main stage']);
 
         $this->actingAs($user)
-            ->get(route('team.scheduling'))
+            ->get(route('team.shifts.create'))
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Team/Scheduling')
+                ->component('Team/CreateShift')
                 ->where('event.id', $event->id)
                 ->where('event.name', 'Sunrise Folk Fest 2026')
                 ->has('locations', 1)
@@ -154,23 +154,23 @@ class TeamShiftsTest extends TestCase
         $this->actingAs($user)
             ->get(route('team.scheduling'))
             ->assertInertia(fn (Assert $page) => $page
-                ->where('event.is_locked', true)
-                ->has('roles', 0));
+                ->where('event.is_locked', true));
+        $this->get(route('team.shifts.create'))->assertForbidden();
     }
 
-    public function test_user_can_create_a_shift_without_a_name(): void
+    public function test_create_and_edit_require_a_nonblank_name(): void
     {
         [$user, $event] = $this->eventContext();
         $location = $event->locations()->create(['name' => 'Headquarters']);
-
-        $this->actingAs($user)
-            ->post(
-                route('team.shifts.store', $event),
-                $this->shiftPayload($location->id, ['name' => '']),
-            )
-            ->assertRedirect();
-
-        $this->assertNull(Shift::query()->sole()->name);
+        $shift = $event->shifts()->create($this->shiftPayload($location->id));
+        $this->actingAs($user);
+        foreach (['', '   ', null] as $name) {
+            $payload = $this->shiftPayload($location->id, ['name' => $name]);
+            $this->post(route('team.shifts.store', $event), $payload)->assertSessionHasErrors('name');
+            $this->put(route('team.shifts.update', [$event, $shift]), $payload)->assertSessionHasErrors('name');
+        }
+        $this->assertDatabaseCount('shifts', 1);
+        $this->assertSame('Show run', $shift->fresh()->name);
     }
 
     public function test_required_shift_fields_are_validated(): void
@@ -178,7 +178,7 @@ class TeamShiftsTest extends TestCase
         [$user, $event] = $this->eventContext();
         $location = $event->locations()->create(['name' => 'Main stage']);
 
-        foreach (['location_id', 'starts_at', 'ends_at'] as $field) {
+        foreach (['name', 'location_id', 'starts_at', 'ends_at'] as $field) {
             $payload = $this->shiftPayload($location->id);
             unset($payload[$field]);
 

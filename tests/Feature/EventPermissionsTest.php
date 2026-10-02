@@ -356,7 +356,7 @@ class EventPermissionsTest extends TestCase
         $payload = ['name' => 'Evening', 'location_id' => $location->id, 'starts_at' => '2027-06-01T18:00', 'ends_at' => '2027-06-01T20:00'];
         $shift = $this->event->shifts()->create($payload);
         $this->role->update(['permissions' => ['team.edit']]);
-        foreach (['team.scheduling', 'team.scheduling.shifts'] as $route) {
+        foreach (['team.scheduling', 'team.scheduling.shifts', 'team.shifts.create'] as $route) {
             $this->get(route($route))->assertForbidden();
         }
         $this->get(route('team.shifts.show', $shift))->assertForbidden();
@@ -367,6 +367,7 @@ class EventPermissionsTest extends TestCase
         $this->getJson(route('team.scheduling.shifts'))->assertOk();
         $this->get(route('team.shifts.show', $shift))->assertInertia(fn (Assert $page) => $page->where('canManage', false));
         $this->get(route('team.advancement'))->assertForbidden();
+        $this->get(route('team.shifts.create'))->assertForbidden();
         $this->post(route('team.shifts.store', $this->event), $payload)->assertForbidden();
         $this->put(route('team.shifts.update', [$this->event, $shift]), $payload)->assertForbidden();
         $this->delete(route('team.shifts.destroy', [$this->event, $shift]))->assertForbidden();

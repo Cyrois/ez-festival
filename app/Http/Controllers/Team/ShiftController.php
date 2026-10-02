@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Team;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Team\CreateShiftRequest;
 use App\Http\Requests\Team\DestroyShiftRequest;
 use App\Http\Requests\Team\StoreShiftRequest;
 use App\Http\Requests\Team\UpdateShiftRequest;
@@ -25,6 +26,17 @@ class ShiftController extends Controller
         private readonly ShiftService $shifts,
         private readonly LocationRepository $locations,
     ) {}
+
+    public function create(CreateShiftRequest $request, EventContext $eventContext): Response
+    {
+        $event = $eventContext->requireWritable($request->user());
+
+        return Inertia::render('Team/CreateShift', [
+            'event' => $event->only('id', 'name'),
+            'locations' => $this->locations->optionsFor($event),
+            'roles' => ShiftSlotReferences::options(),
+        ]);
+    }
 
     public function show(Request $request, Shift $shift, EventContext $eventContext): Response
     {

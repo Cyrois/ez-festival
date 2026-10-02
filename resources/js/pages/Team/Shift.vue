@@ -179,6 +179,7 @@ const destroy = () => {
                         <FormField
                             :label="$t('team.scheduling.fields.name')"
                             :error="fieldError(form, 'name')"
+                            required
                         >
                             <template #default="{ id, invalid }">
                                 <Input

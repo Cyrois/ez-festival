@@ -20,6 +20,12 @@ final class ShiftSlotReferences
             ->when($lock, fn ($query) => $query->lockForUpdate())
             ->get(['id', 'active'])->keyBy('id');
         $errors = [];
+        $supervisors = array_filter($slots, fn ($slot) => (bool) ($slot['is_supervisor'] ?? false));
+        if (count($supervisors) > 1) {
+            foreach ($supervisors as $index => $slot) {
+                $errors["slots.$index.is_supervisor"] = __('team.scheduling.slots.errors.single_supervisor');
+            }
+        }
 
         foreach ($slots as $index => $data) {
             $slot = isset($data['id']) ? $existing->get((int) $data['id']) : null;

@@ -1,5 +1,4 @@
 <script setup>
-import CreateShiftDialog from '../../components/team/CreateShiftDialog.vue';
 import { Button } from '../../components/ui/button';
 import { DataTable } from '../../components/ui/data-table';
 import { EmptyState } from '../../components/ui/empty-state';
@@ -15,11 +14,9 @@ import { shiftColumns } from './shiftColumns';
 const props = defineProps({
     event: { type: Object, required: true },
     locations: { type: Array, required: true },
-    roles: { type: Array, default: () => [] },
     canManage: { type: Boolean, default: false },
 });
 
-const creating = ref(false);
 const page = usePage();
 const initialTab = new URLSearchParams(page.url.split('?')[1] ?? '').get('tab');
 const activeTab = ref(
@@ -94,7 +91,7 @@ const formatDateTime = (value) =>
                     "
                     class="w-full sm:w-auto"
                     :disabled="!canWrite || locations.length === 0"
-                    @click="creating = true"
+                    href="/team/shifts/create"
                 >
                     <Icon
                         :name="['fas', 'plus']"
@@ -219,12 +216,5 @@ const formatDateTime = (value) =>
                 </TabPanel>
             </Tabs>
         </div>
-        <CreateShiftDialog
-            v-if="creating && canWrite"
-            :event="event"
-            :locations="locations"
-            :roles="roles"
-            @close="creating = false"
-        />
     </AppLayout>
 </template>

@@ -10,7 +10,7 @@ import {
 } from '../../resources/js/lib/shiftRoleSlots.js';
 import { shiftColumns } from '../../resources/js/pages/Team/shiftColumns.js';
 
-test('supervisor toggles preserve insertion order, identities and the total', () => {
+test('historical supervisor ordering preserves insertion order, identities and totals', () => {
     const rows = [newShiftSlot(), newShiftSlot(), newShiftSlot()];
     rows[0].needed = 2;
     rows[1].needed = 1;
@@ -20,12 +20,13 @@ test('supervisor toggles preserve insertion order, identities and the total', ()
         orderedShiftSlots(rows).map((r) => r._key),
         [rows[1]._key, rows[0]._key, rows[2]._key],
     );
+    rows[1].is_supervisor = false;
     rows[2].is_supervisor = true;
     assert.deepEqual(
         orderedShiftSlots(rows).map((r) => r._key),
-        [rows[1]._key, rows[2]._key, rows[0]._key],
+        [rows[2]._key, rows[0]._key, rows[1]._key],
     );
-    rows[1].is_supervisor = false;
+    assert.equal(rows.filter((row) => row.is_supervisor).length, 1);
     assert.deepEqual(
         orderedShiftSlots(rows).map((r) => r._key),
         [rows[2]._key, rows[0]._key, rows[1]._key],
