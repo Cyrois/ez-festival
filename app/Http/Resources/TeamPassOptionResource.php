@@ -12,8 +12,7 @@ class TeamPassOptionResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'max_assignments' => $this->max_assignments,
-            'assignments_count' => (int) ($this->assignments_count ?? 0),
+            'full' => $this->max_assignments !== null && $this->assignments_count >= $this->max_assignments,
             'labels' => $this->labels
                 ->map(fn ($label): array => $label->only('id', 'name', 'color'))
                 ->values(),

@@ -8,7 +8,7 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Pagination\LengthAwarePaginator as Paginator;
 use Illuminate\Support\Facades\DB;
 
-class ArtistCheckInPeopleQuery
+class CheckInPeopleQuery
 {
     /**
      * @return LengthAwarePaginator<int, object>
@@ -19,7 +19,6 @@ class ArtistCheckInPeopleQuery
         string $search,
         string $status,
         string $type,
-        bool $canEdit,
         int $perPage = 25,
     ): LengthAwarePaginator {
         $query = $this->baseQuery($eventId, $passId, $search, $status, $type)
@@ -27,14 +26,6 @@ class ArtistCheckInPeopleQuery
 
         /** @var LengthAwarePaginator<int, object> $paginator */
         $paginator = $query->paginate($perPage)->withQueryString();
-
-        $paginator->setCollection(
-            $paginator->getCollection()->map(function (object $row) use ($canEdit): object {
-                $row->can_edit = $canEdit;
-
-                return $row;
-            }),
-        );
 
         return $paginator;
     }
@@ -55,7 +46,7 @@ class ArtistCheckInPeopleQuery
         $passNames = match (DB::connection()->getDriverName()) {
             'pgsql' => "STRING_AGG(DISTINCT pt.name, ',' ORDER BY pt.name)",
             'sqlite' => 'GROUP_CONCAT(DISTINCT pt.name)',
-            default => throw new \LogicException('Artist check-in requires PostgreSQL or the SQLite test database.'),
+            default => throw new \LogicException('Check-in requires PostgreSQL or the SQLite test database.'),
         };
 
         $query = DB::table('pass_assignments as pa')

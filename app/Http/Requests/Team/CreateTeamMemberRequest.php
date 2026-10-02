@@ -9,7 +9,7 @@ class CreateTeamMemberRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Gate::allows('manage-team');
+        return Gate::allows('team.edit');
     }
 
     public function rules(): array

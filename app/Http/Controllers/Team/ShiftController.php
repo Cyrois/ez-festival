@@ -38,7 +38,7 @@ class ShiftController extends Controller
 
     public function show(Request $request, Shift $shift, EventContext $eventContext): Response
     {
-        Gate::authorize('view-team');
+        Gate::authorize('scheduling.view');
 
         $event = $eventContext->requireCurrent($request->user());
         abort_unless((int) $shift->event_id === (int) $event->id, 404);
@@ -51,7 +51,7 @@ class ShiftController extends Controller
             ],
             'shift' => (new ShiftResource($shift))->resolve($request),
             'locations' => $this->locations->optionsFor($event),
-            'canManage' => Gate::allows('manage-team'),
+            'canManage' => Gate::allows('scheduling.edit'),
         ]);
     }
 

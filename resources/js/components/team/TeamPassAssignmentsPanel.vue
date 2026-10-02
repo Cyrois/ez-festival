@@ -24,57 +24,16 @@ const assignments = defineModel('assignments', {
 const giveOpen = ref(false);
 const selectedPassId = ref('');
 const canMutate = computed(() => props.canWrite && props.hired);
-const initialPassTypeCounts = new Map();
-
-for (const assignment of assignments.value) {
-    initialPassTypeCounts.set(
-        assignment.pass_type_id,
-        (initialPassTypeCounts.get(assignment.pass_type_id) ?? 0) + 1,
-    );
-}
-
 const selectedPass = computed(() =>
     props.passes.find((pass) => pass.id === selectedPassId.value),
 );
-
-const stagedCount = (passId) =>
-    assignments.value.filter((assignment) => assignment.pass_type_id === passId)
-        .length;
-
-const capacityFor = (pass) => {
-    if (pass.max_assignments === null) {
-        return { remaining: null, disabled: false };
-    }
-
-    const existingElsewhere = Math.max(
-        0,
-        pass.assignments_count - (initialPassTypeCounts.get(pass.id) ?? 0),
-    );
-    const remaining =
-        pass.max_assignments - existingElsewhere - stagedCount(pass.id);
-
-    return {
-        remaining: Math.max(0, remaining),
-        disabled: remaining <= 0,
-    };
-};
-
 const passItems = computed(() =>
-    props.passes.map((pass) => {
-        const capacity = capacityFor(pass);
-
-        return {
-            value: pass.id,
-            title: pass.name,
-            description:
-                capacity.remaining === null
-                    ? trans('team.member.passes.capacity.unlimited')
-                    : trans('team.member.passes.capacity.remaining', {
-                          count: capacity.remaining,
-                      }),
-            disabled: capacity.disabled,
-        };
-    }),
+    props.passes.map((pass) => ({
+        value: pass.id,
+        title: pass.name,
+        description: pass.full ? trans('permissions.pass_full') : '',
+        disabled: pass.full,
+    })),
 );
 
 const assignmentError = computed(

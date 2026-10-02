@@ -63,7 +63,7 @@ const classes = computed(() =>
         }),
         isDisabled.value &&
             !isNativeButton.value &&
-            'pointer-events-none opacity-45',
+            'cursor-not-allowed opacity-45',
         props.class,
     ),
 );
@@ -82,6 +82,8 @@ const onClick = (event) => {
         :href="href || undefined"
         :type="isNativeButton ? type : undefined"
         :disabled="isNativeButton ? isDisabled : undefined"
+        :aria-disabled="isDisabled ? 'true' : undefined"
+        :tabindex="isDisabled && !isNativeButton ? -1 : undefined"
         :aria-busy="loading ? 'true' : undefined"
         :class="classes"
         @click="onClick"

@@ -7,7 +7,13 @@ use Illuminate\Validation\Rule;
 
 trait TeamMemberRules
 {
-    /** @return array<string, mixed> */
+    /**
+     * Shared create/update rules for a member's profile and event engagement:
+     * contact details, hiring status, employment type, pay and an event-scoped group.
+     * Role changes, passes and notes have their own validation in the caller.
+     *
+     * @return array<string, mixed>
+     */
     protected function memberRules(int $eventId): array
     {
         return [

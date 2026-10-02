@@ -17,9 +17,18 @@ class EventController extends Controller
 {
     public function __construct(private readonly EventService $events) {}
 
-    public function index(): RedirectResponse
+    public function index(Request $request): Response|RedirectResponse
     {
-        return redirect()->route('settings.events.index');
+        if ($request->user()->isAdmin()) {
+            return redirect()->route('settings.events.index');
+        }
+        $current = $request->user()->effectiveEvent();
+
+        return Inertia::render('Settings/Events/Index', [
+            'events' => $request->user()->accessibleEvents()->orderByDesc('starts_on')->get()
+                ->map(fn (Event $event) => EventResource::toArray($event, $current?->id)),
+            'settings' => false,
+        ]);
     }
 
     public function show(Request $request, Event $event): Response

@@ -18,14 +18,20 @@ class EntitlementItemService
     /** @return Collection<int, EntitlementItem> */
     public function list(Event $event): Collection
     {
-        return Cache::rememberForever(
+        $rows = Cache::rememberForever(
             $this->listKey($event->id),
-            fn (): Collection => $event->entitlementItems()
+            fn (): array => $event->entitlementItems()
                 ->with('labels')
                 ->withSum('adjustments as balance', 'delta')
                 ->orderBy('name')
-                ->get(),
+                ->get()->map(fn (EntitlementItem $item) => [
+                    'attributes' => $item->getAttributes(),
+                    'labels' => $item->labels->map(fn (EntitlementItemLabel $label) => $label->getAttributes())->all(),
+                ])->all(),
         );
+
+        return EntitlementItem::hydrate(array_column($rows, 'attributes'))
+            ->each(fn (EntitlementItem $item, int $index) => $item->setRelation('labels', EntitlementItemLabel::hydrate($rows[$index]['labels'])));
     }
 
     /** @param array<string, mixed> $data */
@@ -221,6 +227,6 @@ class EntitlementItemService
 
     private function listKey(int $eventId): string
     {
-        return "lists.events.{$eventId}.entitlement-items.v1";
+        return "lists.events.{$eventId}.entitlement-items.v2";
     }
 }

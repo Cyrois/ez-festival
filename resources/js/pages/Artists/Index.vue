@@ -15,11 +15,12 @@ import { Tag } from '../../components/ui/tag';
 import { useAdvancementBoard } from '../../composables/useAdvancementBoard';
 import { engagementStatusPresentation } from '../../lib/engagementStatusPresentation';
 import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 import { artistColumns } from './artistColumns';
 
+const page = usePage();
 const props = defineProps({
     engagements: { type: Object, required: true },
     labels: { type: Array, required: true },
@@ -95,7 +96,8 @@ const {
         labels: selectedLabels.value,
         view: viewMode.value,
     }),
-    canMove: () => !props.event.locked,
+    canMove: () =>
+        !props.event.locked && page.props.permissions?.['artists.edit'],
 });
 let searchTimer;
 const applyFilters = () => {
@@ -150,6 +152,14 @@ const updateViewMode = (value) => {
                 <Button
                     v-if="event && !event.locked"
                     href="/artists/create"
+                    :disabled="
+                        event.locked || !$page.props.permissions['artists.edit']
+                    "
+                    :title="
+                        !$page.props.permissions['artists.edit']
+                            ? $t('permissions.no_add.artists')
+                            : undefined
+                    "
                     class="min-h-11 w-full sm:w-auto"
                 >
                     {{ $t('artists.add') }}
@@ -229,7 +239,10 @@ const updateViewMode = (value) => {
                     <Board
                         :columns="boardColumns"
                         :items="engagementItems"
-                        :disabled="event.locked"
+                        :disabled="
+                            event.locked ||
+                            !$page.props.permissions['artists.edit']
+                        "
                         :disabled-keys="movingIds"
                         class="min-w-[72rem] grid-cols-6"
                         @move="moveEngagement"

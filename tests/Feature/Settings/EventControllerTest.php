@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Support\OrganizationContext;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -22,6 +23,8 @@ class EventControllerTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
+        config(['cache.default' => 'database', 'cache.serializable_classes' => false]);
+        Cache::purge('database');
     }
 
     public function test_user_can_open_and_submit_the_create_event_form(): void

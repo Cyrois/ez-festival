@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Http\Requests\Artists;
+namespace App\Http\Requests\CheckIn;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
-class ConsumeArtistEntitlementRequest extends FormRequest
+class ConsumeEntitlementRequest extends FormRequest
 {
     protected function prepareForValidation(): void
     {
@@ -15,7 +15,7 @@ class ConsumeArtistEntitlementRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return Gate::allows('manage-artists');
+        return Gate::allows('checkin.edit');
     }
 
     public function rules(): array

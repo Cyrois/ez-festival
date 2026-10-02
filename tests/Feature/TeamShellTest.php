@@ -47,7 +47,8 @@ class TeamShellTest extends TestCase
     public function test_team_sections_use_the_team_permission(): void
     {
         $user = $this->userWithCompletedSetup();
-        Gate::define('view-team', fn (): bool => false);
+        $this->grantRoleAccess($user);
+        Gate::define('team.view', fn (): bool => false);
 
         $this->actingAs($user)->get(route('team.advancement'))->assertForbidden();
     }

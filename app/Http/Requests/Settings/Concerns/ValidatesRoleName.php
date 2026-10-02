@@ -4,7 +4,9 @@ namespace App\Http\Requests\Settings\Concerns;
 
 use App\Models\Role;
 use App\Repositories\RoleRepository;
+use App\Support\Permissions;
 use App\Support\RoleName;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 trait ValidatesRoleName
@@ -23,7 +25,8 @@ trait ValidatesRoleName
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'can_read_team_notes' => ['sometimes', 'boolean'],
+            'permissions' => ['required', 'array', 'min:1'],
+            'permissions.*' => ['required', 'string', 'distinct', Rule::in(Permissions::keys())],
         ];
     }
 
@@ -33,6 +36,8 @@ trait ValidatesRoleName
     public function messages(): array
     {
         return [
+            'permissions.required' => __('permissions.required'),
+            'permissions.min' => __('permissions.required'),
             'name.required' => __('settings.roles.validation.name_required'),
         ];
     }

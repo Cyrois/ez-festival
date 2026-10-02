@@ -1,16 +1,16 @@
 <?php
 
-namespace App\Http\Requests\Artists;
+namespace App\Http\Requests\CheckIn;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
-class IndexArtistCheckInRequest extends FormRequest
+class IndexCheckInRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Gate::allows('view-artists');
+        return Gate::allows('checkin.view');
     }
 
     public function rules(): array
