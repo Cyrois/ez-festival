@@ -28,7 +28,7 @@ const columns = computed(() => [
 ]);
 const options = computed(() => ({
     serverSide: true,
-    pageLength: 25,
+    pageLength: 10,
     lengthChange: false,
     columnDefs: [{ targets: 1, className: 'text-right' }],
     createdRow: (row, person) => navigateDataTableRow(row, person, personHref),

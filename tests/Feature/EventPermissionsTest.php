@@ -163,7 +163,7 @@ class EventPermissionsTest extends TestCase
     {
         $this->grantAdminAccess($this->user);
         $this->get(route('settings.roles.create'))->assertInertia(fn (Assert $page) => $page
-            ->component('Settings/Roles/Create')->has('permissionGroups', 5)->has('permissionGroups.team', 6));
+            ->component('Settings/Roles/Create')->has('permissionGroups', 7)->has('permissionGroups.team', 6)->has('permissionGroups.scheduling', 2)->has('permissionGroups.forms', 2));
         foreach ([[], ['invented.permission']] as $permissions) {
             $this->post(route('settings.roles.store'), ['name' => 'Invalid', 'permissions' => $permissions])->assertSessionHasErrors();
         }
@@ -274,6 +274,42 @@ class EventPermissionsTest extends TestCase
         $this->post(route('settings.roles.store'), ['name' => 'Forbidden', 'permissions' => Permissions::keys()])->assertForbidden();
         $this->post(route('credentials.passes.store', $this->event), [])->assertForbidden();
         $this->post(route('credentials.entitlements.store', $this->event), [])->assertForbidden();
+    }
+
+    public function test_scheduling_permissions_are_separate_from_team_and_edit_includes_view(): void
+    {
+        $location = $this->event->locations()->create(['name' => 'Stage']);
+        $payload = ['name' => 'Evening', 'location_id' => $location->id, 'starts_at' => '2027-06-01T18:00', 'ends_at' => '2027-06-01T20:00'];
+        $shift = $this->event->shifts()->create($payload);
+        $this->role->update(['permissions' => ['team.edit']]);
+        foreach (['team.scheduling', 'team.scheduling.shifts', 'team.shifts.create'] as $route) {
+            $this->get(route($route))->assertForbidden();
+        }
+        $this->get(route('team.shifts.show', $shift))->assertForbidden();
+        $this->post(route('team.shifts.store', $this->event), $payload)->assertForbidden();
+
+        $this->role->update(['permissions' => ['scheduling.view']]);
+        $this->get(route('team.scheduling'))->assertInertia(fn (Assert $page) => $page->where('canManage', false));
+        $this->getJson(route('team.scheduling.shifts'))->assertOk();
+        $this->get(route('team.shifts.show', $shift))->assertInertia(fn (Assert $page) => $page->where('canManage', false));
+        $this->get(route('team.advancement'))->assertForbidden();
+        $this->get(route('team.shifts.create'))->assertForbidden();
+        $this->post(route('team.shifts.store', $this->event), $payload)->assertForbidden();
+        $this->put(route('team.shifts.update', [$this->event, $shift]), $payload)->assertForbidden();
+        $this->delete(route('team.shifts.destroy', [$this->event, $shift]))->assertForbidden();
+
+        $this->role->update(['permissions' => ['scheduling.edit']]);
+        $this->get(route('team.scheduling'))->assertInertia(fn (Assert $page) => $page
+            ->where('canManage', true)
+            ->where('permissions', fn ($permissions) => $permissions['scheduling.view'] && $permissions['scheduling.edit'] && ! $permissions['team.view']));
+        $this->post(route('team.shifts.store', $this->event), $payload)->assertSessionHasNoErrors();
+        $this->post(route('team.shifts.store', $this->event), [...$payload, 'ends_at' => 'invalid'])->assertSessionHasErrors('ends_at');
+        $this->put(route('team.shifts.update', [$this->event, $shift]), [...$payload, 'name' => 'Updated'])->assertSessionHasNoErrors();
+        $this->assertSame('Updated', $shift->fresh()->name);
+        $this->delete(route('team.shifts.destroy', [$this->event, $shift]))->assertSessionHasNoErrors();
+        $this->assertModelMissing($shift);
+        $this->event->lock();
+        $this->post(route('team.shifts.store', $this->event), $payload)->assertForbidden();
     }
 
     private function event(string $name): Event

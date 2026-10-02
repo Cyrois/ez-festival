@@ -12,7 +12,7 @@ class StoreShiftRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return Gate::allows('team.edit');
+        return Gate::allows('scheduling.edit');
     }
 
     /**

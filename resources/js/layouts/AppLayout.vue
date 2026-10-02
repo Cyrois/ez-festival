@@ -148,18 +148,32 @@ const navItems = computed(() =>
                 },
             ],
         },
-    ].filter((item) => {
-        const permission = {
-            artists: 'artists.view',
-            vendors: 'vendors.view',
-            check_in: 'checkin.view',
-            team: 'team.view',
-            patrons: 'patrons.view',
-        }[item.key];
-        return item.key === 'credentials'
-            ? user.value?.is_admin
-            : !permission || page.props.permissions?.[permission];
-    }),
+    ]
+        .map((item) => {
+            if (item.key !== 'team') return item;
+            const children = item.children.filter(
+                (child) =>
+                    page.props.permissions?.[
+                        {
+                            'team.scheduling': 'scheduling.view',
+                            'team.forms': 'forms.view',
+                        }[child.key] ?? 'team.view'
+                    ],
+            );
+            return { ...item, children, href: children[0]?.href };
+        })
+        .filter((item) => {
+            if (item.key === 'team') return item.children.length > 0;
+            const permission = {
+                artists: 'artists.view',
+                vendors: 'vendors.view',
+                check_in: 'checkin.view',
+                patrons: 'patrons.view',
+            }[item.key];
+            return item.key === 'credentials'
+                ? user.value?.is_admin
+                : !permission || page.props.permissions?.[permission];
+        }),
 );
 
 const settingsActive = computed(

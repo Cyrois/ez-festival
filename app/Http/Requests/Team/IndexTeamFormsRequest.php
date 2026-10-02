@@ -11,7 +11,7 @@ class IndexTeamFormsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Gate::allows('team.view');
+        return Gate::allows('forms.view');
     }
 
     /** @return array<string, mixed> */
