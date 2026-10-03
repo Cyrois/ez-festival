@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Team;
 
 use App\Support\EventContext;
+use App\Support\ShiftReturnContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 
@@ -23,6 +24,6 @@ class DestroyShiftAssignmentRequest extends FormRequest
 
     public function rules(): array
     {
-        return [];
+        return ShiftReturnContext::rules();
     }
 }

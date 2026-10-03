@@ -1,4 +1,5 @@
 <script setup>
+import { ColorPicker } from '../../components/ui/color-picker';
 import ShiftRoleSlots from '../../components/team/ShiftRoleSlots.vue';
 import ShiftRoster from '../../components/team/ShiftRoster.vue';
 import ShiftAssignDialog from '../../components/team/ShiftAssignDialog.vue';
@@ -20,22 +21,28 @@ import AppLayout from '../../layouts/AppLayout.vue';
 import { router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+import { scheduleReturnHref } from '../../lib/scheduleTimeline';
 
 const props = defineProps({
     event: { type: Object, required: true },
     shift: { type: Object, required: true },
     locations: { type: Array, required: true },
+    labelColors: { type: Array, required: true },
     roles: { type: Array, default: () => [] },
     canManage: { type: Boolean, default: false },
+    returnContext: { type: Object, default: () => ({}) },
 });
 
 const form = useForm({
+    color: props.shift.color ?? 'teal',
     name: props.shift.name ?? '',
     location_id: props.shift.location_id,
     starts_at: props.shift.starts_at,
     ends_at: props.shift.ends_at,
     slots: draftShiftSlots(props.shift.slots),
+    ...props.returnContext,
 });
+const backHref = computed(() => scheduleReturnHref(props.returnContext));
 const slotErrors = ref({});
 const clearSlotError = (key, field) => {
     if (slotErrors.value[key]) delete slotErrors.value[key][field];
@@ -79,6 +86,7 @@ const removeAssignment = (assignment) => {
     router.delete(
         `/team/events/${props.event.id}/shifts/${props.shift.id}/assignments/${assignment.id}`,
         {
+            data: props.returnContext,
             preserveScroll: true,
             onError: (errors) => showFormError(errors),
             onFinish: () => {
@@ -104,7 +112,7 @@ const breadcrumbs = computed(() => [
     { label: trans('team.title'), href: '/team/advancement' },
     {
         label: trans('nav.team.scheduling'),
-        href: '/team/scheduling?tab=list',
+        href: backHref.value,
     },
     { label: displayName.value },
 ]);
@@ -141,7 +149,10 @@ const destroy = () => {
     router.delete(
         '/team/events/' + props.event.id + '/shifts/' + props.shift.id,
         {
-            data: { assignment_count: confirmationCount.value },
+            data: {
+                assignment_count: confirmationCount.value,
+                ...props.returnContext,
+            },
             onError: (errors) => {
                 showFormError(errors);
                 if (errors.assignment_count) {
@@ -166,7 +177,7 @@ const destroy = () => {
     <AppLayout
         :title="displayName"
         :breadcrumbs="breadcrumbs"
-        back-href="/team/scheduling?tab=list"
+        :back-href="backHref"
         :back-label="$t('team.scheduling.actions.back')"
     >
         <div class="container mx-auto max-w-6xl pb-24 xl:max-w-none">
@@ -228,6 +239,7 @@ const destroy = () => {
                         <div
                             v-for="field in [
                                 'name',
+                                'color',
                                 'location',
                                 'starts_at',
                                 'ends_at',
@@ -243,7 +255,10 @@ const destroy = () => {
                             </dt>
                             <dd class="mt-1 text-sm">
                                 {{
-                                    shift[field] || $t('data_table.empty_value')
+                                    field === 'color'
+                                        ? $t(`labels.colors.${shift.color}`)
+                                        : shift[field] ||
+                                          $t('data_table.empty_value')
                                 }}
                             </dd>
                         </div>
@@ -268,6 +283,24 @@ const destroy = () => {
                                         )
                                     "
                                     :disabled="!canWrite || form.processing"
+                                />
+                            </template>
+                        </FormField>
+
+                        <FormField
+                            :label="$t('team.scheduling.fields.color')"
+                            :error="fieldError(form, 'color')"
+                        >
+                            <template #default="{ id, invalid }">
+                                <ColorPicker
+                                    :id="id"
+                                    v-model="form.color"
+                                    :colors="labelColors"
+                                    :aria-label="
+                                        $t('team.scheduling.fields.color')
+                                    "
+                                    :invalid="invalid"
+                                    :disabled="form.processing"
                                 />
                             </template>
                         </FormField>
@@ -374,12 +407,12 @@ const destroy = () => {
             v-if="canWrite"
             class="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-ground py-4 lg:left-[var(--app-sidebar-width)]"
         >
-            <div class="container mx-auto px-4 md:px-6">
+            <div class="container mx-auto px-4 md:px-6 xl:px-0">
                 <div
                     class="mx-auto flex max-w-6xl items-center justify-between gap-3 xl:max-w-none"
                 >
                     <Button
-                        href="/team/scheduling?tab=list"
+                        :href="backHref"
                         variant="cancel"
                         :disabled="form.processing"
                         >{{ $t('ui.dialog.cancel') }}</Button
@@ -400,6 +433,7 @@ const destroy = () => {
             :shift="shift"
             :event-id="event.id"
             :requirement="selectedSlot"
+            :return-context="returnContext"
             @close="selectedSlot = null"
         />
         <Dialog

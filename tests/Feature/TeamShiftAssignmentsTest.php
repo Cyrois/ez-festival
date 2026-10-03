@@ -378,6 +378,18 @@ class TeamShiftAssignmentsTest extends TestCase
         $this->assertFalse(collect($listQueries)->contains(fn ($query) => str_contains($query['query'], '"people"')));
     }
 
+    public function test_roster_actions_preserve_the_shift_pages_return_context(): void
+    {
+        foreach (['schedule', 'list'] as $tab) {
+            $context = ['return_tab' => $tab, 'schedule_date' => '2026-10-02'];
+            $returnUrl = route('team.shifts.show', ['shift' => $this->shift, ...$context]);
+            $this->post($this->storeUrl(), $this->payload($this->member('Member '.$tab), $context))->assertRedirect($returnUrl);
+            $assignment = $this->shift->assignments()->firstOrFail();
+            $this->delete(route('team.shifts.assignments.destroy', [$this->event, $this->shift, $assignment]), $context)->assertRedirect($returnUrl);
+            $this->assertModelMissing($assignment);
+        }
+    }
+
     private function assertServiceValidation(callable $write, string $key): void
     {
         try {

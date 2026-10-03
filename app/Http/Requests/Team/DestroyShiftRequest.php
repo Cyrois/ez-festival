@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Team;
 
 use App\Support\EventContext;
+use App\Support\ShiftReturnContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Validator;
@@ -34,6 +35,6 @@ class DestroyShiftRequest extends FormRequest
      */
     public function rules(): array
     {
-        return ['assignment_count' => ['sometimes', 'integer', 'min:0']];
+        return ['assignment_count' => ['sometimes', 'integer', 'min:0'], ...ShiftReturnContext::rules()];
     }
 }

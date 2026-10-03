@@ -6,11 +6,60 @@ use App\Models\Event;
 use App\Models\Location;
 use App\Models\Shift;
 use App\Support\SqlLike;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class ShiftRepository
 {
+    public function schedule(Event $event, string $date, int $page = 1): LengthAwarePaginator
+    {
+        [$start, $end] = $this->dayBounds($date);
+
+        return $event->locations()->select(['id', 'name', 'event_id'])
+            ->with(['shifts' => fn ($query) => $query
+                ->where('event_id', $event->id)
+                ->where('starts_at', '<', $end)->where('ends_at', '>', $start)
+                ->withCount('assignments')->with('roleSlots')
+                ->orderBy('starts_at')->orderBy('id')])
+            ->orderBy('name')->orderBy('id')
+            ->paginate(25, ['*'], 'page', $page);
+    }
+
+    public function countForDay(Event $event, string $date): int
+    {
+        [$start, $end] = $this->dayBounds($date);
+
+        return $event->shifts()->where('starts_at', '<', $end)->where('ends_at', '>', $start)->count();
+    }
+
+    public function firstShiftMinuteForDay(Event $event, string $date): ?int
+    {
+        [$start, $end] = $this->dayBounds($date);
+        $first = $event->shifts()->where('starts_at', '<', $end)->where('ends_at', '>', $start)->min('starts_at');
+        if ($first === null) {
+            return null;
+        }
+
+        if ($first < $start) {
+            return 0;
+        }
+
+        $time = Carbon::parse($first);
+
+        return $time->hour * 60 + $time->minute;
+    }
+
+    private function dayBounds(string $date): array
+    {
+        // Stored shift timestamps represent wall-clock values in the event's timezone.
+        // Use matching naive day boundaries instead of converting them from UTC.
+        $start = Carbon::createFromFormat('!Y-m-d', $date);
+
+        return [$start->format('Y-m-d H:i:s'), $start->copy()->addDay()->format('Y-m-d H:i:s')];
+    }
+
     /**
      * Server-side DataTables query for the current event's shifts.
      *

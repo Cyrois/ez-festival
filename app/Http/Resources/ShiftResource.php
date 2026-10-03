@@ -12,6 +12,7 @@ class ShiftResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'color' => $this->color,
             'location_id' => $this->location_id,
             'location' => $this->whenLoaded('location', fn () => $this->location->name),
             'starts_at' => $this->starts_at->format('Y-m-d\TH:i'),

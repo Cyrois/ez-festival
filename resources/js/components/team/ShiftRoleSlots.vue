@@ -127,7 +127,7 @@ const remove = (slot) => {
             </FormField>
             <Button
                 type="button"
-                class="sm:mt-6"
+                class="h-10 border-0 sm:self-end"
                 :disabled="!editable || busy"
                 @click="add"
                 >{{ $t('team.scheduling.slots.add') }}</Button

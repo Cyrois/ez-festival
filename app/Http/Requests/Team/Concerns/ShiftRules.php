@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Team\Concerns;
 
 use App\Models\Event;
+use App\Support\LabelColors;
 use Illuminate\Validation\Rule;
 
 trait ShiftRules
@@ -14,6 +15,7 @@ trait ShiftRules
     {
         return [
             'name' => ['required', 'string', 'max:255'],
+            'color' => ['sometimes', Rule::in(LabelColors::ALL)],
             'location_id' => [
                 'required',
                 'integer',

@@ -7,9 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['event_id', 'location_id', 'name', 'starts_at', 'ends_at'])]
+#[Fillable(['event_id', 'location_id', 'name', 'color', 'starts_at', 'ends_at'])]
 class Shift extends Model
 {
+    protected $attributes = ['color' => 'teal'];
+
     /**
      * @return array<string, string>
      */

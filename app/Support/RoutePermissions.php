@@ -128,6 +128,7 @@ final class RoutePermissions
         'team.members.status.update' => 'team.edit',
         'team.scheduling' => 'scheduling.view',
         'team.scheduling.shifts' => 'scheduling.view',
+        'team.scheduling.grid' => 'scheduling.view',
         'team.shifts.create' => 'scheduling.edit',
         'team.shifts.show' => 'scheduling.view',
         'ui' => 'admin',

@@ -2,6 +2,7 @@ import { library } from '@fortawesome/fontawesome-svg-core';
 import {
     faAddressBook,
     faArrowLeft,
+    faArrowPointer,
     faBars,
     faCalendarDays,
     faCheck,
@@ -57,6 +58,7 @@ import {
 export const kitIcons = [
     faAddressBook,
     faArrowLeft,
+    faArrowPointer,
     faBars,
     faCalendarDays,
     faCheck,
