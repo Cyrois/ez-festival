@@ -7,6 +7,7 @@ use App\Models\Person;
 use App\Models\Role;
 use App\Models\TeamEngagement;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -74,6 +75,7 @@ class GlobalTeamService
     public function create(array $data, User $actor): array
     {
         $person = DB::transaction(function () use ($data): Person {
+            $events = $this->lockEvents($data['event_access']);
             if ($this->people->findByEmail($data['email']) !== null) {
                 throw ValidationException::withMessages([
                     'email' => __('settings.team.validation.email_exists'),
@@ -88,7 +90,7 @@ class GlobalTeamService
             ]);
 
             foreach ($data['event_access'] as $access) {
-                $event = Event::query()->lockForUpdate()->findOrFail($access['event_id']);
+                $event = $events->findOrFail($access['event_id']);
                 $event->ensureWritable();
                 $role = Role::query()->lockForUpdate()->findOrFail($access['role_id']);
 
@@ -135,6 +137,7 @@ class GlobalTeamService
     public function update(Person $person, array $data, User $actor): ?bool
     {
         $loginChange = DB::transaction(function () use ($person, $data, $actor): ?string {
+            $events = $this->lockEvents($data['event_access']);
             if (array_key_exists('is_admin', $data)) {
                 User::query()
                     ->where('is_admin', true)
@@ -169,7 +172,7 @@ class GlobalTeamService
             }
 
             foreach ($data['event_access'] as $index => $access) {
-                $event = Event::query()->lockForUpdate()->findOrFail($access['event_id']);
+                $event = $events->findOrFail($access['event_id']);
                 $engagement = TeamEngagement::query()
                     ->whereBelongsTo($event)
                     ->whereBelongsTo($person)
@@ -248,6 +251,14 @@ class GlobalTeamService
         }
 
         return null;
+    }
+
+    /** @return Collection<int, Event> */
+    private function lockEvents(array $access): Collection
+    {
+        // Multi-event edits use the same event-first order as event Team writes.
+        return Event::query()->whereIn('id', array_column($access, 'event_id'))
+            ->orderBy('id')->lockForUpdate()->get();
     }
 
     private function changeAdminAccess(User $actor, ?User $target, bool $isAdmin): void

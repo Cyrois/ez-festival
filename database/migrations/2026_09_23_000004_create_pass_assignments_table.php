@@ -5,62 +5,38 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-// Keep this filename stable: Laravel records migration basenames in the database.
 return new class extends Migration
 {
     public function up(): void
     {
-        $this->dropOwnerConstraint();
+        Schema::create('event_patrons', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('event_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('person_id')->constrained()->cascadeOnDelete();
+            $table->boolean('do_not_contact')->default(false);
+            $table->timestamps();
 
-        Schema::table('pass_assignments', function (Blueprint $table) {
-            $table->foreignId('team_engagement_id')
-                ->nullable()
-                ->after('event_patron_id')
-                ->constrained()
-                ->cascadeOnDelete();
+            $table->unique(['event_id', 'person_id']);
         });
 
-        $this->createOwnerConstraint(includeTeam: true);
-    }
-
-    public function down(): void
-    {
-        if (DB::table('pass_assignments')->whereNotNull('team_engagement_id')->exists()) {
-            throw new RuntimeException('Cannot roll back while Team-owned pass assignments exist.');
-        }
-
-        $this->dropOwnerConstraint();
-
-        Schema::table('pass_assignments', function (Blueprint $table) {
-            $table->dropConstrainedForeignId('team_engagement_id');
+        Schema::create('pass_assignments', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('pass_type_id')->constrained()->restrictOnDelete();
+            $table->foreignId('artist_engagement_id')->nullable()->constrained()->cascadeOnDelete();
+            $table->foreignId('vendor_engagement_id')->nullable()->constrained()->cascadeOnDelete();
+            $table->foreignId('event_patron_id')->nullable()->constrained()->cascadeOnDelete();
+            $table->foreignId('team_engagement_id')->nullable()->constrained()->cascadeOnDelete();
+            $table->foreignId('person_id')->nullable()->constrained()->nullOnDelete();
+            $table->timestamps();
+            $table->index(['pass_type_id', 'created_at']);
         });
 
-        $this->createOwnerConstraint(includeTeam: false);
-    }
-
-    private function dropOwnerConstraint(): void
-    {
-        if (DB::getDriverName() === 'sqlite') {
-            DB::statement('DROP TRIGGER IF EXISTS pass_assignments_one_owner_insert');
-            DB::statement('DROP TRIGGER IF EXISTS pass_assignments_one_owner_update');
-
-            return;
-        }
-
-        DB::statement('ALTER TABLE pass_assignments DROP CONSTRAINT pass_assignments_exactly_one_owner');
-    }
-
-    private function createOwnerConstraint(bool $includeTeam): void
-    {
         $ownerColumns = [
             'artist_engagement_id',
             'vendor_engagement_id',
             'event_patron_id',
+            'team_engagement_id',
         ];
-
-        if ($includeTeam) {
-            $ownerColumns[] = 'team_engagement_id';
-        }
 
         $exactlyOneOwner = '('.collect($ownerColumns)
             ->map(fn (string $column): string => "CASE WHEN {$column} IS NOT NULL THEN 1 ELSE 0 END")
@@ -87,5 +63,11 @@ return new class extends Migration
 
         DB::statement("ALTER TABLE pass_assignments
             ADD CONSTRAINT pass_assignments_exactly_one_owner CHECK ({$exactlyOneOwner})");
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('pass_assignments');
+        Schema::dropIfExists('event_patrons');
     }
 };

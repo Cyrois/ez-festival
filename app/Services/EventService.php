@@ -43,20 +43,23 @@ class EventService
     /** @param array<string, mixed> $data */
     public function update(Event $event, array $data): void
     {
-        $event->ensureWritable();
-        $event->update($data);
+        DB::transaction(function () use ($event, $data): void {
+            $event = Event::query()->lockForUpdate()->findOrFail($event->id);
+            $event->ensureWritable();
+            $event->update($data);
+        });
         $this->forgetList();
     }
 
     public function lock(Event $event): void
     {
-        $event->lock();
+        DB::transaction(fn () => Event::query()->lockForUpdate()->findOrFail($event->id)->lock());
         $this->forgetList();
     }
 
     public function unlock(Event $event): void
     {
-        $event->unlock();
+        DB::transaction(fn () => Event::query()->lockForUpdate()->findOrFail($event->id)->unlock());
         $this->forgetList();
     }
 

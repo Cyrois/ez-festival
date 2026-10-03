@@ -11,17 +11,9 @@ return new class extends Migration
         Schema::create('roles', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-
-            // Comparison key for unique names: trimmed, inner spaces squashed, lower case, accents kept
-            // (see App\Support\RoleName). MySQL's default *_ci collations ignore accents, so the key
-            // uses a binary collation there; "Café" and "Cafe" must stay distinct.
-            $nameKey = $table->string('name_key');
-            if (in_array(Schema::getConnection()->getDriverName(), ['mysql', 'mariadb'], true)) {
-                $nameKey->collation('utf8mb4_bin');
-            }
-            $nameKey->unique();
-
+            $table->string('name_key')->unique();
             $table->boolean('active')->default(true);
+            $table->json('permissions')->default('[]');
             $table->timestamps();
 
             $table->index(['active', 'id']);

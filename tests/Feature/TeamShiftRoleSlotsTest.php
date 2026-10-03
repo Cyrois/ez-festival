@@ -310,7 +310,7 @@ class TeamShiftRoleSlotsTest extends TestCase
         $this->assertSame(2, $shift->roleSlots()->sum('needed'));
     }
 
-    public function test_removing_the_legacy_field_preserves_role_counts_and_insertion_order(): void
+    public function test_fresh_role_slots_preserve_counts_and_order_without_the_legacy_field(): void
     {
         [, $event, $location] = $this->context();
         $role = Role::query()->create(['name' => 'Crew']);
@@ -318,14 +318,11 @@ class TeamShiftRoleSlotsTest extends TestCase
             ['role_id' => $role->id, 'needed' => 2],
             ['role_id' => $role->id, 'needed' => 3],
         ]));
-        $before = $shift->roleSlots()->get()->toArray();
-        $migration = require database_path('migrations/2026_10_01_000003_remove_shift_supervisors.php');
-        $migration->down();
-        DB::table('shift_role_slots')->where('id', $before[1]['id'])->update(['is_supervisor' => true]);
-        $migration->up();
+        $slots = $shift->roleSlots()->get();
 
         $this->assertFalse(Schema::hasColumn('shift_role_slots', 'is_supervisor'));
-        $this->assertSame($before, $shift->roleSlots()->get()->toArray());
+        $this->assertSame([2, 3], $slots->pluck('needed')->all());
+        $this->assertSame([0, 1], $slots->pluck('sort_order')->all());
     }
 
     private function context(): array

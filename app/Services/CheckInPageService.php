@@ -23,7 +23,14 @@ class CheckInPageService
             $relation,
             'people' => fn ($query) => $query->orderBy('people.name'),
             'passAssignments.passType.labels',
-            'passAssignments.expectedEntitlements.entitlementItem.adjustments.location',
+            // The check-in resource needs location balances, not ledger history.
+            'passAssignments.expectedEntitlements.entitlementItem.adjustments' => fn ($query) => $query
+                ->select('entitlement_item_id', 'location_id')
+                ->selectRaw('SUM(delta) as balance')
+                ->whereNotNull('location_id')
+                ->groupBy('entitlement_item_id', 'location_id')
+                ->havingRaw('SUM(delta) > 0')
+                ->with('location'),
             'passAssignments.expectedEntitlements.issuedEntitlement.location',
         ]);
         $personId = $request->integer('person');

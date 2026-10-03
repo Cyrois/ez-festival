@@ -40,7 +40,7 @@ class StorePassRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'max_assignments' => ['nullable', 'integer', 'min:1', 'max:4294967295'],
+            'max_assignments' => ['nullable', 'integer', 'min:1', 'max:2147483647'],
             'label_ids' => ['sometimes', 'array', 'max:50'],
             'label_ids.*' => ['integer', 'distinct', Rule::exists('pass_type_labels', 'id')],
             'new_labels' => ['sometimes', 'array', 'max:20'],

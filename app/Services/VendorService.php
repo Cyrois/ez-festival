@@ -236,7 +236,7 @@ class VendorService
             $assignment->fill(['pass_type_id' => $data['pass_type_id'], 'person_id' => $data['person_id']]);
             $assignment->save();
 
-            if ($needsExpected || (! $assignment->relationLoaded('expectedEntitlements') || $assignment->expectedEntitlements->isEmpty())) {
+            if ($needsExpected) {
                 $assignment->expectedEntitlements()->createMany(
                     $passTypes[$assignment->pass_type_id]->entitlements->map(fn ($line): array => [
                         'entitlement_item_id' => $line->entitlement_item_id,

@@ -29,7 +29,7 @@ class AdjustEntitlementItemRequest extends FormRequest
                 Rule::exists('locations', 'id')->where('event_id', $this->route('event')->id),
             ],
             'direction' => ['required', Rule::in(['add', 'remove'])],
-            'quantity' => ['required', 'integer', 'min:1', 'max:4294967295'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:2147483647'],
             'reason' => ['nullable', 'string', 'max:255'],
         ];
     }

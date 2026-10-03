@@ -71,14 +71,26 @@ class CheckInPeopleQuery
             ->when($type === 'artist', fn (Builder $query) => $query->whereNotNull('ae.id'))
             ->when($type === 'vendor', fn (Builder $query) => $query->whereNotNull('ve.id'))
             ->when($passId !== null, fn (Builder $query) => $query->where('pa.pass_type_id', $passId))
-            ->when($search !== '', function (Builder $query) use ($search): void {
+            ->when($search !== '', function (Builder $query) use ($search, $passId): void {
                 $pattern = '%'.SqlLike::escape(mb_strtolower($search)).'%';
-                $query->where(function (Builder $query) use ($pattern): void {
+                $query->where(function (Builder $query) use ($pattern, $passId): void {
                     $query->whereRaw("lower(p.name) like ? escape '!'", [$pattern])
                         ->orWhereRaw("lower(p.email) like ? escape '!'", [$pattern])
                         ->orWhereRaw("lower(a.name) like ? escape '!'", [$pattern])
                         ->orWhereRaw("lower(v.name) like ? escape '!'", [$pattern])
-                        ->orWhereRaw("lower(ie.code) like ? escape '!'", [$pattern]);
+                        ->orWhereExists(function (Builder $codes) use ($pattern, $passId): void {
+                            // Search holders without filtering rows from their aggregate ledger.
+                            $codes->selectRaw('1')
+                                ->from('pass_assignments as search_pa')
+                                ->join('expected_entitlements as search_ee', 'search_ee.pass_assignment_id', '=', 'search_pa.id')
+                                ->join('issued_entitlements as search_ie', 'search_ie.expected_entitlement_id', '=', 'search_ee.id')
+                                ->whereColumn('search_pa.person_id', 'pa.person_id')
+                                ->where(fn (Builder $owner) => $owner
+                                    ->whereColumn('search_pa.artist_engagement_id', 'pa.artist_engagement_id')
+                                    ->orWhereColumn('search_pa.vendor_engagement_id', 'pa.vendor_engagement_id'))
+                                ->when($passId !== null, fn (Builder $codes) => $codes->where('search_pa.pass_type_id', $passId))
+                                ->whereRaw("lower(search_ie.code) like ? escape '!'", [$pattern]);
+                        });
                 });
             })
             ->groupBy('pa.person_id', 'pa.artist_engagement_id', 'pa.vendor_engagement_id')

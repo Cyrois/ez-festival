@@ -36,31 +36,35 @@ class TeamFormService
             $this->syncFields($form, $data['fields']);
 
             return $form;
-        });
+        }, 3);
     }
 
     /** @param array<string, mixed> $data */
     public function update(TeamForm $form, array $data): void
     {
         DB::transaction(function () use ($form, $data): void {
-            $form = TeamForm::query()->lockForUpdate()->with('event')->findOrFail($form->id);
-            $form->event->ensureWritable();
+            $event = Event::query()->lockForUpdate()->findOrFail($form->event_id);
+            $event->ensureWritable();
+            $form = $event->teamForms()->lockForUpdate()->findOrFail($form->id);
+            $form->setRelation('event', $event);
             $form->update([
                 'name' => $data['name'],
                 'slug' => $data['slug'],
                 'status' => $data['status'],
             ]);
             $this->syncFields($form, $data['fields']);
-        });
+        }, 3);
     }
 
     /** @param array<string, mixed> $data */
     public function submit(TeamForm $form, array $data): TeamEngagement
     {
         return DB::transaction(function () use ($form, $data): TeamEngagement {
-            $form = TeamForm::query()->lockForUpdate()->with('event')->findOrFail($form->id);
+            $event = Event::query()->lockForUpdate()->findOrFail($form->event_id);
+            $event->ensureWritable();
+            $form = $event->teamForms()->lockForUpdate()->findOrFail($form->id);
+            $form->setRelation('event', $event);
             abort_unless($form->status === 'live', 404);
-            $form->event->ensureWritable();
 
             $person = $this->people->findByEmail($data['email'] ?? null);
 
@@ -99,7 +103,7 @@ class TeamFormService
             );
 
             return $engagement;
-        });
+        }, 3);
     }
 
     /** @param array<int, array<string, mixed>> $fields */

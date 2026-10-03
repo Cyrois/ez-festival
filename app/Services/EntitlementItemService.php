@@ -54,7 +54,7 @@ class EntitlementItemService
             $this->syncLabels($item, $data, $event);
 
             return $item;
-        });
+        }, 3);
 
         $this->forgetList($event->id);
 
@@ -67,13 +67,13 @@ class EntitlementItemService
         $eventId = $item->event_id;
 
         DB::transaction(function () use ($item, $data): void {
-            $item = EntitlementItem::query()->lockForUpdate()->findOrFail($item->id);
             $event = Event::query()->lockForUpdate()->findOrFail($item->event_id);
             $event->ensureWritable();
+            $item = $event->entitlementItems()->lockForUpdate()->findOrFail($item->id);
 
             $item->update(['name' => $data['name']]);
             $this->syncLabels($item, $data, $event);
-        });
+        }, 3);
 
         $this->forgetList($eventId);
     }
@@ -99,9 +99,9 @@ class EntitlementItemService
         $eventId = $item->event_id;
 
         DB::transaction(function () use ($item, $locationId, $delta, $reason, $actor): void {
-            $item = EntitlementItem::query()->lockForUpdate()->findOrFail($item->id);
             $event = Event::query()->lockForUpdate()->findOrFail($item->event_id);
             $event->ensureWritable();
+            $item = $event->entitlementItems()->lockForUpdate()->findOrFail($item->id);
 
             $location = Location::query()
                 ->where('event_id', $event->id)
@@ -126,7 +126,7 @@ class EntitlementItemService
                 'reason' => $reason,
                 'user_id' => $actor->id,
             ]);
-        });
+        }, 3);
 
         $this->forgetList($eventId);
     }
@@ -201,9 +201,9 @@ class EntitlementItemService
         $eventId = $item->event_id;
 
         DB::transaction(function () use ($item): void {
-            $item = EntitlementItem::query()->lockForUpdate()->findOrFail($item->id);
             $event = Event::query()->lockForUpdate()->findOrFail($item->event_id);
             $event->ensureWritable();
+            $item = $event->entitlementItems()->lockForUpdate()->findOrFail($item->id);
 
             if ($item->passTypeEntitlements()->exists()
                 || $item->expectedEntitlements()->exists()
@@ -215,7 +215,7 @@ class EntitlementItemService
             }
 
             $item->delete();
-        });
+        }, 3);
 
         $this->forgetList($eventId);
     }

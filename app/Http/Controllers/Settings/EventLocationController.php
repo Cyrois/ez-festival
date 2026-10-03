@@ -9,6 +9,7 @@ use App\Http\Requests\Settings\StoreEventLocationRequest;
 use App\Http\Requests\Settings\UpdateEventLocationRequest;
 use App\Models\Event;
 use App\Models\Location;
+use App\Services\EventLocationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -17,6 +18,8 @@ use Inertia\Response;
 class EventLocationController extends Controller
 {
     use InteractsWithSettings;
+
+    public function __construct(private readonly EventLocationService $locations) {}
 
     public function index(Request $request, Event $event): Response
     {
@@ -31,9 +34,7 @@ class EventLocationController extends Controller
 
     public function store(StoreEventLocationRequest $request, Event $event): RedirectResponse
     {
-        $event->ensureWritable();
-
-        $event->locations()->create($request->validated());
+        $this->locations->createMany($event, [$request->validated()]);
 
         return redirect()
             ->route('settings.events.locations', $event)
@@ -48,8 +49,7 @@ class EventLocationController extends Controller
     ): RedirectResponse {
         abort_unless((int) $location->event_id === (int) $event->id, 404);
 
-        $event->ensureWritable();
-        $location->update($request->validated());
+        $this->locations->update($event, $location, $request->validated());
 
         return redirect()
             ->route('settings.events.locations', $event)
@@ -61,8 +61,7 @@ class EventLocationController extends Controller
     {
         abort_unless((int) $location->event_id === (int) $event->id, 404);
 
-        $event->ensureWritable();
-        $location->delete();
+        $this->locations->destroy($event, $location);
 
         return redirect()
             ->route('settings.events.locations', $event)

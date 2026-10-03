@@ -8,6 +8,7 @@ use App\Models\Group;
 use App\Models\PassAssignment;
 use App\Models\PassType;
 use App\Models\Person;
+use App\Models\Role;
 use App\Models\TeamEngagement;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -193,23 +194,21 @@ class TeamSchemaTest extends TestCase
         $this->assertDatabaseCount('pass_assignments', 0);
     }
 
-    public function test_team_owner_migration_refuses_lossy_rollback(): void
+    public function test_an_engagement_cannot_reference_a_missing_role(): void
     {
         $event = $this->event();
-        $engagement = TeamEngagement::query()->create([
+        $person = $this->person('missing-role');
+        $role = Role::query()->create(['name' => 'Removed role']);
+        $roleId = $role->id;
+        $role->delete();
+
+        $this->expectException(QueryException::class);
+
+        TeamEngagement::query()->create([
             'event_id' => $event->id,
-            'person_id' => $this->person('rollback-guard')->id,
-            'status' => 'hired',
-            'employment_type' => 'volunteer',
+            'person_id' => $person->id,
+            'role_id' => $roleId,
         ]);
-        $passType = PassType::query()->create(['event_id' => $event->id, 'name' => 'Crew']);
-        $engagement->passAssignments()->create(['pass_type_id' => $passType->id]);
-        $migration = require database_path('migrations/2026_09_27_000001_add_team_owner_to_pass_assignments_table.php');
-
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Cannot roll back while Team-owned pass assignments exist.');
-
-        $migration->down();
     }
 
     /**
