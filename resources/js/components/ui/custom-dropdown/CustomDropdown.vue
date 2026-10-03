@@ -1,5 +1,7 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, useAttrs } from 'vue';
+import { trans } from 'laravel-vue-i18n';
+import { Input } from '../input';
 import { cn } from '../../../lib/utils';
 import { Icon } from '../icon';
 
@@ -43,7 +45,24 @@ const emit = defineEmits(['update:modelValue']);
 const attrs = useAttrs();
 const root = ref(null);
 const menu = ref(null);
-const optionRefs = ref([]);
+const searchInput = ref(null);
+const query = ref('');
+const searchable = computed(() => props.items.length >= 6);
+const filteredItems = computed(() => {
+    const search = searchable.value
+        ? query.value.trim().toLocaleLowerCase()
+        : '';
+
+    return search
+        ? props.items.filter((item) =>
+              [item.title, item.description].some((text) =>
+                  String(text ?? '')
+                      .toLocaleLowerCase()
+                      .includes(search),
+              ),
+          )
+        : props.items;
+});
 const open = ref(false);
 const insideModal = ref(false);
 const menuStyle = ref({});
@@ -63,17 +82,21 @@ const triggerClasses = computed(() =>
 );
 const menuClasses = computed(() =>
     cn(
-        'w-full overflow-y-auto rounded-lg border border-line bg-ground py-1 shadow-toast',
+        'flex w-full flex-col overflow-hidden rounded-lg border border-line bg-ground py-1 shadow-toast',
+        searchable.value && 'max-h-64',
         insideModal.value ? 'fixed z-[60]' : 'absolute z-40 mt-1',
     ),
 );
 
 const focusOption = (index) => {
-    nextTick(() => optionRefs.value[index]?.focus());
+    nextTick(() =>
+        menu.value?.querySelectorAll('[role="option"]')[index]?.focus(),
+    );
 };
 
 const close = () => {
     open.value = false;
+    query.value = '';
 };
 
 const updateMenuPosition = () => {
@@ -123,12 +146,28 @@ const toggle = () => {
     }
 
     insideModal.value = Boolean(root.value?.closest('[aria-modal="true"]'));
-    open.value = !open.value;
+    if (open.value) {
+        close();
+        return;
+    }
+
+    open.value = true;
 
     if (open.value) {
         nextTick(() => {
             updateMenuPosition();
-            focusOption(Math.max(selectedIndex.value, 0));
+            if (searchable.value) {
+                searchInput.value?.$el.focus();
+            } else {
+                const index = selectedIndex.value;
+                focusOption(
+                    index >= 0 && !filteredItems.value[index].disabled
+                        ? index
+                        : filteredItems.value.findIndex(
+                              (item) => !item.disabled,
+                          ),
+                );
+            }
         });
     }
 };
@@ -143,12 +182,45 @@ const select = (item) => {
 };
 
 const moveFocus = (currentIndex, direction) => {
-    const nextIndex = Math.min(
-        Math.max(currentIndex + direction, 0),
-        props.items.length - 1,
-    );
+    for (
+        let index = currentIndex + direction;
+        index >= 0 && index < filteredItems.value.length;
+        index += direction
+    ) {
+        if (!filteredItems.value[index].disabled) {
+            focusOption(index);
+            return;
+        }
+    }
 
-    focusOption(nextIndex);
+    if (direction < 0 && searchable.value) {
+        searchInput.value?.$el.focus();
+    }
+};
+
+const onSearchKeydown = (event) => {
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        moveFocus(-1, 1);
+    }
+
+    if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        moveFocus(filteredItems.value.length, -1);
+    }
+
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        const item = filteredItems.value.find((item) => !item.disabled);
+        if (item) {
+            select(item);
+        }
+    }
+};
+
+const onMenuEscape = () => {
+    close();
+    root.value?.querySelector('button')?.focus();
 };
 
 const onTriggerKeydown = (event) => {
@@ -167,12 +239,6 @@ const onOptionKeydown = (event, item, index) => {
     if (event.key === 'ArrowUp') {
         event.preventDefault();
         moveFocus(index, -1);
-    }
-
-    if (event.key === 'Escape') {
-        event.preventDefault();
-        close();
-        root.value?.querySelector('button')?.focus();
     }
 
     if (['Enter', ' '].includes(event.key)) {
@@ -238,42 +304,64 @@ onUnmounted(() => {
                 ref="menu"
                 :class="menuClasses"
                 :style="menuStyle"
-                role="listbox"
+                @keydown.esc.prevent.stop="onMenuEscape"
             >
-                <template v-if="items.length">
-                    <button
-                        v-for="(item, index) in items"
-                        :key="item.value"
-                        ref="optionRefs"
-                        type="button"
-                        class="flex w-full flex-col px-3 py-2 text-left outline-none hover:bg-page focus:bg-page"
-                        :class="[
-                            item.value === modelValue && 'bg-primary/10',
-                            item.disabled && 'cursor-not-allowed opacity-45',
-                        ]"
-                        :aria-selected="item.value === modelValue"
-                        :disabled="item.disabled"
-                        role="option"
-                        @click="select(item)"
-                        @keydown="onOptionKeydown($event, item, index)"
-                    >
-                        <span class="text-sm font-medium text-charcoal">
-                            {{ item.title }}
-                        </span>
-                        <span
-                            v-if="item.description"
-                            class="mt-0.5 text-xs text-muted"
-                        >
-                            {{ item.description }}
-                        </span>
-                    </button>
-                </template>
-                <p
-                    v-else-if="emptyText"
-                    class="m-0 px-3 py-2 text-sm text-muted"
+                <div
+                    v-if="searchable"
+                    class="shrink-0 border-b border-line px-2 pt-1 pb-2"
                 >
-                    {{ emptyText }}
-                </p>
+                    <Input
+                        ref="searchInput"
+                        v-model="query"
+                        type="search"
+                        :placeholder="trans('dropdown.search_placeholder')"
+                        :aria-label="trans('dropdown.search_placeholder')"
+                        @keydown="onSearchKeydown"
+                    />
+                </div>
+                <div
+                    class="min-h-0 overflow-y-auto"
+                    role="listbox"
+                >
+                    <template v-if="filteredItems.length">
+                        <button
+                            v-for="(item, index) in filteredItems"
+                            :key="item.value"
+                            type="button"
+                            class="flex w-full flex-col px-3 py-2 text-left outline-none hover:bg-page focus:bg-page"
+                            :class="[
+                                item.value === modelValue && 'bg-primary/10',
+                                item.disabled &&
+                                    'cursor-not-allowed opacity-45',
+                            ]"
+                            :aria-selected="item.value === modelValue"
+                            :disabled="item.disabled"
+                            role="option"
+                            @click="select(item)"
+                            @keydown="onOptionKeydown($event, item, index)"
+                        >
+                            <span class="text-sm font-medium text-charcoal">
+                                {{ item.title }}
+                            </span>
+                            <span
+                                v-if="item.description"
+                                class="mt-0.5 text-xs text-muted"
+                            >
+                                {{ item.description }}
+                            </span>
+                        </button>
+                    </template>
+                    <p
+                        v-else-if="query.trim() || emptyText"
+                        class="m-0 px-3 py-2 text-sm text-muted"
+                    >
+                        {{
+                            query.trim()
+                                ? trans('dropdown.no_results')
+                                : emptyText
+                        }}
+                    </p>
+                </div>
             </div>
         </Teleport>
     </div>
