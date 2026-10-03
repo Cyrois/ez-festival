@@ -16,6 +16,7 @@ use App\Repositories\ShiftAssignmentRepository;
 use App\Services\ShiftService;
 use App\Support\EventContext;
 use App\Support\LabelColors;
+use App\Support\ShiftBreaks;
 use App\Support\ShiftReturnContext;
 use App\Support\ShiftSlotReferences;
 use Illuminate\Http\RedirectResponse;
@@ -44,6 +45,7 @@ class ShiftController extends Controller
             'locations' => $this->locations->optionsFor($event),
             'roles' => ShiftSlotReferences::options(),
             'labelColors' => LabelColors::ALL,
+            'breakOptions' => ShiftBreaks::options(),
             'prefill' => array_intersect_key($data, array_flip(['location_id', 'starts_at', 'ends_at'])),
             'returnContext' => ShiftReturnContext::from($data),
         ]);
@@ -65,6 +67,7 @@ class ShiftController extends Controller
             'canManage' => Gate::allows('scheduling.edit'),
             'roles' => Gate::allows('scheduling.edit') && ! $event->isLocked() ? ShiftSlotReferences::options() : [],
             'labelColors' => LabelColors::ALL,
+            'breakOptions' => ShiftBreaks::options(),
             'returnContext' => ShiftReturnContext::from($request->validated()),
         ]);
     }

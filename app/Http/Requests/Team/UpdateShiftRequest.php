@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Team;
 
+use App\Http\Requests\Team\Concerns\ShiftBreakRules;
 use App\Http\Requests\Team\Concerns\ShiftRules;
 use App\Http\Requests\Team\Concerns\ShiftSlotRules;
 use App\Support\EventContext;
@@ -13,12 +14,19 @@ use Illuminate\Validation\Validator;
 
 class UpdateShiftRequest extends FormRequest
 {
+    use ShiftBreakRules;
     use ShiftRules;
-    use ShiftSlotRules { after as slotAfter; }
+    use ShiftSlotRules { after as slotAfter;
+        messages as slotMessages; }
+
+    public function messages(): array
+    {
+        return [...$this->slotMessages(), ...$this->breakMessages()];
+    }
 
     public function after(): array
     {
-        return [...$this->slotAfter(), function (Validator $validator): void {
+        return [...$this->slotAfter(), ...$this->breakAfter(), function (Validator $validator): void {
             if ($validator->errors()->isNotEmpty()) {
                 return;
             }
@@ -45,6 +53,6 @@ class UpdateShiftRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [...$this->shiftRules($this->route('event')), ...$this->slotRules(), ...ShiftReturnContext::rules()];
+        return [...$this->shiftRules($this->route('event')), ...$this->slotRules(), ...$this->breakRules(), ...ShiftReturnContext::rules()];
     }
 }

@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Models\Event;
 use App\Models\Shift;
 use App\Support\ShiftAssignmentHours;
+use App\Support\ShiftBreaks;
 use App\Support\ShiftSlotReferences;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -19,9 +21,15 @@ class ShiftService
             $event->ensureWritable();
 
             $slots = $data['slots'] ?? [];
-            unset($data['slots']);
+            $breaks = $data['breaks'] ?? [];
+            $errors = ShiftBreaks::errors($data, collect());
+            if ($errors !== []) {
+                throw ValidationException::withMessages($errors);
+            }
+            unset($data['slots'], $data['breaks']);
             $shift = $event->shifts()->create($data);
             $this->syncSlots($shift, $slots);
+            $this->syncBreaks($shift, $breaks, collect());
 
             return $shift;
         });
@@ -35,7 +43,8 @@ class ShiftService
             $event->ensureWritable();
 
             $shift = $event->shifts()->lockForUpdate()->findOrFail($shift->id);
-            $errors = ShiftAssignmentHours::containmentErrors($shift, $data);
+            $existingBreaks = $shift->breaks()->lockForUpdate()->get()->keyBy('id');
+            $errors = [...ShiftAssignmentHours::containmentErrors($shift, $data), ...ShiftBreaks::errors($data, $existingBreaks)];
             if ($errors !== []) {
                 throw ValidationException::withMessages($errors);
             }
@@ -43,8 +52,29 @@ class ShiftService
                 $this->syncSlots($shift, $data['slots']);
                 unset($data['slots']);
             }
+            if (array_key_exists('breaks', $data)) {
+                $this->syncBreaks($shift, $data['breaks'], $existingBreaks);
+                unset($data['breaks']);
+            }
             $shift->update($data);
         });
+    }
+
+    private function syncBreaks(Shift $shift, array $breaks, Collection $existing): void
+    {
+        $nextOrder = ($existing->max('sort_order') ?? -1) + 1;
+        $kept = [];
+        foreach ($breaks as $data) {
+            $break = isset($data['id']) ? $existing->get((int) $data['id']) : null;
+            unset($data['id']);
+            if ($break !== null) {
+                $break->update($data);
+            } else {
+                $break = $shift->breaks()->create([...$data, 'sort_order' => $nextOrder++]);
+            }
+            $kept[] = $break->id;
+        }
+        $shift->breaks()->whereNotIn('id', $kept)->delete();
     }
 
     private function syncSlots(Shift $shift, array $slots): void

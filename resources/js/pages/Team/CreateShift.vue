@@ -11,6 +11,8 @@ import { FormField } from '../../components/ui/form-field';
 import { Input } from '../../components/ui/input';
 import ShiftRoleSlots from '../../components/team/ShiftRoleSlots.vue';
 import ShiftRoster from '../../components/team/ShiftRoster.vue';
+import ShiftBreaks from '../../components/team/ShiftBreaks.vue';
+import { shiftBreakPayload, shiftBreakErrors } from '../../lib/shiftBreaks';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { fieldError, toastFormErrors } from '../../lib/fieldError';
 import {
@@ -25,6 +27,7 @@ const props = defineProps({
     locations: { type: Array, required: true },
     labelColors: { type: Array, required: true },
     roles: { type: Array, required: true },
+    breakOptions: { type: Object, required: true },
     prefill: { type: Object, default: () => ({}) },
     returnContext: { type: Object, default: () => ({}) },
 });
@@ -36,9 +39,20 @@ const form = useForm({
     starts_at: props.prefill.starts_at ?? '',
     ends_at: props.prefill.ends_at ?? '',
     slots: [],
+    breaks: [],
     ...props.returnContext,
 });
 const slotErrors = ref({});
+const breakErrors = ref({});
+const breakEditor = ref(null);
+const clearBreakError = (key, field) => {
+    if (breakErrors.value[key]) delete breakErrors.value[key][field];
+    form.clearErrors('breaks');
+};
+const clearBreakContainmentErrors = () => {
+    for (const errors of Object.values(breakErrors.value))
+        delete errors.starts_at;
+};
 const draftRoster = computed(() => ({
     assignments: [],
     slots: [],
@@ -55,14 +69,28 @@ const locationItems = computed(() =>
 );
 const submit = () => {
     if (form.processing) return;
+    if (breakEditor.value && !breakEditor.value.validate()) {
+        showFormError({
+            breaks: trans('team.scheduling.breaks.errors.review'),
+        });
+        return;
+    }
     const submitted = [...form.slots];
+    const submittedBreaks = [...form.breaks];
     form.transform((data) => ({
         ...data,
         slots: shiftSlotPayload(data.slots),
+        breaks: shiftBreakPayload(data.breaks),
     })).post('/team/events/' + props.event.id + '/shifts', {
         onError: (errors) => {
             slotErrors.value = shiftSlotErrors(submitted, errors);
-            if (Object.keys(errors).some((key) => key.startsWith('slots'))) {
+            breakErrors.value = shiftBreakErrors(submittedBreaks, errors);
+            if (
+                Object.keys(errors).some(
+                    (key) =>
+                        key.startsWith('slots') || key.startsWith('breaks'),
+                )
+            ) {
                 showFormError(errors);
             } else {
                 toastFormErrors(form, errors, { showError, showFormError });
@@ -234,11 +262,27 @@ const clearSlotError = (key, field) => {
                     :empty-text="$t('team.scheduling.assignments.create_first')"
                 />
             </Card>
+            <div class="mt-4 grid items-start gap-4 xl:grid-cols-2">
+                <Card class="min-w-0">
+                    <ShiftBreaks
+                        ref="breakEditor"
+                        v-model="form.breaks"
+                        :options="breakOptions"
+                        :starts-at="form.starts_at"
+                        :ends-at="form.ends_at"
+                        :errors="breakErrors"
+                        :collection-error="form.errors.breaks"
+                        :busy="form.processing"
+                        @clear-error="clearBreakError"
+                        @clear-containment-errors="clearBreakContainmentErrors"
+                    />
+                </Card>
+            </div>
         </div>
         <footer
             class="fixed right-0 bottom-0 left-0 z-20 border-t border-line bg-ground lg:left-[var(--app-sidebar-width)]"
         >
-            <div class="container mx-auto px-4 md:px-6 xl:px-0">
+            <div class="container mx-auto px-4 md:px-6">
                 <div
                     class="mx-auto flex max-w-6xl items-center justify-between gap-3 py-4 xl:max-w-none"
                 >
