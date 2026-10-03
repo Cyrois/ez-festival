@@ -359,12 +359,11 @@ test('roster fetch discards stale location loads and refreshes after Assign with
         locationName: 'Stage',
         canAssign: true,
     }));
-    const response = (shifts, page = 1, lastPage = 1) => ({
+    const response = (shifts) => ({
         ok: true,
         json: async () => ({
             data: shifts,
             schedule: { first_shift_minute: 600 },
-            meta: { current_page: page, last_page: lastPage },
         }),
     });
     try {
@@ -372,6 +371,12 @@ test('roster fetch discards stale location loads and refreshes after Assign with
         await nextTick();
         assert.equal(requests[0].options.signal.aborted, true);
         assert.match(requests[1].url, /location_id=10/);
+        assert.equal(
+            new URL(requests[1].url, 'http://localhost').searchParams.has(
+                'page',
+            ),
+            false,
+        );
         requests[1].resolve(response([shift]));
         await settle();
         requests[0].resolve(

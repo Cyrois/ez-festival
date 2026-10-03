@@ -32,7 +32,7 @@ class ShiftAssignmentController extends Controller
     {
         Gate::authorize('scheduling.edit');
         $data = $request->validated();
-        $assignment = $this->assignments->create($shift, ShiftReturnContext::without(array_diff_key($data, ['return_to_schedule' => true])));
+        $assignment = $this->assignments->create($shift, ShiftReturnContext::without($data));
         $assignment->load(['role:id,name', 'teamEngagement.person:id,name']);
 
         return (($data['return_to_schedule'] ?? false)

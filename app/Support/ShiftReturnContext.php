@@ -9,6 +9,7 @@ final class ShiftReturnContext
     public static function rules(): array
     {
         return [
+            'return_to_schedule' => ['sometimes', 'boolean'],
             'return_tab' => ['sometimes', Rule::in(['schedule', 'list'])],
             'schedule_date' => ['sometimes', 'date_format:Y-m-d'],
             'schedule_location_id' => ['sometimes', 'integer', 'min:1'],

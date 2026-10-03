@@ -98,19 +98,20 @@ class TeamScheduleRosterTest extends TestCase
         $this->getJson($this->url(['date' => '2026-10-05']))->assertOk()->assertJsonCount(0, 'data');
     }
 
-    public function test_rosters_are_server_paginated_and_loaded_in_batches(): void
+    public function test_all_rosters_for_the_selected_day_are_loaded_in_batches(): void
     {
         for ($index = 0; $index < 27; $index++) {
             $shift = $this->shift();
             $this->assign($shift, $shift->roleSlots()->first()->id, $this->member('Crew '.$index));
         }
         DB::enableQueryLog();
-        $first = $this->getJson($this->url())->assertOk()->assertJsonCount(25, 'data')->assertJsonPath('meta.total', 27);
+        $response = $this->getJson($this->url())->assertOk()->assertJsonCount(27, 'data')->assertJsonMissingPath('meta');
+        foreach ($response->json('data') as $shift) {
+            $this->assertCount(1, $shift['assignments']);
+        }
         $queries = DB::getQueryLog();
         DB::disableQueryLog();
         $this->assertLessThan(35, count($queries));
-        $second = $this->getJson($this->url(['page' => 2]))->assertOk()->assertJsonCount(2, 'data');
-        $this->assertEmpty(array_intersect(array_column($first->json('data'), 'id'), array_column($second->json('data'), 'id')));
     }
 
     public function test_view_and_assignment_permissions_and_locked_event_apply_to_roster(): void

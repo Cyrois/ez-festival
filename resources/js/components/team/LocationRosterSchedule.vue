@@ -17,12 +17,10 @@ const shifts = ref([]);
 const firstShiftMinute = ref(null);
 const loading = ref(false);
 const failed = ref(false);
-const currentPage = ref(0);
-const lastPage = ref(1);
 const assignment = ref(null);
 let controller;
 let generation = 0;
-const load = async (page = 1) => {
+const load = async () => {
     if (loading.value) return;
     controller = new AbortController();
     const number = generation;
@@ -32,7 +30,6 @@ const load = async (page = 1) => {
         const params = new URLSearchParams({
             date: props.date,
             location_id: props.locationId,
-            page,
         });
         const response = await fetch('/team/scheduling/roster?' + params, {
             headers: { Accept: 'application/json' },
@@ -41,11 +38,8 @@ const load = async (page = 1) => {
         if (!response.ok) throw new Error('schedule request failed');
         const result = await response.json();
         if (number !== generation) return;
-        shifts.value =
-            page === 1 ? result.data : [...shifts.value, ...result.data];
+        shifts.value = result.data;
         firstShiftMinute.value = result.schedule.first_shift_minute;
-        currentPage.value = result.meta.current_page;
-        lastPage.value = result.meta.last_page;
     } catch (error) {
         if (number === generation && error.name !== 'AbortError')
             failed.value = true;
@@ -59,8 +53,6 @@ const refresh = () => {
     loading.value = false;
     shifts.value = [];
     firstShiftMinute.value = null;
-    currentPage.value = 0;
-    lastPage.value = 1;
     assignment.value = null;
     load();
 };
@@ -84,10 +76,7 @@ const assign = (shift, slot) => {
         :first-shift-minute="firstShiftMinute"
         :label-width="280"
         :label-text="locationName"
-        :more-label="$t('team.scheduling.roster.more_shifts')"
         :loading="loading"
-        :has-more="!failed && currentPage < lastPage"
-        @load-more="load(currentPage + 1)"
     >
         <template #rows="{ geometry, slots }">
             <ScheduleShiftRoster
@@ -122,7 +111,7 @@ const assign = (shift, slot) => {
         {{ $t('team.scheduling.grid.load_failed') }}
         <Button
             variant="cancel"
-            @click="load(currentPage + 1)"
+            @click="load()"
             >{{ $t('team.scheduling.grid.retry') }}</Button
         >
     </div>
