@@ -24,14 +24,14 @@ export function shiftBreakDays(start, end) {
     return days;
 }
 
-export function newShiftBreak(defaultDuration, day = '') {
+export function newShiftBreak(defaultDuration, day = '', time = '') {
     return {
         _key: `draft-break-${++nextDraftKey}`,
         _day: day,
-        _time: '',
+        _time: time,
         id: null,
         duration_minutes: defaultDuration,
-        starts_at: '',
+        starts_at: day && time ? `${day}T${time}` : '',
     };
 }
 

@@ -267,6 +267,11 @@ test('the editor validates, adds, edits and removes rows, rejects earlier overla
             rowAt(0).querySelector('[aria-label="Length"]').textContent.trim(),
             '15 min',
         );
+        assert.equal(
+            rowAt(0).querySelector('input[type="time"]').value,
+            '14:00',
+        );
+        await fill(rowAt(0).querySelector('input[type="time"]'), '');
         await add();
         assert.equal(rows.value.length, 0);
         assert.match(document.body.textContent, /Enter a valid break start/);
@@ -276,7 +281,10 @@ test('the editor validates, adds, edits and removes rows, rejects earlier overla
         assert.equal(rows.value.length, 1);
         assert.equal(rows.value[0].starts_at, '2026-10-03T15:30');
         assert.equal(rows.value[0].duration_minutes, 30);
-        assert.equal(rowAt(0).querySelector('input[type="time"]').value, '');
+        assert.equal(
+            rowAt(0).querySelector('input[type="time"]').value,
+            '14:00',
+        );
         await fill(rowAt(1).querySelector('input[type="time"]'), '');
         assert.equal(editor.value.validate(), false);
         await fill(rowAt(1).querySelector('input[type="time"]'), '15:30');
@@ -293,6 +301,35 @@ test('the editor validates, adds, edits and removes rows, rejects earlier overla
         await tick();
         assert.equal(rows.value.length, 1);
         assert.equal(rows.value[0].starts_at, '2026-10-03T16:00');
+    } finally {
+        app.unmount();
+    }
+});
+
+test('a shift start entered later defaults the pending break and preserves edited and added times', async () => {
+    const { app, rows, bounds } = mount([], '', '');
+    try {
+        assert.equal(rowAt(0).querySelector('input[type="time"]').value, '');
+        bounds.value = { start: '2026-10-03T23:00', end: '2026-10-04T02:00' };
+        await tick();
+        assert.equal(
+            rowAt(0).querySelector('input[type="time"]').value,
+            '23:00',
+        );
+        await add();
+        assert.equal(rows.value[0].starts_at, '2026-10-03T23:00');
+        assert.equal(
+            rowAt(0).querySelector('input[type="time"]').value,
+            '23:00',
+        );
+        await fill(rowAt(0).querySelector('input[type="time"]'), '23:30');
+        bounds.value = { start: '2026-10-03T22:00', end: '2026-10-04T02:00' };
+        await tick();
+        assert.equal(
+            rowAt(0).querySelector('input[type="time"]').value,
+            '23:30',
+        );
+        assert.equal(rows.value[0].starts_at, '2026-10-03T23:00');
     } finally {
         app.unmount();
     }

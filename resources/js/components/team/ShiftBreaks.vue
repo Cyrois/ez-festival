@@ -32,9 +32,13 @@ const emit = defineEmits([
 ]);
 const reasonId = useId();
 const days = computed(() => shiftBreakDays(props.startsAt, props.endsAt));
-const pending = ref(
-    newShiftBreak(props.options.default_duration, days.value[0] ?? ''),
-);
+const createPendingBreak = () =>
+    newShiftBreak(
+        props.options.default_duration,
+        props.startsAt.slice(0, 10),
+        props.startsAt.slice(11, 16),
+    );
+const pending = ref(createPendingBreak());
 const attemptedAdd = ref(false);
 const formatDuration = (minutes) =>
     minutes === 60
@@ -90,6 +94,24 @@ watch(days, (values) => {
         );
     emit('clear-containment-errors');
 });
+watch(
+    () => props.startsAt,
+    (value) => {
+        if (!pending.value._time && value) {
+            if (!pending.value._day)
+                pending.value = updateShiftBreak(
+                    pending.value,
+                    '_day',
+                    value.slice(0, 10),
+                );
+            pending.value = updateShiftBreak(
+                pending.value,
+                '_time',
+                value.slice(11, 16),
+            );
+        }
+    },
+);
 const update = (row, field, value) => {
     if (!props.editable || props.busy) return;
     const updated = updateShiftBreak(row, field, value);
@@ -114,10 +136,7 @@ const add = () => {
     attemptedAdd.value = true;
     if (Object.keys(pendingErrors.value).length) return;
     emit('update:modelValue', [...props.modelValue, { ...pending.value }]);
-    pending.value = newShiftBreak(
-        props.options.default_duration,
-        days.value[0] ?? '',
-    );
+    pending.value = createPendingBreak();
     attemptedAdd.value = false;
 };
 const remove = (row) => {
@@ -158,7 +177,8 @@ defineExpose({ validate: () => Object.keys(localErrors.value).length === 0 });
                 v-for="row in [pending, ...modelValue]"
                 :key="row._key"
                 :data-break-row="row._key"
-                class="grid grid-cols-[minmax(0,8rem)_minmax(0,1fr)] items-start gap-3 rounded-lg border border-line bg-ground p-3 @min-[32rem]:grid-cols-[8rem_11rem_minmax(0,1fr)]"
+                class="grid grid-cols-[minmax(0,8rem)_minmax(0,1fr)] items-start gap-3 rounded-lg border border-line p-3 @min-[32rem]:grid-cols-[8rem_11rem_minmax(0,1fr)]"
+                :class="row._key === pending._key ? 'bg-page' : 'bg-ground'"
             >
                 <FormField
                     class="w-full max-w-32"
