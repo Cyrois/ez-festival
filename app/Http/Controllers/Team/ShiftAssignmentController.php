@@ -12,6 +12,7 @@ use App\Models\Shift;
 use App\Models\ShiftAssignment;
 use App\Repositories\ShiftAssignmentRepository;
 use App\Services\ShiftAssignmentService;
+use App\Support\ShiftReturnContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Gate;
@@ -30,10 +31,10 @@ class ShiftAssignmentController extends Controller
     public function store(StoreShiftAssignmentRequest $request, Event $event, Shift $shift): RedirectResponse
     {
         Gate::authorize('scheduling.edit');
-        $assignment = $this->assignments->create($shift, $request->validated());
+        $assignment = $this->assignments->create($shift, ShiftReturnContext::without($request->validated()));
         $assignment->load(['role:id,name', 'teamEngagement.person:id,name']);
 
-        return redirect()->route('team.shifts.show', $shift)
+        return redirect()->route('team.shifts.show', ['shift' => $shift, ...ShiftReturnContext::from($request->validated())])
             ->with('success', __('team.scheduling.assignments.toast.created', ['name' => $assignment->teamEngagement->person->name, 'role' => $assignment->role->name]))
             ->with('success_title', __('toast.saved_title'));
     }
@@ -43,7 +44,7 @@ class ShiftAssignmentController extends Controller
         Gate::authorize('scheduling.edit');
         $this->assignments->delete($shift, $assignment);
 
-        return redirect()->route('team.shifts.show', $shift)
+        return redirect()->route('team.shifts.show', ['shift' => $shift, ...ShiftReturnContext::from($request->validated())])
             ->with('success', __('team.scheduling.assignments.toast.removed'))
             ->with('success_title', __('toast.saved_title'));
     }

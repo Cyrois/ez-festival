@@ -20,6 +20,7 @@ const props = defineProps({
     shift: { type: Object, required: true },
     eventId: { type: Number, required: true },
     requirement: { type: Object, required: true },
+    returnContext: { type: Object, default: () => ({}) },
 });
 const emit = defineEmits(['close']);
 const table = ref(null);
@@ -183,15 +184,16 @@ const assign = () => {
         form.processing
     )
         return;
-    form.transform(() =>
-        assignmentPayload(
+    form.transform(() => ({
+        ...props.returnContext,
+        ...assignmentPayload(
             props.requirement.id,
             selected.value.id,
             form.hours_mode,
             form.starts_at,
             form.ends_at,
         ),
-    ).post(
+    })).post(
         `/team/events/${props.eventId}/shifts/${props.shift.id}/assignments`,
         {
             preserveScroll: true,

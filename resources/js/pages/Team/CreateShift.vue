@@ -1,4 +1,5 @@
 <script setup>
+import { ColorPicker } from '../../components/ui/color-picker';
 import { computed, ref } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import AppLayout from '../../layouts/AppLayout.vue';
@@ -9,23 +10,42 @@ import { CustomDropdown } from '../../components/ui/custom-dropdown';
 import { FormField } from '../../components/ui/form-field';
 import { Input } from '../../components/ui/input';
 import ShiftRoleSlots from '../../components/team/ShiftRoleSlots.vue';
+import ShiftRoster from '../../components/team/ShiftRoster.vue';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { fieldError, toastFormErrors } from '../../lib/fieldError';
-import { shiftSlotPayload, shiftSlotErrors } from '../../lib/shiftRoleSlots';
+import {
+    shiftSlotPayload,
+    shiftSlotErrors,
+    totalShiftNeeds,
+} from '../../lib/shiftRoleSlots';
+import { scheduleReturnHref } from '../../lib/scheduleTimeline';
 
 const props = defineProps({
     event: { type: Object, required: true },
     locations: { type: Array, required: true },
+    labelColors: { type: Array, required: true },
     roles: { type: Array, required: true },
+    prefill: { type: Object, default: () => ({}) },
+    returnContext: { type: Object, default: () => ({}) },
 });
+const backHref = computed(() => scheduleReturnHref(props.returnContext));
 const form = useForm({
+    color: 'teal',
     name: '',
-    location_id: props.locations[0]?.id ?? '',
-    starts_at: '',
-    ends_at: '',
+    location_id: props.prefill.location_id ?? props.locations[0]?.id ?? '',
+    starts_at: props.prefill.starts_at ?? '',
+    ends_at: props.prefill.ends_at ?? '',
     slots: [],
+    ...props.returnContext,
 });
 const slotErrors = ref({});
+const draftRoster = computed(() => ({
+    assignments: [],
+    slots: [],
+    filled_count: 0,
+    total_needs: totalShiftNeeds(form.slots),
+    extra_count: 0,
+}));
 const { showError, showFormError } = useFlashToast();
 const locationItems = computed(() =>
     props.locations.map((location) => ({
@@ -63,14 +83,14 @@ const clearSlotError = (key, field) => {
             { label: trans('team.title'), href: '/team/advancement' },
             {
                 label: trans('nav.team.scheduling'),
-                href: '/team/scheduling?tab=list',
+                href: backHref,
             },
             { label: trans('team.scheduling.actions.new') },
         ]"
-        back-href="/team/scheduling?tab=list"
+        :back-href="backHref"
         :back-label="$t('team.scheduling.actions.back')"
     >
-        <div class="container mx-auto max-w-6xl pb-24">
+        <div class="container mx-auto max-w-6xl pb-24 xl:max-w-none">
             <h1 class="mb-5 text-2xl font-bold tracking-tight">
                 {{ $t('team.scheduling.actions.new') }}
             </h1>
@@ -83,12 +103,15 @@ const clearSlotError = (key, field) => {
             </p>
             <form
                 id="create-shift-form"
-                class="space-y-5"
+                class="grid items-start gap-4 xl:grid-cols-2 xl:items-stretch"
                 novalidate
                 @submit.prevent="submit"
             >
-                <Card>
-                    <div class="space-y-5">
+                <Card class="min-w-0">
+                    <h2 class="m-0 mb-4 text-xl font-bold text-muted">
+                        {{ $t('team.scheduling.shift_section') }}
+                    </h2>
+                    <div class="space-y-4">
                         <FormField
                             :label="$t('team.scheduling.fields.name')"
                             :error="fieldError(form, 'name')"
@@ -104,6 +127,24 @@ const clearSlotError = (key, field) => {
                                             'team.scheduling.fields.name_placeholder',
                                         )
                                     "
+                                    :disabled="form.processing"
+                                />
+                            </template>
+                        </FormField>
+
+                        <FormField
+                            :label="$t('team.scheduling.fields.color')"
+                            :error="fieldError(form, 'color')"
+                        >
+                            <template #default="{ id, invalid }">
+                                <ColorPicker
+                                    :id="id"
+                                    v-model="form.color"
+                                    :colors="labelColors"
+                                    :aria-label="
+                                        $t('team.scheduling.fields.color')
+                                    "
+                                    :invalid="invalid"
                                     :disabled="form.processing"
                                 />
                             </template>
@@ -169,13 +210,13 @@ const clearSlotError = (key, field) => {
                         </div>
                     </div>
                 </Card>
-                <Card class="mt-4">
+                <Card class="min-w-0">
                     <ShiftRoleSlots
                         v-model="form.slots"
                         :roles="roles"
                         :errors="slotErrors"
                         :busy="form.processing"
-                        :title="$t('team.scheduling.slots.create_title')"
+                        :title="$t('team.scheduling.slots.detail_title')"
                         @clear-error="clearSlotError"
                     />
                     <p
@@ -187,16 +228,22 @@ const clearSlotError = (key, field) => {
                     </p>
                 </Card>
             </form>
+            <Card class="mt-4">
+                <ShiftRoster
+                    :shift="draftRoster"
+                    :empty-text="$t('team.scheduling.assignments.create_first')"
+                />
+            </Card>
         </div>
         <footer
             class="fixed right-0 bottom-0 left-0 z-20 border-t border-line bg-ground lg:left-[var(--app-sidebar-width)]"
         >
-            <div class="container mx-auto px-4 md:px-6">
+            <div class="container mx-auto px-4 md:px-6 xl:px-0">
                 <div
-                    class="mx-auto flex max-w-6xl items-center justify-between gap-3 py-4"
+                    class="mx-auto flex max-w-6xl items-center justify-between gap-3 py-4 xl:max-w-none"
                 >
                     <Button
-                        href="/team/scheduling?tab=list"
+                        :href="backHref"
                         variant="cancel"
                         >{{ $t('ui.dialog.cancel') }}</Button
                     >

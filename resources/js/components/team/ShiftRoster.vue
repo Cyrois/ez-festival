@@ -11,6 +11,7 @@ const props = defineProps({
     canRemove: { type: Boolean, default: false },
     disabledReason: { type: String, default: '' },
     busy: { type: Boolean, default: false },
+    emptyText: { type: String, default: '' },
 });
 defineEmits(['assign', 'remove']);
 const detached = computed(() =>
@@ -214,7 +215,7 @@ const detached = computed(() =>
             v-if="!shift.slots.length && !detached.length"
             class="mt-4 text-sm text-muted"
         >
-            {{ $t('team.scheduling.assignments.no_requirements') }}
+            {{ emptyText || $t('team.scheduling.assignments.no_requirements') }}
         </p>
     </section>
 </template>

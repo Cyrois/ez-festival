@@ -3,11 +3,20 @@ import { Button } from '../../components/ui/button';
 import { DataTable } from '../../components/ui/data-table';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Icon } from '../../components/ui/icon';
+import { Input } from '../../components/ui/input';
+import { CustomDropdown } from '../../components/ui/custom-dropdown';
+import LocationScheduleGrid from '../../components/team/LocationScheduleGrid.vue';
 import { Tab, TabList, TabPanel, Tabs } from '../../components/ui/tabs';
 import AppLayout from '../../layouts/AppLayout.vue';
 import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
-import { Link, usePage } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { Link, router, usePage } from '@inertiajs/vue3';
+import { computed, ref, watch } from 'vue';
+import {
+    scheduleCreateHref,
+    scheduleDay,
+    scheduleDateLabel,
+    scheduleShiftHref,
+} from '../../lib/scheduleTimeline';
 import { trans } from 'laravel-vue-i18n';
 import { shiftColumns } from './shiftColumns';
 
@@ -15,6 +24,7 @@ const props = defineProps({
     event: { type: Object, required: true },
     locations: { type: Array, required: true },
     canManage: { type: Boolean, default: false },
+    scheduleDate: { type: String, required: true },
 });
 
 const page = usePage();
@@ -22,8 +32,51 @@ const initialTab = new URLSearchParams(page.url.split('?')[1] ?? '').get('tab');
 const activeTab = ref(
     ['schedule', 'list', 'templates'].includes(initialTab)
         ? initialTab
-        : 'list',
+        : 'schedule',
 );
+const selectedDate = ref(props.scheduleDate);
+const selectedLocation = ref('');
+const locationItems = computed(() => [
+    { value: '', title: trans('team.scheduling.grid.all_locations') },
+    ...props.locations.map((location) => ({
+        value: location.id,
+        title: location.name,
+    })),
+]);
+const locale = computed(() => page.props.locale ?? undefined);
+const dateLabel = computed(() =>
+    scheduleDateLabel(selectedDate.value, locale.value, { year: 'numeric' }),
+);
+const selectDate = (date) => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) selectedDate.value = date;
+};
+watch(
+    () => props.scheduleDate,
+    (date) => {
+        selectedDate.value = date;
+    },
+);
+watch(
+    () => page.url,
+    (url) => {
+        const tab = new URLSearchParams(url.split('?')[1] ?? '').get('tab');
+        if (['schedule', 'list', 'templates'].includes(tab))
+            activeTab.value = tab;
+    },
+);
+watch([selectedDate, activeTab], ([date, tab]) => {
+    const params = new URLSearchParams({ date, tab });
+    router.replace({
+        url: '/team/scheduling?' + params,
+        props: (current) => ({ ...current, scheduleDate: date }),
+        preserveState: true,
+        preserveScroll: true,
+    });
+});
+const createShift = (selection) => {
+    if (!canWrite.value) return;
+    router.get(scheduleCreateHref(selectedDate.value, 'schedule', selection));
+};
 const canWrite = computed(() => props.canManage && !props.event.is_locked);
 const columns = computed(() => shiftColumns(trans));
 const tableOptions = computed(() => ({
@@ -36,7 +89,9 @@ const tableOptions = computed(() => ({
         { targets: 6, className: 'text-right' },
     ],
     createdRow: (row, shift) =>
-        navigateDataTableRow(row, shift, (item) => `/team/shifts/${item.id}`),
+        navigateDataTableRow(row, shift, (item) =>
+            scheduleShiftHref(item.id, selectedDate.value, 'list'),
+        ),
     language: {
         emptyTable: trans('team.scheduling.empty_list'),
         searchPlaceholder: trans('team.scheduling.search'),
@@ -76,7 +131,13 @@ const formatDateTime = (value) =>
                         {{ $t('team.scheduling.heading') }}
                     </h1>
                     <p class="mt-1 mb-0 text-sm text-muted">
-                        {{ $t('team.scheduling.lead') }}
+                        {{
+                            $t(
+                                activeTab === 'schedule'
+                                    ? 'team.scheduling.grid.lead'
+                                    : 'team.scheduling.lead',
+                            )
+                        }}
                     </p>
                 </div>
                 <Button
@@ -91,7 +152,7 @@ const formatDateTime = (value) =>
                     "
                     class="w-full sm:w-auto"
                     :disabled="!canWrite || locations.length === 0"
-                    href="/team/shifts/create"
+                    :href="scheduleCreateHref(selectedDate, activeTab)"
                 >
                     <Icon
                         :name="['fas', 'plus']"
@@ -133,23 +194,86 @@ const formatDateTime = (value) =>
                 </TabList>
 
                 <TabPanel value="schedule">
-                    <EmptyState
-                        :title="$t('team.scheduling.future.schedule.title')"
-                        :description="
-                            $t('team.scheduling.future.schedule.description')
-                        "
+                    <div class="mb-4 flex flex-wrap items-center gap-3">
+                        <Button
+                            variant="outline-primary"
+                            size="icon"
+                            :aria-label="
+                                $t('team.scheduling.grid.previous_day')
+                            "
+                            @click="
+                                selectedDate = scheduleDay(selectedDate, -1)
+                            "
+                        >
+                            <Icon :name="['fas', 'chevron-left']" />
+                        </Button>
+                        <span class="text-sm font-semibold">{{
+                            dateLabel
+                        }}</span>
+                        <Button
+                            variant="outline-primary"
+                            size="icon"
+                            :aria-label="$t('team.scheduling.grid.next_day')"
+                            @click="selectedDate = scheduleDay(selectedDate, 1)"
+                        >
+                            <Icon :name="['fas', 'chevron-right']" />
+                        </Button>
+                        <div class="w-40">
+                            <Input
+                                :model-value="selectedDate"
+                                type="date"
+                                :aria-label="
+                                    $t('team.scheduling.grid.select_day')
+                                "
+                                @update:model-value="selectDate"
+                            />
+                        </div>
+                        <div class="w-52">
+                            <CustomDropdown
+                                v-model="selectedLocation"
+                                :items="locationItems"
+                                :placeholder="
+                                    $t('team.scheduling.grid.all_locations')
+                                "
+                                :aria-label="
+                                    $t('team.scheduling.fields.location')
+                                "
+                            />
+                        </div>
+                        <span class="ml-auto text-xs text-muted">{{
+                            $t(
+                                canWrite
+                                    ? 'team.scheduling.grid.hint'
+                                    : 'team.scheduling.grid.view_hint',
+                            )
+                        }}</span>
+                    </div>
+                    <LocationScheduleGrid
+                        v-if="activeTab === 'schedule'"
+                        :date="selectedDate"
+                        :location-id="selectedLocation"
+                        :event-id="event.id"
+                        :can-create="canWrite && locations.length > 0"
+                        @create="createShift"
                     />
                 </TabPanel>
 
                 <TabPanel value="list">
                     <DataTable
+                        v-if="activeTab === 'list'"
                         ajax="/team/scheduling/shifts"
                         :columns="columns"
                         :options="tableOptions"
                     >
                         <template #nameCell="{ rowData }">
                             <Link
-                                :href="'/team/shifts/' + rowData.id"
+                                :href="
+                                    scheduleShiftHref(
+                                        rowData.id,
+                                        selectedDate,
+                                        'list',
+                                    )
+                                "
                                 class="cursor-pointer font-semibold text-charcoal no-underline hover:text-primary hover:underline"
                             >
                                 {{ shiftName(rowData) }}
@@ -202,7 +326,13 @@ const formatDateTime = (value) =>
                         </template>
                         <template #openCell="{ rowData }">
                             <Link
-                                :href="`/team/shifts/${rowData.id}`"
+                                :href="
+                                    scheduleShiftHref(
+                                        rowData.id,
+                                        selectedDate,
+                                        'list',
+                                    )
+                                "
                                 class="inline-flex text-muted hover:text-primary"
                                 :aria-label="
                                     $t('data_table.open', {
