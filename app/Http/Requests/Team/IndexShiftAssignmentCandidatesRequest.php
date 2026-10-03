@@ -11,7 +11,7 @@ class IndexShiftAssignmentCandidatesRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return $this->authorizeShift();
+        return $this->authorizeShift() && ! $this->route('shift')->event->isLocked();
     }
 
     public function rules(): array

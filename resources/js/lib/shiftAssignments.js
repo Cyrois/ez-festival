@@ -27,3 +27,25 @@ export function requirementRoster(shift, slot) {
             assignment.role_id === slot.role_id,
     );
 }
+
+export function scheduleRosterRows(shift) {
+    const rows = shift.slots.flatMap((slot) => [
+        ...requirementRoster(shift, slot).map((assignment) => ({
+            key: `person-${assignment.id}`,
+            assignment,
+        })),
+        ...Array.from({ length: slot.open_count }, (_, index) => ({
+            key: `open-${slot.id}-${index}`,
+            slot,
+        })),
+    ]);
+    return [
+        ...rows,
+        ...shift.assignments
+            .filter((assignment) => assignment.shift_role_slot_id === null)
+            .map((assignment) => ({
+                key: `person-${assignment.id}`,
+                assignment,
+            })),
+    ];
+}

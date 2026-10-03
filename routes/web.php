@@ -44,6 +44,7 @@ use App\Http\Controllers\Team\MemberController as TeamMemberController;
 use App\Http\Controllers\Team\MemberStatusController as TeamMemberStatusController;
 use App\Http\Controllers\Team\PublicFormController as TeamPublicFormController;
 use App\Http\Controllers\Team\ScheduleGridController;
+use App\Http\Controllers\Team\ScheduleRosterController;
 use App\Http\Controllers\Team\SchedulingController as TeamSchedulingController;
 use App\Http\Controllers\Team\ShiftAssignmentController;
 use App\Http\Controllers\Team\ShiftController as TeamShiftController;
@@ -136,6 +137,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::get('members/{engagement}', [TeamMemberController::class, 'show'])->name('members.show');
             Route::get('scheduling', [TeamSchedulingController::class, 'index'])->name('scheduling');
             Route::get('scheduling/grid', [ScheduleGridController::class, 'index'])->name('scheduling.grid');
+            Route::get('scheduling/roster', [ScheduleRosterController::class, 'index'])->name('scheduling.roster');
             Route::get('scheduling/shifts', [TeamShiftDataTableController::class, 'index'])
                 ->name('scheduling.shifts');
             Route::get('shifts/create', [TeamShiftController::class, 'create'])->name('shifts.create');

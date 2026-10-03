@@ -92,7 +92,13 @@ export function scheduleLanes(shifts, date) {
     });
 }
 
-export function scheduleCreateHref(date, tab = 'schedule', selection = null) {
+export function scheduleCreateHref(
+    date,
+    tab = 'schedule',
+    selection = null,
+    locationId = '',
+    view = '',
+) {
     const params = new URLSearchParams({
         return_tab: tab === 'list' ? 'list' : 'schedule',
         schedule_date: date,
@@ -102,14 +108,24 @@ export function scheduleCreateHref(date, tab = 'schedule', selection = null) {
         params.set('starts_at', selection.starts_at);
         params.set('ends_at', selection.ends_at);
     }
+    if (locationId) params.set('schedule_location_id', locationId);
+    if (view) params.set('schedule_view', view);
     return '/team/shifts/create?' + params;
 }
 
-export function scheduleShiftHref(id, date, tab = 'schedule') {
+export function scheduleShiftHref(
+    id,
+    date,
+    tab = 'schedule',
+    locationId = '',
+    view = '',
+) {
     const params = new URLSearchParams({
         return_tab: tab === 'list' ? 'list' : 'schedule',
         schedule_date: date,
     });
+    if (locationId) params.set('schedule_location_id', locationId);
+    if (view) params.set('schedule_view', view);
     return `/team/shifts/${id}?${params}`;
 }
 
@@ -118,5 +134,53 @@ export function scheduleReturnHref(context = {}) {
         tab: context.return_tab === 'schedule' ? 'schedule' : 'list',
     });
     if (context.schedule_date) params.set('date', context.schedule_date);
+    if (context.schedule_location_id)
+        params.set('location_id', context.schedule_location_id);
+    if (context.schedule_view) params.set('view', context.schedule_view);
     return '/team/scheduling?' + params;
+}
+
+// Older shared links without an explicit view retain their location roster.
+export function scheduleLocationFromUrl(url, locations) {
+    const value = new URLSearchParams(url.split('?')[1] ?? '').get(
+        'location_id',
+    );
+    return (
+        locations.find((location) => String(location.id) === value)?.id ?? ''
+    );
+}
+
+export function schedulePageHref(date, tab, locationId = '', view = '') {
+    const params = new URLSearchParams({ date, tab });
+    if (locationId) params.set('location_id', locationId);
+    if (view) params.set('view', view);
+    return '/team/scheduling?' + params;
+}
+
+export function scheduleOverlapIntervals(assignment, date) {
+    return assignment.overlaps
+        .map((overlap) =>
+            scheduleInterval(
+                {
+                    starts_at:
+                        assignment.starts_at > overlap.starts_at
+                            ? assignment.starts_at
+                            : overlap.starts_at,
+                    ends_at:
+                        assignment.ends_at < overlap.ends_at
+                            ? assignment.ends_at
+                            : overlap.ends_at,
+                },
+                date,
+            ),
+        )
+        .filter(Boolean);
+}
+
+export function scheduleViewFromUrl(url, locations) {
+    const view = new URLSearchParams(url.split('?')[1] ?? '').get('view');
+    if (['all_locations', 'location_shifts'].includes(view)) return view;
+    return scheduleLocationFromUrl(url, locations)
+        ? 'location_shifts'
+        : 'all_locations';
 }

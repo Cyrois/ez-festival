@@ -11,6 +11,8 @@ final class ShiftReturnContext
         return [
             'return_tab' => ['sometimes', Rule::in(['schedule', 'list'])],
             'schedule_date' => ['sometimes', 'date_format:Y-m-d'],
+            'schedule_location_id' => ['sometimes', 'integer', 'min:1'],
+            'schedule_view' => ['sometimes', Rule::in(['all_locations', 'location_shifts'])],
         ];
     }
 
@@ -29,6 +31,6 @@ final class ShiftReturnContext
         $context = self::from($data);
         $date = $context['schedule_date'] ?? $defaultDate;
 
-        return ['tab' => $context['return_tab'] ?? 'list', ...($date !== null ? ['date' => $date] : [])];
+        return ['tab' => $context['return_tab'] ?? 'list', ...($date !== null ? ['date' => $date] : []), ...(isset($context['schedule_view']) ? ['view' => $context['schedule_view']] : []), ...(isset($context['schedule_location_id']) ? ['location_id' => $context['schedule_location_id']] : [])];
     }
 }

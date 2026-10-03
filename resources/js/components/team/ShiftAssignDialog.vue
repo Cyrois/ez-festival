@@ -2,6 +2,7 @@
 import { computed, ref, watch, onUnmounted } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
+import { Badge } from '../ui/badge';
 import { Dialog } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { FormField } from '../ui/form-field';
@@ -22,7 +23,7 @@ const props = defineProps({
     requirement: { type: Object, required: true },
     returnContext: { type: Object, default: () => ({}) },
 });
-const emit = defineEmits(['close']);
+const emit = defineEmits(['close', 'assigned']);
 const table = ref(null);
 const selected = ref(null);
 const search = ref('');
@@ -201,7 +202,10 @@ const assign = () => {
                 showFormError(errors);
                 table.value?.reload(false);
             },
-            onSuccess: () => emit('close'),
+            onSuccess: () => {
+                emit('assigned');
+                emit('close');
+            },
         },
     );
 };
@@ -298,6 +302,15 @@ const assign = () => {
                 </template>
                 <template #role="{ rowData }">
                     {{ rowData.role_name || '—' }}
+                    <Badge
+                        v-if="rowData.suggested"
+                        pill
+                        variant="primary"
+                        class="ml-2"
+                        >{{
+                            $t('team.scheduling.assignments.suggested')
+                        }}</Badge
+                    >
                 </template>
                 <template #group="{ rowData }">
                     {{ rowData.group_name || '—' }}

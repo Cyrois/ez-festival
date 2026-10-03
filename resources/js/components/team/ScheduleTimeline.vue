@@ -25,6 +25,9 @@ const props = defineProps({
     empty: { type: Boolean, default: false },
     loading: { type: Boolean, default: false },
     hasMore: { type: Boolean, default: false },
+    labelWidth: { type: Number, default: SCHEDULE_LABEL_WIDTH },
+    labelText: { type: String, default: '' },
+    moreLabel: { type: String, default: '' },
 });
 const emit = defineEmits(['create', 'load-more']);
 const viewport = ref(null);
@@ -52,6 +55,7 @@ const geometry = (start, end, lane = 0) => ({
     '--bar-start': `${(start / 30) * SCHEDULE_CELL_WIDTH + 2}px`,
     '--bar-width': `${Math.max(4, ((end - start) / 30) * SCHEDULE_CELL_WIDTH - 4)}px`,
     '--bar-top': `${lane * 64 + 10}px`,
+    '--bar-end': `${(end / 30) * SCHEDULE_CELL_WIDTH}px`,
 });
 let capturedCanvas;
 let animation;
@@ -72,7 +76,7 @@ const cancelDrag = () => {
 const autoScroll = () => {
     if (!drag.value || !viewport.value || !capturedCanvas) return;
     const rect = viewport.value.getBoundingClientRect();
-    const left = rect.left + SCHEDULE_LABEL_WIDTH;
+    const left = rect.left + props.labelWidth;
     const direction =
         pointerX > rect.right - 36 ? 1 : pointerX < left + 36 ? -1 : 0;
     if (direction) {
@@ -183,6 +187,7 @@ onUnmounted(() => {
 <template>
     <div
         class="relative overflow-hidden rounded-lg border border-line bg-ground"
+        :style="{ '--label-width': labelWidth + 'px' }"
     >
         <div
             ref="viewport"
@@ -193,14 +198,19 @@ onUnmounted(() => {
             tabindex="0"
             @scroll="onScroll"
         >
-            <div class="relative min-h-40 w-[calc(10rem+168rem)]">
+            <div
+                class="relative w-[calc(var(--label-width)+168rem)]"
+                :class="
+                    empty && rows.length && !helperDismissed ? 'min-h-40' : ''
+                "
+            >
                 <div
                     class="sticky top-0 z-20 flex h-8 border-b border-line bg-page"
                 >
                     <div
-                        class="sticky left-0 z-30 flex w-40 shrink-0 items-center border-r border-line bg-page px-3 text-xs font-semibold text-muted"
+                        class="sticky left-0 z-30 flex w-[var(--label-width)] shrink-0 items-center border-r border-line bg-page px-3 text-xs font-semibold text-muted"
                     >
-                        {{ $t('team.scheduling.table.location') }}
+                        {{ labelText || $t('team.scheduling.table.location') }}
                     </div>
                     <div class="grid grid-cols-[repeat(48,3.5rem)]">
                         <div
@@ -216,124 +226,148 @@ onUnmounted(() => {
                         </div>
                     </div>
                 </div>
-                <div
-                    v-for="row in layout"
-                    :key="row.id"
-                    class="flex border-b border-line last:border-b-0"
-                    :style="{ '--row-height': row.height + 'px' }"
+                <slot
+                    name="rows"
+                    :geometry="geometry"
+                    :slots="slots"
                 >
                     <div
-                        class="sticky left-0 z-10 flex min-h-[var(--row-height)] w-40 shrink-0 flex-col justify-center border-r border-line bg-ground px-3"
-                    >
-                        <span class="text-sm font-semibold">{{
-                            row.name
-                        }}</span>
-                        <span class="mt-0.5 text-xs text-muted">{{
-                            $t(
-                                row.shifts.length
-                                    ? row.shifts.length === 1
-                                        ? 'team.scheduling.grid.one_shift'
-                                        : 'team.scheduling.grid.shift_count'
-                                    : 'team.scheduling.grid.no_shifts',
-                                { count: row.shifts.length },
-                            )
-                        }}</span>
-                    </div>
-                    <div
-                        class="relative h-[var(--row-height)] w-[168rem] shrink-0"
-                        :class="canCreate ? 'cursor-crosshair touch-pan-y' : ''"
-                        :data-location-id="row.id"
-                        @pointerdown="startDrag($event, row)"
-                        @pointermove="moveDrag"
-                        @pointerup="finishDrag"
-                        @pointercancel="cancelDrag"
-                        @lostpointercapture="cancelDrag"
+                        v-for="row in layout"
+                        :key="row.id"
+                        class="flex border-b border-line last:border-b-0"
+                        :style="{ '--row-height': row.height + 'px' }"
                     >
                         <div
-                            class="absolute inset-0 grid grid-cols-[repeat(48,3.5rem)]"
-                            aria-hidden="true"
+                            class="sticky left-0 z-10 flex min-h-[var(--row-height)] w-[var(--label-width)] shrink-0 flex-col justify-center border-r border-line bg-ground px-3"
+                        >
+                            <span class="text-sm font-semibold">{{
+                                row.name
+                            }}</span>
+                            <span class="mt-0.5 text-xs text-muted">{{
+                                $t(
+                                    row.shifts.length
+                                        ? row.shifts.length === 1
+                                            ? 'team.scheduling.grid.one_shift'
+                                            : 'team.scheduling.grid.shift_count'
+                                        : 'team.scheduling.grid.no_shifts',
+                                    { count: row.shifts.length },
+                                )
+                            }}</span>
+                        </div>
+                        <div
+                            class="relative h-[var(--row-height)] w-[168rem] shrink-0"
+                            :class="
+                                canCreate ? 'cursor-crosshair touch-pan-y' : ''
+                            "
+                            :data-location-id="row.id"
+                            @pointerdown="startDrag($event, row)"
+                            @pointermove="moveDrag"
+                            @pointerup="finishDrag"
+                            @pointercancel="cancelDrag"
+                            @lostpointercapture="cancelDrag"
                         >
                             <div
-                                v-for="slot in slots"
-                                :key="slot"
-                                class="border-r border-line/60 transition-colors"
-                                :class="canCreate ? 'hover:bg-page' : ''"
-                                data-schedule-cell
-                            />
-                        </div>
-                        <Link
-                            v-for="shift in row.shifts"
-                            :key="shift.id"
-                            :href="scheduleShiftHref(shift.id, date)"
-                            class="absolute top-[var(--bar-top)] left-[var(--bar-start)] z-[1] flex h-14 w-[var(--bar-width)] min-w-1 flex-col justify-center overflow-hidden rounded-lg border px-2 text-xs no-underline focus-visible:z-10 focus-visible:ring-[3px] focus-visible:ring-secondary focus-visible:outline-none"
-                            :class="
-                                !scheduleShiftIsFilled(shift)
-                                    ? [
-                                          labelTokens[shift.color ?? 'teal']
-                                              ?.classes,
-                                          labelTokens[shift.color ?? 'teal']
-                                              ?.unfilledHover,
-                                          'border-dashed pr-7 hover:border-solid',
-                                      ]
-                                    : [
-                                          labelTokens[shift.color ?? 'teal']
-                                              ?.solid,
-                                          'pr-7 hover:opacity-90',
-                                      ]
-                            "
-                            :style="
-                                geometry(
-                                    shift.interval.start,
-                                    shift.interval.end,
-                                    shift.lane,
-                                )
-                            "
-                            :title="`${shift.name || $t('team.scheduling.unnamed_shift')} · ${shift.starts_at.replace('T', ' ')} – ${shift.ends_at.replace('T', ' ')}`"
-                            :aria-label="
-                                $t('team.scheduling.grid.open_shift', {
-                                    name:
-                                        shift.name ||
-                                        $t('team.scheduling.unnamed_shift'),
-                                    start: shift.starts_at.replace('T', ' '),
-                                    end: shift.ends_at.replace('T', ' '),
-                                    filled: shift.filled_count,
-                                    needed: shift.total_needs,
-                                })
-                            "
-                        >
-                            <span class="truncate font-semibold">{{
-                                shift.name ||
-                                $t('team.scheduling.unnamed_shift')
-                            }}</span>
-                            <span class="mt-0.5 whitespace-nowrap">
-                                {{
-                                    $t('team.scheduling.grid.filled', {
+                                class="absolute inset-0 grid grid-cols-[repeat(48,3.5rem)]"
+                                aria-hidden="true"
+                            >
+                                <div
+                                    v-for="slot in slots"
+                                    :key="slot"
+                                    class="border-r border-line/60 transition-colors"
+                                    :class="canCreate ? 'hover:bg-page' : ''"
+                                    data-schedule-cell
+                                />
+                            </div>
+                            <Link
+                                v-for="shift in row.shifts"
+                                :key="shift.id"
+                                :href="
+                                    scheduleShiftHref(
+                                        shift.id,
+                                        date,
+                                        'schedule',
+                                        locationId,
+                                        'all_locations',
+                                    )
+                                "
+                                class="absolute top-[var(--bar-top)] left-[var(--bar-start)] z-[1] flex h-14 w-[var(--bar-width)] min-w-1 flex-col justify-center overflow-hidden rounded-lg border px-2 text-xs no-underline focus-visible:z-10 focus-visible:ring-[3px] focus-visible:ring-secondary focus-visible:outline-none"
+                                :class="
+                                    !scheduleShiftIsFilled(shift)
+                                        ? [
+                                              labelTokens[shift.color ?? 'teal']
+                                                  ?.classes,
+                                              labelTokens[shift.color ?? 'teal']
+                                                  ?.unfilledHover,
+                                              'border-dashed pr-7 hover:border-solid',
+                                          ]
+                                        : [
+                                              labelTokens[shift.color ?? 'teal']
+                                                  ?.solid,
+                                              'pr-7 hover:opacity-90',
+                                          ]
+                                "
+                                :style="
+                                    geometry(
+                                        shift.interval.start,
+                                        shift.interval.end,
+                                        shift.lane,
+                                    )
+                                "
+                                :title="`${shift.name || $t('team.scheduling.unnamed_shift')} · ${shift.starts_at.replace('T', ' ')} – ${shift.ends_at.replace('T', ' ')}`"
+                                :aria-label="
+                                    $t('team.scheduling.grid.open_shift', {
+                                        name:
+                                            shift.name ||
+                                            $t('team.scheduling.unnamed_shift'),
+                                        start: shift.starts_at.replace(
+                                            'T',
+                                            ' ',
+                                        ),
+                                        end: shift.ends_at.replace('T', ' '),
                                         filled: shift.filled_count,
                                         needed: shift.total_needs,
                                     })
-                                }}
-                            </span>
-                            <Icon
-                                v-if="scheduleShiftIsFilled(shift)"
-                                :name="['fas', 'check']"
-                                class="absolute top-1/2 right-2 -translate-y-1/2"
+                                "
+                            >
+                                <span class="truncate font-semibold">{{
+                                    shift.name ||
+                                    $t('team.scheduling.unnamed_shift')
+                                }}</span>
+                                <span class="mt-0.5 whitespace-nowrap">
+                                    {{
+                                        $t('team.scheduling.grid.filled', {
+                                            filled: shift.filled_count,
+                                            needed: shift.total_needs,
+                                        })
+                                    }}
+                                </span>
+                                <Icon
+                                    v-if="scheduleShiftIsFilled(shift)"
+                                    :name="['fas', 'check']"
+                                    class="absolute top-1/2 right-2 -translate-y-1/2"
+                                    aria-hidden="true"
+                                />
+                                <Icon
+                                    v-if="!scheduleShiftIsFilled(shift)"
+                                    :name="['fas', 'circle-exclamation']"
+                                    class="absolute top-1/2 right-2 -translate-y-1/2 text-warning"
+                                    aria-hidden="true"
+                                />
+                            </Link>
+                            <div
+                                v-if="
+                                    selection &&
+                                    selection.location_id === row.id
+                                "
+                                class="pointer-events-none absolute top-1 bottom-1 left-[var(--bar-start)] z-[2] w-[var(--bar-width)] rounded-lg border border-primary bg-primary/15"
+                                :style="
+                                    geometry(selection.start, selection.end)
+                                "
                                 aria-hidden="true"
                             />
-                            <Icon
-                                v-if="!scheduleShiftIsFilled(shift)"
-                                :name="['fas', 'circle-exclamation']"
-                                class="absolute top-1/2 right-2 -translate-y-1/2 text-warning"
-                                aria-hidden="true"
-                            />
-                        </Link>
-                        <div
-                            v-if="selection && selection.location_id === row.id"
-                            class="pointer-events-none absolute top-1 bottom-1 left-[var(--bar-start)] z-[2] w-[var(--bar-width)] rounded-lg border border-primary bg-primary/15"
-                            :style="geometry(selection.start, selection.end)"
-                            aria-hidden="true"
-                        />
+                        </div>
                     </div>
-                </div>
+                </slot>
             </div>
             <div
                 v-if="loading || hasMore"
@@ -349,7 +383,9 @@ onUnmounted(() => {
                     v-else
                     variant="cancel"
                     @click="emit('load-more')"
-                    >{{ $t('team.scheduling.grid.more_locations') }}</Button
+                    >{{
+                        moreLabel || $t('team.scheduling.grid.more_locations')
+                    }}</Button
                 >
             </div>
         </div>

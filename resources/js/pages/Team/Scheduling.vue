@@ -4,7 +4,9 @@ import { DataTable } from '../../components/ui/data-table';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
+import { SegmentedControl } from '../../components/ui/segmented-control';
 import { CustomDropdown } from '../../components/ui/custom-dropdown';
+import LocationRosterSchedule from '../../components/team/LocationRosterSchedule.vue';
 import LocationScheduleGrid from '../../components/team/LocationScheduleGrid.vue';
 import { Tab, TabList, TabPanel, Tabs } from '../../components/ui/tabs';
 import AppLayout from '../../layouts/AppLayout.vue';
@@ -16,6 +18,9 @@ import {
     scheduleDay,
     scheduleDateLabel,
     scheduleShiftHref,
+    scheduleLocationFromUrl,
+    schedulePageHref,
+    scheduleViewFromUrl,
 } from '../../lib/scheduleTimeline';
 import { trans } from 'laravel-vue-i18n';
 import { shiftColumns } from './shiftColumns';
@@ -35,9 +40,34 @@ const activeTab = ref(
         : 'schedule',
 );
 const selectedDate = ref(props.scheduleDate);
-const selectedLocation = ref('');
+const scheduleView = ref(scheduleViewFromUrl(page.url, props.locations));
+const selectedLocation = ref(
+    scheduleLocationFromUrl(page.url, props.locations) ||
+        (scheduleView.value === 'location_shifts'
+            ? (props.locations[0]?.id ?? '')
+            : ''),
+);
+const viewOptions = computed(() => [
+    {
+        value: 'all_locations',
+        label: trans('team.scheduling.views.all_locations'),
+        icon: ['fas', 'table-columns'],
+    },
+    {
+        value: 'location_shifts',
+        label: trans('team.scheduling.views.location_shifts'),
+        icon: ['fas', 'list'],
+    },
+]);
+const selectView = (view) => {
+    scheduleView.value = view;
+    if (view === 'location_shifts' && !selectedLocation.value)
+        selectedLocation.value = props.locations[0]?.id ?? '';
+};
 const locationItems = computed(() => [
-    { value: '', title: trans('team.scheduling.grid.all_locations') },
+    ...(scheduleView.value === 'all_locations'
+        ? [{ value: '', title: trans('team.scheduling.grid.all_locations') }]
+        : []),
     ...props.locations.map((location) => ({
         value: location.id,
         title: location.name,
@@ -59,23 +89,39 @@ watch(
 watch(
     () => page.url,
     (url) => {
+        scheduleView.value = scheduleViewFromUrl(url, props.locations);
+        selectedLocation.value = scheduleLocationFromUrl(url, props.locations);
+        if (scheduleView.value === 'location_shifts' && !selectedLocation.value)
+            selectedLocation.value = props.locations[0]?.id ?? '';
         const tab = new URLSearchParams(url.split('?')[1] ?? '').get('tab');
         if (['schedule', 'list', 'templates'].includes(tab))
             activeTab.value = tab;
     },
 );
-watch([selectedDate, activeTab], ([date, tab]) => {
-    const params = new URLSearchParams({ date, tab });
-    router.replace({
-        url: '/team/scheduling?' + params,
-        props: (current) => ({ ...current, scheduleDate: date }),
-        preserveState: true,
-        preserveScroll: true,
-    });
-});
+watch(
+    [selectedDate, activeTab, selectedLocation, scheduleView],
+    ([date, tab, location, view]) => {
+        const url = schedulePageHref(date, tab, location, view);
+        if (page.url === url) return;
+        router.replace({
+            url,
+            props: (current) => ({ ...current, scheduleDate: date }),
+            preserveState: true,
+            preserveScroll: true,
+        });
+    },
+);
 const createShift = (selection) => {
     if (!canWrite.value) return;
-    router.get(scheduleCreateHref(selectedDate.value, 'schedule', selection));
+    router.get(
+        scheduleCreateHref(
+            selectedDate.value,
+            'schedule',
+            selection,
+            selectedLocation.value,
+            scheduleView.value,
+        ),
+    );
 };
 const canWrite = computed(() => props.canManage && !props.event.is_locked);
 const columns = computed(() => shiftColumns(trans));
@@ -90,7 +136,13 @@ const tableOptions = computed(() => ({
     ],
     createdRow: (row, shift) =>
         navigateDataTableRow(row, shift, (item) =>
-            scheduleShiftHref(item.id, selectedDate.value, 'list'),
+            scheduleShiftHref(
+                item.id,
+                selectedDate.value,
+                'list',
+                selectedLocation.value,
+                scheduleView.value,
+            ),
         ),
     language: {
         emptyTable: trans('team.scheduling.empty_list'),
@@ -134,7 +186,9 @@ const formatDateTime = (value) =>
                         {{
                             $t(
                                 activeTab === 'schedule'
-                                    ? 'team.scheduling.grid.lead'
+                                    ? scheduleView === 'location_shifts'
+                                        ? 'team.scheduling.roster.lead'
+                                        : 'team.scheduling.grid.lead'
                                     : 'team.scheduling.lead',
                             )
                         }}
@@ -152,7 +206,15 @@ const formatDateTime = (value) =>
                     "
                     class="w-full sm:w-auto"
                     :disabled="!canWrite || locations.length === 0"
-                    :href="scheduleCreateHref(selectedDate, activeTab)"
+                    :href="
+                        scheduleCreateHref(
+                            selectedDate,
+                            activeTab,
+                            null,
+                            selectedLocation,
+                            scheduleView,
+                        )
+                    "
                 >
                     <Icon
                         :name="['fas', 'plus']"
@@ -240,16 +302,42 @@ const formatDateTime = (value) =>
                                 "
                             />
                         </div>
-                        <span class="ml-auto text-xs text-muted">{{
-                            $t(
-                                canWrite
-                                    ? 'team.scheduling.grid.hint'
-                                    : 'team.scheduling.grid.view_hint',
-                            )
-                        }}</span>
+                        <SegmentedControl
+                            :model-value="scheduleView"
+                            :options="viewOptions"
+                            variant="joined"
+                            class="ml-auto shrink-0"
+                            :aria-label="$t('team.scheduling.views.label')"
+                            @update:model-value="selectView"
+                        />
                     </div>
+                    <LocationRosterSchedule
+                        v-if="
+                            activeTab === 'schedule' &&
+                            scheduleView === 'location_shifts' &&
+                            selectedLocation
+                        "
+                        :date="selectedDate"
+                        :location-id="selectedLocation"
+                        :location-name="
+                            locations.find(
+                                (location) => location.id === selectedLocation,
+                            )?.name ?? ''
+                        "
+                        :event-id="event.id"
+                        :can-assign="canWrite"
+                        :disabled-reason="
+                            !canWrite
+                                ? $t(
+                                      event.is_locked
+                                          ? 'team.scheduling.locked'
+                                          : 'team.scheduling.no_permission',
+                                  )
+                                : ''
+                        "
+                    />
                     <LocationScheduleGrid
-                        v-if="activeTab === 'schedule'"
+                        v-else-if="activeTab === 'schedule'"
                         :date="selectedDate"
                         :location-id="selectedLocation"
                         :event-id="event.id"
@@ -272,6 +360,8 @@ const formatDateTime = (value) =>
                                         rowData.id,
                                         selectedDate,
                                         'list',
+                                        selectedLocation,
+                                        scheduleView,
                                     )
                                 "
                                 class="cursor-pointer font-semibold text-charcoal no-underline hover:text-primary hover:underline"
@@ -331,6 +421,8 @@ const formatDateTime = (value) =>
                                         rowData.id,
                                         selectedDate,
                                         'list',
+                                        selectedLocation,
+                                        scheduleView,
                                     )
                                 "
                                 class="inline-flex text-muted hover:text-primary"

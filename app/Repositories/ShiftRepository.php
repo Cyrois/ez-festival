@@ -28,6 +28,18 @@ class ShiftRepository
             ->paginate(25, ['*'], 'page', $page);
     }
 
+    public function scheduleRosters(Event $event, string $date, int $locationId, int $page = 1): LengthAwarePaginator
+    {
+        [$start, $end] = $this->dayBounds($date);
+        $shifts = $event->shifts()->where('location_id', $locationId)
+            ->where('starts_at', '<', $end)->where('ends_at', '>', $start)
+            ->withCount('assignments')->orderBy('starts_at')->orderBy('id')
+            ->paginate(25, ['*'], 'page', $page);
+        app(ShiftAssignmentRepository::class)->loadRosters($shifts->getCollection(), $event);
+
+        return $shifts;
+    }
+
     public function countForDay(Event $event, string $date, ?int $locationId = null): int
     {
         [$start, $end] = $this->dayBounds($date);

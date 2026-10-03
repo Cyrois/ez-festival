@@ -31,10 +31,13 @@ class ShiftAssignmentController extends Controller
     public function store(StoreShiftAssignmentRequest $request, Event $event, Shift $shift): RedirectResponse
     {
         Gate::authorize('scheduling.edit');
-        $assignment = $this->assignments->create($shift, ShiftReturnContext::without($request->validated()));
+        $data = $request->validated();
+        $assignment = $this->assignments->create($shift, ShiftReturnContext::without(array_diff_key($data, ['return_to_schedule' => true])));
         $assignment->load(['role:id,name', 'teamEngagement.person:id,name']);
 
-        return redirect()->route('team.shifts.show', ['shift' => $shift, ...ShiftReturnContext::from($request->validated())])
+        return (($data['return_to_schedule'] ?? false)
+            ? redirect()->route('team.scheduling', ShiftReturnContext::schedulingParameters($data, $shift->starts_at->format('Y-m-d')))
+            : redirect()->route('team.shifts.show', ['shift' => $shift, ...ShiftReturnContext::from($data)]))
             ->with('success', __('team.scheduling.assignments.toast.created', ['name' => $assignment->teamEngagement->person->name, 'role' => $assignment->role->name]))
             ->with('success_title', __('toast.saved_title'));
     }
