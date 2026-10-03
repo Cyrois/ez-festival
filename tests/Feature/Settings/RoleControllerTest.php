@@ -9,6 +9,7 @@ use App\Models\TeamEngagement;
 use App\Models\User;
 use App\Services\RoleService;
 use App\Support\OrganizationContext;
+use App\Support\ShiftSlotReferences;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -45,7 +46,7 @@ class RoleControllerTest extends TestCase
         $this->assertTrue(Schema::hasColumn('roles', 'permissions'));
     }
 
-    public function test_roles_list_starts_on_the_on_filter(): void
+    public function test_roles_list_starts_with_all_roles(): void
     {
         $user = $this->userWithCompletedSetup();
         Role::query()->create(['name' => 'Stage manager']);
@@ -54,11 +55,11 @@ class RoleControllerTest extends TestCase
         $this->actingAs($user)->get(route('settings.roles'))->assertInertia(
             fn (Assert $page) => $page
                 ->component('Settings/Roles')
-                ->where('filters.status', 'on')
+                ->where('filters.status', 'all')
                 ->where('filters.search', '')
                 ->where('hasAnyRoles', true)
                 ->where('canManageRoles', true)
-                ->has('roles.data', 1)
+                ->has('roles.data', 2)
                 ->where('roles.data.0.name', 'Stage manager')
                 ->where('roles.data.0.active', true),
         );
@@ -429,16 +430,127 @@ class RoleControllerTest extends TestCase
         $this->assertTrue($role->fresh()->active);
     }
 
-    public function test_roles_cannot_be_deleted(): void
+    public function test_admin_can_soft_delete_an_unheld_role(): void
     {
         $user = $this->userWithCompletedSetup();
-        $role = Role::query()->create(['name' => 'Box office lead']);
+        $role = Role::create(['name' => 'Box office lead']);
 
-        $this->actingAs($user)
-            ->delete('/settings/roles/'.$role->id)
-            ->assertMethodNotAllowed();
-
+        $this->actingAs($user)->delete(route('settings.roles.destroy', $role))
+            ->assertRedirect(route('settings.roles'))
+            ->assertSessionHas('success', __('settings.roles.toast.deleted'));
+        $this->assertSoftDeleted($role);
         $this->assertDatabaseCount('roles', 1);
+        $this->get(route('settings.roles'))->assertInertia(fn (Assert $page) => $page
+            ->has('roles.data', 0)->where('hasAnyRoles', false));
+        $this->getJson(route('settings.roles.data', ['draw' => 1, 'start' => 0, 'length' => 25]))
+            ->assertOk()->assertJsonPath('recordsTotal', 0)->assertJsonCount(0, 'data');
+        $this->delete(route('settings.roles.destroy', $role))->assertNotFound();
+        $this->get(route('settings.roles.edit', $role))->assertNotFound();
+    }
+
+    public function test_delete_is_refused_for_a_role_held_in_any_event_including_locked_events(): void
+    {
+        $user = $this->userWithCompletedSetup();
+        $role = Role::create(['name' => 'Crew']);
+        $otherEvent = Event::create(['name' => 'Other festival', 'starts_on' => '2027-07-01', 'ends_on' => '2027-07-03', 'timezone' => 'UTC']);
+        $person = Person::create(['name' => 'Crew member', 'email' => 'crew@example.test']);
+        TeamEngagement::create(['event_id' => $otherEvent->id, 'person_id' => $person->id, 'role_id' => $role->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+
+        foreach ([false, true] as $locked) {
+            $otherEvent->forceFill(['locked' => $locked])->save();
+            $this->actingAs($user)->delete(route('settings.roles.destroy', $role))
+                ->assertSessionHasErrors(['role' => __('settings.roles.delete.in_use')]);
+            $this->assertNotSoftDeleted($role);
+            $this->getJson(route('settings.roles.data', ['draw' => 1, 'start' => 0, 'length' => 25]))
+                ->assertOk()->assertJsonPath('data.0.people_count', 1);
+        }
+    }
+
+    public function test_service_refuses_deletion_of_a_held_role(): void
+    {
+        $user = $this->userWithCompletedSetup();
+        $role = Role::create(['name' => 'Crew']);
+        TeamEngagement::create(['event_id' => $this->event->id, 'person_id' => $user->person_id, 'role_id' => $role->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+        try {
+            app(RoleService::class)->delete($role);
+            $this->fail('Expected a validation error.');
+        } catch (ValidationException $exception) {
+            $this->assertSame([__('settings.roles.delete.in_use')], $exception->errors()['role']);
+            $this->assertNotSoftDeleted($role);
+        }
+    }
+
+    public function test_non_admin_and_guest_cannot_delete_roles(): void
+    {
+        $user = $this->userWithCompletedSetup();
+        $role = Role::create(['name' => 'Crew']);
+        $this->delete(route('settings.roles.destroy', $role))->assertRedirect(route('login'));
+        $this->grantRoleAccess($user);
+        $this->actingAs($user)->delete(route('settings.roles.destroy', $role))->assertForbidden();
+        $this->assertNotSoftDeleted($role);
+    }
+
+    public function test_deleted_name_is_reserved_for_creation_and_rename_including_service_writes(): void
+    {
+        $user = $this->userWithCompletedSetup();
+        $role = Role::create(['name' => 'Stage Manager']);
+        $other = Role::create(['name' => 'Crew']);
+        $this->actingAs($user)->delete(route('settings.roles.destroy', $role))->assertSessionHasNoErrors();
+        $payload = ['name' => ' stage   MANAGER ', 'permissions' => ['team.view']];
+        $errors = ['name' => __('settings.roles.validation.name_taken'), 'name_match' => 'Stage Manager'];
+        $this->post(route('settings.roles.store'), $payload)->assertSessionHasErrors($errors);
+        $this->put(route('settings.roles.update', $other), $payload)->assertSessionHasErrors($errors);
+        foreach ([fn () => app(RoleService::class)->create($payload['name'], $payload['permissions']), fn () => app(RoleService::class)->rename($other, $payload['name'])] as $write) {
+            try {
+                $write();
+                $this->fail('Expected a duplicate-name validation error.');
+            } catch (ValidationException $exception) {
+                $this->assertSame(['Stage Manager'], $exception->errors()['name_match']);
+            }
+        }
+        $this->assertSame('Crew', $other->fresh()->name);
+    }
+
+    public function test_deleted_role_is_absent_from_pickers_and_refused_for_new_and_existing_people(): void
+    {
+        $user = $this->userWithCompletedSetup();
+        $deleted = Role::create(['name' => 'Deleted']);
+        $current = Role::create(['name' => 'Crew']);
+        $person = Person::create(['name' => 'Crew member', 'email' => 'crew@example.test']);
+        $member = TeamEngagement::create(['event_id' => $this->event->id, 'person_id' => $person->id, 'role_id' => $current->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+        $this->actingAs($user)->delete(route('settings.roles.destroy', $deleted))->assertSessionHasNoErrors();
+        foreach ([route('settings.team.create'), route('settings.team.show', $person), route('team.members.show', $member)] as $url) {
+            $this->get($url)->assertInertia(fn (Assert $page) => $page->has('roles', 1)->where('roles.0.id', $current->id));
+        }
+        $access = [['event_id' => $this->event->id, 'role_id' => $deleted->id, 'status' => 'hired']];
+        $this->post(route('settings.team.store'), ['name' => 'New person', 'email' => 'new@example.test', 'status' => 'hired', 'can_log_in' => false, 'event_access' => $access])
+            ->assertSessionHasErrors('event_access.0.role_id');
+        $this->put(route('settings.team.update', $person), ['name' => $person->name, 'can_log_in' => false, 'event_access' => $access])
+            ->assertSessionHasErrors('event_access.0.role_id');
+        $this->put(route('team.members.update', $member), ['name' => $person->name, 'email' => $person->email, 'status' => 'hired', 'employment_type' => 'volunteer', 'role_id' => $deleted->id])
+            ->assertSessionHasErrors('role_id');
+        $this->assertSame($current->id, $member->fresh()->role_id);
+        $this->assertDatabaseMissing('people', ['email' => 'new@example.test']);
+    }
+
+    public function test_deleted_roles_keep_shift_slot_and_assignment_history_but_cannot_be_newly_selected(): void
+    {
+        $user = $this->userWithCompletedSetup();
+        $role = Role::create(['name' => 'Stage crew']);
+        $location = $this->event->locations()->create(['name' => 'Stage']);
+        $shift = $this->event->shifts()->create(['name' => 'Morning', 'location_id' => $location->id, 'starts_at' => '2027-06-01 09:00:00', 'ends_at' => '2027-06-01 12:00:00']);
+        $slot = $shift->roleSlots()->create(['role_id' => $role->id, 'needed' => 2, 'sort_order' => 0]);
+        $person = Person::create(['name' => 'Former crew', 'email' => 'former@example.test']);
+        $member = TeamEngagement::create(['event_id' => $this->event->id, 'person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+        $assignment = $shift->assignments()->create(['team_engagement_id' => $member->id, 'shift_role_slot_id' => $slot->id, 'role_id' => $role->id, 'starts_at' => $shift->starts_at, 'ends_at' => $shift->ends_at]);
+        $this->actingAs($user)->delete(route('settings.roles.destroy', $role))->assertSessionHasNoErrors();
+        $this->assertSame('Stage crew', $slot->fresh()->role->name);
+        $this->assertSame('Stage crew', $assignment->fresh()->role->name);
+        $this->assertSame([], ShiftSlotReferences::options());
+        $this->get(route('team.shifts.show', $shift))->assertInertia(fn (Assert $page) => $page
+            ->where('shift.slots.0.role_name', 'Stage crew')->has('roles', 0));
+        $this->assertArrayHasKey('slots.0.role_id', ShiftSlotReferences::errors([['role_id' => $role->id, 'needed' => 1]], collect()));
+        $this->assertSame([], ShiftSlotReferences::errors([['id' => $slot->id, 'role_id' => $role->id, 'needed' => 3]], collect([$slot->id => $slot])));
     }
 
     public function test_missing_role_returns_not_found(): void

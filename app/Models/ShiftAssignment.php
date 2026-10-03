@@ -31,7 +31,6 @@ class ShiftAssignment extends Model
 
     public function role(): BelongsTo
     {
-        // Coordinate with #114: add withTrashed() when Role gains SoftDeletes.
-        return $this->belongsTo(Role::class);
+        return $this->belongsTo(Role::class)->withTrashed();
     }
 }

@@ -71,6 +71,7 @@ final class RoutePermissions
         'settings.roles.store' => 'admin',
         'settings.roles.data' => 'admin',
         'settings.roles.update' => 'admin',
+        'settings.roles.destroy' => 'admin',
         'settings.roles.status.update' => 'admin',
         'settings.team' => 'admin',
         'settings.team.store' => 'admin',

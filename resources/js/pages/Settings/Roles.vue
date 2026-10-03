@@ -5,9 +5,10 @@ import { Button } from '../../components/ui/button';
 import { DataTable } from '../../components/ui/data-table';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
-import { SegmentedControl } from '../../components/ui/segmented-control';
+import { Dialog } from '../../components/ui/dialog';
+import { useFlashToast } from '../../composables/useFlashToast';
 import { roleColumns } from './roleColumns';
-import { ROLE_STATUSES, rolesQuery } from './rolesFilters';
+import { rolesQuery } from './rolesFilters';
 import { Link, router } from '@inertiajs/vue3';
 import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
@@ -26,28 +27,16 @@ const breadcrumbs = computed(() => [
     { label: trans('settings.roles.title') },
 ]);
 
-const statusOptions = computed(() =>
-    ROLE_STATUSES.map((value) => ({
-        value,
-        label: trans(`settings.roles.filter.${value}`),
-    })),
-);
-
 const peopleLabel = (count) =>
     transChoice('settings.roles.people_count', count, { count });
 const columns = computed(() => roleColumns(trans));
 const table = ref(null);
-const dataTableKey = computed(
-    () => `${props.filters.search}:${props.filters.status}`,
-);
+const dataTableKey = computed(() => props.filters.search);
 const dataTableUrl = computed(() => {
     const query = new URLSearchParams();
 
     if (props.filters.search) {
         query.set('query', props.filters.search);
-    }
-    if (props.filters.status !== 'on') {
-        query.set('status', props.filters.status);
     }
 
     const suffix = query.toString();
@@ -82,23 +71,17 @@ const dataTableOptions = computed(() => ({
     },
 }));
 
-// Filters: search and On | Off | All run on the server.
+// Search runs on the server.
 const search = ref(props.filters.search);
-const status = ref(props.filters.status);
 let searchTimer;
 
 const applyFilters = () => {
     window.clearTimeout(searchTimer);
-    router.get(
-        '/settings/roles',
-        rolesQuery({ search: search.value, status: status.value }),
-        { preserveState: true, preserveScroll: true, replace: true },
-    );
-};
-
-const updateStatus = (value) => {
-    status.value = value;
-    applyFilters();
+    router.get('/settings/roles', rolesQuery({ search: search.value }), {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
 };
 
 watch(search, (value) => {
@@ -113,7 +96,6 @@ watch(
     () => props.filters,
     (filters) => {
         search.value = filters.search;
-        status.value = filters.status;
     },
 );
 
@@ -121,26 +103,31 @@ onUnmounted(() => window.clearTimeout(searchTimer));
 
 const openAdd = () => router.visit('/settings/roles/create');
 
-// Turn on inactive roles.
-const statusBusy = ref(false);
+const { showFormError } = useFlashToast();
+const deleteRole = ref(null);
+const deleteBusy = ref(false);
+const deleteOpen = computed({
+    get: () => deleteRole.value !== null,
+    set: (open) => {
+        if (!open) deleteRole.value = null;
+    },
+});
 
-const setActive = (role, active, onSuccess = () => {}) => {
-    statusBusy.value = true;
-    router.put(
-        `/settings/roles/${role.id}/status`,
-        { active },
-        {
-            preserveScroll: true,
-            onSuccess: async () => {
-                onSuccess();
-                await nextTick();
-                table.value?.reload();
-            },
-            onFinish: () => {
-                statusBusy.value = false;
-            },
+const confirmDelete = () => {
+    if (!deleteRole.value || deleteBusy.value) return;
+    deleteBusy.value = true;
+    router.delete(`/settings/roles/${deleteRole.value.id}`, {
+        preserveScroll: true,
+        onSuccess: async () => {
+            deleteRole.value = null;
+            await nextTick();
+            table.value?.reload();
         },
-    );
+        onError: showFormError,
+        onFinish: () => {
+            deleteBusy.value = false;
+        },
+    });
 };
 </script>
 
@@ -193,13 +180,6 @@ const setActive = (role, active, onSuccess = () => {}) => {
                         maxlength="255"
                     />
                 </form>
-                <SegmentedControl
-                    :model-value="status"
-                    :options="statusOptions"
-                    :aria-label="$t('settings.roles.filter.label')"
-                    variant="joined"
-                    @update:model-value="updateStatus"
-                />
             </div>
 
             <div>
@@ -245,20 +225,29 @@ const setActive = (role, active, onSuccess = () => {}) => {
                             v-if="canManageRoles"
                             class="flex items-center justify-end gap-2"
                         >
-                            <Button
-                                v-if="!rowData.active"
-                                type="button"
-                                variant="outline-primary"
-                                size="sm"
-                                :disabled="statusBusy"
-                                @click="setActive(rowData, true)"
+                            <span
+                                :title="
+                                    rowData.people_count > 0
+                                        ? $t('settings.roles.delete.in_use')
+                                        : undefined
+                                "
+                                :tabindex="
+                                    rowData.people_count > 0 ? 0 : undefined
+                                "
+                                @click.stop
                             >
-                                <Icon
-                                    :name="['fas', 'power-off']"
+                                <Button
+                                    type="button"
+                                    variant="danger"
                                     size="sm"
-                                />
-                                {{ $t('settings.roles.actions.turn_on') }}
-                            </Button>
+                                    :disabled="
+                                        rowData.people_count > 0 || deleteBusy
+                                    "
+                                    @click="deleteRole = rowData"
+                                >
+                                    {{ $t('settings.roles.delete.action') }}
+                                </Button>
+                            </span>
                             <Link
                                 :href="`/settings/roles/${rowData.id}/edit`"
                                 class="inline-flex text-muted hover:text-primary"
@@ -279,13 +268,20 @@ const setActive = (role, active, onSuccess = () => {}) => {
             </div>
 
             <div class="flex flex-col gap-1.5">
-                <p class="m-0 text-xs text-muted">
-                    {{ $t('settings.roles.off_note') }}
-                </p>
                 <p class="m-0 text-xs text-muted/80">
                     {{ $t('settings.roles.admins_note') }}
                 </p>
             </div>
         </div>
+        <Dialog
+            v-model:open="deleteOpen"
+            focus-trap
+            :title="$t('settings.roles.delete.title')"
+            :description="deleteRole?.name"
+            :confirm-label="$t('settings.roles.delete.action')"
+            :cancel-label="$t('ui.dialog.cancel')"
+            :busy="deleteBusy"
+            @confirm="confirmDelete"
+        />
     </SettingsLayout>
 </template>

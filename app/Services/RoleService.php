@@ -39,6 +39,18 @@ class RoleService
         $role->update(['active' => $active]);
     }
 
+    public function delete(Role $role): void
+    {
+        DB::transaction(function () use ($role): void {
+            // Assignment writes lock the same role, so nobody can acquire it during deletion.
+            $role = Role::query()->lockForUpdate()->findOrFail($role->id);
+            if ($role->teamEngagements()->exists()) {
+                throw ValidationException::withMessages(['role' => __('settings.roles.delete.in_use')]);
+            }
+            $role->delete();
+        });
+    }
+
     /**
      * The Form Request checks names first; the unique index is the last line of defence
      * when two requests race for the same name. Only a real name clash becomes a

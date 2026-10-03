@@ -200,7 +200,7 @@ class TeamSchemaTest extends TestCase
         $person = $this->person('missing-role');
         $role = Role::query()->create(['name' => 'Removed role']);
         $roleId = $role->id;
-        $role->delete();
+        $role->forceDelete();
 
         $this->expectException(QueryException::class);
 

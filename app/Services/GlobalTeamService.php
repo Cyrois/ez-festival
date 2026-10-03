@@ -92,9 +92,9 @@ class GlobalTeamService
             foreach ($data['event_access'] as $access) {
                 $event = $events->findOrFail($access['event_id']);
                 $event->ensureWritable();
-                $role = Role::query()->lockForUpdate()->findOrFail($access['role_id']);
+                $role = Role::query()->lockForUpdate()->find($access['role_id']);
 
-                if (! $role->active) {
+                if ($role === null || ! $role->active) {
                     throw ValidationException::withMessages([
                         'event_access' => __('settings.team.validation.role_unavailable'),
                     ]);
@@ -203,8 +203,8 @@ class GlobalTeamService
                     continue;
                 }
 
-                $role = Role::query()->lockForUpdate()->findOrFail($roleId);
-                if (! $role->active) {
+                $role = Role::query()->lockForUpdate()->find($roleId);
+                if ($role === null || ! $role->active) {
                     throw ValidationException::withMessages([
                         "event_access.{$index}.role_id" => __('settings.team.validation.role_unavailable'),
                     ]);

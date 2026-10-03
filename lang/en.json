@@ -1440,5 +1440,9 @@
     "team.scheduling.grid.next_day": "Next day",
     "team.scheduling.grid.select_day": "Select schedule day",
     "team.scheduling.grid.hint": "Drag on a row to add a shift · Click a block to open it",
-    "team.scheduling.grid.view_hint": "Click a block to open it"
+    "team.scheduling.grid.view_hint": "Click a block to open it",
+    "settings.roles.delete.title": "Delete role?",
+    "settings.roles.delete.action": "Delete",
+    "settings.roles.delete.in_use": "People hold this role. Give them another role first.",
+    "settings.roles.toast.deleted": "Role deleted."
 }

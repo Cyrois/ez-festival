@@ -94,7 +94,7 @@ class RoleRepository
 
     public function findByName(string $name, ?Role $ignore = null): ?Role
     {
-        return Role::query()
+        return Role::withTrashed()
             ->where('name_key', RoleName::key($name))
             ->when($ignore !== null, fn (Builder $query) => $query->whereKeyNot($ignore->getKey()))
             ->first();

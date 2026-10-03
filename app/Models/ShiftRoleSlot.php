@@ -30,7 +30,6 @@ class ShiftRoleSlot extends Model
 
     public function role(): BelongsTo
     {
-        // #114 must add withTrashed() here when Role gains SoftDeletes.
-        return $this->belongsTo(Role::class);
+        return $this->belongsTo(Role::class)->withTrashed();
     }
 }
