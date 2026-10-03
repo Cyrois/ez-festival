@@ -1,4 +1,6 @@
 {
+    "dropdown.search_placeholder": "Search options",
+    "dropdown.no_results": "No options match your search.",
     "app.name": "Artist Tree",
     "app.mark": "AT",
     "errors.generic": "Something went wrong. Please try again.",
