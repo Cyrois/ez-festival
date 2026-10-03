@@ -3,7 +3,7 @@ import SettingsLayout from '../../../layouts/SettingsLayout.vue';
 import AdminAccessToggle from '../../../components/settings/AdminAccessToggle.vue';
 import { Avatar } from '../../../components/ui/avatar';
 import { Button } from '../../../components/ui/button';
-import { Card } from '../../../components/ui/card';
+import { Card, CardTitle } from '../../../components/ui/card';
 import { CustomDropdown } from '../../../components/ui/custom-dropdown';
 import { FormField } from '../../../components/ui/form-field';
 import { Icon } from '../../../components/ui/icon';
@@ -186,9 +186,9 @@ const copyPassword = async () => {
             >
                 <div class="grid gap-4 lg:grid-cols-2">
                     <Card>
-                        <h2 class="m-0 text-lg font-bold text-muted">
+                        <CardTitle>
                             {{ $t('settings.team.details') }}
-                        </h2>
+                        </CardTitle>
                         <p class="mt-1 mb-4 text-xs text-muted">
                             {{ $t('settings.team.details_hint') }}
                         </p>
@@ -233,9 +233,9 @@ const copyPassword = async () => {
                     </Card>
 
                     <Card>
-                        <h2 class="m-0 text-lg font-bold text-muted">
+                        <CardTitle>
                             {{ $t('settings.team.security') }}
-                        </h2>
+                        </CardTitle>
                         <p class="mt-1 mb-4 text-xs text-muted">
                             {{ $t('settings.team.security_hint') }}
                         </p>
@@ -399,9 +399,9 @@ const copyPassword = async () => {
                         class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
                     >
                         <div>
-                            <h2 class="m-0 text-lg font-bold text-muted">
+                            <CardTitle>
                                 {{ $t('settings.team.access.title') }}
-                            </h2>
+                            </CardTitle>
                             <p class="mt-1 mb-0 text-xs text-muted">
                                 {{ $t('settings.team.access.lead') }}
                             </p>

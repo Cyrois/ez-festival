@@ -2,7 +2,7 @@
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Avatar } from '../../components/ui/avatar';
 import { Button } from '../../components/ui/button';
-import { Card } from '../../components/ui/card';
+import { Card, CardTitle } from '../../components/ui/card';
 import EngagementPeoplePanel from '../../components/people/EngagementPeoplePanel.vue';
 import { Checkbox } from '../../components/ui/checkbox';
 import { CustomDropdown } from '../../components/ui/custom-dropdown';
@@ -152,9 +152,9 @@ const noteTime = (iso) =>
             >
                 <div class="grid items-stretch gap-4 lg:grid-cols-2">
                     <Card
-                        ><h2 class="m-0 text-xl font-bold text-muted">
+                        ><CardTitle>
                             {{ $t('vendors.details') }}
-                        </h2>
+                        </CardTitle>
                         <p class="mt-1 mb-4 text-xs text-muted">
                             {{ $t('vendors.details_hint') }}
                         </p>
@@ -256,9 +256,9 @@ const noteTime = (iso) =>
                     </Card>
                 </div>
                 <Card v-if="customFields.length"
-                    ><h2 class="m-0 text-xl font-bold text-muted">
+                    ><CardTitle>
                         {{ $t('vendors.custom_fields.title') }}
-                    </h2>
+                    </CardTitle>
                     <p class="mt-1 mb-4 text-xs text-muted">
                         {{ $t('vendors.custom_fields.lead') }}
                     </p>
@@ -312,9 +312,9 @@ const noteTime = (iso) =>
                 <Card
                     ><div class="flex items-start justify-between gap-3">
                         <div>
-                            <h2 class="m-0 text-xl font-bold text-muted">
+                            <CardTitle>
                                 {{ $t('credentials.assignments.title') }}
-                            </h2>
+                            </CardTitle>
                             <p class="mt-1 mb-4 text-xs text-muted">
                                 {{ $t('credentials.assignments.lead') }}
                             </p>
@@ -382,9 +382,9 @@ const noteTime = (iso) =>
                     </div></Card
                 >
                 <Card
-                    ><h2 class="m-0 text-xl font-bold text-muted">
+                    ><CardTitle>
                         {{ $t('vendors.contracts_phase') }}
-                    </h2>
+                    </CardTitle>
                     <div
                         class="mt-3 rounded-lg border border-dashed border-line bg-page p-5 text-center text-sm text-muted"
                     >
@@ -394,9 +394,9 @@ const noteTime = (iso) =>
                 <Card
                     ><div class="flex items-start justify-between gap-3">
                         <div>
-                            <h2 class="m-0 text-xl font-bold text-muted">
+                            <CardTitle>
                                 {{ $t('vendors.note_log') }}
-                            </h2>
+                            </CardTitle>
                             <p class="mt-1 mb-4 text-xs text-muted">
                                 {{ $t('vendors.note_log_hint') }}
                             </p>

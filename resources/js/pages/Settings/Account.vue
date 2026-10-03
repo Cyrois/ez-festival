@@ -1,7 +1,7 @@
 <script setup>
 import SettingsLayout from '../../layouts/SettingsLayout.vue';
 import { Button } from '../../components/ui/button';
-import { Card } from '../../components/ui/card';
+import { Card, CardTitle } from '../../components/ui/card';
 import { Checkbox } from '../../components/ui/checkbox';
 import { FormField } from '../../components/ui/form-field';
 import { Input } from '../../components/ui/input';
@@ -92,9 +92,9 @@ const submitPassword = () => {
 
             <Card>
                 <template #header>
-                    <h2 class="m-0 text-base font-semibold text-charcoal">
+                    <CardTitle>
                         {{ $t('settings.account.profile.title') }}
-                    </h2>
+                    </CardTitle>
                     <p class="mt-1 mb-0 text-sm text-muted">
                         {{ $t('settings.account.profile.lead') }}
                     </p>
@@ -162,9 +162,9 @@ const submitPassword = () => {
 
             <Card v-if="customFields.length > 0">
                 <template #header>
-                    <h2 class="m-0 text-base font-semibold text-charcoal">
+                    <CardTitle>
                         {{ $t('settings.account.custom_fields.title') }}
-                    </h2>
+                    </CardTitle>
                     <p class="mt-1 mb-0 text-sm text-muted">
                         {{ $t('settings.account.custom_fields.lead') }}
                     </p>
@@ -304,9 +304,9 @@ const submitPassword = () => {
 
             <Card>
                 <template #header>
-                    <h2 class="m-0 text-base font-semibold text-charcoal">
+                    <CardTitle>
                         {{ $t('settings.account.password.title') }}
-                    </h2>
+                    </CardTitle>
                     <p class="mt-1 mb-0 text-sm text-muted">
                         {{ $t('settings.account.password.lead') }}
                     </p>

@@ -1,4 +1,5 @@
 <script setup>
+import { CardTitle } from '../ui/card';
 import { computed } from 'vue';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -23,9 +24,9 @@ const detached = computed(() =>
 
 <template>
     <section>
-        <h2 class="m-0 mb-2 text-xl font-bold text-muted">
+        <CardTitle class="mb-2">
             {{ $t('team.scheduling.assignments.roster') }}
-        </h2>
+        </CardTitle>
         <p class="m-0 text-sm text-muted">
             {{
                 $t('team.scheduling.slots.filled', {

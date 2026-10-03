@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
-import { Card } from '../../../components/ui/card';
+import { Card, CardTitle } from '../../../components/ui/card';
 import { DataTable } from '../../../components/ui/data-table';
 import { Icon } from '../../../components/ui/icon';
 import { navigateDataTableRow } from '../../../lib/dataTableRowNavigation';
@@ -38,9 +38,9 @@ const options = computed(() => ({
 
 <template>
     <Card class="mt-4">
-        <h2 class="mb-4 text-xl font-bold text-muted">
+        <CardTitle class="mb-4">
             {{ $t('settings.roles.people.title') }}
-        </h2>
+        </CardTitle>
         <DataTable
             :ajax="`/settings/roles/${roleId}/people`"
             :columns="columns"

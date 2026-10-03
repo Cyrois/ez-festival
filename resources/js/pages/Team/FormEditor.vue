@@ -1,7 +1,7 @@
 <script setup>
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Button } from '../../components/ui/button';
-import { Card } from '../../components/ui/card';
+import { Card, CardTitle } from '../../components/ui/card';
 import { Checkbox } from '../../components/ui/checkbox';
 import { CustomDropdown } from '../../components/ui/custom-dropdown';
 import { FormField } from '../../components/ui/form-field';
@@ -342,9 +342,9 @@ const submit = () => {
                     <template #header>
                         <div class="flex items-center justify-between gap-3">
                             <div>
-                                <h2 class="m-0 text-lg font-semibold">
+                                <CardTitle>
                                     {{ $t('team.forms.editor.fields_card') }}
-                                </h2>
+                                </CardTitle>
                                 <p class="mt-1 mb-0 text-xs text-muted">
                                     {{ $t('team.forms.editor.fields_lead') }}
                                 </p>

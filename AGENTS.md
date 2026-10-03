@@ -133,6 +133,7 @@ These are recurring Codex mistakes on this repo. Treat them as hard stops — do
 
 ### Shared constants & UI reuse
 
+- Card section headings use `CardTitle` from `resources/js/components/ui/card`. Keep title typography in that component; callers may set spacing and heading level but must not restyle its font, size, or color.
 - Shared enums / color tokens / label palettes have **one server source of truth** (PHP support class or equivalent). Vue must import a generated module, receive props from the backend, or share one module — **do not triplicate** maps across Tag / Combobox / PHP.
 - Prefer existing UI kit components (`Tag`, `Badge`, tables, dialogs). Do not reintroduce one-off checkbox/button pickers where a shared combobox/tag pattern already exists.
 - Do not leave duplicate selected-chip rows beside a combobox that already shows removable chips.
