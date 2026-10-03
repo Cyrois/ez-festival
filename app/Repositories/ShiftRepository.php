@@ -17,6 +17,8 @@ class ShiftRepository
     {
         [$start, $end] = $this->dayBounds($date);
 
+        // Page location rows, keeping every shift that overlaps the selected day.
+        // Strict bounds include overnight shifts without including ones ending at midnight.
         return $event->locations()->select(['id', 'name', 'event_id'])
             ->when($locationId !== null, fn ($query) => $query->where('id', $locationId))
             ->with(['shifts' => fn ($query) => $query
@@ -26,6 +28,18 @@ class ShiftRepository
                 ->orderBy('starts_at')->orderBy('id')])
             ->orderBy('name')->orderBy('id')
             ->paginate(25, ['*'], 'page', $page);
+    }
+
+    public function scheduleRosters(Event $event, string $date, int $locationId): Collection
+    {
+        [$start, $end] = $this->dayBounds($date);
+
+        // The selected location and day bound this view; all matching shifts must load together.
+        // The controller then loads their rosters and overlaps in batches.
+        return $event->shifts()->where('location_id', $locationId)
+            ->where('starts_at', '<', $end)->where('ends_at', '>', $start)
+            ->withCount('assignments')->orderBy('starts_at')->orderBy('id')
+            ->get();
     }
 
     public function countForDay(Event $event, string $date, ?int $locationId = null): int
@@ -46,6 +60,7 @@ class ShiftRepository
         }
 
         if ($first < $start) {
+            // An overnight shift is already visible at midnight on the selected day.
             return 0;
         }
 

@@ -225,6 +225,13 @@ class DatabaseAuditRegressionTest extends TestCase
         $this->post(route('credentials.passes.store', $event), ['name' => 'Maximum', 'max_assignments' => 2147483647])
             ->assertRedirect()->assertSessionHasNoErrors();
         $pass = $event->passTypes()->where('name', 'Maximum')->firstOrFail();
+        $this->assertSame(2147483647, $pass->max_assignments);
+        $this->put(route('credentials.passes.update', [$event, $pass]), ['name' => 'Maximum', 'max_assignments' => 1])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame(1, $pass->fresh()->max_assignments);
+        $this->put(route('credentials.passes.update', [$event, $pass]), ['name' => 'Maximum', 'max_assignments' => 2147483647])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame(2147483647, $pass->fresh()->max_assignments);
         $this->putJson(route('credentials.passes.update', [$event, $pass]), ['name' => 'Maximum', 'max_assignments' => 2147483648])
             ->assertUnprocessable()->assertJsonValidationErrors('max_assignments');
         $this->assertSame(2147483647, $pass->fresh()->max_assignments);
@@ -241,6 +248,7 @@ class DatabaseAuditRegressionTest extends TestCase
         $this->post(route('credentials.entitlements.store', $event), [...$payload, 'opening_balance' => 2147483647])
             ->assertRedirect()->assertSessionHasNoErrors();
         $item = $event->entitlementItems()->firstOrFail();
+        $this->assertSame(2147483647, $item->adjustments()->sole()->delta);
         foreach (['add', 'remove'] as $direction) {
             $this->postJson(route('credentials.entitlements.adjustments.store', [$event, $item]), [
                 'location_id' => $location->id, 'direction' => $direction, 'quantity' => 2147483648,
@@ -250,25 +258,49 @@ class DatabaseAuditRegressionTest extends TestCase
         $this->post(route('credentials.entitlements.adjustments.store', [$event, $item]), [
             'location_id' => $location->id, 'direction' => 'remove', 'quantity' => 2147483647,
         ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame(-2147483647, $item->adjustments()->orderByDesc('id')->firstOrFail()->delta);
         $this->assertSame(0, (int) $item->adjustments()->sum('delta'));
+        $this->post(route('credentials.entitlements.adjustments.store', [$event, $item]), [
+            'location_id' => $location->id, 'direction' => 'add', 'quantity' => 2147483647,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame(2147483647, $item->adjustments()->orderByDesc('id')->firstOrFail()->delta);
+        $this->assertSame(3, $item->adjustments()->count());
+        $this->assertSame(2147483647, (int) $item->adjustments()->sum('delta'));
     }
 
     public function test_team_event_queries_do_not_grow_with_the_number_of_members(): void
     {
         [$user, $event] = $this->context();
-        foreach (range(1, 30) as $number) {
-            $person = Person::create(['name' => "Member {$number}", 'email' => "member-{$number}@example.test"]);
-            TeamEngagement::create(['event_id' => $event->id, 'person_id' => $person->id, 'status' => 'applied', 'employment_type' => 'volunteer']);
-        }
         $queries = [];
         DB::listen(function ($query) use (&$queries): void {
             if (preg_match('/from ["`]events["`]/i', $query->sql)) {
                 $queries[] = $query->sql;
             }
         });
-        $this->actingAs($user)->get(route('team.advancement'))->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->has('engagements.data', 30));
-        $this->assertLessThanOrEqual(6, count($queries), implode("\n", $queries));
+        $this->actingAs($user);
+        $smallQueryCounts = [];
+
+        foreach (range(1, 30) as $number) {
+            $person = Person::create(['name' => "Member {$number}", 'email' => "member-{$number}@example.test"]);
+            TeamEngagement::create(['event_id' => $event->id, 'person_id' => $person->id, 'status' => 'applied', 'employment_type' => 'volunteer']);
+
+            if (! in_array($number, [1, 30], true)) {
+                continue;
+            }
+
+            foreach (['columns', 'list'] as $view) {
+                $queries = [];
+                $this->get(route('team.advancement', ['view' => $view]))->assertOk()
+                    ->assertInertia(fn (Assert $page) => $page->has('engagements.data', $view === 'list' ? min($number, 25) : $number));
+                $this->assertLessThanOrEqual(6, count($queries), implode("\n", $queries));
+
+                if ($number === 1) {
+                    $smallQueryCounts[$view] = count($queries);
+                } else {
+                    $this->assertLessThanOrEqual($smallQueryCounts[$view], count($queries), "Event queries grew in {$view} view.");
+                }
+            }
+        }
     }
 
     public function test_check_in_aggregates_stock_without_hydrating_the_ledger_history(): void

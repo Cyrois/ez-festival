@@ -2,12 +2,15 @@
 
 namespace App\Repositories;
 
+use App\Models\Event;
 use App\Models\Shift;
+use App\Models\ShiftAssignment;
 use App\Models\TeamEngagement;
 use App\Support\ShiftAssignmentHours;
 use App\Support\ShiftAssignmentOverlaps;
 use App\Support\SqlLike;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 class ShiftAssignmentRepository
 {
@@ -41,6 +44,34 @@ class ShiftAssignmentRepository
         $shift->loadCount('assignments');
         $assignments = $shift->assignments;
         $others = ShiftAssignmentOverlaps::forMembers($shift, $assignments->pluck('team_engagement_id')->unique()->all(), $shift->starts_at, $shift->ends_at);
+
+        return $this->decorateRoster($shift, $others, $shift->event->timezone);
+    }
+
+    /** Load a page of rosters and overlaps in batches, using the shift-page rules. */
+    public function loadRosters(Collection $shifts, Event $event): void
+    {
+        if ($shifts->isEmpty()) {
+            return;
+        }
+        $shifts->load([
+            'roleSlots.role:id,name', 'assignments.role:id,name',
+            'assignments.teamEngagement:id,person_id', 'assignments.teamEngagement.person:id,name',
+        ]);
+        $assignments = $shifts->flatMap(fn ($shift) => $shift->assignments);
+        $others = ShiftAssignment::query()
+            ->whereIn('team_engagement_id', $assignments->pluck('team_engagement_id')->unique())
+            ->whereHas('shift', fn ($query) => $query->where('event_id', $event->id))
+            ->where('starts_at', '<', $shifts->max('ends_at'))->where('ends_at', '>', $shifts->min('starts_at'))
+            ->with('shift:id,name')->orderBy('starts_at')->orderBy('id')->get();
+        foreach ($shifts as $shift) {
+            $this->decorateRoster($shift, $others->where('shift_id', '!=', $shift->id)->groupBy('team_engagement_id'), $event->timezone);
+        }
+    }
+
+    private function decorateRoster(Shift $shift, Collection $others, string $timezone): Shift
+    {
+        $assignments = $shift->assignments;
         $positions = [];
         $slots = $shift->roleSlots->keyBy('id');
         foreach ($assignments as $assignment) {
@@ -51,7 +82,7 @@ class ShiftAssignmentRepository
             if ($matches) {
                 $positions[$slot->id] = $index + 1;
             }
-            $assignment->setAttribute('overlaps', ShiftAssignmentOverlaps::warnings($others->get($assignment->team_engagement_id, collect()), $assignment->starts_at, $assignment->ends_at, $shift->event->timezone));
+            $assignment->setAttribute('overlaps', ShiftAssignmentOverlaps::warnings($others->get($assignment->team_engagement_id, collect()), $assignment->starts_at, $assignment->ends_at, $timezone));
         }
 
         return $shift;

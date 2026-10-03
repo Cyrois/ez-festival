@@ -424,6 +424,10 @@ test('clicks, shift links, Escape, cancellation and permission loss never create
         const extra = canvas.querySelectorAll('a')[2];
         assert.ok(extra.classList.contains('border-dashed'));
         assert.ok(parseFloat(extra.style.getPropertyValue('--bar-width')) > 0);
+        const warning = canvas.querySelector(
+            '[data-icon="circle-exclamation"]',
+        );
+        assert.equal(warning.classList.contains('text-warning'), true);
         const partial = canvas.querySelectorAll('a')[3];
         assert.ok(partial.classList.contains('border-dashed'));
         assert.ok(partial.classList.contains('hover:bg-label-teal/30'));

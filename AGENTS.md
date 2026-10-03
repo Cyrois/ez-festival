@@ -147,6 +147,7 @@ These are recurring Codex mistakes on this repo. Treat them as hard stops — do
   - sort and search use raw values, not rendered slot HTML (use `render: { display: '#slot' }` for slot cells);
   - Entitlements and Passes cache their list lookups per event; Settings → Events caches its organization-wide lookup; every create, update, delete, entitlement adjustment, label change, and event lock/unlock clears the affected cache;
   - every other list (Global Team, event Team, Patrons, check-in, Roles, Scheduling, and anything new) still filters and paginates on the server unless Calvin decides otherwise.
+- **Exception (Calvin, 2026-10-03): Schedule → Shifts & People loads every shift and full roster for one selected location/day in a single response. The selected day is the bound; do not paginate or cap its shifts or people. Keep roster and overlap queries batched.**
 - Any table that queries or joins `users` or `people` — including Global Team, Team → Advancement, and team member lists — must paginate on the server, never in the browser. Global Team specifically uses the shared `DataTable` in `serverSide` mode.
 - Do not `Gate::authorize` / policy-check **per row in a loop** when a single ability plus a query scope is enough.
 - Client-only chips/filters for types that always return empty are not “global” — either wire the data or hide the chip until the type exists.
