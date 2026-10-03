@@ -77,6 +77,7 @@ onUnmounted(() => {
         <ScheduleTimeline
             :rows="rows"
             :date="date"
+            :location-id="locationId"
             :first-shift-minute="firstShiftMinute"
             :can-create="canCreate"
             :empty="totalShifts === 0 && !loading && !failed"

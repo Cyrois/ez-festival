@@ -19,6 +19,7 @@ import {
 const props = defineProps({
     rows: { type: Array, required: true },
     date: { type: String, required: true },
+    locationId: { type: [Number, String], default: '' },
     firstShiftMinute: { type: Number, default: null },
     canCreate: { type: Boolean, default: false },
     empty: { type: Boolean, default: false },
@@ -150,6 +151,13 @@ const onScroll = () => {
     }
 };
 watch(() => [props.date, props.canCreate], cancelDrag);
+watch(
+    () => [props.date, props.locationId],
+    () => {
+        helperDismissed.value = false;
+        cancelDrag();
+    },
+);
 watch(
     () => [props.date, props.firstShiftMinute],
     async () => {

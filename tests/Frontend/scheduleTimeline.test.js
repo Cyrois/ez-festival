@@ -176,6 +176,46 @@ async function mountTimeline(canCreate = true) {
     return { app, canvas, received, writable, firstMinute };
 }
 
+test('dismissing the empty hint applies only to the current day and location filter', async () => {
+    const selectedDate = ref(date);
+    const location = ref('');
+    const app = createApp({
+        setup: () => () =>
+            h(Timeline, {
+                rows: [{ id: 19, name: 'Main stage', shifts: [] }],
+                date: selectedDate.value,
+                locationId: location.value,
+                empty: true,
+                canCreate: true,
+            }),
+    });
+    app.config.globalProperties.$t = (key) => key;
+    app.mount(document.querySelector('#app'));
+    const hint = () => document.querySelector('[data-icon="arrow-pointer"]');
+    const dismiss = async () => {
+        document.querySelector('button').click();
+        await nextTick();
+        assert.equal(hint(), null);
+    };
+    try {
+        assert.ok(hint());
+        await dismiss();
+        selectedDate.value = '2026-09-27';
+        await nextTick();
+        assert.ok(hint());
+        await dismiss();
+        location.value = 19;
+        await nextTick();
+        assert.ok(hint());
+        await dismiss();
+        location.value = '';
+        await nextTick();
+        assert.ok(hint());
+    } finally {
+        app.unmount();
+    }
+});
+
 test('grid starts at the first shift, or 06:00 when no shift exists', async () => {
     assert.equal(timeline.scheduleInitialScroll(null), 672);
     assert.equal(timeline.scheduleInitialScroll(0), 0);
