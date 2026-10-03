@@ -1419,6 +1419,7 @@
     "team.scheduling.assignments.overlap": "Overlaps :name by :minutes minutes (:start — :end).",
     "team.scheduling.grid.lead": "Half-hour grid by location. Drag on a location row to add a shift — templates are optional.",
     "team.scheduling.grid.label": "Daily schedule by location",
+    "team.scheduling.grid.all_locations": "All locations",
     "team.scheduling.grid.shift_count": ":count shifts today",
     "team.scheduling.grid.one_shift": "1 shift today",
     "team.scheduling.grid.no_shifts": "No shifts",

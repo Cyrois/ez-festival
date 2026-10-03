@@ -6,6 +6,7 @@ import ScheduleTimeline from './ScheduleTimeline.vue';
 const props = defineProps({
     date: { type: String, required: true },
     eventId: { type: Number, required: true },
+    locationId: { type: [Number, String], default: '' },
     canCreate: { type: Boolean, default: false },
 });
 const emit = defineEmits(['create']);
@@ -27,6 +28,7 @@ const load = async (page = 1) => {
     failed.value = false;
     try {
         const params = new URLSearchParams({ date: props.date, page });
+        if (props.locationId) params.set('location_id', props.locationId);
         const response = await fetch('/team/scheduling/grid?' + params, {
             headers: { Accept: 'application/json' },
             signal: controller.signal,
@@ -61,7 +63,9 @@ const loadNext = () => {
     if (!failed.value && currentPage.value < lastPage.value)
         load(currentPage.value + 1);
 };
-watch(() => [props.date, props.eventId], refresh, { immediate: true });
+watch(() => [props.date, props.eventId, props.locationId], refresh, {
+    immediate: true,
+});
 onUnmounted(() => {
     generation++;
     controller?.abort();

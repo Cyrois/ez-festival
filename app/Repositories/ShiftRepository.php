@@ -13,11 +13,12 @@ use Illuminate\Support\Collection;
 
 class ShiftRepository
 {
-    public function schedule(Event $event, string $date, int $page = 1): LengthAwarePaginator
+    public function schedule(Event $event, string $date, int $page = 1, ?int $locationId = null): LengthAwarePaginator
     {
         [$start, $end] = $this->dayBounds($date);
 
         return $event->locations()->select(['id', 'name', 'event_id'])
+            ->when($locationId !== null, fn ($query) => $query->where('id', $locationId))
             ->with(['shifts' => fn ($query) => $query
                 ->where('event_id', $event->id)
                 ->where('starts_at', '<', $end)->where('ends_at', '>', $start)
@@ -27,17 +28,19 @@ class ShiftRepository
             ->paginate(25, ['*'], 'page', $page);
     }
 
-    public function countForDay(Event $event, string $date): int
+    public function countForDay(Event $event, string $date, ?int $locationId = null): int
     {
         [$start, $end] = $this->dayBounds($date);
 
-        return $event->shifts()->where('starts_at', '<', $end)->where('ends_at', '>', $start)->count();
+        return $event->shifts()->where('starts_at', '<', $end)->where('ends_at', '>', $start)
+            ->when($locationId !== null, fn ($query) => $query->where('location_id', $locationId))->count();
     }
 
-    public function firstShiftMinuteForDay(Event $event, string $date): ?int
+    public function firstShiftMinuteForDay(Event $event, string $date, ?int $locationId = null): ?int
     {
         [$start, $end] = $this->dayBounds($date);
-        $first = $event->shifts()->where('starts_at', '<', $end)->where('ends_at', '>', $start)->min('starts_at');
+        $first = $event->shifts()->where('starts_at', '<', $end)->where('ends_at', '>', $start)
+            ->when($locationId !== null, fn ($query) => $query->where('location_id', $locationId))->min('starts_at');
         if ($first === null) {
             return null;
         }

@@ -18,12 +18,13 @@ class ScheduleGridController extends Controller
     ): AnonymousResourceCollection {
         $event = $eventContext->requireCurrent($request->user());
         $data = $request->validated();
+        $locationId = isset($data['location_id']) ? (int) $data['location_id'] : null;
 
-        return ScheduleLocationResource::collection($shifts->schedule($event, $data['date'], (int) ($data['page'] ?? 1)))
+        return ScheduleLocationResource::collection($shifts->schedule($event, $data['date'], (int) ($data['page'] ?? 1), $locationId))
             ->additional(['schedule' => [
                 'date' => $data['date'],
-                'shift_count' => $shifts->countForDay($event, $data['date']),
-                'first_shift_minute' => $shifts->firstShiftMinuteForDay($event, $data['date']),
+                'shift_count' => $shifts->countForDay($event, $data['date'], $locationId),
+                'first_shift_minute' => $shifts->firstShiftMinuteForDay($event, $data['date'], $locationId),
             ]]);
     }
 }

@@ -252,6 +252,43 @@ class TeamScheduleGridTest extends TestCase
         $this->assertDatabaseCount('shifts', 1);
     }
 
+    public function test_schedule_accepts_days_and_shifts_before_and_after_the_event_dates(): void
+    {
+        foreach (['2026-09-24', '2026-09-28'] as $date) {
+            $this->post(route('team.shifts.store', $this->event), $this->payload([
+                'starts_at' => $date.'T08:00', 'ends_at' => $date.'T10:00',
+            ]))->assertRedirect();
+            $this->get(route('team.scheduling', ['date' => $date]))
+                ->assertInertia(fn (Assert $page) => $page->where('scheduleDate', $date));
+            $this->getJson($this->gridUrl(['date' => $date]))->assertOk()
+                ->assertJsonPath('schedule.shift_count', 1)
+                ->assertJsonPath('data.0.shifts.0.starts_at', $date.'T08:00');
+        }
+    }
+
+    public function test_location_filter_scopes_rows_counts_and_first_shift_and_can_be_cleared(): void
+    {
+        $otherLocation = $this->event->locations()->create(['name' => 'Gate']);
+        $empty = $this->event->locations()->create(['name' => 'Empty']);
+        $this->shift(['starts_at' => '2026-09-26T08:00', 'ends_at' => '2026-09-26T10:00']);
+        $shift = $this->shift(['location_id' => $otherLocation->id]);
+        $this->getJson($this->gridUrl(['location_id' => $otherLocation->id]))->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $otherLocation->id)
+            ->assertJsonPath('data.0.shifts.0.id', $shift->id)->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('schedule.shift_count', 1)->assertJsonPath('schedule.first_shift_minute', 840);
+        $this->getJson($this->gridUrl(['location_id' => $empty->id]))->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('schedule.shift_count', 0)
+            ->assertJsonPath('schedule.first_shift_minute', null);
+        $this->getJson($this->gridUrl())->assertOk()->assertJsonCount(3, 'data')
+            ->assertJsonPath('schedule.shift_count', 2)->assertJsonPath('schedule.first_shift_minute', 480);
+        $otherEvent = $this->makeEvent('Foreign');
+        $foreign = $otherEvent->locations()->create(['name' => 'Foreign']);
+        foreach ([$foreign->id, 999999, 'invalid'] as $locationId) {
+            $this->getJson($this->gridUrl(['location_id' => $locationId]))
+                ->assertUnprocessable()->assertJsonValidationErrors('location_id');
+        }
+    }
+
     private function makeEvent(string $name): Event
     {
         return Event::create(['name' => $name, 'starts_on' => '2026-09-25', 'ends_on' => '2026-09-27', 'timezone' => 'America/Vancouver']);

@@ -3,6 +3,7 @@ import { Button } from '../../components/ui/button';
 import { DataTable } from '../../components/ui/data-table';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Icon } from '../../components/ui/icon';
+import { Input } from '../../components/ui/input';
 import { CustomDropdown } from '../../components/ui/custom-dropdown';
 import LocationScheduleGrid from '../../components/team/LocationScheduleGrid.vue';
 import { Tab, TabList, TabPanel, Tabs } from '../../components/ui/tabs';
@@ -34,24 +35,21 @@ const activeTab = ref(
         : 'schedule',
 );
 const selectedDate = ref(props.scheduleDate);
+const selectedLocation = ref('');
+const locationItems = computed(() => [
+    { value: '', title: trans('team.scheduling.grid.all_locations') },
+    ...props.locations.map((location) => ({
+        value: location.id,
+        title: location.name,
+    })),
+]);
 const locale = computed(() => page.props.locale ?? undefined);
 const dateLabel = computed(() =>
     scheduleDateLabel(selectedDate.value, locale.value, { year: 'numeric' }),
 );
-const dateItems = computed(() => {
-    const dates = [];
-    for (
-        let date = props.event.starts_on;
-        date <= props.event.ends_on;
-        date = scheduleDay(date, 1)
-    )
-        dates.push(date);
-    if (!dates.includes(selectedDate.value)) dates.push(selectedDate.value);
-    return dates.sort().map((date) => ({
-        value: date,
-        title: scheduleDateLabel(date, locale.value),
-    }));
-});
+const selectDate = (date) => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) selectedDate.value = date;
+};
 watch(
     () => props.scheduleDate,
     (date) => {
@@ -221,11 +219,24 @@ const formatDateTime = (value) =>
                             <Icon :name="['fas', 'chevron-right']" />
                         </Button>
                         <div class="w-40">
-                            <CustomDropdown
-                                v-model="selectedDate"
-                                :items="dateItems"
+                            <Input
+                                :model-value="selectedDate"
+                                type="date"
                                 :aria-label="
                                     $t('team.scheduling.grid.select_day')
+                                "
+                                @update:model-value="selectDate"
+                            />
+                        </div>
+                        <div class="w-52">
+                            <CustomDropdown
+                                v-model="selectedLocation"
+                                :items="locationItems"
+                                :placeholder="
+                                    $t('team.scheduling.grid.all_locations')
+                                "
+                                :aria-label="
+                                    $t('team.scheduling.fields.location')
                                 "
                             />
                         </div>
@@ -240,6 +251,7 @@ const formatDateTime = (value) =>
                     <LocationScheduleGrid
                         v-if="activeTab === 'schedule'"
                         :date="selectedDate"
+                        :location-id="selectedLocation"
                         :event-id="event.id"
                         :can-create="canWrite && locations.length > 0"
                         @create="createShift"

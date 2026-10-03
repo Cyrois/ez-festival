@@ -483,6 +483,58 @@ test('date changes ignore stale requests and location continuation remains serve
     }
 });
 
+test('location changes cancel stale loads, restart paging and clear the filter', async () => {
+    const requests = [];
+    globalThis.fetch = (url, options) =>
+        new Promise((resolve) => requests.push({ url, options, resolve }));
+    const location = ref('');
+    const app = createApp({
+        setup: () => () =>
+            h(Grid, { date, eventId: 4, locationId: location.value }),
+    });
+    app.config.globalProperties.$t = (key) => key;
+    app.mount(document.querySelector('#app'));
+    const response = (id) => ({
+        ok: true,
+        json: async () => ({
+            data: [{ id, shifts: [] }],
+            schedule: { shift_count: 0, first_shift_minute: null },
+            meta: { current_page: 1, last_page: 1 },
+        }),
+    });
+    try {
+        location.value = 9;
+        await nextTick();
+        assert.equal(requests[0].options.signal.aborted, true);
+        assert.match(requests[1].url, /location_id=9/);
+        assert.match(requests[1].url, /page=1/);
+        requests[1].resolve(response(9));
+        await settle();
+        requests[0].resolve(response(99));
+        await settle();
+        assert.deepEqual(
+            gridProps.rows.map((row) => row.id),
+            [9],
+        );
+        location.value = '';
+        await nextTick();
+        assert.equal(
+            new URL(requests[2].url, 'http://localhost').searchParams.has(
+                'location_id',
+            ),
+            false,
+        );
+        requests[2].resolve(response(1));
+        await settle();
+        assert.deepEqual(
+            gridProps.rows.map((row) => row.id),
+            [1],
+        );
+    } finally {
+        app.unmount();
+    }
+});
+
 test('a failed grid request does not show the empty state and can retry', async () => {
     let fail = true;
     globalThis.fetch = async () => ({

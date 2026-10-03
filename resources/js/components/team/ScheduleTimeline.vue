@@ -173,10 +173,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div class="relative">
+    <div
+        class="relative overflow-hidden rounded-lg border border-line bg-ground"
+    >
         <div
             ref="viewport"
-            class="relative max-h-[70vh] overflow-auto rounded-lg border border-line bg-ground focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+            class="relative max-h-[70vh] overflow-x-scroll overflow-y-auto focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none focus-visible:ring-inset [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-corner]:bg-page [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted/50 [&::-webkit-scrollbar-thumb:hover]:bg-muted [&::-webkit-scrollbar-track]:bg-page"
             :aria-label="$t('team.scheduling.grid.label')"
             :aria-busy="loading"
             role="region"
