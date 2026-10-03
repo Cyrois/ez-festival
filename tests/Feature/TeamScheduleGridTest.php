@@ -178,7 +178,7 @@ class TeamScheduleGridTest extends TestCase
     public function test_page_exposes_event_local_date_context_and_validates_date_and_paging(): void
     {
         $this->get(route('team.scheduling', ['date' => '2026-09-27']))->assertInertia(fn (Assert $page) => $page
-            ->where('scheduleDate', '2026-09-27')->where('event.timezone', 'America/Vancouver')->where('event.starts_on', '2026-09-25')->where('event.ends_on', '2026-09-27'));
+            ->where('scheduleDate', '2026-09-27')->where('event.timezone', 'America/Vancouver')->missing('event.starts_on')->missing('event.ends_on'));
         foreach ([['date' => '2026-02-30'], ['date' => 'invalid'], ['page' => -1], ['page' => 1.5], ['page' => 100001]] as $invalid) {
             $this->getJson($this->gridUrl($invalid))->assertUnprocessable();
         }

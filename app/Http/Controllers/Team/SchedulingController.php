@@ -31,8 +31,6 @@ class SchedulingController extends Controller
                 'name' => $event->name,
                 'is_locked' => $event->isLocked(),
                 'timezone' => $event->timezone,
-                'starts_on' => $firstDay,
-                'ends_on' => $lastDay,
             ],
             'locations' => $locations->optionsFor($event),
             'canManage' => $canManage,
