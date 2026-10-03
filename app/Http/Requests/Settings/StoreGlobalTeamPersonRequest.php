@@ -33,7 +33,7 @@ class StoreGlobalTeamPersonRequest extends FormRequest
             'status' => ['required', Rule::in(['applied', 'reviewing', 'hired'])],
             'event_access' => ['required', 'array', 'min:1'],
             'event_access.*.event_id' => ['required', 'integer', 'distinct', Rule::exists('events', 'id')->where('locked', 0)],
-            'event_access.*.role_id' => ['required', 'integer', Rule::exists('roles', 'id')->where('active', 1)],
+            'event_access.*.role_id' => ['required', 'integer', Rule::exists('roles', 'id')->withoutTrashed()->where('active', 1)],
         ];
     }
 

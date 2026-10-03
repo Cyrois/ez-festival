@@ -6,14 +6,17 @@ use App\Support\RoleName;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * A named job for Team, shared by the whole organization (one database per organization).
- * Roles are turned off instead of deleted.
+ * Unheld roles may be soft deleted while preserving their history and name.
  */
 #[Fillable(['name', 'active', 'permissions'])]
 class Role extends Model
 {
+    use SoftDeletes;
+
     protected $attributes = [
         'active' => true,
         'permissions' => '[]',

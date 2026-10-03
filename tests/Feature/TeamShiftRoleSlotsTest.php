@@ -31,7 +31,7 @@ class TeamShiftRoleSlotsTest extends TestCase
     {
         [$user, $event, $location] = $this->context();
         $crew = Role::query()->create(['name' => 'Crew']);
-        $lead = Role::query()->create(['name' => 'Lead', 'permissions' => ['artists.edit']]);
+        $lead = Role::query()->create(['name' => 'Lead', 'permissions' => ['artists.edit']])->refresh();
         $this->grantRoleAccess($user, ['scheduling.edit']);
         $peopleBefore = DB::table('people')->count();
         $accessBefore = DB::table('team_engagements')->count();
@@ -241,7 +241,7 @@ class TeamShiftRoleSlotsTest extends TestCase
         $role = Role::query()->create(['name' => 'Crew']);
         $shift = app(ShiftService::class)->create($event, $this->payload($location, [['role_id' => $role->id, 'needed' => 2]]));
         $slot = $shift->roleSlots()->sole();
-        foreach ([fn () => $slot->update(['needed' => 0]), fn () => $slot->update(['sort_order' => -1]), fn () => $role->delete()] as $write) {
+        foreach ([fn () => $slot->update(['needed' => 0]), fn () => $slot->update(['sort_order' => -1]), fn () => $role->forceDelete()] as $write) {
             try {
                 DB::transaction($write);
                 $this->fail('Database constraint must refuse the write.');

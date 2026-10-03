@@ -30,7 +30,7 @@ class UpdateGlobalTeamPersonRequest extends FormRequest
             'is_admin' => ['sometimes', 'boolean'],
             'event_access' => ['required', 'array'],
             'event_access.*.event_id' => ['required', 'integer', 'distinct', Rule::exists('events', 'id')],
-            'event_access.*.role_id' => ['nullable', 'integer', Rule::exists('roles', 'id')],
+            'event_access.*.role_id' => ['nullable', 'integer', Rule::exists('roles', 'id')->withoutTrashed()],
             'event_access.*.status' => ['nullable', Rule::in(['applied', 'reviewing', 'hired'])],
         ];
     }

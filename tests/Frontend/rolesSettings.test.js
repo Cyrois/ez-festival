@@ -4,7 +4,6 @@ import test from 'node:test';
 import { emphasisParts } from '../../resources/js/lib/emphasisParts.js';
 import { roleMatchHint } from '../../resources/js/pages/Settings/roleMatchHint.js';
 import {
-    DEFAULT_ROLE_STATUS,
     rolesQuery,
 } from '../../resources/js/pages/Settings/rolesFilters.js';
 
@@ -26,15 +25,9 @@ const translate = (key, replacements = {}) =>
         lang[key] ?? key,
     );
 
-test('the roles filter starts on On and keeps defaults out of the URL', () => {
-    assert.equal(DEFAULT_ROLE_STATUS, 'on');
-    assert.deepEqual(rolesQuery({ search: '', status: 'on' }), {});
-    assert.deepEqual(rolesQuery({ search: '  stage ', status: 'all' }), {
-        search: 'stage',
-        status: 'all',
-    });
-    assert.deepEqual(rolesQuery({ status: 'off' }), { status: 'off' });
-    assert.deepEqual(rolesQuery({ status: 'bogus' }), {});
+test('the roles search keeps an empty search out of the URL', () => {
+    assert.deepEqual(rolesQuery({ search: '' }), {});
+    assert.deepEqual(rolesQuery({ search: '  stage ' }), { search: 'stage' });
 });
 
 test('the turn off popup text bolds the role name and people count', () => {
@@ -104,8 +97,13 @@ test('every settings.roles key used by the page exists in en.json', () => {
     }
 });
 
-test('the roles page has no delete action', () => {
-    assert.doesNotMatch(rolesPage, /\.delete\(|'trash'|destroy/);
+test('the roles page hides status controls and confirms guarded deletion', () => {
+    assert.doesNotMatch(rolesPage, /SegmentedControl|statusOptions|setActive|turn_on|turn_off|off_note/);
+    assert.match(rolesPage, /router\.delete\(/);
+    assert.match(rolesPage, /:disabled="\s*rowData.people_count > 0 \|\| deleteBusy\s*"/);
+    assert.match(rolesPage, /settings.roles.delete.in_use/);
+    assert.match(rolesPage, /v-model:open="deleteOpen"/);
+    assert.match(rolesPage, /@confirm="confirmDelete"/);
 });
 
 test('the match hint shows only the last submitted name', () => {

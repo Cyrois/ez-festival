@@ -40,7 +40,7 @@ class UpdateTeamMemberRequest extends FormRequest
         return [
             // Require profile fields only for full edits; role/notes-only updates omit them.
             ...(Gate::allows('team.edit') ? $this->memberRules($eventId) : []),
-            'role_id' => ['nullable', 'integer', Rule::exists('roles', 'id')],
+            'role_id' => ['nullable', 'integer', Rule::exists('roles', 'id')->withoutTrashed()],
             'pass_assignments' => ['sometimes', 'array'],
             'pass_assignments.*.id' => [
                 'nullable',

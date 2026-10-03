@@ -71,7 +71,11 @@ class TeamEngagementService
 
             $access = app(EventAccessService::class);
             if (array_key_exists('role_id', $data) && (string) $data['role_id'] !== (string) $engagement->role_id) {
-                if (! $access->canAssignRole($user, $engagement, Role::find($data['role_id']))) {
+                $role = $data['role_id'] === null ? null : Role::query()->lockForUpdate()->find($data['role_id']);
+                if ($data['role_id'] !== null && ($role === null || ! $role->active)) {
+                    throw ValidationException::withMessages(['role_id' => __('settings.team.validation.role_unavailable')]);
+                }
+                if (! $access->canAssignRole($user, $engagement, $role)) {
                     throw ValidationException::withMessages(['role_id' => __('permissions.forbidden')]);
                 }
                 $engagement->update(['role_id' => $data['role_id']]);

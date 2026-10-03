@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\DestroyRoleRequest;
 use App\Http\Requests\Settings\IndexRoleDataTableRequest;
 use App\Http\Requests\Settings\IndexRolePeopleRequest;
 use App\Http\Requests\Settings\IndexRolesRequest;
@@ -29,7 +30,7 @@ class RoleController extends Controller
     public function index(IndexRolesRequest $request): Response
     {
         $search = trim((string) $request->validated('search', ''));
-        $status = $request->validated('status', RoleRepository::STATUS_ON);
+        $status = $request->validated('status', RoleRepository::STATUS_ALL);
 
         return Inertia::render('Settings/Roles', [
             'roles' => RoleResource::collection($this->roles->paginate($search, $status)),
@@ -46,7 +47,7 @@ class RoleController extends Controller
     {
         $result = $this->roles->dataTable(
             trim((string) $request->validated('query', '')),
-            $request->validated('status', RoleRepository::STATUS_ON),
+            $request->validated('status', RoleRepository::STATUS_ALL),
             (int) $request->validated('start'),
             (int) $request->validated('length'),
             $request->validated('order.0.dir', 'asc'),
@@ -85,6 +86,13 @@ class RoleController extends Controller
             'role' => (new RoleResource($role))->resolve(),
             'permissionGroups' => Permissions::groups(),
         ]);
+    }
+
+    public function destroy(DestroyRoleRequest $request, Role $role): RedirectResponse
+    {
+        $this->roleService->delete($role);
+
+        return redirect()->route('settings.roles')->with('success', __('settings.roles.toast.deleted'));
     }
 
     public function store(StoreRoleRequest $request): RedirectResponse
