@@ -291,7 +291,7 @@ class DatabaseAuditRegressionTest extends TestCase
             foreach (['columns', 'list'] as $view) {
                 $queries = [];
                 $this->get(route('team.advancement', ['view' => $view]))->assertOk()
-                    ->assertInertia(fn (Assert $page) => $page->has('engagements.data', $view === 'list' ? min($number, 25) : $number));
+                    ->assertInertia(fn (Assert $page) => $page->has('engagements.data', min($number, 25)));
                 $this->assertLessThanOrEqual(6, count($queries), implode("\n", $queries));
 
                 if ($number === 1) {

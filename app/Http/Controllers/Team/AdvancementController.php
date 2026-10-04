@@ -23,9 +23,7 @@ class AdvancementController extends Controller
         $employmentTypes = $filters['employment_types'] ?? [];
         $view = $filters['view'] ?? 'columns';
 
-        $engagements = $view === 'columns'
-            ? $this->engagements->all($event, $search, $employmentTypes)
-            : $this->engagements->paginate($event, $search, $employmentTypes);
+        $engagements = $this->engagements->paginate($event, $search, $employmentTypes);
 
         return Inertia::render('Team/Advancement', [
             'engagements' => TeamEngagementResource::collection($engagements),

@@ -39,7 +39,7 @@ class TeamAdvancementTest extends TestCase
         ])->assertSessionHasErrors('email');
     }
 
-    public function test_advancement_columns_use_locked_statuses_and_full_filtered_results(): void
+    public function test_advancement_columns_page_results_but_keep_full_filtered_status_counts(): void
     {
         [$user, $event] = $this->userWithCompletedSetup();
         foreach (range(1, 26) as $number) {
@@ -66,12 +66,28 @@ class TeamAdvancementTest extends TestCase
                     ->where('filters.search', 'VOLUNTEER')
                     ->where('filters.employment_types', ['volunteer'])
                     ->where('filters.view', 'columns')
-                    ->has('engagements.data', 26)
+                    ->has('engagements.data', 25)
+                    ->where('engagements.meta.total', 26)
                     ->where('statusCounts.applied', 25)
                     ->where('statusCounts.reviewing', 1)
                     ->where('statusCounts.hired', 0)
                     ->where('statusCounts.declined', 0),
             );
+    }
+
+    public function test_advancement_columns_second_page_keeps_filters_and_totals(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        foreach (range(1, 26) as $number) {
+            $this->engagement($event, 'Volunteer '.$number, 'applied', 'volunteer');
+        }
+        $this->engagement($event, 'Paid Coordinator', 'hired', 'paid');
+        $this->actingAs($user)->get(route('team.advancement', [
+            'view' => 'columns', 'search' => 'Volunteer', 'employment_types' => ['volunteer'], 'page' => 2,
+        ]))->assertInertia(fn (Assert $page) => $page
+            ->has('engagements.data', 1)->where('engagements.meta.total', 26)->where('engagements.meta.current_page', 2)
+            ->where('statusCounts.applied', 26)->where('statusCounts.hired', 0)
+            ->where('filters.search', 'Volunteer')->where('filters.employment_types', ['volunteer']));
     }
 
     public function test_advancement_list_is_paginated(): void
