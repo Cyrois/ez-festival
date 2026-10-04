@@ -164,7 +164,7 @@ const assignmentTitle = (assignment) =>
                     >
                     <TableHead class="p-0 normal-case">
                         <div
-                            class="relative h-14 w-[var(--timeline-width)]"
+                            class="relative h-10 w-[var(--timeline-width)]"
                             :aria-label="shiftHoursLabel(bounds)"
                         >
                             <div
@@ -215,7 +215,7 @@ const assignmentTitle = (assignment) =>
             <TableBody>
                 <TableRow>
                     <TableCell
-                        class="sticky left-0 z-10 border-r border-line bg-ground px-3"
+                        class="sticky left-0 z-10 border-r border-line bg-ground px-3 py-2"
                     >
                         <div class="w-[calc(var(--person-width)-1.5rem)]">
                             <p
@@ -235,7 +235,7 @@ const assignmentTitle = (assignment) =>
                     </TableCell>
                     <TableCell class="p-0">
                         <div
-                            class="relative flex min-h-20 w-[var(--timeline-width)] items-center"
+                            class="relative flex min-h-16 w-[var(--timeline-width)] items-center"
                         >
                             <div
                                 class="absolute left-[var(--bar-start)] flex h-7 w-[var(--bar-width)] items-center gap-2 overflow-hidden rounded-lg border px-3 text-xs font-semibold"
@@ -265,7 +265,7 @@ const assignmentTitle = (assignment) =>
                     </TableCell>
                     <TableCell
                         v-if="canManage"
-                        class="sticky right-0 z-10 border-l border-line bg-ground px-2"
+                        class="sticky right-0 z-10 border-l border-line bg-ground px-2 py-2"
                     />
                 </TableRow>
                 <TableRow
@@ -281,7 +281,7 @@ const assignmentTitle = (assignment) =>
                     "
                 >
                     <TableCell
-                        class="sticky left-0 z-10 border-r border-line bg-ground px-3"
+                        class="sticky left-0 z-10 border-r border-line bg-ground px-3 py-2"
                     >
                         <div
                             class="flex w-[calc(var(--person-width)-1.5rem)] items-center gap-2 rounded-lg"
@@ -350,7 +350,7 @@ const assignmentTitle = (assignment) =>
                     </TableCell>
                     <TableCell class="p-0">
                         <div
-                            class="relative isolate h-18 w-[var(--timeline-width)]"
+                            class="relative isolate h-14 w-[var(--timeline-width)]"
                         >
                             <div
                                 class="pointer-events-none absolute inset-0"
@@ -372,7 +372,7 @@ const assignmentTitle = (assignment) =>
                                 "
                             >
                                 <div
-                                    class="absolute top-6 left-[var(--bar-start)] h-7 w-[var(--bar-width)] rounded-lg border"
+                                    class="absolute top-3 left-[var(--bar-start)] h-7 w-[var(--bar-width)] rounded-lg border"
                                     :class="
                                         row.assignment.overlaps.length
                                             ? 'border-warning/30 bg-warning/20'
@@ -403,14 +403,14 @@ const assignmentTitle = (assignment) =>
                                         shift,
                                     )"
                                     :key="index"
-                                    class="pointer-events-none absolute top-6 left-[var(--bar-start)] h-7 w-[var(--bar-width)] rounded-lg bg-[repeating-linear-gradient(135deg,transparent,transparent_4px,currentColor_4px,currentColor_6px)] text-warning opacity-40"
+                                    class="pointer-events-none absolute top-3 left-[var(--bar-start)] h-7 w-[var(--bar-width)] rounded-lg bg-[repeating-linear-gradient(135deg,transparent,transparent_4px,currentColor_4px,currentColor_6px)] text-warning opacity-40"
                                     :style="geometry(overlap)"
                                     aria-hidden="true"
                                     data-overlap-hatch
                                 />
                                 <span
                                     v-if="shortBar(row.assignment)"
-                                    class="absolute top-1 left-[var(--bar-start)] z-10 max-w-64 truncate text-xs font-semibold"
+                                    class="absolute top-0 left-[var(--bar-start)] z-10 max-w-64 truncate text-xs font-semibold"
                                     :style="
                                         geometry(personInterval(row.assignment))
                                     "
@@ -423,8 +423,8 @@ const assignmentTitle = (assignment) =>
                                     class="absolute left-[var(--bar-start)] z-10 w-[var(--bar-width)] truncate px-2 text-right text-xs text-warning"
                                     :class="
                                         shortBar(row.assignment)
-                                            ? 'top-14'
-                                            : 'top-7'
+                                            ? 'top-10'
+                                            : 'top-4'
                                     "
                                     :style="
                                         geometry(
@@ -459,7 +459,7 @@ const assignmentTitle = (assignment) =>
                             </template>
                             <div
                                 v-else
-                                class="absolute top-5 left-[var(--bar-start)] flex h-10 w-[var(--bar-width)] items-center gap-3 rounded-lg border border-dashed border-line bg-ground px-2 text-xs font-semibold text-charcoal transition-colors"
+                                class="absolute top-3 left-[var(--bar-start)] flex h-8 w-[var(--bar-width)] items-center gap-3 rounded-lg border border-dashed border-line bg-ground px-2 text-xs font-semibold text-charcoal transition-colors"
                                 :class="
                                     enabled
                                         ? [
@@ -512,7 +512,7 @@ const assignmentTitle = (assignment) =>
                     </TableCell>
                     <TableCell
                         v-if="canManage"
-                        class="sticky right-0 z-10 border-l border-line bg-ground px-2"
+                        class="sticky right-0 z-10 border-l border-line bg-ground px-2 py-2"
                     >
                         <span
                             v-if="row.assignment"
