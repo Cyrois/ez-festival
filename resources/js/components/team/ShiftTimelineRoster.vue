@@ -251,9 +251,9 @@ const resizeKey = (event, assignment, edge) => {
                 </CardTitle>
                 <p class="mt-1 mb-0 text-sm text-muted">
                     {{
-                        $t('team.scheduling.slots.filled', {
+                        $t('team.scheduling.grid.filled', {
                             filled: shift.filled_count,
-                            count: shift.total_needs,
+                            needed: shift.total_needs,
                         })
                     }}
                 </p>
@@ -277,18 +277,20 @@ const resizeKey = (event, assignment, edge) => {
             <TableHeader>
                 <TableRow variant="header">
                     <TableHead
-                        class="sticky left-0 z-20 min-w-[var(--person-width)] border-r border-line/30 px-3"
-                        :class="tokens.solid"
+                        class="sticky left-0 z-20 min-w-[var(--person-width)] border-r border-line px-3"
                         >{{ $t('team.scheduling.roster.person') }}</TableHead
                     >
-                    <TableHead
-                        class="p-0 normal-case"
-                        :class="tokens.solid"
-                    >
+                    <TableHead class="p-0 normal-case">
                         <div
-                            class="relative h-16 w-[var(--timeline-width)]"
+                            class="relative h-10 w-[var(--timeline-width)]"
                             :aria-label="shiftHoursLabel(bounds)"
                         >
+                            <div
+                                class="pointer-events-none absolute inset-y-0 left-[var(--bar-start)] w-[var(--bar-width)] border-x"
+                                :class="tokens.solid"
+                                :style="geometry(shiftInterval)"
+                                aria-hidden="true"
+                            />
                             <div
                                 v-for="tick in grid"
                                 :key="`grid-${tick.minute}`"
@@ -317,13 +319,21 @@ const resizeKey = (event, assignment, edge) => {
                                                 64)
                                     "
                                     class="absolute top-2 text-xs font-normal whitespace-nowrap"
-                                    :class="
-                                        index === 0
+                                    :class="[
+                                        tick.minute >= timelinePadding &&
+                                        tick.minute <=
+                                            duration - timelinePadding
+                                            ? tokens.solid
+                                            : '',
+                                        index === 0 ||
+                                        tick.minute === timelinePadding
                                             ? 'left-1'
-                                            : index === ticks.length - 1
+                                            : index === ticks.length - 1 ||
+                                                tick.minute ===
+                                                    duration - timelinePadding
                                               ? 'right-1'
-                                              : 'left-0 -translate-x-1/2'
-                                    "
+                                              : 'left-0 -translate-x-1/2',
+                                    ]"
                                     >{{ tick.label
                                     }}<span
                                         v-if="tick.date"
@@ -332,34 +342,11 @@ const resizeKey = (event, assignment, edge) => {
                                     ></span
                                 >
                             </div>
-                            <div
-                                class="absolute inset-x-0 bottom-2 flex items-center justify-center gap-2 text-xs font-semibold tracking-normal"
-                                data-roster-summary
-                            >
-                                <span>{{
-                                    $t('team.scheduling.grid.filled', {
-                                        filled: shift.filled_count,
-                                        needed: shift.total_needs,
-                                    })
-                                }}</span>
-                                <span v-if="shift.extra_count"
-                                    >·
-                                    {{
-                                        $t(
-                                            shift.extra_count === 1
-                                                ? 'team.scheduling.roster.extra_one'
-                                                : 'team.scheduling.roster.extra_many',
-                                            { count: shift.extra_count },
-                                        )
-                                    }}</span
-                                >
-                            </div>
                         </div>
                     </TableHead>
                     <TableHead
                         v-if="canManage"
-                        class="sticky right-0 z-20 min-w-22 border-l border-line/30 px-2 text-center"
-                        :class="tokens.solid"
+                        class="sticky right-0 z-20 min-w-22 border-l border-line px-2 text-center"
                         data-roster-actions
                         >{{ $t('team.scheduling.roster.actions') }}</TableHead
                     >

@@ -405,7 +405,7 @@ test('view-only and locked roster omits Actions and explains disabled Assign; di
         },
     });
     try {
-        assert.ok(document.querySelector('[data-roster-summary]'));
+        assert.equal(document.querySelector('[data-roster-summary]'), null);
         assert.match(document.body.textContent, /empty_shift/);
         assert.doesNotMatch(document.body.textContent, /legend_hours/);
     } finally {
