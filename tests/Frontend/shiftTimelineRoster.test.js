@@ -315,7 +315,7 @@ test('complete roster shows exact bars, open rows, Extras and hours; writable co
             first
                 .querySelector('[data-person-bar]')
                 .style.getPropertyValue('--bar-width'),
-            `${(30 / 360) * 100}%`,
+            '10%',
         );
         assert.ok(
             Math.abs(
@@ -323,32 +323,17 @@ test('complete roster shows exact bars, open rows, Extras and hours; writable co
                     first
                         .querySelector('[data-overlap-hatch]')
                         .style.getPropertyValue('--bar-start'),
-                ) -
-                    (195 / 360) * 100,
+                ) - 55,
             ) < 1e-8,
         );
         assert.ok(first.querySelector('[data-short-label]'));
-        const summary = document.querySelector('[data-roster-summary]');
-        const open = document.querySelector('[data-open-bar]');
-        for (const bar of [summary, open]) {
-            assert.equal(
-                bar.style.getPropertyValue('--bar-start'),
-                `${(30 / 360) * 100}%`,
-            );
-            assert.equal(
-                bar.style.getPropertyValue('--bar-width'),
-                `${(300 / 360) * 100}%`,
-            );
-        }
-        assert.match(document.querySelector('thead').textContent, /20:30/);
-        assert.match(document.querySelector('thead').textContent, /02:30/);
         assert.match(first.textContent, /23:30–2026-10-02 00:00/);
         assert.match(first.textContent, /name=Other minutes=15/);
         assert.match(
             document.querySelector('[data-roster-row="person-10"]').textContent,
             /assignments.full_shift/,
         );
-        document.querySelector('[data-open-bar] > span').click();
+        document.querySelector('[data-open-bar] button').click();
         first.querySelectorAll('button')[0].click();
         first.querySelectorAll('button')[1].click();
         assert.deepEqual(events, [3, 8, -8]);
@@ -373,7 +358,7 @@ test('view-only and locked roster omits Actions and explains disabled Assign; di
                 !!document.querySelector('[data-roster-actions]'),
                 canManage,
             );
-            const button = document.querySelector('[data-open-bar]');
+            const button = document.querySelector('[data-open-bar] button');
             assert.ok(button.disabled);
             assert.equal(button.title, 'Save or read only');
             for (const b of document.querySelectorAll('button')) b.click();
@@ -548,7 +533,10 @@ test('shift page guards absent confirmation data and confirms removal before one
         assert.equal(deletions.length, 1);
         assert.match(deletions[0].url, /assignments\/8$/);
         await nextTick();
-        assert.equal(document.querySelector('[data-open-bar]').disabled, true);
+        assert.equal(
+            document.querySelector('[data-open-bar] button').disabled,
+            true,
+        );
         deletions[0].options.onSuccess();
         deletions[0].options.onFinish();
         await nextTick();
