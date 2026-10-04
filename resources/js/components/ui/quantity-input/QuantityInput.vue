@@ -1,5 +1,5 @@
 <script setup>
-import { computed, useAttrs } from 'vue';
+import { computed, useAttrs, useId } from 'vue';
 import { IconButton } from '../icon-button';
 import { Input } from '../input';
 
@@ -18,6 +18,7 @@ const props = defineProps({
 });
 const emit = defineEmits(['update:modelValue', 'remove']);
 const attrs = useAttrs();
+const tooltipId = useId();
 const amount = computed(() => Number(props.modelValue) || props.min);
 const isRemove = computed(() => props.removeAtOne && amount.value === 1);
 const decreaseDisabled = computed(
@@ -48,18 +49,19 @@ const clampInput = (event) => {
 <template>
     <div class="flex items-center gap-1">
         <span
-            :title="
-                decreaseDisabled && disabledReason ? disabledReason : undefined
-            "
+            class="group relative inline-flex shrink-0"
             :aria-label="
                 decreaseDisabled && disabledReason ? disabledReason : undefined
+            "
+            :aria-describedby="
+                decreaseDisabled && disabledReason ? tooltipId : undefined
             "
             :tabindex="decreaseDisabled && disabledReason ? 0 : undefined"
         >
             <IconButton
                 :icon="['fas', isRemove ? 'circle-minus' : 'minus']"
                 :tone="isRemove ? 'delete' : 'default'"
-                class="h-10 w-10 shrink-0"
+                class="h-10 w-10 shrink-0 disabled:pointer-events-none"
                 :label="
                     isRemove
                         ? removeLabel
@@ -68,6 +70,14 @@ const clampInput = (event) => {
                 :disabled="decreaseDisabled"
                 @click="decrease"
             />
+            <span
+                v-if="decreaseDisabled && disabledReason"
+                :id="tooltipId"
+                role="tooltip"
+                class="pointer-events-none absolute bottom-full left-0 z-50 mb-2 hidden w-56 rounded-lg bg-charcoal px-3 py-2 text-xs text-white shadow-lg group-hover:block group-focus-visible:block sm:right-0 sm:left-auto"
+            >
+                {{ disabledReason }}
+            </span>
         </span>
         <Input
             v-bind="attrs"

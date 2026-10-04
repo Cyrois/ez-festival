@@ -182,7 +182,9 @@ const remove = (slot) => {
                             "
                             :disabled-reason="
                                 $t(
-                                    'team.scheduling.slots.errors.assigned_qty',
+                                    Number(slot.needed) === 1
+                                        ? 'team.scheduling.slots.assigned_slot_tooltip'
+                                        : 'team.scheduling.slots.errors.assigned_qty',
                                     { count: assignedCount(slot) },
                                 )
                             "

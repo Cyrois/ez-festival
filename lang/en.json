@@ -1327,6 +1327,7 @@
     "ui.quantity.decrease": "Decrease :label",
     "team.scheduling.slots.errors.assigned_role": "Remove the assigned people from this Headcount role before removing or changing it.",
     "team.scheduling.slots.errors.assigned_qty": "Quantity must be :count or higher. Remove assignments before reducing it.",
+    "team.scheduling.slots.assigned_slot_tooltip": "This slot has a person assigned. Remove their assignment before removing the slot.",
     "team.scheduling.slots.errors.needed": "Enter a whole number of at least 1.",
     "team.scheduling.slots.errors.role_required": "Select a role.",
     "team.scheduling.slots.errors.role_unavailable": "Select an available role from the organization’s Roles list.",

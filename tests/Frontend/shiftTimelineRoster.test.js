@@ -779,7 +779,9 @@ test('color and Headcount edits keep the roster active; draft roles assign befor
         assert.equal(form.slots.at(-1).needed, 1);
         const removeRole = controls.querySelector('button[title="team.scheduling.slots.remove role=Sound"]');
         assert.equal(removeRole.disabled, true);
-        assert.match(removeRole.parentElement.title, /slots.errors.assigned_qty/);
+        const tooltip = controls.querySelector('[role="tooltip"]');
+        assert.match(tooltip.textContent, /slots.assigned_slot_tooltip/);
+        assert.equal(removeRole.parentElement.getAttribute('aria-describedby'), tooltip.id);
         assert.equal(controls.querySelectorAll('button').length, 2);
         const qty = controls.querySelector('input[type="number"]');
         qty.value = '0';
