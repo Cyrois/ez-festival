@@ -231,12 +231,17 @@ class EventControllerTest extends TestCase
             'team_engagement_id' => $engagement->id, 'shift_role_slot_id' => $slot->id,
             'role_id' => $role->id, 'starts_at' => $shift->starts_at, 'ends_at' => $shift->ends_at,
         ]);
+        $break = $shift->breaks()->create([
+            'duration_minutes' => 15,
+            'starts_at' => '2026-07-12 21:00:00', 'sort_order' => 0,
+        ]);
 
         $this->actingAs($user)
             ->delete(route('settings.events.destroy', $event))
             ->assertRedirect(route('settings.events.index'));
 
         $this->assertModelMissing($assignment);
+        $this->assertModelMissing($break);
         $this->assertModelMissing($slot);
         $this->assertModelExists($role);
         $this->assertModelMissing($event);

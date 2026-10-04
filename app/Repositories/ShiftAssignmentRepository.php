@@ -40,7 +40,7 @@ class ShiftAssignmentRepository
 
     public function loadRoster(Shift $shift): Shift
     {
-        $shift->load(['location:id,name', 'roleSlots.role:id,name', 'assignments.role:id,name', 'assignments.teamEngagement:id,person_id', 'assignments.teamEngagement.person:id,name']);
+        $shift->load(['breaks', 'location:id,name', 'roleSlots.role:id,name', 'assignments.role:id,name', 'assignments.teamEngagement:id,person_id', 'assignments.teamEngagement.person:id,name']);
         $shift->loadCount('assignments');
         $assignments = $shift->assignments;
         $others = ShiftAssignmentOverlaps::forMembers($shift, $assignments->pluck('team_engagement_id')->unique()->all(), $shift->starts_at, $shift->ends_at);
@@ -58,6 +58,7 @@ class ShiftAssignmentRepository
             'roleSlots.role:id,name', 'assignments.role:id,name',
             'assignments.teamEngagement:id,person_id', 'assignments.teamEngagement.person:id,name',
         ]);
+        $shifts->loadSum('breaks as break_minutes', 'duration_minutes');
         $assignments = $shifts->flatMap(fn ($shift) => $shift->assignments);
         $others = ShiftAssignment::query()
             ->whereIn('team_engagement_id', $assignments->pluck('team_engagement_id')->unique())
@@ -74,7 +75,9 @@ class ShiftAssignmentRepository
         $assignments = $shift->assignments;
         $positions = [];
         $slots = $shift->roleSlots->keyBy('id');
+        $breakMinutes = $shift->relationLoaded('breaks') ? $shift->breaks->sum('duration_minutes') : (int) $shift->break_minutes;
         foreach ($assignments as $assignment) {
+            $assignment->setAttribute('scheduled_minutes', ShiftAssignmentHours::scheduledMinutes($assignment, $breakMinutes));
             $slot = $slots->get($assignment->shift_role_slot_id);
             $matches = $slot !== null && (int) $slot->role_id === (int) $assignment->role_id;
             $index = $positions[$slot?->id] ?? 0;
