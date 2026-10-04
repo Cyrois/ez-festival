@@ -607,7 +607,7 @@ const destroy = () => {
                     @remove="removeAssignment"
                     @resize="resizeHours($event.assignment, $event.hours)"
                 >
-                    <template #header-actions>
+                    <template #footer-actions>
                         <span
                             :title="
                                 assignmentReason ||
@@ -630,7 +630,7 @@ const destroy = () => {
                                 <Icon :name="['fas', 'plus']" />
                                 {{
                                     $t(
-                                        'team.scheduling.assignments.header_assign',
+                                        'team.scheduling.assignments.override_assign',
                                     )
                                 }}
                             </Button>

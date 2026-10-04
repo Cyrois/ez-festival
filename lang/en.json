@@ -1493,6 +1493,7 @@
     "team.scheduling.roster.legend_overlap": "Overlaps another shift",
     "team.scheduling.roster.scroll": "Shift roster timeline. Scroll sideways to see all hours.",
     "team.scheduling.assignments.header_assign": "Assign person",
+    "team.scheduling.assignments.override_assign": "Assign override person",
     "team.scheduling.assignments.position": "Headcount position",
     "team.scheduling.assignments.pick_position": "Choose a position",
     "team.scheduling.assignments.position_option": ":role · Position :position · :filled/:needed filled",

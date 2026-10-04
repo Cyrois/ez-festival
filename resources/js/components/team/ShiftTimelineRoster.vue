@@ -3,7 +3,6 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { CardTitle } from '../ui/card';
 import { Avatar } from '../ui/avatar';
 import { Badge } from '../ui/badge';
-import { Button } from '../ui/button';
 import { Icon } from '../ui/icon';
 import { IconButton } from '../ui/icon-button';
 import {
@@ -258,7 +257,6 @@ const resizeKey = (event, assignment, edge) => {
                     }}
                 </p>
             </div>
-            <slot name="header-actions" />
         </div>
         <p
             v-if="disabledReason"
@@ -622,43 +620,19 @@ const resizeKey = (event, assignment, edge) => {
                                     $t('team.scheduling.roster.outside_bounds')
                                 }}
                             </p>
-                            <Button
+                            <div
                                 v-if="!row.assignment"
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                class="absolute top-3 left-[var(--bar-start)] flex h-8 w-[var(--bar-width)] justify-between gap-3 rounded-lg border border-dashed px-2 text-xs font-semibold text-charcoal transition-colors"
-                                :class="[
-                                    OPEN_ROLE_PATTERN,
-                                    canAssign
-                                        ? [
-                                              tokens.unfilledHover,
-                                              'group hover:border-solid',
-                                          ]
-                                        : [],
-                                ]"
+                                class="absolute top-3 left-[var(--bar-start)] flex h-8 w-[var(--bar-width)] items-center rounded-lg border border-dashed px-2 text-xs font-semibold text-charcoal"
+                                :class="OPEN_ROLE_PATTERN"
                                 :style="geometry(shiftInterval)"
-                                :disabled="!canAssign"
-                                :title="disabledReason"
                                 data-open-bar
-                                @click="canAssign && $emit('assign', row.slot)"
                             >
                                 <span class="min-w-0 truncate">{{
                                     $t('team.scheduling.roster.open_role', {
                                         role: row.slot.role_name,
                                     })
                                 }}</span>
-                                <span
-                                    class="ml-auto inline-flex shrink-0 items-center gap-2 text-xs font-bold text-primary transition-colors group-hover:text-primary-hover group-hover:underline group-focus-visible:text-primary-hover group-focus-visible:underline"
-                                >
-                                    <Icon
-                                        :name="['fas', 'plus']"
-                                        size="sm"
-                                    />{{
-                                        $t('team.scheduling.assignments.assign')
-                                    }}
-                                </span>
-                            </Button>
+                            </div>
                         </div>
                     </TableCell>
                     <TableCell
@@ -705,6 +679,25 @@ const resizeKey = (event, assignment, edge) => {
                                 "
                             />
                         </span>
+                        <span
+                            v-else
+                            class="flex justify-center"
+                            :title="disabledReason"
+                        >
+                            <IconButton
+                                :icon="['fas', 'plus']"
+                                tone="edit"
+                                :label="
+                                    $t(
+                                        'team.scheduling.assignments.assign_role',
+                                        { role: row.slot.role_name },
+                                    )
+                                "
+                                :disabled="!canAssign"
+                                data-open-assign
+                                @click="canAssign && $emit('assign', row.slot)"
+                            />
+                        </span>
                     </TableCell>
                 </TableRow>
                 <TableRow v-if="!rows.length"
@@ -742,6 +735,12 @@ const resizeKey = (event, assignment, edge) => {
                     aria-hidden="true"
                 />{{ $t('team.scheduling.roster.legend_overlap') }}</span
             >
+        </div>
+        <div
+            v-if="$slots['footer-actions']"
+            class="mt-3 flex justify-end"
+        >
+            <slot name="footer-actions" />
         </div>
     </section>
 </template>

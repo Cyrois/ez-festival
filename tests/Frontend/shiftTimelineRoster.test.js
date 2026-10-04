@@ -361,7 +361,7 @@ test('complete roster shows exact bars, open rows, Extras and hours; writable co
             document.querySelector('[data-roster-row="person-10"]').textContent,
             /assignments.full_shift/,
         );
-        document.querySelector('[data-open-bar]').click();
+        document.querySelector('[data-open-assign]').click();
         first.querySelector('button[title*="edit_hours"]').click();
         first.querySelector('button[title*="remove_person"]').click();
         assert.deepEqual(events, [3, 8, -8]);
@@ -386,9 +386,13 @@ test('view-only and locked roster omits Actions and explains disabled Assign; di
                 !!document.querySelector('[data-roster-actions]'),
                 canManage,
             );
-            const button = document.querySelector('[data-open-bar]');
-            assert.ok(button.disabled);
-            assert.equal(button.title, 'Save or read only');
+            const button = document.querySelector('[data-open-assign]');
+            if (canManage) {
+                assert.ok(button.disabled);
+                assert.equal(button.parentElement.title, 'Save or read only');
+            } else {
+                assert.equal(button, null);
+            }
             for (const b of document.querySelectorAll('button')) b.click();
             assert.deepEqual(events, []);
         } finally {
@@ -750,7 +754,7 @@ test('color and Headcount edits keep the roster active; draft roles assign befor
     try {
         form.color = 'warning';
         await nextTick();
-        assert.equal(document.querySelector('[data-open-bar]').disabled, false);
+        assert.equal(document.querySelector('[data-open-assign]').disabled, false);
         const picker = document.querySelector('select:has(option[value="5"])');
         picker.value = '5';
         picker.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
@@ -763,7 +767,7 @@ test('color and Headcount edits keep the roster active; draft roles assign befor
         const slot = form.slots.at(-1);
         assert.equal(slot.role_id, 5);
         assert.equal(slot.needed, 2);
-        const open = document.querySelector(`[data-roster-row="open-${slot._key}-0"] [data-open-bar]`);
+        const open = document.querySelector(`[data-roster-row="open-${slot._key}-0"] [data-open-assign]`);
         assert.equal(open.disabled, false);
         assert.equal(writes.length, 0);
         open.click();
