@@ -17,6 +17,13 @@ trait ShiftAssignmentRules
 
         return [
             'shift_role_slot_id' => ['required', 'integer', Rule::exists('shift_role_slots', 'id')->where('shift_id', $shift->id)],
+            ...$this->hoursRules(),
+        ];
+    }
+
+    protected function hoursRules(): array
+    {
+        return [
             'hours_mode' => ['required', Rule::in(['full_shift', 'custom'])],
             'starts_at' => ['required_if:hours_mode,custom', 'prohibited_if:hours_mode,full_shift', 'date_format:Y-m-d\TH:i'],
             'ends_at' => ['required_if:hours_mode,custom', 'prohibited_if:hours_mode,full_shift', 'date_format:Y-m-d\TH:i', 'after:starts_at'],
@@ -33,6 +40,9 @@ trait ShiftAssignmentRules
         abort_unless((int) $shift->event_id === (int) $event->id, 404);
         if ($this->route('event')) {
             abort_unless($this->route('event')->is($event), 404);
+        }
+        if ($this->route('assignment')) {
+            abort_unless((int) $this->route('assignment')->shift_id === (int) $shift->id, 404);
         }
 
         return true;

@@ -1,7 +1,8 @@
 <script setup>
 import { ColorPicker } from '../../components/ui/color-picker';
 import ShiftRoleSlots from '../../components/team/ShiftRoleSlots.vue';
-import ShiftRoster from '../../components/team/ShiftRoster.vue';
+import ShiftTimelineRoster from '../../components/team/ShiftTimelineRoster.vue';
+import ShiftAssignmentHoursDialog from '../../components/team/ShiftAssignmentHoursDialog.vue';
 import ShiftBreaks from '../../components/team/ShiftBreaks.vue';
 import {
     draftShiftBreaks,
@@ -69,7 +70,10 @@ const deleting = ref(false);
 const deleteBusy = ref(false);
 const confirmationCount = ref(0);
 const selectedSlot = ref(null);
+const headerAssignOpen = ref(false);
 const assignmentBusy = ref(false);
+const selectedAssignment = ref(null);
+const removingAssignment = ref(null);
 const assignmentCounts = computed(() =>
     Object.fromEntries(
         props.shift.slots.map((slot) => [slot.id, slot.assigned_count]),
@@ -107,6 +111,9 @@ const removeAssignment = (assignment) => {
             data: props.returnContext,
             preserveScroll: true,
             onError: (errors) => showFormError(errors),
+            onSuccess: () => {
+                removingAssignment.value = null;
+            },
             onFinish: () => {
                 assignmentBusy.value = false;
             },
@@ -425,15 +432,46 @@ const destroy = () => {
                 </Card>
             </form>
             <Card class="mt-4">
-                <ShiftRoster
+                <ShiftTimelineRoster
                     :shift="shift"
                     :enabled="assignmentsEnabled"
-                    :can-remove="canWrite"
+                    :can-manage="canWrite"
                     :disabled-reason="assignmentReason"
-                    :busy="assignmentBusy || form.processing"
                     @assign="selectedSlot = $event"
-                    @remove="removeAssignment"
-                />
+                    @edit="assignmentsEnabled && (selectedAssignment = $event)"
+                    @remove="
+                        assignmentsEnabled && (removingAssignment = $event)
+                    "
+                >
+                    <template #header-actions>
+                        <span
+                            :title="
+                                assignmentReason ||
+                                (!shift.slots.length
+                                    ? $t(
+                                          'team.scheduling.assignments.no_requirements',
+                                      )
+                                    : '')
+                            "
+                        >
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                :disabled="
+                                    !assignmentsEnabled || !shift.slots.length
+                                "
+                                @click="headerAssignOpen = true"
+                            >
+                                <Icon :name="['fas', 'plus']" />
+                                {{
+                                    $t(
+                                        'team.scheduling.assignments.header_assign',
+                                    )
+                                }}
+                            </Button>
+                        </span>
+                    </template>
+                </ShiftTimelineRoster>
             </Card>
             <div class="mt-4 grid items-start gap-4 xl:grid-cols-2">
                 <Card class="min-w-0">
@@ -486,13 +524,42 @@ const destroy = () => {
         </div>
 
         <ShiftAssignDialog
-            v-if="selectedSlot"
-            :key="selectedSlot.id"
+            v-if="selectedSlot || headerAssignOpen"
+            :key="selectedSlot?.id ?? 'header'"
             :shift="shift"
             :event-id="event.id"
             :requirement="selectedSlot"
             :return-context="returnContext"
-            @close="selectedSlot = null"
+            @close="
+                selectedSlot = null;
+                headerAssignOpen = false;
+            "
+        />
+        <ShiftAssignmentHoursDialog
+            v-if="selectedAssignment"
+            :key="selectedAssignment.id"
+            :shift="shift"
+            :assignment="selectedAssignment"
+            :event-id="event.id"
+            :enabled="canWrite && !unsaved && !form.processing"
+            :return-context="returnContext"
+            @close="selectedAssignment = null"
+            @busy="assignmentBusy = $event"
+        />
+        <Dialog
+            v-if="removingAssignment"
+            :open="true"
+            focus-trap
+            :title="
+                $t('team.scheduling.assignments.remove_confirmation', {
+                    name: removingAssignment.name,
+                })
+            "
+            :confirm-label="$t('team.scheduling.assignments.remove')"
+            :confirm-disabled="!assignmentsEnabled"
+            :busy="assignmentBusy"
+            @cancel="removingAssignment = null"
+            @confirm="removeAssignment(removingAssignment)"
         />
         <Dialog
             v-model:open="deleting"

@@ -98,6 +98,7 @@ test('card section headings use CardTitle and callers do not override typography
         'components/people/EngagementPeoplePanel.vue',
         'components/team/ShiftRoleSlots.vue',
         'components/team/ShiftRoster.vue',
+        'components/team/ShiftTimelineRoster.vue',
         'components/team/ShiftBreaks.vue',
         'components/team/TeamPassAssignmentsPanel.vue',
     ]);

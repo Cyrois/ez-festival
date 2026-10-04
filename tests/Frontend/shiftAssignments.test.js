@@ -134,6 +134,30 @@ const dependencies = {
                         emit('update:modelValue', event.target.checked),
                 }),
     },
+    CustomDropdown: {
+        props: ['modelValue', 'items'],
+        setup:
+            (props, { emit }) =>
+            () =>
+                h(
+                    'select',
+                    {
+                        id: 'position',
+                        value: props.modelValue,
+                        onChange: (event) =>
+                            emit(
+                                'update:modelValue',
+                                Number(event.target.value),
+                            ),
+                    },
+                    [
+                        h('option', { value: '' }, 'Choose'),
+                        ...props.items.map((item) =>
+                            h('option', { value: item.value }, item.title),
+                        ),
+                    ],
+                ),
+    },
     Icon: Box,
     Button: {
         setup:
@@ -238,7 +262,7 @@ const settle = async () => {
     await new Promise((resolve) => setTimeout(resolve, 5));
     await nextTick();
 };
-const mount = async () => {
+const mount = async (overrides = {}) => {
     harness.writes = [];
     harness.errors = [];
     harness.requests = [];
@@ -250,6 +274,7 @@ const mount = async () => {
                 shift,
                 eventId: 2,
                 requirement: { id: 4, role_name: 'Crew' },
+                ...overrides,
                 onClose: () => {
                     harness.closed = true;
                 },
@@ -474,6 +499,53 @@ test('overlap warnings render in a DataTable component without app-global transl
         assert.ok(document.body.textContent.includes('Other shift'));
         assert.ok(document.body.textContent.includes('"minutes":60'));
         assert.ok(document.body.textContent.includes('2026-10-01 11:00'));
+    } finally {
+        app.unmount();
+    }
+});
+
+test('header assignment chooses a Headcount position, permits a different Team role and clears a previous selection', async () => {
+    const app = await mount({
+        requirement: null,
+        shift: {
+            ...shift,
+            slots: [
+                { id: 4, role_name: 'Security', needed: 2, assigned_count: 1 },
+                { id: 5, role_name: 'Crew', needed: 1, assigned_count: 1 },
+            ],
+        },
+    });
+    try {
+        assert.equal(harness.requests.length, 0);
+        assert.equal(document.querySelector('#assign').disabled, true);
+        const select = document.querySelector('select');
+        select.value = '4';
+        select.dispatchEvent(new dom.window.Event('change'));
+        await settle();
+        assert.equal(
+            harness.requests[0].searchParams.get('shift_role_slot_id'),
+            '4',
+        );
+        await choose('Alpha');
+        document.querySelector('#assign').click();
+        assert.equal(harness.writes.length, 1);
+        assert.deepEqual(harness.writes[0].data, {
+            shift_role_slot_id: 4,
+            team_engagement_id: 8,
+            hours_mode: 'full_shift',
+        });
+        select.value = '5';
+        select.dispatchEvent(new dom.window.Event('change'));
+        await settle();
+        assert.equal(
+            harness.requests.at(-1).searchParams.get('shift_role_slot_id'),
+            '5',
+        );
+        assert.equal(document.querySelector('#assign').disabled, true);
+        assert.equal(
+            document.querySelector('input[type=radio]').checked,
+            false,
+        );
     } finally {
         app.unmount();
     }
