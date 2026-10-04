@@ -194,13 +194,21 @@ onUnmounted(() => {
                     v-if="sectioned"
                     class="flex shrink-0 items-center justify-between gap-3 border-b border-line px-5 py-4"
                 >
-                    <h2
-                        v-if="title"
-                        id="ui-dialog-title"
-                        class="m-0 text-lg font-bold"
-                    >
-                        {{ title }}
-                    </h2>
+                    <div class="min-w-0">
+                        <h2
+                            v-if="title"
+                            id="ui-dialog-title"
+                            class="m-0 text-lg font-bold"
+                        >
+                            {{ title }}
+                        </h2>
+                        <p
+                            v-if="$slots.subtitle"
+                            class="mt-1 text-sm text-muted"
+                        >
+                            <slot name="subtitle" />
+                        </p>
+                    </div>
                     <button
                         type="button"
                         class="-mr-1 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-muted transition-colors hover:bg-page hover:text-charcoal focus-visible:ring-[3px] focus-visible:ring-primary/35 focus-visible:outline-none"
@@ -256,6 +264,12 @@ onUnmounted(() => {
                             : 'mt-5 flex shrink-0 flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3'
                     "
                 >
+                    <div
+                        v-if="$slots['footer-hint']"
+                        class="text-sm text-muted sm:mr-auto sm:self-center"
+                    >
+                        <slot name="footer-hint" />
+                    </div>
                     <Button
                         v-if="showCancel"
                         type="button"

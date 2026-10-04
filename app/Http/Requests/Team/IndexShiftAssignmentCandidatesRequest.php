@@ -4,6 +4,7 @@ namespace App\Http\Requests\Team;
 
 use App\Http\Requests\Team\Concerns\ShiftAssignmentRules;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class IndexShiftAssignmentCandidatesRequest extends FormRequest
 {
@@ -19,7 +20,9 @@ class IndexShiftAssignmentCandidatesRequest extends FormRequest
         return [...$this->assignmentRules(),
             'search' => ['sometimes', 'nullable', 'string', 'max:255'],
             'page' => ['sometimes', 'integer', 'min:1'],
-            'per_page' => ['sometimes', 'integer', 'min:1', 'max:5'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:25'],
+            'role_filter' => ['sometimes', Rule::in(['everyone', 'has_role'])],
+            'selected_id' => ['sometimes', 'integer', 'min:1'],
         ];
     }
 }
