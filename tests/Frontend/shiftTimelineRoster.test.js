@@ -348,7 +348,7 @@ test('complete roster shows exact bars, open rows, Extras and hours; writable co
             document.querySelector('[data-roster-row="person-10"]').textContent,
             /assignments.full_shift/,
         );
-        document.querySelector('[data-open-bar] button').click();
+        document.querySelector('[data-open-bar] > span').click();
         first.querySelectorAll('button')[0].click();
         first.querySelectorAll('button')[1].click();
         assert.deepEqual(events, [3, 8, -8]);
@@ -373,7 +373,7 @@ test('view-only and locked roster omits Actions and explains disabled Assign; di
                 !!document.querySelector('[data-roster-actions]'),
                 canManage,
             );
-            const button = document.querySelector('[data-open-bar] button');
+            const button = document.querySelector('[data-open-bar]');
             assert.ok(button.disabled);
             assert.equal(button.title, 'Save or read only');
             for (const b of document.querySelectorAll('button')) b.click();
@@ -548,10 +548,7 @@ test('shift page guards absent confirmation data and confirms removal before one
         assert.equal(deletions.length, 1);
         assert.match(deletions[0].url, /assignments\/8$/);
         await nextTick();
-        assert.equal(
-            document.querySelector('[data-open-bar] button').disabled,
-            true,
-        );
+        assert.equal(document.querySelector('[data-open-bar]').disabled, true);
         deletions[0].options.onSuccess();
         deletions[0].options.onFinish();
         await nextTick();

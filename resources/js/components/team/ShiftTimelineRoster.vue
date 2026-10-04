@@ -457,9 +457,12 @@ const assignmentTitle = (assignment) =>
                                     assignmentTitle(row.assignment)
                                 }}</span>
                             </template>
-                            <div
+                            <Button
                                 v-else
-                                class="absolute top-3 left-[var(--bar-start)] flex h-8 w-[var(--bar-width)] items-center gap-3 rounded-lg border border-dashed border-line bg-ground px-2 text-xs font-semibold text-charcoal transition-colors"
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                class="absolute top-3 left-[var(--bar-start)] flex h-8 w-[var(--bar-width)] justify-between gap-3 rounded-lg border border-dashed border-line bg-ground px-2 text-xs font-semibold text-charcoal transition-colors"
                                 :class="
                                     enabled
                                         ? [
@@ -469,45 +472,27 @@ const assignmentTitle = (assignment) =>
                                         : []
                                 "
                                 :style="geometry(shiftInterval)"
+                                :disabled="!enabled"
+                                :title="disabledReason"
                                 data-open-bar
+                                @click="enabled && $emit('assign', row.slot)"
                             >
-                                <span class="relative">{{
+                                <span class="min-w-0 truncate">{{
                                     $t('team.scheduling.roster.open_role', {
                                         role: row.slot.role_name,
                                     })
                                 }}</span>
                                 <span
-                                    class="relative"
-                                    :title="disabledReason"
-                                    :tabindex="
-                                        !enabled && disabledReason
-                                            ? 0
-                                            : undefined
-                                    "
-                                    :aria-label="
-                                        !enabled ? disabledReason : undefined
-                                    "
+                                    class="ml-auto inline-flex h-7 shrink-0 items-center gap-2 rounded-lg border border-primary/30 bg-ground px-2 text-xs font-bold text-primary"
                                 >
-                                    <Button
-                                        type="button"
-                                        variant="outline-primary"
-                                        size="xs"
-                                        :disabled="!enabled"
-                                        :title="disabledReason"
-                                        @click="
-                                            enabled && $emit('assign', row.slot)
-                                        "
-                                        ><Icon
-                                            :name="['fas', 'plus']"
-                                            size="sm"
-                                        />{{
-                                            $t(
-                                                'team.scheduling.assignments.assign',
-                                            )
-                                        }}</Button
-                                    >
+                                    <Icon
+                                        :name="['fas', 'plus']"
+                                        size="sm"
+                                    />{{
+                                        $t('team.scheduling.assignments.assign')
+                                    }}
                                 </span>
-                            </div>
+                            </Button>
                         </div>
                     </TableCell>
                     <TableCell
