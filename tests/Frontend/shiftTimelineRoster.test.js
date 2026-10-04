@@ -357,10 +357,9 @@ test('complete roster shows exact bars, open rows, Extras and hours; writable co
         assert.ok(first.querySelector('[data-short-label]'));
         assert.match(first.textContent, /23:30–2026-10-02 00:00/);
         assert.match(first.textContent, /name=Other minutes=15/);
-        assert.match(
-            document.querySelector('[data-roster-row="person-10"]').textContent,
-            /assignments.full_shift/,
-        );
+        for (const cell of document.querySelectorAll('[data-roster-row] td:first-child')) {
+            assert.doesNotMatch(cell.textContent, /assignments.full_shift|\d{2}:\d{2}/);
+        }
         document.querySelector('[data-open-assign]').click();
         first.querySelector('button[title*="edit_hours"]').click();
         first.querySelector('button[title*="remove_person"]').click();

@@ -132,9 +132,6 @@ const shortBar = (assignment) => {
             assignment.name.length * 6 + 92
     );
 };
-const fullShift = (assignment) =>
-    assignment.starts_at === props.shift.starts_at &&
-    assignment.ends_at === props.shift.ends_at;
 const warnings = (assignment) =>
     [...assignment.overlaps].sort(
         (a, b) =>
@@ -409,23 +406,13 @@ const resizeKey = (event, assignment, edge) => {
                                 <p
                                     class="mt-1 mb-0 truncate text-xs text-muted"
                                     :title="
-                                        row.assignment
-                                            ? assignmentTitle(row.assignment)
-                                            : row.slot.role_name
+                                        row.assignment?.role_name ??
+                                        row.slot.role_name
                                     "
                                 >
                                     {{
                                         row.assignment?.role_name ??
                                         row.slot.role_name
-                                    }}
-                                    ·
-                                    {{
-                                        !row.assignment ||
-                                        fullShift(row.assignment)
-                                            ? $t(
-                                                  'team.scheduling.assignments.full_shift',
-                                              )
-                                            : shiftHoursLabel(row.assignment)
                                     }}
                                 </p>
                             </div>
