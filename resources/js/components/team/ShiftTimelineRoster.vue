@@ -277,12 +277,16 @@ const resizeKey = (event, assignment, edge) => {
             <TableHeader>
                 <TableRow variant="header">
                     <TableHead
-                        class="sticky left-0 z-20 min-w-[var(--person-width)] border-r border-line px-3"
+                        class="sticky left-0 z-20 min-w-[var(--person-width)] border-r border-line/30 px-3"
+                        :class="tokens.solid"
                         >{{ $t('team.scheduling.roster.person') }}</TableHead
                     >
-                    <TableHead class="p-0 normal-case">
+                    <TableHead
+                        class="p-0 normal-case"
+                        :class="tokens.solid"
+                    >
                         <div
-                            class="relative h-10 w-[var(--timeline-width)]"
+                            class="relative h-16 w-[var(--timeline-width)]"
                             :aria-label="shiftHoursLabel(bounds)"
                         >
                             <div
@@ -328,45 +332,8 @@ const resizeKey = (event, assignment, edge) => {
                                     ></span
                                 >
                             </div>
-                        </div>
-                    </TableHead>
-                    <TableHead
-                        v-if="canManage"
-                        class="sticky right-0 z-20 min-w-22 border-l border-line px-2 text-center"
-                        data-roster-actions
-                        >{{ $t('team.scheduling.roster.actions') }}</TableHead
-                    >
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                <TableRow>
-                    <TableCell
-                        class="sticky left-0 z-10 border-r border-line bg-ground px-3 py-2"
-                    >
-                        <div class="w-[calc(var(--person-width)-1.5rem)]">
-                            <p
-                                class="m-0 truncate text-sm font-bold"
-                                :title="shift.name"
-                            >
-                                {{
-                                    shift.name ||
-                                    $t('team.scheduling.unnamed_shift')
-                                }}
-                            </p>
-                            <p class="mt-1 mb-0 text-xs text-muted">
-                                {{ shift.location }} ·
-                                {{ shiftHoursLabel(shift) }}
-                            </p>
-                        </div>
-                    </TableCell>
-                    <TableCell class="p-0">
-                        <div
-                            class="relative flex min-h-16 w-[var(--timeline-width)] items-center"
-                        >
                             <div
-                                class="absolute left-[var(--bar-start)] flex h-7 w-[var(--bar-width)] items-center gap-2 overflow-hidden rounded-lg border px-3 text-xs font-semibold"
-                                :style="geometry(shiftInterval)"
-                                :class="tokens.solid"
+                                class="absolute inset-x-0 bottom-2 flex items-center justify-center gap-2 text-xs font-semibold tracking-normal"
                                 data-roster-summary
                             >
                                 <span>{{
@@ -388,12 +355,17 @@ const resizeKey = (event, assignment, edge) => {
                                 >
                             </div>
                         </div>
-                    </TableCell>
-                    <TableCell
+                    </TableHead>
+                    <TableHead
                         v-if="canManage"
-                        class="sticky right-0 z-10 border-l border-line bg-ground px-2 py-2"
-                    />
+                        class="sticky right-0 z-20 min-w-22 border-l border-line/30 px-2 text-center"
+                        :class="tokens.solid"
+                        data-roster-actions
+                        >{{ $t('team.scheduling.roster.actions') }}</TableHead
+                    >
                 </TableRow>
+            </TableHeader>
+            <TableBody>
                 <TableRow
                     v-for="row in rows"
                     :key="row.key"
