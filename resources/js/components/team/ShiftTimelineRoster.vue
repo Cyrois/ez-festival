@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { CardTitle } from '../ui/card';
 import { Avatar } from '../ui/avatar';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -111,9 +112,9 @@ const assignmentTitle = (assignment) =>
     >
         <div class="mb-4 flex items-start justify-between gap-3">
             <div>
-                <h2 class="m-0 text-xl font-bold text-muted">
+                <CardTitle>
                     {{ $t('team.scheduling.assignments.roster') }}
-                </h2>
+                </CardTitle>
                 <p class="mt-1 mb-0 text-sm text-muted">
                     {{
                         $t('team.scheduling.slots.filled', {

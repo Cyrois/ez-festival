@@ -55,6 +55,7 @@ const deps = {
     TableRow: box('tr'),
     TableHead: box('th'),
     TableCell: box('td'),
+    CardTitle: box('h2'),
     Badge: box('span'),
     Button: box('button'),
     Icon: box('i'),
