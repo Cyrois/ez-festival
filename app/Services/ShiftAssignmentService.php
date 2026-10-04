@@ -48,6 +48,20 @@ class ShiftAssignmentService
         throw ValidationException::withMessages(['team_engagement_id' => __('team.scheduling.assignments.errors.duplicate')]);
     }
 
+    public function updateHours(Shift $shift, ShiftAssignment $assignment, array $data): ShiftAssignment
+    {
+        return DB::transaction(function () use ($shift, $assignment, $data): ShiftAssignment {
+            $event = Event::query()->lockForUpdate()->findOrFail($shift->event_id);
+            $event->ensureWritable();
+            $shift = $event->shifts()->lockForUpdate()->findOrFail($shift->id);
+            $assignment = $shift->assignments()->lockForUpdate()->findOrFail($assignment->id);
+            [$start, $end] = ShiftAssignmentHours::resolve($shift, $data);
+            $assignment->update(['starts_at' => $start, 'ends_at' => $end]);
+
+            return $assignment;
+        });
+    }
+
     public function delete(Shift $shift, ShiftAssignment $assignment): void
     {
         DB::transaction(function () use ($shift, $assignment): void {

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Team\DestroyShiftAssignmentRequest;
 use App\Http\Requests\Team\IndexShiftAssignmentCandidatesRequest;
 use App\Http\Requests\Team\StoreShiftAssignmentRequest;
+use App\Http\Requests\Team\UpdateShiftAssignmentRequest;
 use App\Http\Resources\ShiftAssignmentCandidateResource;
 use App\Models\Event;
 use App\Models\Shift;
@@ -39,6 +40,17 @@ class ShiftAssignmentController extends Controller
             ? redirect()->route('team.scheduling', ShiftReturnContext::schedulingParameters($data, $shift->starts_at->format('Y-m-d')))
             : redirect()->route('team.shifts.show', ['shift' => $shift, ...ShiftReturnContext::from($data)]))
             ->with('success', __('team.scheduling.assignments.toast.created', ['name' => $assignment->teamEngagement->person->name, 'role' => $assignment->role->name]))
+            ->with('success_title', __('toast.saved_title'));
+    }
+
+    public function update(UpdateShiftAssignmentRequest $request, Event $event, Shift $shift, ShiftAssignment $assignment): RedirectResponse
+    {
+        Gate::authorize('scheduling.edit');
+        $data = $request->validated();
+        $this->assignments->updateHours($shift, $assignment, ShiftReturnContext::without($data));
+
+        return redirect()->route('team.shifts.show', ['shift' => $shift, ...ShiftReturnContext::from($data)])
+            ->with('success', __('team.scheduling.assignments.toast.hours_updated'))
             ->with('success_title', __('toast.saved_title'));
     }
 
