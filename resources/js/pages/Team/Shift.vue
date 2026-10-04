@@ -20,6 +20,7 @@ import { Button } from '../../components/ui/button';
 import { Card, CardTitle } from '../../components/ui/card';
 import { CustomDropdown } from '../../components/ui/custom-dropdown';
 import { Dialog } from '../../components/ui/dialog';
+import { UnsavedChangesDialog } from '../../components/ui/unsaved-changes-dialog';
 import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
@@ -305,7 +306,7 @@ const breadcrumbs = computed(() => [
     { label: displayName.value },
 ]);
 
-const submit = () => {
+const submit = (afterSave) => {
     if (!canWrite.value || form.processing) return;
     if (breakEditor.value && !breakEditor.value.validate()) {
         showFormError({
@@ -352,6 +353,7 @@ const submit = () => {
             form.defaults();
             slotErrors.value = {};
             breakErrors.value = {};
+            if (typeof afterSave === 'function') afterSave();
         },
     });
 };
@@ -736,6 +738,11 @@ const destroy = () => {
             :enabled="rosterEnabled"
             @changed="stageHours(selectedAssignment, $event)"
             @close="selectedAssignment = null"
+        />
+        <UnsavedChangesDialog
+            :dirty="unsaved"
+            :busy="form.processing"
+            @save="submit"
         />
         <Dialog
             v-model:open="deleting"

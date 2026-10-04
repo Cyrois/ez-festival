@@ -8,6 +8,7 @@ import { parse, compileScript } from '@vue/compiler-sfc';
 import * as timeline from '../../resources/js/lib/scheduleTimeline.js';
 import * as breakHelpers from '../../resources/js/lib/shiftBreaks.js';
 import * as slotHelpers from '../../resources/js/lib/shiftRoleSlots.js';
+import { cn } from '../../resources/js/lib/utils.js';
 import {
     scheduleRosterRows,
     validAssignmentHours,
@@ -30,6 +31,9 @@ for (const name of [
 ])
     globalThis[name] = dom.window[name];
 const { createApp, h, reactive, nextTick } = await import('vue');
+window.performance.getEntriesByType = () => [];
+const { router: navigationRouter } = await import('@inertiajs/vue3');
+const { useUnsavedNavigation } = await import('../../resources/js/composables/useUnsavedNavigation.js');
 const require = createRequire(import.meta.url);
 const text = (key, params = {}) =>
     key +
@@ -46,6 +50,8 @@ const box = (tag) => ({
 const writes = [];
 let form;
 const deps = {
+    cn,
+    useUnsavedNavigation,
     ...timeline,
     scheduleRosterRows,
     validAssignmentHours,
@@ -211,6 +217,7 @@ async function compile(name, folder = 'components/team') {
 }
 const Roster = await compile('ShiftTimelineRoster');
 const Hours = await compile('ShiftAssignmentHoursDialog');
+deps.UnsavedChangesDialog = await compile('UnsavedChangesDialog', 'components/ui/unsaved-changes-dialog');
 function mount(component, props) {
     const app = createApp(component, props);
     app.config.globalProperties.$t = text;
@@ -938,4 +945,99 @@ test('color and Headcount edits keep the roster active; draft roles assign befor
         assert.equal(form.assignment_additions.length, 0);
         assert.equal(document.querySelector(`[data-roster-row="open-${slot._key}-0"]`), null);
     } finally { app.unmount(); }
+});
+
+test('only sidebar and breadcrumb links warn; Continue discards and Save waits for success', async () => {
+    const originalVisit = navigationRouter.visit;
+    const originalDialog = deps.Dialog;
+    const originalWarning = deps.UnsavedChangesDialog;
+    const destinations = [];
+    navigationRouter.visit = (url) => destinations.push(new URL(url));
+    const navigation = document.createElement('div');
+    navigation.innerHTML = '<nav data-unsaved-navigation><a href="https://example.com/dashboard"><span>Sidebar</span></a></nav><nav data-unsaved-navigation><a href="https://example.com/team/scheduling?day=2026-10-02">Breadcrumb</a></nav><a href="https://example.com/team/scheduling">Cancel</a>';
+    document.body.append(navigation);
+    // Simulate the normal link handler without asking JSDOM to load another document.
+    navigation.addEventListener('click', (event) => {
+        event.allowedByGuard = !event.defaultPrevented;
+        event.preventDefault();
+    });
+    const attempt = (index = 0, options = {}) => {
+        const link = navigation.querySelectorAll('a')[index];
+        const event = new dom.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0, ...options });
+        (link.querySelector('span') ?? link).dispatchEvent(event);
+        return { defaultPrevented: !event.allowedByGuard };
+    };
+    const unload = () => {
+        const event = new dom.window.Event('beforeunload', { cancelable: true });
+        window.dispatchEvent(event);
+        return event;
+    };
+    deps.Dialog = await compile('Dialog', 'components/ui/dialog');
+    deps.UnsavedChangesDialog = await compile('UnsavedChangesDialog', 'components/ui/unsaved-changes-dialog');
+    const Page = await compile('Shift', 'pages/Team');
+    const app = mount(Page, {
+        shift: { ...shift, breaks: [], assignment_count: 2 },
+        event: { id: 1, is_locked: false }, canManage: true,
+        locations: [], labelColors: [], breakOptions: {},
+    });
+    const button = (key) => [...document.querySelectorAll('[role="alertdialog"] button')].find((item) => item.textContent.trim() === key);
+    writes.length = 0;
+    try {
+        assert.equal(attempt().defaultPrevented, false);
+        form.color = 'danger';
+        await nextTick();
+        assert.equal(attempt(2).defaultPrevented, false);
+        assert.equal(attempt(0, { metaKey: true }).defaultPrevented, false);
+        assert.equal(attempt(1, { ctrlKey: true }).defaultPrevented, false);
+        assert.equal(unload().defaultPrevented, false);
+        window.dispatchEvent(new dom.window.PopStateEvent('popstate'));
+        await nextTick();
+        assert.equal(document.querySelector('[role="alertdialog"]'), null);
+        assert.equal(attempt().defaultPrevented, true);
+        await nextTick();
+        assert.ok(document.querySelector('[role="alertdialog"]'));
+        document.querySelector('[aria-label^="ui.dialog.close"]').click();
+        await nextTick();
+        assert.equal(document.querySelector('[role="alertdialog"]'), null);
+        assert.equal(form.color, 'danger');
+        attempt();
+        await nextTick();
+        button('ui.unsaved_changes.continue').click();
+        await nextTick();
+        assert.equal(destinations.length, 1);
+        assert.equal(destinations[0].pathname, '/dashboard');
+        assert.equal(writes.length, 0);
+        assert.equal(document.querySelector('[role="alertdialog"]'), null);
+        destinations.length = 0;
+        assert.equal(attempt(1).defaultPrevented, true);
+        await nextTick();
+        button('ui.unsaved_changes.save_continue').click();
+        assert.equal(writes.length, 1);
+        assert.equal(destinations.length, 0);
+        form.errors.name = 'Required';
+        writes[0].options.onError(form.errors);
+        await nextTick();
+        assert.ok(document.querySelector('[role="alertdialog"]'));
+        assert.equal(destinations.length, 0);
+        assert.equal(form.color, 'danger');
+        button('ui.unsaved_changes.save_continue').click();
+        assert.equal(writes.length, 2);
+        writes[1].options.onSuccess();
+        await nextTick();
+        assert.equal(destinations.length, 1);
+        assert.equal(destinations[0].search, '?day=2026-10-02');
+        assert.equal(document.querySelector('[role="alertdialog"]'), null);
+        assert.equal(attempt().defaultPrevented, false);
+        form.name = 'Changed again';
+        await nextTick();
+        assert.equal(attempt().defaultPrevented, true);
+    } finally {
+        app.unmount();
+        deps.Dialog = originalDialog;
+        deps.UnsavedChangesDialog = originalWarning;
+        navigationRouter.visit = originalVisit;
+    }
+    assert.equal(attempt().defaultPrevented, false);
+    assert.equal(unload().defaultPrevented, false);
+    navigation.remove();
 });
