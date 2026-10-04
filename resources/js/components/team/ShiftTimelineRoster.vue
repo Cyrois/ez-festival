@@ -287,7 +287,7 @@ const resizeKey = (event, assignment, edge) => {
                         >
                             <div
                                 class="pointer-events-none absolute inset-y-0 left-[var(--bar-start)] w-[var(--bar-width)] border-x"
-                                :class="tokens.solid"
+                                :class="tokens.classes"
                                 :style="geometry(shiftInterval)"
                                 aria-hidden="true"
                             />
@@ -318,12 +318,12 @@ const resizeKey = (event, assignment, edge) => {
                                                 timelineWidth >=
                                                 64)
                                     "
-                                    class="absolute top-2 text-xs font-normal whitespace-nowrap"
+                                    class="absolute top-1/2 -translate-y-1/2 text-xs font-normal whitespace-nowrap"
                                     :class="[
                                         tick.minute >= timelinePadding &&
                                         tick.minute <=
                                             duration - timelinePadding
-                                            ? tokens.solid
+                                            ? 'text-charcoal'
                                             : '',
                                         index === 0 ||
                                         tick.minute === timelinePadding
