@@ -7,6 +7,7 @@ use App\Models\PassType;
 use App\Models\PassTypeLabel;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class PassTypeRepository
 {
@@ -31,6 +32,12 @@ class PassTypeRepository
 
     public function forgetList(int $eventId): void
     {
+        if (DB::transactionLevel() > 0) {
+            DB::afterCommit(fn () => Cache::forget($this->listKey($eventId)));
+
+            return;
+        }
+
         Cache::forget($this->listKey($eventId));
     }
 
