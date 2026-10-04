@@ -6,7 +6,9 @@ use App\Models\Event;
 use App\Models\Shift;
 use App\Models\ShiftAssignment;
 use App\Models\TeamEngagement;
+use App\Repositories\ShiftAssignmentRepository;
 use App\Support\ShiftAssignmentHours;
+use App\Support\ShiftAssignmentOverlaps;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -46,6 +48,24 @@ class ShiftAssignmentService
     private function duplicate(): never
     {
         throw ValidationException::withMessages(['team_engagement_id' => __('team.scheduling.assignments.errors.duplicate')]);
+    }
+
+    /** Preview proposed hours without changing the saved shift or assignment. */
+    public function previewOverlaps(Shift $shift, ?ShiftAssignment $assignment, array $data): array
+    {
+        $proposedShift = clone $shift;
+        if (isset($data['shift_starts_at'], $data['shift_ends_at'])) {
+            $proposedShift->starts_at = $data['shift_starts_at'];
+            $proposedShift->ends_at = $data['shift_ends_at'];
+        }
+        [$start, $end] = ShiftAssignmentHours::resolve($proposedShift, $data);
+        $memberId = $assignment?->team_engagement_id ?? $data['team_engagement_id'];
+        $others = app(ShiftAssignmentRepository::class)->nearbyAssignments($proposedShift, $memberId);
+
+        return [
+            'warnings' => ShiftAssignmentOverlaps::warnings($others, $start, $end, $shift->event->timezone),
+            'other_shifts' => ShiftAssignmentOverlaps::shifts($others),
+        ];
     }
 
     public function delete(Shift $shift, ShiftAssignment $assignment): void

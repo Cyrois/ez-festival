@@ -9,6 +9,7 @@ import { FormField } from '../ui/form-field';
 import { Checkbox } from '../ui/checkbox';
 import { Radio } from '../ui/radio';
 import { Icon } from '../ui/icon';
+import { CustomDropdown } from '../ui/custom-dropdown';
 import { DataTable } from '../ui/data-table';
 import { useFlashToast } from '../../composables/useFlashToast';
 import {
@@ -20,11 +21,31 @@ import ShiftOverlapWarnings from './ShiftOverlapWarnings.vue';
 const props = defineProps({
     shift: { type: Object, required: true },
     eventId: { type: Number, required: true },
-    requirement: { type: Object, required: true },
+    requirement: { type: Object, default: null },
     returnContext: { type: Object, default: () => ({}) },
+    deferred: { type: Boolean, default: false },
+    pendingMemberIds: { type: Array, default: () => [] },
 });
 const emit = defineEmits(['close', 'assigned']);
 const table = ref(null);
+const selectedSlotId = ref('');
+const targetSlot = computed(
+    () =>
+        props.requirement ??
+        props.shift.slots?.find((slot) => slot.id === selectedSlotId.value),
+);
+const slotItems = computed(() =>
+    (props.shift.slots ?? []).map((slot, index) => ({
+        value: slot.id,
+        title: trans('team.scheduling.assignments.position_option', {
+            role: slot.role_name,
+            position: index + 1,
+            filled: slot.assigned_count,
+            needed: slot.needed,
+        }),
+    })),
+);
+
 const selected = ref(null);
 const search = ref('');
 const form = useForm({
@@ -102,19 +123,23 @@ const ajax = async (data, callback) => {
             recordsFiltered: 0,
             data: [],
         });
-    if (!validHours.value) {
+    if (!targetSlot.value || !validHours.value) {
         loading.value = false;
         empty();
         return;
     }
     const query = assignmentPayload(
-        props.requirement.id,
+        targetSlot.value.id,
         null,
         form.hours_mode,
         form.starts_at,
         form.ends_at,
     );
     delete query.team_engagement_id;
+    if (typeof targetSlot.value.id === 'string') {
+        delete query.shift_role_slot_id;
+        query.role_id = targetSlot.value.role_id;
+    }
     query.search = data.search?.value || '';
     query.page = Math.floor(data.start / data.length) + 1;
     query.per_page = data.length;
@@ -132,6 +157,12 @@ const ajax = async (data, callback) => {
             if (result.errors) showFormError(result.errors);
             throw new Error(trans('team.scheduling.assignments.search_failed'));
         }
+        result.data = result.data.map((candidate) => ({
+            ...candidate,
+            on_shift:
+                candidate.on_shift ||
+                props.pendingMemberIds.includes(candidate.id),
+        }));
         if (selected.value) {
             const refreshed = result.data.find(
                 (candidate) => candidate.id === selected.value.id,
@@ -169,6 +200,16 @@ watch(
         refreshTimer = setTimeout(() => table.value?.reload(), 250);
     },
 );
+watch(selectedSlotId, () => {
+    ++requestNumber;
+    controller?.abort();
+    selected.value = null;
+    search.value = '';
+    loaded.value = false;
+    loading.value = false;
+    candidateError.value = '';
+    form.clearErrors();
+});
 onUnmounted(() => {
     clearTimeout(searchTimer);
     clearTimeout(refreshTimer);
@@ -177,6 +218,7 @@ onUnmounted(() => {
 });
 const assign = () => {
     if (
+        !targetSlot.value ||
         !selected.value ||
         selected.value.on_shift ||
         !validHours.value ||
@@ -185,10 +227,30 @@ const assign = () => {
         form.processing
     )
         return;
+    if (props.deferred) {
+        const payload = assignmentPayload(
+            targetSlot.value.id,
+            selected.value.id,
+            form.hours_mode,
+            form.starts_at,
+            form.ends_at,
+        );
+        if (typeof targetSlot.value.id === 'string') {
+            delete payload.shift_role_slot_id;
+            payload.slot_key = targetSlot.value.id;
+        }
+        emit('assigned', {
+            candidate: selected.value,
+            slot: targetSlot.value,
+            ...payload,
+        });
+        emit('close');
+        return;
+    }
     form.transform(() => ({
         ...props.returnContext,
         ...assignmentPayload(
-            props.requirement.id,
+            targetSlot.value.id,
             selected.value.id,
             form.hours_mode,
             form.starts_at,
@@ -219,14 +281,21 @@ const assign = () => {
         sectioned
         class="max-w-3xl"
         :title="
-            $t('team.scheduling.assignments.dialog_title', {
-                role: requirement.role_name,
-            })
+            targetSlot
+                ? $t('team.scheduling.assignments.dialog_title', {
+                      role: targetSlot.role_name,
+                  })
+                : $t('team.scheduling.assignments.header_assign')
         "
         :confirm-label="$t('team.scheduling.assignments.assign')"
         confirm-variant="primary"
         :confirm-disabled="
-            !selected || selected.on_shift || !validHours || loading || !loaded
+            !targetSlot ||
+            !selected ||
+            selected.on_shift ||
+            !validHours ||
+            loading ||
+            !loaded
         "
         :busy="form.processing"
         @cancel="emit('close')"
@@ -234,11 +303,42 @@ const assign = () => {
     >
         <div class="space-y-4">
             <p
+                v-if="deferred"
+                class="text-sm text-muted"
+            >
+                {{ $t('team.scheduling.assignments.draft_hint') }}
+            </p>
+            <FormField
+                v-if="!requirement"
+                :label="$t('team.scheduling.assignments.position')"
+                required
+            >
+                <template #default="{ id }">
+                    <CustomDropdown
+                        :id="id"
+                        v-model="selectedSlotId"
+                        :items="slotItems"
+                        :placeholder="
+                            $t('team.scheduling.assignments.pick_position')
+                        "
+                        :disabled="form.processing"
+                    />
+                </template>
+            </FormField>
+            <p class="text-sm text-muted">
+                {{ $t('team.scheduling.assignments.role_suggestion_hint') }}
+            </p>
+            <p
                 v-if="!validHours"
                 class="text-sm text-danger"
                 role="alert"
             >
-                {{ $t('team.scheduling.assignments.errors.hours') }}
+                {{
+                    $t('team.scheduling.assignments.errors.hours', {
+                        from: shift.starts_at.replace('T', ' '),
+                        to: shift.ends_at.replace('T', ' '),
+                    })
+                }}
             </p>
             <p
                 v-if="form.errors.shift_role_slot_id"
@@ -262,12 +362,15 @@ const assign = () => {
                 {{ candidateError }}
             </p>
             <Input
+                v-if="targetSlot"
                 v-model="search"
                 type="search"
                 :placeholder="$t('team.scheduling.assignments.search_people')"
                 :aria-label="$t('team.scheduling.assignments.search_people')"
             />
             <DataTable
+                v-if="targetSlot"
+                :key="targetSlot.id"
                 ref="table"
                 :ajax="ajax"
                 :columns="columns"

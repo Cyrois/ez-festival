@@ -24,7 +24,9 @@ final class ShiftAssignmentHours
         $start = CarbonImmutable::parse($data['hours_mode'] === 'full_shift' ? $shift->starts_at : $data['starts_at']);
         $end = CarbonImmutable::parse($data['hours_mode'] === 'full_shift' ? $shift->ends_at : $data['ends_at']);
         if ($start->lt($shift->starts_at) || $end->gt($shift->ends_at) || ! $start->lt($end)) {
-            throw ValidationException::withMessages(['ends_at' => __('team.scheduling.assignments.errors.hours')]);
+            throw ValidationException::withMessages(['ends_at' => __('team.scheduling.assignments.errors.hours', [
+                'from' => $shift->starts_at->format('Y-m-d H:i'), 'to' => $shift->ends_at->format('Y-m-d H:i'),
+            ])]);
         }
 
         return [$start, $end];
@@ -33,7 +35,8 @@ final class ShiftAssignmentHours
     /** @return array<string, string> */
     public static function containmentErrors(Shift $shift, array $data): array
     {
-        $names = $shift->assignments()
+        $changedIds = [...($data['assignment_removals'] ?? []), ...array_column($data['assignment_updates'] ?? [], 'id')];
+        $names = $shift->assignments()->whereNotIn('shift_assignments.id', $changedIds)
             ->where(fn ($query) => $query->where('starts_at', '<', CarbonImmutable::parse($data['starts_at']))
                 ->orWhere('ends_at', '>', CarbonImmutable::parse($data['ends_at'])))
             ->join('team_engagements', 'team_engagements.id', '=', 'shift_assignments.team_engagement_id')

@@ -6,6 +6,7 @@ use App\Models\Event;
 use App\Models\Shift;
 use App\Support\ShiftAssignmentHours;
 use App\Support\ShiftBreaks;
+use App\Support\ShiftRosterChanges;
 use App\Support\ShiftSlotReferences;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -44,19 +45,44 @@ class ShiftService
 
             $shift = $event->shifts()->lockForUpdate()->findOrFail($shift->id);
             $existingBreaks = $shift->breaks()->lockForUpdate()->get()->keyBy('id');
-            $errors = [...ShiftAssignmentHours::containmentErrors($shift, $data), ...ShiftBreaks::errors($data, $existingBreaks)];
+            $errors = [...ShiftRosterChanges::errors($shift, $data, lock: true), ...ShiftAssignmentHours::containmentErrors($shift, $data), ...ShiftBreaks::errors($data, $existingBreaks)];
             if ($errors !== []) {
                 throw ValidationException::withMessages($errors);
             }
+            $draftSlots = [];
             if (array_key_exists('slots', $data)) {
-                $this->syncSlots($shift, $data['slots']);
+                $draftSlots = $this->syncSlots($shift, $data['slots']);
                 unset($data['slots']);
             }
             if (array_key_exists('breaks', $data)) {
                 $this->syncBreaks($shift, $data['breaks'], $existingBreaks);
                 unset($data['breaks']);
             }
+            $updates = $data['assignment_updates'] ?? [];
+            $removals = $data['assignment_removals'] ?? [];
+            $additions = $data['assignment_additions'] ?? [];
+            unset($data['assignment_updates'], $data['assignment_removals'], $data['assignment_additions']);
             $shift->update($data);
+            $shift->assignments()->whereIn('id', $removals)->delete();
+            foreach ($updates as $row) {
+                [$start, $end] = ShiftAssignmentHours::resolve($shift, $row);
+                $shift->assignments()->whereKey($row['id'])->update(['starts_at' => $start, 'ends_at' => $end]);
+            }
+            foreach ($additions as $index => $row) {
+                try {
+                    if (isset($row['slot_key'])) {
+                        $row['shift_role_slot_id'] = $draftSlots[$row['slot_key']] ?? null;
+                        unset($row['slot_key']);
+                    }
+                    app(ShiftAssignmentService::class)->create($shift, $row);
+                } catch (ValidationException $exception) {
+                    $errors = [];
+                    foreach ($exception->errors() as $key => $messages) {
+                        $errors["assignment_additions.$index.$key"] = $messages;
+                    }
+                    throw ValidationException::withMessages($errors);
+                }
+            }
         });
     }
 
@@ -77,7 +103,7 @@ class ShiftService
         $shift->breaks()->whereNotIn('id', $kept)->delete();
     }
 
-    private function syncSlots(Shift $shift, array $slots): void
+    private function syncSlots(Shift $shift, array $slots): array
     {
         $existing = $shift->roleSlots()->lockForUpdate()->get()->keyBy('id');
         $errors = ShiftSlotReferences::errors($slots, $existing, lock: true);
@@ -86,9 +112,11 @@ class ShiftService
         }
         $nextOrder = ($existing->max('sort_order') ?? -1) + 1;
         $kept = [];
+        $draftSlots = [];
         foreach ($slots as $data) {
             $slot = isset($data['id']) ? $existing->get((int) $data['id']) : null;
-            unset($data['id']);
+            $clientKey = $data['client_key'] ?? null;
+            unset($data['id'], $data['client_key']);
             if ($slot !== null) {
                 if ((int) $slot->role_id !== (int) $data['role_id']) {
                     $slot->assignments()->update(['shift_role_slot_id' => null]);
@@ -98,8 +126,13 @@ class ShiftService
                 $slot = $shift->roleSlots()->create([...$data, 'sort_order' => $nextOrder++]);
             }
             $kept[] = $slot->id;
+            if ($clientKey !== null) {
+                $draftSlots[$clientKey] = $slot->id;
+            }
         }
         $shift->roleSlots()->whereNotIn('id', $kept)->delete();
+
+        return $draftSlots;
     }
 
     public function delete(Shift $shift, int $confirmationCount = 0): void

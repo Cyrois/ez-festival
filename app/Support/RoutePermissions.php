@@ -114,6 +114,8 @@ final class RoutePermissions
         'team.shifts.store' => 'scheduling.edit',
         'team.shifts.assignment-candidates' => 'scheduling.edit',
         'team.shifts.assignments.store' => 'scheduling.edit',
+        'team.shifts.assignment-overlaps' => 'scheduling.edit',
+        'team.shifts.assignments.overlaps' => 'scheduling.edit',
         'team.shifts.assignments.destroy' => 'scheduling.edit',
         'team.shifts.update' => 'scheduling.edit',
         'team.shifts.destroy' => 'scheduling.edit',

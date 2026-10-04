@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Team;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Team\DestroyShiftAssignmentRequest;
 use App\Http\Requests\Team\IndexShiftAssignmentCandidatesRequest;
+use App\Http\Requests\Team\IndexShiftAssignmentOverlapsRequest;
 use App\Http\Requests\Team\StoreShiftAssignmentRequest;
 use App\Http\Resources\ShiftAssignmentCandidateResource;
+use App\Http\Resources\ShiftAssignmentOverlapResource;
 use App\Models\Event;
 use App\Models\Shift;
 use App\Models\ShiftAssignment;
@@ -26,6 +28,19 @@ class ShiftAssignmentController extends Controller
         Gate::authorize('scheduling.edit');
 
         return ShiftAssignmentCandidateResource::collection($this->roster->candidates($shift, $request->validated()));
+    }
+
+    /**
+     * Preview conflicts and nearby shifts for proposed hours without saving the assignment.
+     */
+    public function overlaps(IndexShiftAssignmentOverlapsRequest $request, Shift $shift, ?ShiftAssignment $assignment = null): AnonymousResourceCollection
+    {
+        Gate::authorize('scheduling.edit');
+
+        $preview = $this->assignments->previewOverlaps($shift, $assignment, $request->validated());
+
+        return ShiftAssignmentOverlapResource::collection($preview['warnings'])
+            ->additional(['other_shifts' => $preview['other_shifts']]);
     }
 
     public function store(StoreShiftAssignmentRequest $request, Event $event, Shift $shift): RedirectResponse

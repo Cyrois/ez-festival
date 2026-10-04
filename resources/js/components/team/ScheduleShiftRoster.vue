@@ -9,6 +9,7 @@ import { labelTokens } from '../../lib/labelTokens';
 import { scheduleRosterRows } from '../../lib/shiftAssignments';
 import {
     scheduleInterval,
+    OPEN_ROLE_PATTERN,
     scheduleOverlapIntervals,
     scheduleShiftHref,
     scheduleShiftIsFilled,
@@ -262,7 +263,7 @@ const personGeometry = (assignment) => {
                 <div
                     v-else-if="interval"
                     class="absolute top-4 left-[var(--bar-start)] flex h-8 w-[var(--bar-width)] items-center overflow-hidden rounded-lg border border-dashed px-2 text-xs"
-                    :class="tokens.classes"
+                    :class="OPEN_ROLE_PATTERN"
                     :style="geometry(interval.start, interval.end)"
                 >
                     {{

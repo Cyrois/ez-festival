@@ -17,6 +17,7 @@ class ShiftAssignmentResource extends JsonResource
             'ends_at' => $this->ends_at->format('Y-m-d\TH:i'),
             'scheduled_minutes' => (int) $this->scheduled_minutes,
             'is_extra' => (bool) $this->is_extra, 'overlaps' => $this->overlaps,
+            'other_shifts' => $this->other_shifts ?? [],
         ];
     }
 }

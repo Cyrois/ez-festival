@@ -328,6 +328,7 @@ const railClass = computed(() => {
             </div>
 
             <nav
+                data-unsaved-navigation
                 class="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 py-3"
             >
                 <template
@@ -541,6 +542,7 @@ const railClass = computed(() => {
                     </span>
                 </div>
                 <nav
+                    data-unsaved-navigation
                     class="hidden min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm text-muted lg:flex"
                     :class="
                         backHref ? 'ml-5 border-l border-line pl-5 lg:flex' : ''
@@ -576,6 +578,7 @@ const railClass = computed(() => {
                 </nav>
                 <nav
                     v-if="backHref"
+                    data-unsaved-navigation
                     class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden border-l border-line pl-3 text-sm text-muted lg:hidden"
                     :aria-label="$t('nav.breadcrumbs')"
                 >

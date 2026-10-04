@@ -61,16 +61,87 @@ export function scheduleSlot(clientX, canvasLeft) {
     );
 }
 
+// UTC here is a coordinate system for event-local wall clocks, not an offset conversion.
+export function timelineMinute(value) {
+    return Date.parse(`${value}Z`) / 60000;
+}
+
+export function timelineIntersection(interval, bounds) {
+    const origin = timelineMinute(bounds.starts_at);
+    const start = Math.max(timelineMinute(interval.starts_at), origin);
+    const end = Math.min(
+        timelineMinute(interval.ends_at),
+        timelineMinute(bounds.ends_at),
+    );
+    return end > start ? { start: start - origin, end: end - origin } : null;
+}
+
 export function scheduleInterval(shift, date) {
-    const dayStart = `${date}T00:00`;
-    const dayEnd = `${scheduleDay(date, 1)}T00:00`;
-    if (shift.starts_at >= dayEnd || shift.ends_at <= dayStart) return null;
-    const minute = (value) =>
-        Number(value.slice(11, 13)) * 60 + Number(value.slice(14, 16));
-    return {
-        start: shift.starts_at < dayStart ? 0 : minute(shift.starts_at),
-        end: shift.ends_at >= dayEnd ? 1440 : minute(shift.ends_at),
-    };
+    return timelineIntersection(shift, {
+        starts_at: `${date}T00:00`,
+        ends_at: `${scheduleDay(date, 1)}T00:00`,
+    });
+}
+
+export function shiftTimelineTicks(shift) {
+    const start = timelineMinute(shift.starts_at);
+    const end = timelineMinute(shift.ends_at);
+    const values = [start];
+    for (
+        let minute = Math.floor(start / 60) * 60 + 60;
+        minute < end;
+        minute += 60
+    )
+        values.push(minute);
+    values.push(end);
+    return values.map((minute, index) => {
+        const stamp = new Date(minute * 60000).toISOString();
+        return {
+            minute: minute - start,
+            position: ((minute - start) / (end - start)) * 100,
+            label: stamp.slice(11, 16),
+            date: stamp.slice(11, 16) === '00:00' ? stamp.slice(0, 10) : '',
+            showLabel:
+                index === 0 ||
+                index === values.length - 1 ||
+                (minute - start >= 20 && end - minute >= 20),
+        };
+    });
+}
+
+export function shiftOverlapIntervals(assignment, shift) {
+    const intervals = assignment.overlaps
+        .map((overlap) =>
+            timelineIntersection(
+                {
+                    starts_at:
+                        assignment.starts_at > overlap.starts_at
+                            ? assignment.starts_at
+                            : overlap.starts_at,
+                    ends_at:
+                        assignment.ends_at < overlap.ends_at
+                            ? assignment.ends_at
+                            : overlap.ends_at,
+                },
+                shift,
+            ),
+        )
+        .filter(Boolean)
+        .sort((a, b) => a.start - b.start || a.end - b.end);
+    const merged = [];
+    for (const interval of intervals) {
+        const previous = merged.at(-1);
+        if (previous && interval.start <= previous.end)
+            previous.end = Math.max(previous.end, interval.end);
+        else merged.push({ ...interval });
+    }
+    return merged;
+}
+
+export function shiftHoursLabel(interval) {
+    return interval.starts_at.slice(0, 10) === interval.ends_at.slice(0, 10)
+        ? `${interval.starts_at.slice(11)}–${interval.ends_at.slice(11)}`
+        : `${interval.starts_at.replace('T', ' ')}–${interval.ends_at.replace('T', ' ')}`;
 }
 
 export function scheduleLanes(shifts, date) {
@@ -184,3 +255,23 @@ export function scheduleViewFromUrl(url, locations) {
         ? 'location_shifts'
         : 'all_locations';
 }
+
+export function shiftTimelineGrid(shift) {
+    const start = timelineMinute(shift.starts_at);
+    const end = timelineMinute(shift.ends_at);
+    const minutes = [start];
+    for (
+        let minute = Math.floor(start / 30) * 30 + 30;
+        minute < end;
+        minute += 30
+    )
+        minutes.push(minute);
+    minutes.push(end);
+    return minutes.map((minute) => ({
+        minute: minute - start,
+        position: ((minute - start) / (end - start)) * 100,
+    }));
+}
+
+export const OPEN_ROLE_PATTERN =
+    'border-muted/40 bg-page bg-[repeating-linear-gradient(135deg,transparent,transparent_4px,color-mix(in_srgb,var(--color-muted)_8%,transparent)_4px,color-mix(in_srgb,var(--color-muted)_8%,transparent)_6px)]';
