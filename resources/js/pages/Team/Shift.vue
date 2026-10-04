@@ -2,6 +2,12 @@
 import { ColorPicker } from '../../components/ui/color-picker';
 import ShiftRoleSlots from '../../components/team/ShiftRoleSlots.vue';
 import ShiftRoster from '../../components/team/ShiftRoster.vue';
+import ShiftBreaks from '../../components/team/ShiftBreaks.vue';
+import {
+    draftShiftBreaks,
+    shiftBreakPayload,
+    shiftBreakErrors,
+} from '../../lib/shiftBreaks';
 import ShiftAssignDialog from '../../components/team/ShiftAssignDialog.vue';
 import {
     draftShiftSlots,
@@ -30,6 +36,7 @@ const props = defineProps({
     labelColors: { type: Array, required: true },
     roles: { type: Array, default: () => [] },
     canManage: { type: Boolean, default: false },
+    breakOptions: { type: Object, required: true },
     returnContext: { type: Object, default: () => ({}) },
 });
 
@@ -40,10 +47,21 @@ const form = useForm({
     starts_at: props.shift.starts_at,
     ends_at: props.shift.ends_at,
     slots: draftShiftSlots(props.shift.slots),
+    breaks: draftShiftBreaks(props.shift.breaks),
     ...props.returnContext,
 });
 const backHref = computed(() => scheduleReturnHref(props.returnContext));
 const slotErrors = ref({});
+const breakErrors = ref({});
+const breakEditor = ref(null);
+const clearBreakError = (key, field) => {
+    if (breakErrors.value[key]) delete breakErrors.value[key][field];
+    form.clearErrors('breaks');
+};
+const clearBreakContainmentErrors = () => {
+    for (const errors of Object.values(breakErrors.value))
+        delete errors.starts_at;
+};
 const clearSlotError = (key, field) => {
     if (slotErrors.value[key]) delete slotErrors.value[key][field];
 };
@@ -119,16 +137,30 @@ const breadcrumbs = computed(() => [
 
 const submit = () => {
     if (!canWrite.value || form.processing) return;
+    if (breakEditor.value && !breakEditor.value.validate()) {
+        showFormError({
+            breaks: trans('team.scheduling.breaks.errors.review'),
+        });
+        return;
+    }
 
     const submitted = [...form.slots];
+    const submittedBreaks = [...form.breaks];
     form.transform((data) => ({
         ...data,
         slots: shiftSlotPayload(data.slots),
+        breaks: shiftBreakPayload(data.breaks),
     })).put('/team/events/' + props.event.id + '/shifts/' + props.shift.id, {
         preserveScroll: true,
         onError: (errors) => {
             slotErrors.value = shiftSlotErrors(submitted, errors);
-            if (Object.keys(errors).some((key) => key.startsWith('slots'))) {
+            breakErrors.value = shiftBreakErrors(submittedBreaks, errors);
+            if (
+                Object.keys(errors).some(
+                    (key) =>
+                        key.startsWith('slots') || key.startsWith('breaks'),
+                )
+            ) {
                 showFormError(errors);
             } else {
                 toastFormErrors(form, errors, { showError, showFormError });
@@ -136,8 +168,10 @@ const submit = () => {
         },
         onSuccess: () => {
             form.slots = draftShiftSlots(props.shift.slots);
+            form.breaks = draftShiftBreaks(props.shift.breaks);
             form.defaults();
             slotErrors.value = {};
+            breakErrors.value = {};
         },
     });
 };
@@ -401,6 +435,30 @@ const destroy = () => {
                     @remove="removeAssignment"
                 />
             </Card>
+            <div class="mt-4 grid items-start gap-4 xl:grid-cols-2">
+                <Card class="min-w-0">
+                    <ShiftBreaks
+                        ref="breakEditor"
+                        v-model="form.breaks"
+                        :options="breakOptions"
+                        :starts-at="form.starts_at"
+                        :ends-at="form.ends_at"
+                        :errors="breakErrors"
+                        :collection-error="form.errors.breaks"
+                        :editable="canWrite"
+                        :busy="form.processing"
+                        :disabled-reason="
+                            $t(
+                                event.is_locked
+                                    ? 'team.scheduling.locked'
+                                    : 'team.scheduling.no_permission',
+                            )
+                        "
+                        @clear-error="clearBreakError"
+                        @clear-containment-errors="clearBreakContainmentErrors"
+                    />
+                </Card>
+            </div>
         </div>
 
         <div
