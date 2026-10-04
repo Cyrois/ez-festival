@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Team\Concerns;
 
 use App\Models\Shift;
+use App\Rules\EventLocalTimeRule;
 use App\Support\ShiftBreaks;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -16,7 +17,7 @@ trait ShiftBreakRules
             'breaks.*' => ['required', 'array:id,duration_minutes,starts_at'],
             'breaks.*.id' => $this->route('shift') instanceof Shift ? ['nullable', 'integer', 'distinct'] : ['prohibited'],
             'breaks.*.duration_minutes' => ['required', 'integer', Rule::in(ShiftBreaks::DURATIONS)],
-            'breaks.*.starts_at' => ['required', 'date_format:Y-m-d\TH:i'],
+            'breaks.*.starts_at' => ['required', 'date_format:Y-m-d\TH:i', new EventLocalTimeRule(($this->route('event') ?? $this->route('shift')->event)->timezone)],
         ];
     }
 
@@ -28,7 +29,7 @@ trait ShiftBreakRules
             }
             $shift = $this->route('shift');
             $existing = $shift instanceof Shift ? $shift->breaks()->get()->keyBy('id') : collect();
-            foreach (ShiftBreaks::errors($this->all(), $existing) as $key => $message) {
+            foreach (ShiftBreaks::errors($this->all(), $existing, ($this->route('event') ?? $this->route('shift')->event)->timezone) as $key => $message) {
                 $validator->errors()->add($key, $message);
             }
         }];

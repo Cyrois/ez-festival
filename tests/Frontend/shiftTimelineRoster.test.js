@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { JSDOM } from 'jsdom';
 import { parse, compileScript } from '@vue/compiler-sfc';
+import * as eventTime from '../../resources/js/lib/eventLocalTime.js';
 import * as timeline from '../../resources/js/lib/scheduleTimeline.js';
 import * as breakHelpers from '../../resources/js/lib/shiftBreaks.js';
 import * as slotHelpers from '../../resources/js/lib/shiftRoleSlots.js';
@@ -53,6 +54,7 @@ const deps = {
     cn,
     useUnsavedNavigation,
     ...timeline,
+    ...eventTime,
     scheduleRosterRows,
     validAssignmentHours,
     resizedAssignment,
@@ -1040,4 +1042,17 @@ test('only sidebar and breadcrumb links warn; Continue discards and Save waits f
     assert.equal(attempt().defaultPrevented, false);
     assert.equal(unload().defaultPrevented, false);
     navigation.remove();
+});
+
+test('roster duration labels count actual event-zone hours across DST', () => {
+    for (const [start, end, hours] of [
+        ['2026-03-08T01:30', '2026-03-08T03:30', 1],
+        ['2026-11-01T00:30', '2026-11-01T02:30', 3],
+    ]) {
+        const changed = { ...shift, starts_at: start, ends_at: end,
+            assignments: [{ ...shift.assignments[0], starts_at: start, ends_at: end, other_shifts: [], overlaps: [] }] };
+        const app = mount(Roster, { shift: changed, timezone: 'America/Vancouver' });
+        try { assert.match(document.body.textContent, new RegExp(`duration_hours hours=${hours}`)); }
+        finally { app.unmount(); }
+    }
 });

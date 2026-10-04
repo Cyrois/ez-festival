@@ -22,12 +22,12 @@ final class ShiftBreaks
      *
      * @return array<string, string>
      */
-    public static function errors(array $data, Collection $existing): array
+    public static function errors(array $data, Collection $existing, string $timezone = 'UTC'): array
     {
         $supplied = array_key_exists('breaks', $data);
         $rows = $supplied ? $data['breaks'] : $existing->map->only(['id', 'duration_minutes', 'starts_at'])->values()->all();
-        $shiftStart = CarbonImmutable::parse($data['starts_at']);
-        $shiftEnd = CarbonImmutable::parse($data['ends_at']);
+        $shiftStart = CarbonImmutable::parse($data['starts_at'], $timezone);
+        $shiftEnd = CarbonImmutable::parse($data['ends_at'], $timezone);
         $errors = [];
         $intervals = [];
         $seen = [];
@@ -40,8 +40,8 @@ final class ShiftBreaks
                 $seen[$id] = true;
             }
 
-            $start = CarbonImmutable::parse($row['starts_at']);
-            $end = $start->addMinutes((int) $row['duration_minutes']);
+            $start = CarbonImmutable::parse(is_object($row['starts_at']) ? $row['starts_at']->format('Y-m-d H:i:s') : $row['starts_at'], $timezone);
+            $end = $start->utc()->addMinutes((int) $row['duration_minutes'])->setTimezone($timezone);
             if ($start->lt($shiftStart) || $end->gt($shiftEnd)) {
                 $key = $supplied ? "breaks.$index.starts_at" : ($start->lt($shiftStart) ? 'starts_at' : 'ends_at');
                 $errors[$key] = $supplied

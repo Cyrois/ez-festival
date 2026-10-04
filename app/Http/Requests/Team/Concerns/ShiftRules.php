@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Team\Concerns;
 
 use App\Models\Event;
+use App\Rules\EventLocalTimeRule;
 use App\Support\LabelColors;
 use Illuminate\Validation\Rule;
 
@@ -21,8 +22,8 @@ trait ShiftRules
                 'integer',
                 Rule::exists('locations', 'id')->where('event_id', $event->id),
             ],
-            'starts_at' => ['required', 'date_format:Y-m-d\TH:i'],
-            'ends_at' => ['required', 'date_format:Y-m-d\TH:i', 'after:starts_at'],
+            'starts_at' => ['required', 'date_format:Y-m-d\TH:i', new EventLocalTimeRule($event->timezone)],
+            'ends_at' => ['required', 'date_format:Y-m-d\TH:i', new EventLocalTimeRule($event->timezone), 'after:starts_at'],
         ];
     }
 }

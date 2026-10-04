@@ -1,4 +1,5 @@
 <script setup>
+import { eventElapsedMinutes } from '../../lib/eventLocalTime';
 import { computed, onMounted, onUnmounted, ref, useId } from 'vue';
 import { CardTitle } from '../ui/card';
 import { Avatar } from '../ui/avatar';
@@ -34,6 +35,7 @@ import { trans } from 'laravel-vue-i18n';
 
 const props = defineProps({
     shift: { type: Object, required: true },
+    timezone: { type: String, default: 'UTC' },
     enabled: { type: Boolean, default: false },
     assignEnabled: { type: Boolean, default: undefined },
     canManage: { type: Boolean, default: false },
@@ -45,9 +47,13 @@ const warningTooltipId = useId();
 const canAssign = computed(() => props.assignEnabled ?? props.enabled);
 const grid = computed(() => shiftTimelineGrid(bounds.value));
 const totalTime = (assignment) => {
-    const minutes =
-        timelineMinute(assignment.ends_at) -
-        timelineMinute(assignment.starts_at);
+    const minutes = eventElapsedMinutes(
+        assignment.starts_at,
+        assignment.ends_at,
+        props.timezone,
+    );
+    if (!Number.isFinite(minutes))
+        return trans('team.scheduling.errors.local_time');
     const hours = Math.floor(minutes / 60);
     const rest = minutes % 60;
     return trans(

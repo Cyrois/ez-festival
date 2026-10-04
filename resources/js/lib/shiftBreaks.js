@@ -1,3 +1,5 @@
+import { eventLocalMinute } from './eventLocalTime.js';
+
 let nextDraftKey = 0;
 
 // Floating event-local timestamps: use UTC only as a calendar arithmetic coordinate.
@@ -78,11 +80,17 @@ export function shiftBreakErrors(breaks, errors) {
     return result;
 }
 
-export function validateShiftBreaks(breaks, start, end, durations) {
+export function validateShiftBreaks(
+    breaks,
+    start,
+    end,
+    durations,
+    timezone = 'UTC',
+) {
     const result = {};
     const intervals = [];
-    const first = wallMinutes(start);
-    const last = wallMinutes(end);
+    const first = eventLocalMinute(start, timezone);
+    const last = eventLocalMinute(end, timezone);
     const validBounds =
         Number.isFinite(first) && Number.isFinite(last) && first < last;
     for (const row of breaks) {
@@ -92,7 +100,7 @@ export function validateShiftBreaks(breaks, start, end, durations) {
             Number.isInteger(duration) && durations.includes(duration);
         if (!validDuration)
             errors.duration_minutes = 'team.scheduling.breaks.errors.duration';
-        const time = wallMinutes(row.starts_at);
+        const time = eventLocalMinute(row.starts_at, timezone);
         if (!Number.isFinite(time))
             errors.starts_at = 'team.scheduling.breaks.errors.start';
         else if (!validBounds)

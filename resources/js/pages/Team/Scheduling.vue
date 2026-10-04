@@ -166,7 +166,8 @@ const formatDateTime = (value) =>
         day: 'numeric',
         hour: 'numeric',
         minute: '2-digit',
-    }).format(new Date(value));
+        timeZone: 'UTC',
+    }).format(new Date(`${value}Z`));
 </script>
 
 <template>

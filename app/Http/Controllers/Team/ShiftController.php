@@ -41,7 +41,7 @@ class ShiftController extends Controller
         }
 
         return Inertia::render('Team/CreateShift', [
-            'event' => $event->only('id', 'name'),
+            'event' => $event->only('id', 'name', 'timezone'),
             'locations' => $this->locations->optionsFor($event),
             'roles' => ShiftSlotReferences::options(),
             'labelColors' => LabelColors::ALL,
@@ -60,6 +60,7 @@ class ShiftController extends Controller
             'event' => [
                 'id' => $event->id,
                 'name' => $event->name,
+                'timezone' => $event->timezone,
                 'is_locked' => $event->isLocked(),
             ],
             'shift' => (new ShiftResource($this->roster->loadRoster($shift)))->resolve($request),

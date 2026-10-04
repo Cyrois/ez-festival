@@ -20,6 +20,7 @@ const props = defineProps({
     options: { type: Object, required: true },
     startsAt: { type: String, default: '' },
     endsAt: { type: String, default: '' },
+    timezone: { type: String, default: 'UTC' },
     errors: { type: Object, default: () => ({}) },
     collectionError: { type: String, default: '' },
     editable: { type: Boolean, default: true },
@@ -57,6 +58,7 @@ const localErrors = computed(() =>
         props.startsAt,
         props.endsAt,
         props.options.durations,
+        props.timezone,
     ),
 );
 const pendingErrors = computed(() =>
@@ -66,6 +68,7 @@ const pendingErrors = computed(() =>
               props.startsAt,
               props.endsAt,
               props.options.durations,
+              props.timezone,
           )[pending.value._key] ?? {})
         : {},
 );
