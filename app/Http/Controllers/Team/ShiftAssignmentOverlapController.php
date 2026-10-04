@@ -14,14 +14,15 @@ use Illuminate\Support\Facades\Gate;
 
 class ShiftAssignmentOverlapController extends Controller
 {
-    public function index(IndexShiftAssignmentOverlapsRequest $request, Shift $shift, ShiftAssignment $assignment): AnonymousResourceCollection
+    public function index(IndexShiftAssignmentOverlapsRequest $request, Shift $shift, ?ShiftAssignment $assignment = null): AnonymousResourceCollection
     {
         Gate::authorize('scheduling.edit');
-        [$start, $end] = ShiftAssignmentHours::resolve($shift, $request->validated());
-        $others = ShiftAssignmentOverlaps::forMembers($shift, [$assignment->team_engagement_id], $start, $end);
+        [$start, $end] = ShiftAssignmentHours::resolve($request->proposedShift(), $request->validated());
+        $memberId = $assignment?->team_engagement_id ?? $request->validated('team_engagement_id');
+        $others = ShiftAssignmentOverlaps::forMembers($shift, [$memberId], $start, $end);
 
         return ShiftAssignmentOverlapResource::collection(ShiftAssignmentOverlaps::warnings(
-            $others->get($assignment->team_engagement_id, collect()), $start, $end, $shift->event->timezone,
+            $others->get($memberId, collect()), $start, $end, $shift->event->timezone,
         ));
     }
 }

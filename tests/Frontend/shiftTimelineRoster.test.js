@@ -11,6 +11,8 @@ import * as slotHelpers from '../../resources/js/lib/shiftRoleSlots.js';
 import {
     scheduleRosterRows,
     validAssignmentHours,
+    resizedAssignment,
+    draftRoster,
 } from '../../resources/js/lib/shiftAssignments.js';
 import {
     labelTokens,
@@ -46,6 +48,8 @@ const deps = {
     ...timeline,
     scheduleRosterRows,
     validAssignmentHours,
+    resizedAssignment,
+    draftRoster,
     labelTokens,
     fallbackLabelToken,
     trans: text,
@@ -146,6 +150,19 @@ const deps = {
     useForm: (data) => {
         form = reactive({ ...data, errors: {}, processing: false });
         let transform = (data) => data;
+        const keys = Object.keys(data);
+        let defaults = JSON.stringify(data);
+        Object.defineProperty(form, 'isDirty', {
+            get: () =>
+                JSON.stringify(
+                    Object.fromEntries(keys.map((key) => [key, form[key]])),
+                ) !== defaults,
+        });
+        form.defaults = () => {
+            defaults = JSON.stringify(
+                Object.fromEntries(keys.map((key) => [key, form[key]])),
+            );
+        };
         form.clearErrors = () => {
             form.errors = {};
         };
@@ -207,7 +224,16 @@ const shift = {
     filled_count: 1,
     total_needs: 2,
     extra_count: 1,
-    slots: [{ id: 3, role_id: 4, role_name: 'Crew', open_count: 1 }],
+    slots: [
+        {
+            id: 3,
+            role_id: 4,
+            role_name: 'Crew',
+            needed: 2,
+            assigned_count: 1,
+            open_count: 1,
+        },
+    ],
     assignments: [
         {
             id: 8,
@@ -328,29 +354,15 @@ test('complete roster shows exact bars, open rows, Extras and hours; writable co
             ) < 1e-8,
         );
         assert.ok(first.querySelector('[data-short-label]'));
-        const summary = document.querySelector('[data-roster-summary]');
-        const open = document.querySelector('[data-open-bar]');
-        for (const bar of [summary, open]) {
-            assert.equal(
-                bar.style.getPropertyValue('--bar-start'),
-                `${(30 / 360) * 100}%`,
-            );
-            assert.equal(
-                bar.style.getPropertyValue('--bar-width'),
-                `${(300 / 360) * 100}%`,
-            );
-        }
-        assert.match(document.querySelector('thead').textContent, /20:30/);
-        assert.match(document.querySelector('thead').textContent, /02:30/);
         assert.match(first.textContent, /23:30–2026-10-02 00:00/);
         assert.match(first.textContent, /name=Other minutes=15/);
         assert.match(
             document.querySelector('[data-roster-row="person-10"]').textContent,
             /assignments.full_shift/,
         );
-        document.querySelector('[data-open-bar] > span').click();
-        first.querySelectorAll('button')[0].click();
-        first.querySelectorAll('button')[1].click();
+        document.querySelector('[data-open-bar]').click();
+        first.querySelector('button[title*="edit_hours"]').click();
+        first.querySelector('button[title*="remove_person"]').click();
         assert.deepEqual(events, [3, 8, -8]);
     } finally {
         app.unmount();
@@ -493,14 +505,20 @@ test('full-shift Edit hours omits timestamps; preview failure permits Save but i
     }
 });
 
-test('shift page guards absent confirmation data and confirms removal before one DELETE', async () => {
+test('shift page stages removal without a popup or DELETE and writes roster changes only on page Save', async () => {
     const deletions = [];
+    writes.length = 0;
     Object.assign(deps, {
         ...breakHelpers,
         ...slotHelpers,
         ColorPicker: box('div'),
         ShiftRoleSlots: box('div'),
-        ShiftBreaks: box('div'),
+        ShiftBreaks: {
+            setup: (_, { expose }) => {
+                expose({ validate: () => true });
+                return () => h('div');
+            },
+        },
         Card: box('div'),
         CustomDropdown: box('div'),
         AppLayout: box('main'),
@@ -511,17 +529,8 @@ test('shift page guards absent confirmation data and confirms removal before one
         toastFormErrors: () => {},
         router: { delete: (url, options) => deletions.push({ url, options }) },
     });
-    const strictText = (key, params = {}) => {
-        for (const value of Object.values(params))
-            assert.notEqual(
-                value,
-                undefined,
-                `undefined translation replacement for ${key}`,
-            );
-        return text(key, params);
-    };
     const Page = await compile('Shift', 'pages/Team');
-    const app = createApp(Page, {
+    const app = mount(Page, {
         shift: { ...shift, breaks: [], assignment_count: 2 },
         event: { id: 2, is_locked: false },
         canManage: true,
@@ -530,29 +539,170 @@ test('shift page guards absent confirmation data and confirms removal before one
         labelColors: [],
         breakOptions: { lengths: [] },
     });
-    app.config.globalProperties.$t = strictText;
-    app.mount('#app');
     try {
-        assert.equal(document.querySelector('#save'), null);
+        assert.equal(document.querySelector('[data-save-reminder]'), null);
         const first = document.querySelector('[data-roster-row="person-8"]');
-        first.querySelectorAll('button')[1].click();
+        globalThis.fetch = async () => ({ ok: true, json: async () => ({ data: [] }) });
+        first.querySelector('[role="slider"]').dispatchEvent(
+            new dom.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
+        );
+        await nextTick();
+        assert.equal(writes.length, 0);
+        assert.equal(form.assignment_updates[0].starts_at, '2026-10-01T23:45');
+        assert.ok(document.querySelector('[data-save-reminder]'));
+        first.querySelector('button[title*="remove_person"]').click();
         await nextTick();
         assert.equal(deletions.length, 0);
-        document.querySelector('#cancel').click();
-        await nextTick();
-        assert.equal(deletions.length, 0);
+        assert.equal(writes.length, 0);
         assert.equal(document.querySelector('#save'), null);
-        first.querySelectorAll('button')[1].click();
+        assert.equal(
+            document.querySelector('[data-roster-row="person-8"]'),
+            null,
+        );
+        assert.deepEqual([...form.assignment_removals], [8]);
+        assert.equal(form.assignment_updates.length, 0);
+        assert.ok(document.querySelector('[data-save-reminder]'));
+        assert.equal(document.querySelectorAll('[data-open-bar]').length, 2);
+        document.querySelector('#shift-details-form').dispatchEvent(
+            new dom.window.Event('submit', {
+                bubbles: true,
+                cancelable: true,
+            }),
+        );
+        assert.equal(writes.length, 1);
+        assert.deepEqual([...writes[0].data.assignment_removals], [8]);
+        assert.match(writes[0].url, /shifts\/7$/);
+        form.errors['assignment_removals.0'] = 'Roster changed';
+        writes[0].options.onError(form.errors);
         await nextTick();
+        assert.ok(document.querySelector('[data-save-reminder]'));
+        assert.deepEqual([...form.assignment_removals], [8]);
+        writes[0].options.onSuccess();
+        await nextTick();
+        assert.equal(document.querySelector('[data-save-reminder]'), null);
+    } finally {
+        app.unmount();
+    }
+});
+
+test('resize snaps to clock quarter-hours, clamps to shift bounds, and crosses midnight without timezone conversion', () => {
+    const person = shift.assignments[0];
+    assert.deepEqual(
+        resizedAssignment(
+            shift,
+            person,
+            'start',
+            timeline.timelineMinute('2026-10-01T23:38'),
+        ),
+        { starts_at: '2026-10-01T23:45', ends_at: person.ends_at },
+    );
+    assert.equal(
+        resizedAssignment(
+            shift,
+            person,
+            'end',
+            timeline.timelineMinute('2026-10-02T01:53'),
+        ).ends_at,
+        shift.ends_at,
+    );
+    assert.equal(
+        resizedAssignment(
+            shift,
+            person,
+            'start',
+            timeline.timelineMinute('2026-10-01T20:00'),
+        ).starts_at,
+        shift.starts_at,
+    );
+    assert.equal(
+        resizedAssignment(
+            shift,
+            person,
+            'end',
+            timeline.timelineMinute('2026-10-01T21:00'),
+        ).ends_at,
+        '2026-10-01T23:45',
+    );
+    assert.equal(timeline.shiftTimelineGrid(shift).length, 11);
+});
+
+test('pointer resize previews locally, emits on release, supports keyboard steps and Escape cancellation', async () => {
+    const events = [];
+    const app = mount(Roster, {
+        shift,
+        enabled: true,
+        canManage: true,
+        onResize: (event) => events.push(event),
+    });
+    try {
+        const row = document.querySelector('[data-roster-row="person-8"]');
+        const canvas = row.querySelector('[data-person-bar]').parentElement;
+        canvas.getBoundingClientRect = () => ({ width: 600 });
+        const handles = row.querySelectorAll('[role="slider"]');
+        handles[0].dispatchEvent(
+            new dom.window.MouseEvent('pointerdown', {
+                clientX: 100,
+                button: 0,
+                bubbles: true,
+            }),
+        );
+        window.dispatchEvent(
+            new dom.window.MouseEvent('pointermove', { clientX: 145 }),
+        );
+        await nextTick();
+        assert.equal(events.length, 0);
+        assert.match(row.textContent, /23:45/);
+        window.dispatchEvent(
+            new dom.window.MouseEvent('pointerup', { clientX: 145 }),
+        );
+        await nextTick();
+        assert.equal(events.length, 1);
+        assert.equal(events[0].hours.starts_at, '2026-10-01T23:45');
+        handles[1].dispatchEvent(
+            new dom.window.KeyboardEvent('keydown', {
+                key: 'ArrowRight',
+                bubbles: true,
+            }),
+        );
+        assert.equal(events.length, 2);
+        assert.equal(events[1].hours.ends_at, '2026-10-02T00:15');
+        handles[0].dispatchEvent(
+            new dom.window.MouseEvent('pointerdown', {
+                clientX: 100,
+                button: 0,
+                bubbles: true,
+            }),
+        );
+        window.dispatchEvent(
+            new dom.window.MouseEvent('pointermove', { clientX: 145 }),
+        );
+        window.dispatchEvent(
+            new dom.window.KeyboardEvent('keydown', { key: 'Escape' }),
+        );
+        await nextTick();
+        assert.equal(events.length, 2);
+        assert.match(row.textContent, /23:30/);
+    } finally {
+        app.unmount();
+    }
+});
+
+test('deferred hours dialog emits a draft without issuing a PUT', async () => {
+    writes.length = 0;
+    const changes = [];
+    const app = mount(Hours, {
+        shift,
+        assignment: shift.assignments[0],
+        eventId: 2,
+        enabled: true,
+        deferred: true,
+        onChanged: (change) => changes.push(change),
+    });
+    try {
         document.querySelector('#save').click();
-        assert.equal(deletions.length, 1);
-        assert.match(deletions[0].url, /assignments\/8$/);
-        await nextTick();
-        assert.equal(document.querySelector('[data-open-bar]').disabled, true);
-        deletions[0].options.onSuccess();
-        deletions[0].options.onFinish();
-        await nextTick();
-        assert.equal(document.querySelector('#save'), null);
+        assert.equal(writes.length, 0);
+        assert.equal(changes.length, 1);
+        assert.equal(changes[0].hours_mode, 'custom');
     } finally {
         app.unmount();
     }

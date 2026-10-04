@@ -144,6 +144,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::get('shifts/create', [TeamShiftController::class, 'create'])->name('shifts.create');
             Route::get('shifts/{shift}', [TeamShiftController::class, 'show'])->name('shifts.show');
             Route::get('shifts/{shift}/assignment-candidates', [ShiftAssignmentController::class, 'index'])->name('shifts.assignment-candidates');
+            Route::get('shifts/{shift}/assignment-overlaps', [ShiftAssignmentOverlapController::class, 'index'])->name('shifts.assignment-overlaps');
             Route::get('shifts/{shift}/assignments/{assignment}/overlaps', [ShiftAssignmentOverlapController::class, 'index'])->name('shifts.assignments.overlaps');
             Route::get('forms', [TeamFormsController::class, 'index'])->name('forms');
             Route::get('forms/create', [TeamFormsController::class, 'create'])->name('forms.create');

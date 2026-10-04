@@ -543,6 +543,109 @@ class TeamShiftAssignmentsTest extends TestCase
         return Event::create(['name' => $name, 'starts_on' => '2026-10-01', 'ends_on' => '2026-10-02', 'timezone' => 'America/Vancouver']);
     }
 
+    public function test_page_save_applies_roster_changes_with_details_and_preserves_identity(): void
+    {
+        $first = $this->assign($this->member('First'));
+        $removed = $this->assign($this->member('Removed'));
+        $member = $this->member('New person', Role::create(['name' => 'Different role']));
+        $this->put($this->updateUrl(), $this->shiftPayload([
+            'name' => 'Changed shift',
+            'starts_at' => '2026-10-01T11:00',
+            'assignment_updates' => [['id' => $first->id, 'hours_mode' => 'custom', 'starts_at' => '2026-10-01T11:15', 'ends_at' => '2026-10-01T13:45']],
+            'assignment_removals' => [$removed->id],
+            'assignment_additions' => [$this->payload($member)],
+        ]))->assertSessionHasNoErrors();
+        $this->assertSame('Changed shift', $this->shift->fresh()->name);
+        $this->assertModelMissing($removed);
+        $this->assertSame('11:15', $first->fresh()->starts_at->format('H:i'));
+        $this->assertSame($this->role->id, $first->fresh()->role_id);
+        $new = $this->shift->assignments()->where('team_engagement_id', $member->id)->sole();
+        $this->assertSame('11:00', $new->starts_at->format('H:i'));
+        $this->assertSame($this->slotId, $new->shift_role_slot_id);
+        $this->assertNotSame($this->role->id, $member->fresh()->role_id);
+    }
+
+    public function test_invalid_roster_drafts_fail_form_request_without_partial_writes(): void
+    {
+        $assignment = $this->assign($this->member('Original'));
+        $otherShift = $this->shift($this->event, 'Other');
+        $foreign = app(ShiftAssignmentService::class)->create($otherShift, $this->payload($this->member('Foreign'), ['shift_role_slot_id' => $otherShift->roleSlots()->sole()->id]));
+        $invalid = [
+            ['assignment_updates' => [['id' => $foreign->id, 'hours_mode' => 'full_shift']]],
+            ['assignment_removals' => [$foreign->id]],
+            ['assignment_updates' => [['id' => $assignment->id, 'hours_mode' => 'custom', 'starts_at' => '2026-10-01T09:00', 'ends_at' => '2026-10-01T11:00']]],
+            ['assignment_updates' => [['id' => $assignment->id, 'hours_mode' => 'full_shift', 'role_id' => $this->role->id]]],
+            ['assignment_updates' => [['id' => $assignment->id, 'hours_mode' => 'custom']]],
+            ['assignment_updates' => [['id' => $assignment->id, 'hours_mode' => 'full_shift', 'starts_at' => '2026-10-01T10:00']]],
+            ['assignment_updates' => [['id' => $assignment->id, 'hours_mode' => 'full_shift']], 'assignment_removals' => [$assignment->id]],
+            ['assignment_removals' => [$assignment->id, $assignment->id]],
+        ];
+        foreach ($invalid as $changes) {
+            $this->put($this->updateUrl(), $this->shiftPayload(['name' => 'Must not save', ...$changes]))->assertSessionHasErrors();
+            $this->assertModelExists($assignment);
+            $this->assertSame('10:00', $assignment->fresh()->starts_at->format('H:i'));
+            $this->assertNotSame('Must not save', $this->shift->fresh()->name);
+        }
+    }
+
+    public function test_roster_creation_conflict_rolls_back_details_removals_and_hours(): void
+    {
+        $member = $this->member('Already there');
+        $assignment = $this->assign($member);
+        $removed = $this->assign($this->member('Keep until save succeeds'));
+        $this->put($this->updateUrl(), $this->shiftPayload([
+            'name' => 'Must not save',
+            'assignment_removals' => [$removed->id],
+            'assignment_updates' => [['id' => $assignment->id, 'hours_mode' => 'custom', 'starts_at' => '2026-10-01T11:00', 'ends_at' => '2026-10-01T12:00']],
+            'assignment_additions' => [$this->payload($member)],
+        ]))->assertSessionHasErrors('assignment_additions.0.team_engagement_id');
+        $this->assertModelExists($removed);
+        $this->assertSame('10:00', $assignment->fresh()->starts_at->format('H:i'));
+        $this->assertNotSame('Must not save', $this->shift->fresh()->name);
+    }
+
+    public function test_roster_save_rejects_locked_event_and_foreign_member_or_slot(): void
+    {
+        $assignment = $this->assign($this->member('Original'));
+        $other = $this->event('Other');
+        $foreign = $this->member('Foreign', event: $other);
+        $foreignShift = $this->shift($other, 'Foreign shift');
+        $this->put($this->updateUrl(), $this->shiftPayload(['assignment_additions' => [$this->payload($foreign)]]))->assertSessionHasErrors('assignment_additions.0.team_engagement_id');
+        $this->put($this->updateUrl(), $this->shiftPayload(['assignment_additions' => [$this->payload($this->member('Local'), ['shift_role_slot_id' => $foreignShift->roleSlots()->sole()->id])]]))->assertSessionHasErrors('assignment_additions.0.shift_role_slot_id');
+        $this->put(route('team.shifts.update', [$other, $this->shift]), $this->shiftPayload(['assignment_removals' => [$assignment->id]]))->assertNotFound();
+        $this->event->lock();
+        $changes = $this->shiftPayload(['assignment_removals' => [$assignment->id]]);
+        $this->put($this->updateUrl(), $changes)->assertForbidden();
+        $this->expectException(HttpException::class);
+        app(ShiftService::class)->update($this->shift, $changes);
+    }
+
+    public function test_roster_service_rechecks_stale_ids_and_shift_containment_before_writes(): void
+    {
+        $assignment = $this->assign($this->member('Original'));
+        $id = $assignment->id;
+        $assignment->delete();
+        $this->assertServiceValidation(fn () => app(ShiftService::class)->update($this->shift, $this->shiftPayload(['assignment_removals' => [$id]])), 'assignment_removals.0');
+        $kept = $this->assign($this->member('Keep'));
+        $this->put($this->updateUrl(), $this->shiftPayload(['starts_at' => '2026-10-01T11:00']))->assertSessionHasErrors('ends_at');
+        $this->assertSame('10:00', $kept->fresh()->starts_at->format('H:i'));
+    }
+
+    public function test_draft_overlap_preview_accepts_unsaved_bounds_and_scopes_new_members(): void
+    {
+        $member = $this->member('Draft');
+        $other = $this->shift($this->event, 'Other');
+        app(ShiftAssignmentService::class)->create($other, $this->payload($member, ['shift_role_slot_id' => $other->roleSlots()->sole()->id]));
+        $url = route('team.shifts.assignment-overlaps', $this->shift).'?'.http_build_query([
+            'team_engagement_id' => $member->id, 'hours_mode' => 'full_shift',
+            'shift_starts_at' => '2026-10-01T09:00', 'shift_ends_at' => '2026-10-01T11:00',
+        ]);
+        $this->getJson($url)->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.overlap_minutes', 60)->assertJsonMissingPath('data.0.team_engagement_id');
+        $foreign = $this->member('Foreign', event: $this->event('Other event'));
+        $this->getJson(route('team.shifts.assignment-overlaps', $this->shift).'?hours_mode=full_shift&team_engagement_id='.$foreign->id)->assertUnprocessable();
+        $this->assertSame(0, $this->shift->assignments()->count());
+    }
+
     private function shift(Event $event, string $name = 'Show run'): Shift
     {
         $location = $event->locations()->create(['name' => 'Gate']);

@@ -15,11 +15,16 @@ import {
     TableCell,
 } from '../ui/table';
 import { labelTokens, fallbackLabelToken } from '../../lib/labelTokens';
-import { scheduleRosterRows } from '../../lib/shiftAssignments';
+import {
+    scheduleRosterRows,
+    resizedAssignment,
+} from '../../lib/shiftAssignments';
 import {
     timelineMinute,
     timelineIntersection,
     shiftTimelineTicks,
+    shiftTimelineGrid,
+    OPEN_ROLE_PATTERN,
     shiftOverlapIntervals,
     shiftHoursLabel,
     SCHEDULE_CELL_WIDTH,
@@ -30,10 +35,29 @@ import { trans } from 'laravel-vue-i18n';
 const props = defineProps({
     shift: { type: Object, required: true },
     enabled: { type: Boolean, default: false },
+    assignEnabled: { type: Boolean, default: undefined },
     canManage: { type: Boolean, default: false },
     disabledReason: { type: String, default: '' },
 });
-defineEmits(['assign', 'edit', 'remove']);
+const emit = defineEmits(['assign', 'edit', 'remove', 'resize']);
+const dragging = ref(null);
+const canAssign = computed(() => props.assignEnabled ?? props.enabled);
+const grid = computed(() => shiftTimelineGrid(bounds.value));
+const totalTime = (assignment) => {
+    const minutes =
+        timelineMinute(assignment.ends_at) -
+        timelineMinute(assignment.starts_at);
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    return trans(
+        hours && rest
+            ? 'team.scheduling.roster.duration_both'
+            : hours
+              ? 'team.scheduling.roster.duration_hours'
+              : 'team.scheduling.roster.duration_minutes',
+        { hours, minutes: rest },
+    );
+};
 const root = ref(null);
 const width = ref(0);
 let observer;
@@ -46,8 +70,20 @@ onMounted(() => {
         observer.observe(root.value);
     }
 });
-onUnmounted(() => observer?.disconnect());
-const rows = computed(() => scheduleRosterRows(props.shift));
+onUnmounted(() => {
+    observer?.disconnect();
+    stopDrag();
+});
+const rows = computed(() =>
+    scheduleRosterRows({
+        ...props.shift,
+        assignments: props.shift.assignments.map((row) =>
+            dragging.value?.assignment.id === row.id
+                ? { ...row, ...dragging.value.hours }
+                : row,
+        ),
+    }),
+);
 const timelinePadding = 30;
 const bounds = computed(() => ({
     starts_at: new Date(
@@ -94,7 +130,7 @@ const shortBar = (assignment) => {
         interval &&
         ((interval.end - interval.start) / duration.value) *
             timelineWidth.value <
-            assignment.name.length * 6 + 24
+            assignment.name.length * 6 + 92
     );
 };
 const fullShift = (assignment) =>
@@ -119,6 +155,88 @@ const warningDetails = (assignment) =>
         .join('\n');
 const assignmentTitle = (assignment) =>
     `${assignment.name} · ${shiftHoursLabel(assignment)}${assignment.overlaps.length ? '\n' + warningDetails(assignment) : ''}`;
+
+const stopDrag = () => {
+    window.removeEventListener('pointermove', moveDrag);
+    window.removeEventListener('pointerup', finishDrag);
+    window.removeEventListener('pointercancel', cancelDrag);
+    window.removeEventListener('keydown', escapeDrag);
+};
+const cancelDrag = () => {
+    dragging.value = null;
+    stopDrag();
+};
+const escapeDrag = (event) => {
+    if (event.key === 'Escape') cancelDrag();
+};
+const beginDrag = (event, assignment, edge) => {
+    if (!props.enabled || !props.canManage || event.button !== 0) return;
+    event.preventDefault();
+    const canvas =
+        event.currentTarget.closest('[data-person-bar]').parentElement;
+    dragging.value = {
+        assignment,
+        edge,
+        x: event.clientX,
+        width: canvas.getBoundingClientRect().width,
+        hours: { starts_at: assignment.starts_at, ends_at: assignment.ends_at },
+    };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    window.addEventListener('pointermove', moveDrag);
+    window.addEventListener('pointerup', finishDrag);
+    window.addEventListener('pointercancel', cancelDrag);
+    window.addEventListener('keydown', escapeDrag);
+};
+const moveDrag = (event) => {
+    const drag = dragging.value;
+    if (!drag) return;
+    const minute =
+        timelineMinute(
+            drag.edge === 'start'
+                ? drag.assignment.starts_at
+                : drag.assignment.ends_at,
+        ) +
+        ((event.clientX - drag.x) / drag.width) * duration.value;
+    const hours = resizedAssignment(
+        props.shift,
+        drag.assignment,
+        drag.edge,
+        minute,
+    );
+    if (hours) drag.hours = hours;
+};
+const finishDrag = (event) => {
+    if (!dragging.value) return;
+    moveDrag(event);
+    const { assignment, hours } = dragging.value;
+    cancelDrag();
+    if (
+        props.enabled &&
+        (assignment.starts_at !== hours.starts_at ||
+            assignment.ends_at !== hours.ends_at)
+    )
+        emit('resize', { assignment, hours });
+};
+const resizeKey = (event, assignment, edge) => {
+    if (!props.enabled || !props.canManage) return;
+    const delta =
+        event.key === 'ArrowLeft'
+            ? -15
+            : event.key === 'ArrowRight'
+              ? 15
+              : null;
+    if (delta === null) return;
+    event.preventDefault();
+    const hours = resizedAssignment(
+        props.shift,
+        assignment,
+        edge,
+        timelineMinute(
+            edge === 'start' ? assignment.starts_at : assignment.ends_at,
+        ) + delta,
+    );
+    if (hours) emit('resize', { assignment, hours });
+};
 </script>
 
 <template>
@@ -167,6 +285,14 @@ const assignmentTitle = (assignment) =>
                             class="relative h-10 w-[var(--timeline-width)]"
                             :aria-label="shiftHoursLabel(bounds)"
                         >
+                            <div
+                                v-for="tick in grid"
+                                :key="`grid-${tick.minute}`"
+                                class="pointer-events-none absolute inset-y-0 left-[var(--tick-left)] border-l border-line/60"
+                                :style="{ '--tick-left': `${tick.position}%` }"
+                                aria-hidden="true"
+                                data-roster-grid
+                            />
                             <div
                                 v-for="(tick, index) in ticks"
                                 :key="tick.minute"
@@ -357,8 +483,9 @@ const assignmentTitle = (assignment) =>
                                 aria-hidden="true"
                             >
                                 <div
-                                    v-for="tick in ticks"
+                                    v-for="tick in grid"
                                     :key="tick.minute"
+                                    data-roster-grid
                                     class="absolute inset-y-0 left-[var(--tick-left)] border-l border-line/60"
                                     :style="{
                                         '--tick-left': `${tick.position}%`,
@@ -386,14 +513,89 @@ const assignmentTitle = (assignment) =>
                                 >
                                     <span
                                         v-if="!shortBar(row.assignment)"
-                                        class="relative z-10 block truncate px-2 py-1 text-xs font-semibold"
-                                        :class="
-                                            row.assignment.overlaps.length
-                                                ? 'w-1/2'
-                                                : ''
-                                        "
+                                        class="relative z-10 block truncate px-4 py-1 pr-20 text-xs font-semibold"
                                         >{{ row.assignment.name }}</span
                                     >
+                                    <span
+                                        class="absolute inset-y-0 right-4 z-10 flex items-center text-xs font-semibold whitespace-nowrap"
+                                        data-assignment-duration
+                                        >{{ totalTime(row.assignment) }}</span
+                                    >
+                                    <template v-if="canManage">
+                                        <button
+                                            v-for="edge in ['start', 'end']"
+                                            :key="edge"
+                                            type="button"
+                                            role="slider"
+                                            class="absolute inset-y-0 z-20 flex w-3 cursor-ew-resize touch-none items-center justify-center rounded-sm focus-visible:outline-2 focus-visible:outline-primary"
+                                            :class="
+                                                edge === 'start'
+                                                    ? 'left-0'
+                                                    : 'right-0'
+                                            "
+                                            :disabled="!enabled"
+                                            :aria-label="
+                                                $t(
+                                                    `team.scheduling.roster.resize_${edge}`,
+                                                    {
+                                                        name: row.assignment
+                                                            .name,
+                                                    },
+                                                )
+                                            "
+                                            :aria-valuemin="
+                                                timelineMinute(shift.starts_at)
+                                            "
+                                            :aria-valuemax="
+                                                timelineMinute(shift.ends_at)
+                                            "
+                                            :aria-valuenow="
+                                                timelineMinute(
+                                                    edge === 'start'
+                                                        ? row.assignment
+                                                              .starts_at
+                                                        : row.assignment
+                                                              .ends_at,
+                                                )
+                                            "
+                                            :aria-valuetext="
+                                                edge === 'start'
+                                                    ? row.assignment.starts_at.replace(
+                                                          'T',
+                                                          ' ',
+                                                      )
+                                                    : row.assignment.ends_at.replace(
+                                                          'T',
+                                                          ' ',
+                                                      )
+                                            "
+                                            :title="
+                                                $t(
+                                                    'team.scheduling.roster.resize_hint',
+                                                )
+                                            "
+                                            @pointerdown="
+                                                beginDrag(
+                                                    $event,
+                                                    row.assignment,
+                                                    edge,
+                                                )
+                                            "
+                                            @keydown="
+                                                resizeKey(
+                                                    $event,
+                                                    row.assignment,
+                                                    edge,
+                                                )
+                                            "
+                                        >
+                                            <Icon
+                                                :name="['fas', 'grip-lines']"
+                                                class="rotate-90 opacity-60"
+                                                size="xs"
+                                            />
+                                        </button>
+                                    </template>
                                 </div>
                                 <div
                                     v-for="(
@@ -420,30 +622,9 @@ const assignmentTitle = (assignment) =>
                                 >
                                 <span
                                     v-if="row.assignment.overlaps.length"
-                                    class="absolute left-[var(--bar-start)] z-10 w-[var(--bar-width)] truncate px-2 text-right text-xs text-warning"
-                                    :class="
-                                        shortBar(row.assignment)
-                                            ? 'top-10'
-                                            : 'top-4'
-                                    "
+                                    class="absolute top-10 left-[var(--bar-start)] z-10 w-[var(--bar-width)] truncate px-2 text-right text-xs text-warning"
                                     :style="
-                                        geometry(
-                                            shortBar(row.assignment)
-                                                ? personInterval(row.assignment)
-                                                : {
-                                                      start:
-                                                          (personInterval(
-                                                              row.assignment,
-                                                          ).start +
-                                                              personInterval(
-                                                                  row.assignment,
-                                                              ).end) /
-                                                          2,
-                                                      end: personInterval(
-                                                          row.assignment,
-                                                      ).end,
-                                                  },
-                                        )
+                                        geometry(personInterval(row.assignment))
                                     "
                                     :title="warningDetails(row.assignment)"
                                     tabindex="0"
@@ -456,26 +637,52 @@ const assignmentTitle = (assignment) =>
                                 <span class="sr-only">{{
                                     assignmentTitle(row.assignment)
                                 }}</span>
+                                <span
+                                    v-if="row.assignment.preview_status"
+                                    class="absolute top-10 left-2 text-xs text-warning"
+                                    role="status"
+                                    >{{
+                                        $t(
+                                            row.assignment.preview_status ===
+                                                'loading'
+                                                ? 'team.scheduling.assignments.preview_loading'
+                                                : 'team.scheduling.assignments.preview_failed',
+                                        )
+                                    }}</span
+                                >
                             </template>
+                            <p
+                                v-if="
+                                    row.assignment &&
+                                    !personInterval(row.assignment)
+                                "
+                                class="absolute inset-x-2 top-5 text-xs text-danger"
+                                role="alert"
+                            >
+                                {{
+                                    $t('team.scheduling.roster.outside_bounds')
+                                }}
+                            </p>
                             <Button
-                                v-else
+                                v-if="!row.assignment"
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                class="absolute top-3 left-[var(--bar-start)] flex h-8 w-[var(--bar-width)] justify-between gap-3 rounded-lg border border-dashed border-line bg-ground px-2 text-xs font-semibold text-charcoal transition-colors"
-                                :class="
-                                    enabled
+                                class="absolute top-3 left-[var(--bar-start)] flex h-8 w-[var(--bar-width)] justify-between gap-3 rounded-lg border border-dashed px-2 text-xs font-semibold text-charcoal transition-colors"
+                                :class="[
+                                    OPEN_ROLE_PATTERN,
+                                    canAssign
                                         ? [
                                               tokens.unfilledHover,
                                               'group hover:border-solid',
                                           ]
-                                        : []
-                                "
+                                        : [],
+                                ]"
                                 :style="geometry(shiftInterval)"
-                                :disabled="!enabled"
+                                :disabled="!canAssign"
                                 :title="disabledReason"
                                 data-open-bar
-                                @click="enabled && $emit('assign', row.slot)"
+                                @click="canAssign && $emit('assign', row.slot)"
                             >
                                 <span class="min-w-0 truncate">{{
                                     $t('team.scheduling.roster.open_role', {
@@ -504,9 +711,11 @@ const assignmentTitle = (assignment) =>
                             class="flex justify-center gap-1"
                             :title="disabledReason"
                             :tabindex="
-                                !enabled && disabledReason ? 0 : undefined
+                                !canAssign && disabledReason ? 0 : undefined
                             "
-                            :aria-label="!enabled ? disabledReason : undefined"
+                            :aria-label="
+                                !canAssign ? disabledReason : undefined
+                            "
                         >
                             <IconButton
                                 :icon="['fas', 'pencil']"
@@ -563,7 +772,8 @@ const assignmentTitle = (assignment) =>
             >
             <span class="flex items-center gap-1.5"
                 ><span
-                    class="h-2.5 w-4 rounded-sm border border-dashed border-line"
+                    class="h-2.5 w-4 rounded-sm border border-dashed"
+                    :class="OPEN_ROLE_PATTERN"
                     aria-hidden="true"
                 />{{ $t('team.scheduling.roster.legend_open') }}</span
             >

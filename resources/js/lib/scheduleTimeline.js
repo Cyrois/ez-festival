@@ -255,3 +255,23 @@ export function scheduleViewFromUrl(url, locations) {
         ? 'location_shifts'
         : 'all_locations';
 }
+
+export function shiftTimelineGrid(shift) {
+    const start = timelineMinute(shift.starts_at);
+    const end = timelineMinute(shift.ends_at);
+    const minutes = [start];
+    for (
+        let minute = Math.floor(start / 30) * 30 + 30;
+        minute < end;
+        minute += 30
+    )
+        minutes.push(minute);
+    minutes.push(end);
+    return minutes.map((minute) => ({
+        minute: minute - start,
+        position: ((minute - start) / (end - start)) * 100,
+    }));
+}
+
+export const OPEN_ROLE_PATTERN =
+    'border-muted/40 bg-page bg-[repeating-linear-gradient(135deg,transparent,transparent_4px,color-mix(in_srgb,var(--color-muted)_20%,transparent)_4px,color-mix(in_srgb,var(--color-muted)_20%,transparent)_6px)]';

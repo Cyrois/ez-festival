@@ -550,3 +550,21 @@ test('header assignment chooses a Headcount position, permits a different Team r
         app.unmount();
     }
 });
+
+test('deferred assignment returns the selected person and position without writing', async () => {
+    const drafts = [];
+    const app = await mount({
+        deferred: true,
+        onAssigned: (draft) => drafts.push(draft),
+    });
+    try {
+        await choose('Alpha');
+        document.querySelector('#assign').click();
+        assert.equal(harness.writes.length, 0);
+        assert.equal(drafts.length, 1);
+        assert.equal(drafts[0].candidate.id, 8);
+        assert.equal(drafts[0].shift_role_slot_id, 4);
+    } finally {
+        app.unmount();
+    }
+});
