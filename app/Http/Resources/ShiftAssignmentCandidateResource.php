@@ -15,6 +15,7 @@ class ShiftAssignmentCandidateResource extends JsonResource
             'role_name' => $this->role?->name,
             'group_name' => $this->group?->name,
             'overlaps' => $this->overlaps,
+            'other_shifts' => $this->other_shifts ?? [],
         ];
     }
 }

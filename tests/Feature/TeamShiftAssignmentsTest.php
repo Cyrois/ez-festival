@@ -263,6 +263,44 @@ class TeamShiftAssignmentsTest extends TestCase
             ->assertJsonPath('data.0.overlaps', []);
     }
 
+    public function test_other_shifts_include_names_colors_and_assignment_times_in_the_visible_window_without_foreign_event_data(): void
+    {
+        $member = $this->member('Context crew');
+        $assignment = $this->assign($member, ['hours_mode' => 'custom', 'starts_at' => '2026-10-01T11:00', 'ends_at' => '2026-10-01T12:00']);
+        $others = collect();
+        foreach ([
+            ['Before', 'violet', '09:35', '09:50'],
+            ['Overlap', 'teal', '11:30', '12:30'],
+            ['Later', 'danger', '13:00', '13:30'],
+            ['Outside', 'warning', '14:30', '15:00'],
+        ] as [$name, $color, $start, $end]) {
+            $other = $this->shift($this->event, $name);
+            $other->update(['color' => $color, 'starts_at' => "2026-10-01T$start", 'ends_at' => "2026-10-01T$end"]);
+            app(ShiftAssignmentService::class)->create($other, $this->payload($member, ['shift_role_slot_id' => $other->roleSlots()->sole()->id]));
+            $others->push($other);
+        }
+        $foreignEvent = $this->event('Foreign');
+        $foreignMember = $this->member('Foreign crew', event: $foreignEvent);
+        $foreign = $this->shift($foreignEvent, 'Foreign shift');
+        app(ShiftAssignmentService::class)->create($foreign, $this->payload($foreignMember, ['shift_role_slot_id' => $foreign->roleSlots()->sole()->id]));
+        $expected = $others->take(3)->map(fn ($other) => [
+            'shift_id' => $other->id, 'shift_name' => $other->name, 'color' => $other->color,
+            'starts_at' => $other->starts_at->format('Y-m-d\TH:i'), 'ends_at' => $other->ends_at->format('Y-m-d\TH:i'),
+        ])->all();
+        $this->get(route('team.shifts.show', $this->shift))->assertInertia(fn (Assert $page) => $page
+            ->where('shift.assignments.0.other_shifts', $expected)->where('shift.assignments.0.overlaps.0.overlap_minutes', 30));
+        $this->getJson($this->candidateUrl(['search' => 'Context crew', 'hours_mode' => 'custom', 'starts_at' => '2026-10-01T11:00', 'ends_at' => '2026-10-01T12:00']))
+            ->assertJsonPath('data.0.other_shifts', $expected);
+        $preview = route('team.shifts.assignments.overlaps', [$this->shift, $assignment]);
+        $this->getJson($preview.'?hours_mode=custom&starts_at=2026-10-01T10:00&ends_at=2026-10-01T11:00')
+            ->assertOk()->assertJsonPath('data', [])->assertJsonPath('other_shifts', $expected);
+        $this->getJson($preview.'?'.http_build_query(['hours_mode' => 'custom', 'starts_at' => '2026-10-01T11:00', 'ends_at' => '2026-10-01T12:00',
+            'shift_starts_at' => '2026-10-01T10:00', 'shift_ends_at' => '2026-10-01T16:00']))
+            ->assertOk()->assertJsonCount(4, 'other_shifts');
+        $this->assertSame('2026-10-01T14:00', $this->shift->fresh()->ends_at->format('Y-m-d\TH:i'));
+        $this->assertSame('2026-10-01T12:00', $assignment->fresh()->ends_at->format('Y-m-d\TH:i'));
+    }
+
     public function test_overlap_minutes_use_elapsed_time_across_daylight_saving_changes(): void
     {
         $this->shift->update(['starts_at' => '2026-11-01T00:00', 'ends_at' => '2026-11-01T04:00']);

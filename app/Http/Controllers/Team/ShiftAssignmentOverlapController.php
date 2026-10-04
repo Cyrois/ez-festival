@@ -17,12 +17,13 @@ class ShiftAssignmentOverlapController extends Controller
     public function index(IndexShiftAssignmentOverlapsRequest $request, Shift $shift, ?ShiftAssignment $assignment = null): AnonymousResourceCollection
     {
         Gate::authorize('scheduling.edit');
-        [$start, $end] = ShiftAssignmentHours::resolve($request->proposedShift(), $request->validated());
+        $proposedShift = $request->proposedShift();
+        [$start, $end] = ShiftAssignmentHours::resolve($proposedShift, $request->validated());
         $memberId = $assignment?->team_engagement_id ?? $request->validated('team_engagement_id');
-        $others = ShiftAssignmentOverlaps::forMembers($shift, [$memberId], $start, $end);
+        $others = ShiftAssignmentOverlaps::forMembers($shift, [$memberId], $proposedShift->starts_at->copy()->subMinutes(30), $proposedShift->ends_at->copy()->addMinutes(30));
 
         return ShiftAssignmentOverlapResource::collection(ShiftAssignmentOverlaps::warnings(
             $others->get($memberId, collect()), $start, $end, $shift->event->timezone,
-        ));
+        ))->additional(['other_shifts' => ShiftAssignmentOverlaps::shifts($others->get($memberId, collect()))]);
     }
 }

@@ -371,6 +371,36 @@ test('complete roster shows exact bars, open rows, Extras and hours; writable co
     }
 });
 
+test('other shifts render their full clipped span, name and color behind editable hours without any controls', () => {
+    const events = [];
+    const app = mount(Roster, {
+        shift: { ...shift, assignments: [{ ...shift.assignments[0], overlaps: [], other_shifts: [
+            { shift_id: 21, shift_name: 'Before', color: 'danger', starts_at: '2026-10-01T20:00', ends_at: '2026-10-01T21:15' },
+            { shift_id: 22, shift_name: 'Later', color: 'violet', starts_at: '2026-10-02T00:00', ends_at: '2026-10-02T01:00' },
+            { shift_id: 23, shift_name: 'Outside', color: 'teal', starts_at: '2026-10-02T03:00', ends_at: '2026-10-02T04:00' },
+        ] }] },
+        enabled: true, canManage: true, onResize: event => events.push(event),
+    });
+    try {
+        const bars = document.querySelectorAll('[data-other-shift]');
+        assert.equal(bars.length, 2);
+        assert.match(bars[0].textContent, /Before/);
+        assert.match(bars[0].className, /bg-danger/);
+        assert.equal(bars[0].style.getPropertyValue('--bar-start'), '0%');
+        assert.equal(bars[0].style.getPropertyValue('--bar-width'), '12.5%');
+        assert.match(bars[1].textContent, /Later/);
+        assert.match(bars[1].className, /bg-label-violet/);
+        for (const bar of bars) {
+            assert.equal(bar.querySelector('button, [role="slider"]'), null);
+            bar.click();
+            bar.dispatchEvent(new dom.window.MouseEvent('pointerdown', { clientX: 100, button: 0, bubbles: true }));
+        }
+        window.dispatchEvent(new dom.window.MouseEvent('pointerup', { clientX: 145 }));
+        assert.deepEqual(events, []);
+        assert.equal(document.querySelectorAll('[data-move-handle]').length, 1);
+    } finally { app.unmount(); }
+});
+
 test('view-only and locked roster omits Actions and explains disabled Assign; dirty controls do not emit', () => {
     for (const canManage of [false, true]) {
         const events = [];

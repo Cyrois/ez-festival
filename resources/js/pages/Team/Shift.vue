@@ -201,6 +201,7 @@ const stagePerson = (data) => {
         role_name: slot.role_name,
         shift_role_slot_id: slot.id,
         overlaps: candidate.overlaps,
+        other_shifts: candidate.other_shifts ?? [],
         is_extra: false,
         team_engagement_id: candidate.id,
     };
@@ -210,7 +211,7 @@ const stageHours = (assignment, data) => {
     if (!rosterEnabled.value) return;
     previewRequests.get(assignment.id)?.abort();
     previewRequests.delete(assignment.id);
-    const { overlaps, ...hours } = data;
+    const { overlaps, other_shifts, ...hours } = data;
     if (assignment.id < 0) {
         const index = form.assignment_additions.findIndex(
             (row) => row._key === assignment.id,
@@ -223,7 +224,11 @@ const stageHours = (assignment, data) => {
             .filter((row) => row.id !== assignment.id)
             .concat({ id: assignment.id, ...hours });
     }
-    if (overlaps) overlapPreviews.value[assignment.id] = { overlaps };
+    if (overlaps)
+        overlapPreviews.value[assignment.id] = {
+            overlaps,
+            ...(other_shifts ? { other_shifts } : {}),
+        };
 };
 const resizeHours = async (assignment, hours) => {
     stageHours(assignment, { hours_mode: 'custom', ...hours });
@@ -261,7 +266,11 @@ const resizeHours = async (assignment, hours) => {
             previewRequests.get(assignment.id) === controller &&
             !controller.signal.aborted
         )
-            overlapPreviews.value[assignment.id] = { overlaps: result.data };
+            overlapPreviews.value[assignment.id] = {
+                overlaps: result.data,
+                other_shifts:
+                    result.other_shifts ?? assignment.other_shifts ?? [],
+            };
     } catch (error) {
         if (
             error.name !== 'AbortError' &&

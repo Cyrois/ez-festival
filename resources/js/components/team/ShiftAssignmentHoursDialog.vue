@@ -59,6 +59,7 @@ const valid = computed(() =>
     ),
 );
 const overlaps = ref(props.assignment.overlaps);
+const otherShifts = ref(props.assignment.other_shifts ?? []);
 const checking = ref(false);
 const previewFailed = ref(false);
 let controller;
@@ -86,7 +87,10 @@ const preview = async () => {
         );
         if (!response.ok) throw new Error('preview');
         const result = await response.json();
-        if (number === requestNumber) overlaps.value = result.data;
+        if (number === requestNumber) {
+            overlaps.value = result.data;
+            otherShifts.value = result.other_shifts ?? otherShifts.value;
+        }
     } catch (error) {
         if (number === requestNumber && error.name !== 'AbortError')
             previewFailed.value = true;
@@ -115,7 +119,11 @@ onUnmounted(() => {
 const save = () => {
     if (!props.enabled || !valid.value || form.processing) return;
     if (props.deferred) {
-        emit('changed', { ...hoursPayload(), overlaps: overlaps.value });
+        emit('changed', {
+            ...hoursPayload(),
+            overlaps: overlaps.value,
+            other_shifts: otherShifts.value,
+        });
         emit('close');
         return;
     }

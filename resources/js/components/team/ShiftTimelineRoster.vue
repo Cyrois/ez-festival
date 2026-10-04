@@ -152,6 +152,23 @@ const warningDetails = (assignment) =>
         .join('\n');
 const assignmentTitle = (assignment) =>
     `${assignment.name} · ${shiftHoursLabel(assignment)}${assignment.overlaps.length ? '\n' + warningDetails(assignment) : ''}`;
+const otherShiftTokens = (other) =>
+    labelTokens[other.color] ?? labelTokens[fallbackLabelToken];
+const otherShifts = (assignment) =>
+    (assignment?.other_shifts ?? [])
+        .map((other) => {
+            const interval = timelineIntersection(other, bounds.value);
+            return {
+                ...other,
+                interval: interval
+                    ? {
+                          start: interval.start - timelinePadding,
+                          end: interval.end - timelinePadding,
+                      }
+                    : null,
+            };
+        })
+        .filter((other) => other.interval);
 
 const stopDrag = () => {
     window.removeEventListener('pointermove', moveDrag);
@@ -452,7 +469,10 @@ const resizeKey = (event, assignment, edge) => {
                     </TableCell>
                     <TableCell class="p-0">
                         <div
-                            class="relative isolate h-14 w-[var(--timeline-width)]"
+                            class="relative isolate h-[var(--roster-row-height)] w-[var(--timeline-width)]"
+                            :style="{
+                                '--roster-row-height': `${56 + Math.max(0, otherShifts(row.assignment).length - 1) * 16}px`,
+                            }"
                         >
                             <div
                                 class="pointer-events-none absolute inset-0"
@@ -467,6 +487,33 @@ const resizeKey = (event, assignment, edge) => {
                                         '--tick-left': `${tick.position}%`,
                                     }"
                                 />
+                            </div>
+                            <div
+                                v-for="(other, index) in otherShifts(
+                                    row.assignment,
+                                )"
+                                :key="other.shift_id"
+                                class="absolute top-3 left-[var(--bar-start)] h-7 w-[var(--bar-width)] rounded-lg border"
+                                :class="otherShiftTokens(other).classes"
+                                :style="{
+                                    ...geometry(other.interval),
+                                    '--other-label-top': `${28 + index * 16}px`,
+                                }"
+                                :title="`${other.shift_name || $t('team.scheduling.unnamed_shift')} · ${shiftHoursLabel(other)}`"
+                                data-other-shift
+                            >
+                                <span
+                                    class="pointer-events-none absolute inset-0 rounded-lg bg-[repeating-linear-gradient(135deg,transparent,transparent_4px,currentColor_4px,currentColor_6px)] opacity-20"
+                                    aria-hidden="true"
+                                />
+                                <span
+                                    class="absolute top-[var(--other-label-top)] left-0 w-full truncate px-2 text-xs font-semibold"
+                                >
+                                    {{
+                                        other.shift_name ||
+                                        $t('team.scheduling.unnamed_shift')
+                                    }}
+                                </span>
                             </div>
                             <template
                                 v-if="
@@ -657,7 +704,10 @@ const resizeKey = (event, assignment, edge) => {
                                     >{{ row.assignment.name }}</span
                                 >
                                 <span
-                                    v-if="row.assignment.overlaps.length"
+                                    v-if="
+                                        row.assignment.overlaps.length &&
+                                        !otherShifts(row.assignment).length
+                                    "
                                     class="absolute top-10 left-[var(--bar-start)] z-10 w-[var(--bar-width)] truncate px-2 text-right text-xs text-warning"
                                     :style="
                                         geometry(personInterval(row.assignment))
