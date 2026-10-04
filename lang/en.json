@@ -1513,6 +1513,7 @@
     "team.scheduling.assignments.duration_hours": ":hours h",
     "team.scheduling.assignments.duration_hours_minutes": ":hours h :minutes min",
     "team.scheduling.assignments.candidate_person": "Person",
+    "team.scheduling.assignments.no_role": "-",
     "team.scheduling.assignments.role_suggestion_hint": "Headcount roles are suggestions. Any hired Team member can fill this position without changing their Team role or access. If the position is full, the person is added as an Extra.",
     "team.scheduling.unsaved_changes": "Unsaved changes — click Save",
     "ui.unsaved_changes.title": "Unsaved changes",

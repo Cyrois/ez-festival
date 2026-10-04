@@ -521,6 +521,7 @@ const assign = () => {
                     :ajax="ajax"
                     :columns="columns"
                     :options="tableOptions"
+                    class="[&_tbody_td]:py-2!"
                 >
                     <template #candidate="{ rowData }">
                         <div class="flex min-w-0 items-center gap-3">
@@ -548,21 +549,21 @@ const assign = () => {
                                 >
                                     {{ rowData.name }}
                                 </p>
-                                <p
-                                    v-if="rowData.group_name"
-                                    class="text-xs text-muted"
-                                >
-                                    {{ rowData.group_name }}
-                                </p>
                             </div>
                         </div>
                     </template>
                     <template #role="{ rowData }">
                         <Tag
-                            v-if="rowData.suggested"
-                            :name="rowData.role_name || targetSlot.role_name"
+                            v-if="rowData.role_name"
+                            :name="rowData.role_name"
                             color="soft_blue"
                         />
+                        <span
+                            v-else
+                            class="text-muted"
+                        >
+                            {{ $t('team.scheduling.assignments.no_role') }}
+                        </span>
                     </template>
                     <template #availability="{ rowData }">
                         <Badge

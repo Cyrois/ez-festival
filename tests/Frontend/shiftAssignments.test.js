@@ -476,7 +476,7 @@ test('dialog retains selection across pages, disables assigned people, and maps 
             true,
         );
         assert.ok(document.body.textContent.includes('Crew'));
-        assert.ok(document.body.textContent.includes('Stage'));
+        assert.ok(!document.body.textContent.includes('Stage'));
         assert.ok(
             document.body.textContent.includes('Overlaps Gate close · 30 min'),
         );
@@ -771,13 +771,13 @@ test('clicking anywhere on a row selects with a teal edge, and overlapping candi
     }
 });
 
-test('Everyone shows nonmatching people with blank roles; filtering or searching a picked person away clears selection', async () => {
+test('Everyone shows nonmatching people with their roles; filtering or searching a picked person away clears selection', async () => {
     const app = await mount();
     try {
         document.querySelector('[data-filter="everyone"]').click();
         await settle();
         const beta = document.querySelector('tr[data-id="9"]');
-        assert.equal(beta.children[1].textContent, '');
+        assert.equal(beta.children[1].textContent, 'Sound');
         beta.click();
         await nextTick();
         assert.equal(
