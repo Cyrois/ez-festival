@@ -632,6 +632,10 @@ const resizeKey = (event, assignment, edge) => {
                                         role: row.slot.role_name,
                                     })
                                 }}</span>
+                                <span
+                                    class="ml-auto shrink-0 pl-2 text-muted"
+                                    >{{ totalTime(shift) }}</span
+                                >
                             </div>
                         </div>
                     </TableCell>
