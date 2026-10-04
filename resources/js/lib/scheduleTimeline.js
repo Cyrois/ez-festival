@@ -274,4 +274,4 @@ export function shiftTimelineGrid(shift) {
 }
 
 export const OPEN_ROLE_PATTERN =
-    'border-muted/40 bg-page bg-[repeating-linear-gradient(135deg,transparent,transparent_4px,color-mix(in_srgb,var(--color-muted)_20%,transparent)_4px,color-mix(in_srgb,var(--color-muted)_20%,transparent)_6px)]';
+    'border-muted/40 bg-page bg-[repeating-linear-gradient(135deg,transparent,transparent_4px,color-mix(in_srgb,var(--color-muted)_8%,transparent)_4px,color-mix(in_srgb,var(--color-muted)_8%,transparent)_6px)]';
