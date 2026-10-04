@@ -19,8 +19,19 @@ final class ShiftAssignmentOverlaps
             ->where('shift_id', '!=', $shift->id)
             ->whereHas('shift', fn ($query) => $query->where('event_id', $shift->event_id))
             ->where('starts_at', '<', $end)->where('ends_at', '>', $start)
-            ->with('shift:id,name')->orderBy('starts_at')->orderBy('id')->get()
+            ->with('shift:id,name,color')->orderBy('starts_at')->orderBy('id')->get()
             ->groupBy('team_engagement_id');
+    }
+
+    public static function shifts(Collection $others): array
+    {
+        return $others->map(fn ($other) => [
+            'shift_id' => $other->shift_id,
+            'shift_name' => $other->shift->name,
+            'color' => $other->shift->color,
+            'starts_at' => $other->starts_at->format('Y-m-d\TH:i'),
+            'ends_at' => $other->ends_at->format('Y-m-d\TH:i'),
+        ])->values()->all();
     }
 
     public static function warnings(Collection $others, $start, $end, string $timezone): array

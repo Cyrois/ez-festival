@@ -9,6 +9,7 @@ import * as copy from '../../resources/js/lib/shiftCopy.js';
 import * as slots from '../../resources/js/lib/shiftRoleSlots.js';
 import * as breaks from '../../resources/js/lib/shiftBreaks.js';
 import * as timeline from '../../resources/js/lib/scheduleTimeline.js';
+import * as assignments from '../../resources/js/lib/shiftAssignments.js';
 
 const dom = new JSDOM('<div id="app"></div>');
 for (const name of [
@@ -59,6 +60,7 @@ const deps = {
     ...slots,
     ...breaks,
     ...timeline,
+    ...assignments,
     trans,
     AppLayout: box('main'),
     Card: box('article'),
@@ -157,6 +159,7 @@ const deps = {
     ShiftAssignmentHoursDialog: box('section'),
     ShiftAssignDialog: box('section'),
     Dialog: box('section'),
+    UnsavedChangesDialog: box('section'),
     LocationScheduleGrid: box('section'),
     LocationRosterSchedule: box('section'),
     DataTable: box('section'),

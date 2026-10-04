@@ -4,8 +4,7 @@ import { computed, ref } from 'vue';
 import { Button } from '../ui/button';
 import { CustomDropdown } from '../ui/custom-dropdown';
 import { FormField } from '../ui/form-field';
-import { IconButton } from '../ui/icon-button';
-import { Input } from '../ui/input';
+import { QuantityInput } from '../ui/quantity-input';
 import { newShiftSlot, totalShiftNeeds } from '../../lib/shiftRoleSlots';
 
 const props = defineProps({
@@ -30,11 +29,16 @@ const roleItems = computed(() =>
     })),
 );
 const assignedCount = (slot) =>
-    props.assignmentCounts[slot.id] ?? slot.assigned_count ?? 0;
+    props.assignmentCounts[slot.id ?? slot._key] ?? slot.assigned_count ?? 0;
 const error = (slot, field) => props.errors[slot._key]?.[field] ?? '';
 const update = (slot, field, value) => {
     if (!props.editable || props.busy) return;
-    const changes = { [field]: value };
+    const changes = {
+        [field]:
+            field === 'needed' && value !== '' && Number.isFinite(Number(value))
+                ? Math.max(1, assignedCount(slot), Number(value))
+                : value,
+    };
     emit(
         'update:modelValue',
         props.modelValue.map((row) =>
@@ -68,7 +72,7 @@ const add = () => {
     pending.value = newShiftSlot();
 };
 const remove = (slot) => {
-    if (props.editable && !props.busy) {
+    if (props.editable && !props.busy && assignedCount(slot) === 0) {
         emit(
             'update:modelValue',
             props.modelValue.filter((row) => row._key !== slot._key),
@@ -87,7 +91,7 @@ const remove = (slot) => {
         </div>
         <div
             v-if="editable"
-            class="grid gap-3 rounded-lg border border-line bg-page p-3 sm:grid-cols-[minmax(0,1fr)_6rem_auto]"
+            class="grid gap-[1em] rounded-lg border border-line bg-page p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
         >
             <FormField
                 :label="$t('team.scheduling.slots.role')"
@@ -113,13 +117,10 @@ const remove = (slot) => {
                 required
             >
                 <template #default="{ id, invalid }">
-                    <Input
+                    <QuantityInput
                         :id="id"
                         v-model="pending.needed"
-                        type="number"
-                        min="1"
-                        max="2147483647"
-                        step="1"
+                        :label="$t('team.scheduling.slots.qty')"
                         :invalid="invalid"
                         :disabled="!editable || busy"
                         @update:model-value="delete pendingErrors.needed"
@@ -128,6 +129,7 @@ const remove = (slot) => {
             </FormField>
             <Button
                 type="button"
+                variant="soft-primary"
                 class="h-10 border-0 sm:self-end"
                 :disabled="!editable || busy"
                 @click="add"
@@ -144,11 +146,12 @@ const remove = (slot) => {
         <div
             v-for="slot in ordered"
             :key="slot._key"
+            :data-headcount-row="slot._key"
             class="space-y-2 rounded-lg border border-line p-3"
         >
             <div
                 v-if="editable"
-                class="grid grid-cols-[minmax(0,1fr)_5rem_2.75rem] items-start gap-2"
+                class="grid items-start gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"
             >
                 <div class="pt-2">
                     <p class="m-0 text-sm font-semibold">
@@ -164,34 +167,36 @@ const remove = (slot) => {
                 </div>
                 <FormField :error="error(slot, 'needed')">
                     <template #default="{ id, invalid }">
-                        <Input
+                        <QuantityInput
                             :id="id"
-                            :aria-label="$t('team.scheduling.slots.qty')"
+                            :label="$t('team.scheduling.slots.qty')"
                             :model-value="slot.needed"
-                            type="number"
-                            min="1"
-                            max="2147483647"
-                            step="1"
+                            size="sm"
+                            :min="Math.max(1, assignedCount(slot))"
+                            remove-at-one
+                            :remove-disabled="assignedCount(slot) > 0"
+                            :remove-label="
+                                $t('team.scheduling.slots.remove', {
+                                    role:
+                                        slot.role_name ||
+                                        $t('team.scheduling.slots.role'),
+                                })
+                            "
+                            :disabled-reason="
+                                $t(
+                                    Number(slot.needed) === 1
+                                        ? 'team.scheduling.slots.assigned_slot_tooltip'
+                                        : 'team.scheduling.slots.errors.assigned_qty',
+                                    { count: assignedCount(slot) },
+                                )
+                            "
                             :invalid="invalid"
                             :disabled="busy"
+                            @remove="remove(slot)"
                             @update:model-value="update(slot, 'needed', $event)"
                         />
                     </template>
                 </FormField>
-                <IconButton
-                    :icon="['fas', 'circle-minus']"
-                    tone="delete"
-                    class="h-10 w-10"
-                    :disabled="busy"
-                    :label="
-                        $t('team.scheduling.slots.remove', {
-                            role:
-                                slot.role_name ||
-                                $t('team.scheduling.slots.role'),
-                        })
-                    "
-                    @click="remove(slot)"
-                />
             </div>
             <div
                 v-else

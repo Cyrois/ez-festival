@@ -23,6 +23,8 @@ const props = defineProps({
     eventId: { type: Number, required: true },
     requirement: { type: Object, default: null },
     returnContext: { type: Object, default: () => ({}) },
+    deferred: { type: Boolean, default: false },
+    pendingMemberIds: { type: Array, default: () => [] },
 });
 const emit = defineEmits(['close', 'assigned']);
 const table = ref(null);
@@ -134,6 +136,10 @@ const ajax = async (data, callback) => {
         form.ends_at,
     );
     delete query.team_engagement_id;
+    if (typeof targetSlot.value.id === 'string') {
+        delete query.shift_role_slot_id;
+        query.role_id = targetSlot.value.role_id;
+    }
     query.search = data.search?.value || '';
     query.page = Math.floor(data.start / data.length) + 1;
     query.per_page = data.length;
@@ -151,6 +157,12 @@ const ajax = async (data, callback) => {
             if (result.errors) showFormError(result.errors);
             throw new Error(trans('team.scheduling.assignments.search_failed'));
         }
+        result.data = result.data.map((candidate) => ({
+            ...candidate,
+            on_shift:
+                candidate.on_shift ||
+                props.pendingMemberIds.includes(candidate.id),
+        }));
         if (selected.value) {
             const refreshed = result.data.find(
                 (candidate) => candidate.id === selected.value.id,
@@ -215,6 +227,26 @@ const assign = () => {
         form.processing
     )
         return;
+    if (props.deferred) {
+        const payload = assignmentPayload(
+            targetSlot.value.id,
+            selected.value.id,
+            form.hours_mode,
+            form.starts_at,
+            form.ends_at,
+        );
+        if (typeof targetSlot.value.id === 'string') {
+            delete payload.shift_role_slot_id;
+            payload.slot_key = targetSlot.value.id;
+        }
+        emit('assigned', {
+            candidate: selected.value,
+            slot: targetSlot.value,
+            ...payload,
+        });
+        emit('close');
+        return;
+    }
     form.transform(() => ({
         ...props.returnContext,
         ...assignmentPayload(
@@ -270,6 +302,12 @@ const assign = () => {
         @confirm="assign"
     >
         <div class="space-y-4">
+            <p
+                v-if="deferred"
+                class="text-sm text-muted"
+            >
+                {{ $t('team.scheduling.assignments.draft_hint') }}
+            </p>
             <FormField
                 v-if="!requirement"
                 :label="$t('team.scheduling.assignments.position')"

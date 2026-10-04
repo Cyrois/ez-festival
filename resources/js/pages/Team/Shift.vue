@@ -14,11 +14,13 @@ import {
     draftShiftSlots,
     shiftSlotPayload,
     shiftSlotErrors,
+    totalShiftNeeds,
 } from '../../lib/shiftRoleSlots';
 import { Button } from '../../components/ui/button';
 import { Card, CardTitle } from '../../components/ui/card';
 import { CustomDropdown } from '../../components/ui/custom-dropdown';
 import { Dialog } from '../../components/ui/dialog';
+import { UnsavedChangesDialog } from '../../components/ui/unsaved-changes-dialog';
 import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
@@ -26,8 +28,9 @@ import { useFlashToast } from '../../composables/useFlashToast';
 import { fieldError, toastFormErrors } from '../../lib/fieldError';
 import AppLayout from '../../layouts/AppLayout.vue';
 import { router, useForm } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, onUnmounted } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+import { draftRoster } from '../../lib/shiftAssignments';
 import { scheduleReturnHref } from '../../lib/scheduleTimeline';
 
 const props = defineProps({
@@ -49,6 +52,9 @@ const form = useForm({
     ends_at: props.shift.ends_at,
     slots: draftShiftSlots(props.shift.slots),
     breaks: draftShiftBreaks(props.shift.breaks),
+    assignment_updates: [],
+    assignment_removals: [],
+    assignment_additions: [],
     ...props.returnContext,
 });
 const backHref = computed(() => scheduleReturnHref(props.returnContext));
@@ -79,12 +85,83 @@ const deleteBusy = ref(false);
 const confirmationCount = ref(0);
 const selectedSlot = ref(null);
 const headerAssignOpen = ref(false);
-const assignmentBusy = ref(false);
+const draftPeople = ref({});
+const overlapPreviews = ref({});
+let nextDraftId = -1;
+const previewRequests = new Map();
 const selectedAssignment = ref(null);
-const removingAssignment = ref(null);
+const rosterShift = computed(() =>
+    draftRoster(
+        {
+            ...props.shift,
+            slots: form.slots.map((slot, index) => ({
+                ...slot,
+                id: slot.id ?? slot._key,
+                needed:
+                    Number.isInteger(Number(slot.needed)) &&
+                    Number(slot.needed) > 0
+                        ? Number(slot.needed)
+                        : 0,
+                sort_order: index,
+            })),
+            total_needs: totalShiftNeeds(form.slots),
+            starts_at:
+                form.starts_at && form.ends_at > form.starts_at
+                    ? form.starts_at
+                    : props.shift.starts_at,
+            ends_at:
+                form.starts_at && form.ends_at > form.starts_at
+                    ? form.ends_at
+                    : props.shift.ends_at,
+            name: form.name,
+            color: form.color,
+            location:
+                props.locations.find(
+                    (location) => location.id === form.location_id,
+                )?.name ?? props.shift.location,
+        },
+        form.assignment_updates,
+        form.assignment_removals,
+        form.assignment_additions.map((row) => ({
+            ...draftPeople.value[row._key],
+            ...row,
+            id: row._key,
+            starts_at:
+                row.hours_mode === 'full_shift'
+                    ? form.starts_at && form.ends_at > form.starts_at
+                        ? form.starts_at
+                        : props.shift.starts_at
+                    : row.starts_at,
+            ends_at:
+                row.hours_mode === 'full_shift'
+                    ? form.starts_at && form.ends_at > form.starts_at
+                        ? form.ends_at
+                        : props.shift.ends_at
+                    : row.ends_at,
+        })),
+    ),
+);
+const timelineShift = computed(() => ({
+    ...rosterShift.value,
+    assignments: rosterShift.value.assignments.map((row) => ({
+        ...row,
+        ...(overlapPreviews.value[row.id] ?? {}),
+    })),
+}));
+const detailsDirty = computed(
+    () =>
+        ['name', 'location_id', 'starts_at', 'ends_at'].some(
+            (key) => form[key] !== props.shift[key],
+        ) ||
+        JSON.stringify(shiftBreakPayload(form.breaks)) !==
+            JSON.stringify(
+                shiftBreakPayload(draftShiftBreaks(props.shift.breaks)),
+            ),
+);
+
 const assignmentCounts = computed(() =>
     Object.fromEntries(
-        props.shift.slots.map((slot) => [slot.id, slot.assigned_count]),
+        rosterShift.value.slots.map((slot) => [slot.id, slot.assigned_count]),
     ),
 );
 const unsaved = computed(() => form.isDirty);
@@ -94,40 +171,127 @@ const assignmentReason = computed(() =>
             ? 'team.scheduling.locked'
             : !props.canManage
               ? 'team.scheduling.no_permission'
-              : unsaved.value
+              : detailsDirty.value
                 ? 'team.scheduling.assignments.save_first'
                 : '',
     ),
 );
 const assignmentsEnabled = computed(
-    () =>
-        canWrite.value &&
-        !unsaved.value &&
-        !form.processing &&
-        !assignmentBusy.value,
+    () => canWrite.value && !detailsDirty.value && !form.processing,
 );
 const openDelete = () => {
     confirmationCount.value = props.shift.assignment_count;
     deleting.value = true;
 };
+const rosterEnabled = computed(() => canWrite.value && !form.processing);
 const removeAssignment = (assignment) => {
-    if (!assignmentsEnabled.value) return;
-    assignmentBusy.value = true;
-    router.delete(
-        `/team/events/${props.event.id}/shifts/${props.shift.id}/assignments/${assignment.id}`,
-        {
-            data: props.returnContext,
-            preserveScroll: true,
-            onError: (errors) => showFormError(errors),
-            onSuccess: () => {
-                removingAssignment.value = null;
-            },
-            onFinish: () => {
-                assignmentBusy.value = false;
-            },
-        },
-    );
+    if (!rosterEnabled.value) return;
+    previewRequests.get(assignment.id)?.abort();
+    delete overlapPreviews.value[assignment.id];
+    if (assignment.id < 0) {
+        form.assignment_additions = form.assignment_additions.filter(
+            (row) => row._key !== assignment.id,
+        );
+        delete draftPeople.value[assignment.id];
+    } else {
+        form.assignment_updates = form.assignment_updates.filter(
+            (row) => row.id !== assignment.id,
+        );
+        if (!form.assignment_removals.includes(assignment.id))
+            form.assignment_removals.push(assignment.id);
+    }
 };
+const stagePerson = (data) => {
+    const id = nextDraftId--;
+    const { candidate, slot, ...payload } = data;
+    draftPeople.value[id] = {
+        name: candidate.name,
+        role_id: slot.role_id,
+        role_name: slot.role_name,
+        shift_role_slot_id: slot.id,
+        overlaps: candidate.overlaps,
+        other_shifts: candidate.other_shifts ?? [],
+        is_extra: false,
+        team_engagement_id: candidate.id,
+    };
+    form.assignment_additions.push({ ...payload, _key: id });
+};
+const stageHours = (assignment, data) => {
+    if (!rosterEnabled.value) return;
+    previewRequests.get(assignment.id)?.abort();
+    previewRequests.delete(assignment.id);
+    const { overlaps, other_shifts, ...hours } = data;
+    if (assignment.id < 0) {
+        const index = form.assignment_additions.findIndex(
+            (row) => row._key === assignment.id,
+        );
+        const { starts_at, ends_at, hours_mode, ...identity } =
+            form.assignment_additions[index];
+        form.assignment_additions[index] = { ...identity, ...hours };
+    } else {
+        form.assignment_updates = form.assignment_updates
+            .filter((row) => row.id !== assignment.id)
+            .concat({ id: assignment.id, ...hours });
+    }
+    if (overlaps)
+        overlapPreviews.value[assignment.id] = {
+            overlaps,
+            ...(other_shifts ? { other_shifts } : {}),
+        };
+};
+const resizeHours = async (assignment, hours) => {
+    stageHours(assignment, { hours_mode: 'custom', ...hours });
+    previewRequests.get(assignment.id)?.abort();
+    const controller = new AbortController();
+    previewRequests.set(assignment.id, controller);
+    overlapPreviews.value[assignment.id] = {
+        overlaps: [],
+        preview_status: 'loading',
+    };
+    try {
+        const endpoint =
+            assignment.id > 0
+                ? `assignments/${assignment.id}/overlaps`
+                : 'assignment-overlaps';
+        const query = {
+            ...hours,
+            hours_mode: 'custom',
+            shift_starts_at: form.starts_at,
+            shift_ends_at: form.ends_at,
+            ...(assignment.id < 0
+                ? { team_engagement_id: assignment.team_engagement_id }
+                : {}),
+        };
+        const response = await fetch(
+            `/team/shifts/${props.shift.id}/${endpoint}?${new URLSearchParams(query)}`,
+            {
+                headers: { Accept: 'application/json' },
+                signal: controller.signal,
+            },
+        );
+        if (!response.ok) throw new Error('preview');
+        const result = await response.json();
+        if (
+            previewRequests.get(assignment.id) === controller &&
+            !controller.signal.aborted
+        )
+            overlapPreviews.value[assignment.id] = {
+                overlaps: result.data,
+                other_shifts:
+                    result.other_shifts ?? assignment.other_shifts ?? [],
+            };
+    } catch (error) {
+        if (
+            error.name !== 'AbortError' &&
+            previewRequests.get(assignment.id) === controller
+        )
+            overlapPreviews.value[assignment.id] = {
+                overlaps: [],
+                preview_status: 'failed',
+            };
+    }
+};
+onUnmounted(() => previewRequests.forEach((controller) => controller.abort()));
 const { showError, showFormError } = useFlashToast();
 
 const canWrite = computed(() => props.canManage && !props.event.is_locked);
@@ -150,7 +314,7 @@ const breadcrumbs = computed(() => [
     { label: displayName.value },
 ]);
 
-const submit = () => {
+const submit = (afterSave) => {
     if (!canWrite.value || form.processing) return;
     if (breakEditor.value && !breakEditor.value.validate()) {
         showFormError({
@@ -163,8 +327,11 @@ const submit = () => {
     const submittedBreaks = [...form.breaks];
     form.transform((data) => ({
         ...data,
-        slots: shiftSlotPayload(data.slots),
+        slots: shiftSlotPayload(data.slots, true),
         breaks: shiftBreakPayload(data.breaks),
+        assignment_additions: data.assignment_additions.map(
+            ({ _key, ...row }) => row,
+        ),
     })).put('/team/events/' + props.event.id + '/shifts/' + props.shift.id, {
         preserveScroll: true,
         onError: (errors) => {
@@ -173,7 +340,9 @@ const submit = () => {
             if (
                 Object.keys(errors).some(
                     (key) =>
-                        key.startsWith('slots') || key.startsWith('breaks'),
+                        key.startsWith('slots') ||
+                        key.startsWith('breaks') ||
+                        key.startsWith('assignment_'),
                 )
             ) {
                 showFormError(errors);
@@ -184,9 +353,15 @@ const submit = () => {
         onSuccess: () => {
             form.slots = draftShiftSlots(props.shift.slots);
             form.breaks = draftShiftBreaks(props.shift.breaks);
+            form.assignment_updates = [];
+            form.assignment_removals = [];
+            form.assignment_additions = [];
+            draftPeople.value = {};
+            overlapPreviews.value = {};
             form.defaults();
             slotErrors.value = {};
             breakErrors.value = {};
+            if (typeof afterSave === 'function') afterSave();
         },
     });
 };
@@ -456,21 +631,21 @@ const destroy = () => {
             </form>
             <Card class="mt-4">
                 <ShiftTimelineRoster
-                    :shift="shift"
-                    :enabled="assignmentsEnabled"
+                    :shift="timelineShift"
+                    :enabled="rosterEnabled"
+                    :assign-enabled="assignmentsEnabled"
                     :can-manage="canWrite"
                     :disabled-reason="assignmentReason"
                     @assign="selectedSlot = $event"
-                    @edit="assignmentsEnabled && (selectedAssignment = $event)"
-                    @remove="
-                        assignmentsEnabled && (removingAssignment = $event)
-                    "
+                    @edit="rosterEnabled && (selectedAssignment = $event)"
+                    @remove="removeAssignment"
+                    @resize="resizeHours($event.assignment, $event.hours)"
                 >
-                    <template #header-actions>
+                    <template #footer-actions>
                         <span
                             :title="
                                 assignmentReason ||
-                                (!shift.slots.length
+                                (!timelineShift.slots.length
                                     ? $t(
                                           'team.scheduling.assignments.no_requirements',
                                       )
@@ -481,14 +656,15 @@ const destroy = () => {
                                 size="sm"
                                 variant="ghost"
                                 :disabled="
-                                    !assignmentsEnabled || !shift.slots.length
+                                    !assignmentsEnabled ||
+                                    !timelineShift.slots.length
                                 "
                                 @click="headerAssignOpen = true"
                             >
                                 <Icon :name="['fas', 'plus']" />
                                 {{
                                     $t(
-                                        'team.scheduling.assignments.header_assign',
+                                        'team.scheduling.assignments.override_assign',
                                     )
                                 }}
                             </Button>
@@ -536,12 +712,26 @@ const destroy = () => {
                         :disabled="form.processing"
                         >{{ $t('ui.dialog.cancel') }}</Button
                     >
-                    <Button
-                        type="submit"
-                        form="shift-details-form"
-                        :loading="form.processing"
-                        >{{ $t('team.scheduling.actions.save') }}</Button
-                    >
+                    <div class="flex items-center gap-3">
+                        <span
+                            v-if="unsaved"
+                            class="flex items-center gap-2 text-sm text-warning"
+                            role="status"
+                            :title="$t('team.scheduling.unsaved_changes')"
+                            data-save-reminder
+                        >
+                            <Icon :name="['fas', 'circle-exclamation']" />
+                            <span class="sr-only sm:not-sr-only">{{
+                                $t('team.scheduling.unsaved_changes')
+                            }}</span>
+                        </span>
+                        <Button
+                            type="submit"
+                            form="shift-details-form"
+                            :loading="form.processing"
+                            >{{ $t('team.scheduling.actions.save') }}</Button
+                        >
+                    </div>
                 </div>
             </div>
         </div>
@@ -549,10 +739,15 @@ const destroy = () => {
         <ShiftAssignDialog
             v-if="selectedSlot || headerAssignOpen"
             :key="selectedSlot?.id ?? 'header'"
-            :shift="shift"
+            :shift="timelineShift"
             :event-id="event.id"
             :requirement="selectedSlot"
             :return-context="returnContext"
+            deferred
+            :pending-member-ids="
+                form.assignment_additions.map((row) => row.team_engagement_id)
+            "
+            @assigned="stagePerson"
             @close="
                 selectedSlot = null;
                 headerAssignOpen = false;
@@ -561,28 +756,16 @@ const destroy = () => {
         <ShiftAssignmentHoursDialog
             v-if="selectedAssignment"
             :key="selectedAssignment.id"
-            :shift="shift"
+            :shift="timelineShift"
             :assignment="selectedAssignment"
-            :event-id="event.id"
-            :enabled="canWrite && !unsaved && !form.processing"
-            :return-context="returnContext"
+            :enabled="rosterEnabled"
+            @changed="stageHours(selectedAssignment, $event)"
             @close="selectedAssignment = null"
-            @busy="assignmentBusy = $event"
         />
-        <Dialog
-            v-if="removingAssignment"
-            :open="true"
-            focus-trap
-            :title="
-                $t('team.scheduling.assignments.remove_confirmation', {
-                    name: removingAssignment.name,
-                })
-            "
-            :confirm-label="$t('team.scheduling.assignments.remove')"
-            :confirm-disabled="!assignmentsEnabled"
-            :busy="assignmentBusy"
-            @cancel="removingAssignment = null"
-            @confirm="removeAssignment(removingAssignment)"
+        <UnsavedChangesDialog
+            :dirty="unsaved"
+            :busy="form.processing"
+            @save="submit"
         />
         <Dialog
             v-model:open="deleting"

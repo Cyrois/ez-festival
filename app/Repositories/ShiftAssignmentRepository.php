@@ -14,9 +14,19 @@ use Illuminate\Support\Collection;
 
 class ShiftAssignmentRepository
 {
+    /** Other assignments within the proposed timeline, including its 30-minute padding. */
+    public function nearbyAssignments(Shift $shift, int $memberId): Collection
+    {
+        return ShiftAssignmentOverlaps::forMembers($shift, [$memberId],
+            $shift->starts_at->copy()->subMinutes(30), $shift->ends_at->copy()->addMinutes(30))
+            ->get($memberId, collect());
+    }
+
     public function candidates(Shift $shift, array $data): LengthAwarePaginator
     {
-        $slot = $shift->roleSlots()->findOrFail($data['shift_role_slot_id']);
+        $roleId = isset($data['shift_role_slot_id'])
+            ? $shift->roleSlots()->findOrFail($data['shift_role_slot_id'])->role_id
+            : $data['role_id'];
         [$start, $end] = ShiftAssignmentHours::resolve($shift, $data);
         $pattern = '%'.SqlLike::escape(mb_strtolower(trim($data['search'] ?? ''))).'%';
         $candidates = TeamEngagement::query()->where('team_engagements.event_id', $shift->event_id)
@@ -25,13 +35,14 @@ class ShiftAssignmentRepository
             ->with(['role:id,name', 'group:id,name'])
             ->withExists(['shiftAssignments as on_shift' => fn ($query) => $query->where('shift_id', $shift->id)])
             ->whereRaw("LOWER(people.name) LIKE ? ESCAPE '!'", [$pattern])
-            ->orderByRaw('CASE WHEN team_engagements.role_id = ? THEN 0 ELSE 1 END', [$slot->role_id])
+            ->orderByRaw('CASE WHEN team_engagements.role_id = ? THEN 0 ELSE 1 END', [$roleId])
             ->orderByRaw('LOWER(people.name)')->orderBy('team_engagements.id')
             ->paginate((int) ($data['per_page'] ?? 5), ['*'], 'page', (int) ($data['page'] ?? 1))->withQueryString();
-        $others = ShiftAssignmentOverlaps::forMembers($shift, $candidates->getCollection()->modelKeys(), $start, $end);
+        $others = ShiftAssignmentOverlaps::forMembers($shift, $candidates->getCollection()->modelKeys(), $shift->starts_at->copy()->subMinutes(30), $shift->ends_at->copy()->addMinutes(30));
         $timezone = $shift->event->timezone;
         foreach ($candidates as $candidate) {
-            $candidate->setAttribute('suggested', (int) $candidate->role_id === (int) $slot->role_id);
+            $candidate->setAttribute('suggested', (int) $candidate->role_id === (int) $roleId);
+            $candidate->setAttribute('other_shifts', ShiftAssignmentOverlaps::shifts($others->get($candidate->id, collect())));
             $candidate->setAttribute('overlaps', ShiftAssignmentOverlaps::warnings($others->get($candidate->id, collect()), $start, $end, $timezone));
         }
 
@@ -43,7 +54,7 @@ class ShiftAssignmentRepository
         $shift->load(['breaks', 'location:id,name', 'roleSlots.role:id,name', 'assignments.role:id,name', 'assignments.teamEngagement:id,person_id', 'assignments.teamEngagement.person:id,name']);
         $shift->loadCount('assignments');
         $assignments = $shift->assignments;
-        $others = ShiftAssignmentOverlaps::forMembers($shift, $assignments->pluck('team_engagement_id')->unique()->all(), $shift->starts_at, $shift->ends_at);
+        $others = ShiftAssignmentOverlaps::forMembers($shift, $assignments->pluck('team_engagement_id')->unique()->all(), $shift->starts_at->copy()->subMinutes(30), $shift->ends_at->copy()->addMinutes(30));
 
         return $this->decorateRoster($shift, $others, $shift->event->timezone);
     }
@@ -64,7 +75,7 @@ class ShiftAssignmentRepository
             ->whereIn('team_engagement_id', $assignments->pluck('team_engagement_id')->unique())
             ->whereHas('shift', fn ($query) => $query->where('event_id', $event->id))
             ->where('starts_at', '<', $shifts->max('ends_at'))->where('ends_at', '>', $shifts->min('starts_at'))
-            ->with('shift:id,name')->orderBy('starts_at')->orderBy('id')->get();
+            ->with('shift:id,name,color')->orderBy('starts_at')->orderBy('id')->get();
         foreach ($shifts as $shift) {
             $this->decorateRoster($shift, $others->where('shift_id', '!=', $shift->id)->groupBy('team_engagement_id'), $event->timezone);
         }
@@ -86,6 +97,7 @@ class ShiftAssignmentRepository
                 $positions[$slot->id] = $index + 1;
             }
             $assignment->setAttribute('overlaps', ShiftAssignmentOverlaps::warnings($others->get($assignment->team_engagement_id, collect()), $assignment->starts_at, $assignment->ends_at, $timezone));
+            $assignment->setAttribute('other_shifts', ShiftAssignmentOverlaps::shifts($others->get($assignment->team_engagement_id, collect())));
         }
 
         return $shift;
