@@ -471,10 +471,6 @@ const assignmentTitle = (assignment) =>
                                 :style="geometry(shiftInterval)"
                                 data-open-bar
                             >
-                                <span
-                                    class="pointer-events-none absolute inset-0 rounded-lg bg-[repeating-linear-gradient(135deg,transparent,transparent_7px,currentColor_7px,currentColor_8px)] text-muted opacity-10"
-                                    aria-hidden="true"
-                                />
                                 <span class="relative">{{
                                     $t('team.scheduling.roster.open_role', {
                                         role: row.slot.role_name,
@@ -582,7 +578,7 @@ const assignmentTitle = (assignment) =>
             >
             <span class="flex items-center gap-1.5"
                 ><span
-                    class="h-2.5 w-4 rounded-sm border border-dashed border-line bg-[repeating-linear-gradient(135deg,transparent,transparent_7px,currentColor_7px,currentColor_8px)] text-muted/10"
+                    class="h-2.5 w-4 rounded-sm border border-dashed border-line"
                     aria-hidden="true"
                 />{{ $t('team.scheduling.roster.legend_open') }}</span
             >
