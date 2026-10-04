@@ -118,7 +118,7 @@ class DatabaseAuditRegressionTest extends TestCase
         Person::create($second);
         $this->actingAs($user)->post($route, $first)->assertRedirect()->assertSessionHasNoErrors();
         $this->post($route, $second)->assertRedirect()->assertSessionHasNoErrors();
-        $this->post($route, [...$first, 'name' => 'Retried payload'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->post($route, [...$first, 'name' => 'Retried payload', 'email' => strtoupper($first['email'])])->assertRedirect()->assertSessionHasNoErrors();
         $this->post($route, $second)->assertRedirect()->assertSessionHasNoErrors();
 
         $people = $engagement->people()->orderBy('people.email')->get();
