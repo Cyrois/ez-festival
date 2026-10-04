@@ -46,6 +46,46 @@ class EventPermissionsTest extends TestCase
         $this->actingAs($this->user);
     }
 
+    public function test_hidden_team_email_does_not_match_search(): void
+    {
+        $this->role->update(['permissions' => ['team.view']]);
+        $person = Person::create(['name' => 'Visible Name', 'email' => 'secret-address@example.test']);
+        $this->membership($this->event, $person, null);
+        foreach (['secret-address@example.test', 'secret-address'] as $search) {
+            $this->get(route('team.advancement', ['view' => 'list', 'search' => $search]))
+                ->assertInertia(fn (Assert $page) => $page->has('engagements.data', 0)->where('statusCounts.hired', 0));
+        }
+        $this->get(route('team.advancement', ['view' => 'list', 'search' => 'Visible Name']))
+            ->assertInertia(fn (Assert $page) => $page->has('engagements.data', 1));
+        $this->role->update(['permissions' => ['team.view', 'team.personal_info']]);
+        $this->get(route('team.advancement', ['view' => 'list', 'search' => 'secret-address']))
+            ->assertInertia(fn (Assert $page) => $page->has('engagements.data', 1));
+    }
+
+    public function test_check_in_email_search_obeys_each_domain_permission(): void
+    {
+        $artist = $this->artist($this->event);
+        $vendor = VendorEngagement::create(['event_id' => $this->event->id, 'vendor_id' => Vendor::create(['name' => 'Food Stall'])->id, 'status' => 'confirmed']);
+        $pass = $this->event->passTypes()->create(['name' => 'Crew']);
+        foreach ([$artist, $vendor] as $index => $engagement) {
+            $person = Person::create(['name' => 'Holder '.$index, 'email' => 'private-fragment-'.$index.'@example.test']);
+            $engagement->people()->attach($person);
+            $engagement->passAssignments()->create(['person_id' => $person->id, 'pass_type_id' => $pass->id]);
+        }
+        foreach ([[], ['artists.personal_info'], ['vendors.personal_info'], ['artists.personal_info', 'vendors.personal_info']] as $permissions) {
+            $this->role->update(['permissions' => ['checkin.view', ...$permissions]]);
+            $this->get(route('check-in.index', ['search' => 'private-fragment']))
+                ->assertInertia(fn (Assert $page) => $page->has('people.data', count($permissions)));
+            foreach (['artist', 'vendor'] as $index => $domain) {
+                $allowed = in_array($domain === 'artist' ? 'artists.personal_info' : 'vendors.personal_info', $permissions, true);
+                $this->get(route('check-in.index', ['search' => 'private-fragment-'.$index.'@example.test', 'type' => $domain]))
+                    ->assertInertia(fn (Assert $page) => $page->has('people.data', $allowed ? 1 : 0));
+            }
+            $this->get(route('check-in.index', ['search' => 'Holder']))
+                ->assertInertia(fn (Assert $page) => $page->has('people.data', 2));
+        }
+    }
+
     public function test_every_route_has_an_authorization_check_or_a_documented_exception(): void
     {
         $exceptions = [

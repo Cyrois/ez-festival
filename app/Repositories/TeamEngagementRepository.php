@@ -65,18 +65,19 @@ class TeamEngagementRepository
     private function filtered(?Event $event, string $search, array $employmentTypes): Builder
     {
         $pattern = '%'.SqlLike::escape(mb_strtolower($search)).'%';
+        $canSearchEmail = $event !== null && auth()->user()?->can('team.personal_info', $event);
 
         return TeamEngagement::query()
             ->where('event_id', $event?->id)
             ->when(
                 $search !== '',
-                fn (Builder $query) => $query->where(function (Builder $query) use ($pattern) {
+                fn (Builder $query) => $query->where(function (Builder $query) use ($pattern, $canSearchEmail) {
                     $query->whereHas(
                         'person',
                         fn (Builder $query) => $query->where(
                             fn (Builder $query) => $query
                                 ->whereRaw("lower(name) like ? escape '!'", [$pattern])
-                                ->orWhereRaw("lower(coalesce(email, '')) like ? escape '!'", [$pattern]),
+                                ->when($canSearchEmail, fn (Builder $query) => $query->orWhereRaw("lower(coalesce(email, '')) like ? escape '!'", [$pattern])),
                         ),
                     );
                 }),
