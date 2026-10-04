@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Team\Concerns;
 
+use App\Rules\EventLocalTimeRule;
 use Illuminate\Validation\Rule;
 
 trait ShiftRosterChangeRules
@@ -23,8 +24,8 @@ trait ShiftRosterChangeRules
         ];
         foreach (['assignment_updates', 'assignment_additions'] as $field) {
             $rules["$field.*.hours_mode"] = ['required', Rule::in(['full_shift', 'custom'])];
-            $rules["$field.*.starts_at"] = ["required_if:$field.*.hours_mode,custom", "prohibited_if:$field.*.hours_mode,full_shift", 'date_format:Y-m-d\TH:i'];
-            $rules["$field.*.ends_at"] = ["required_if:$field.*.hours_mode,custom", "prohibited_if:$field.*.hours_mode,full_shift", 'date_format:Y-m-d\TH:i', "after:$field.*.starts_at"];
+            $rules["$field.*.starts_at"] = ["required_if:$field.*.hours_mode,custom", "prohibited_if:$field.*.hours_mode,full_shift", 'date_format:Y-m-d\TH:i', new EventLocalTimeRule(($this->route('event') ?? $this->route('shift')->event)->timezone)];
+            $rules["$field.*.ends_at"] = ["required_if:$field.*.hours_mode,custom", "prohibited_if:$field.*.hours_mode,full_shift", 'date_format:Y-m-d\TH:i', new EventLocalTimeRule(($this->route('event') ?? $this->route('shift')->event)->timezone), "after:$field.*.starts_at"];
         }
 
         return $rules;

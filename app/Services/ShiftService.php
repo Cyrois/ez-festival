@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Event;
 use App\Models\Shift;
+use App\Support\EventLocalTime;
 use App\Support\ShiftAssignmentHours;
 use App\Support\ShiftBreaks;
 use App\Support\ShiftRosterChanges;
@@ -20,10 +21,11 @@ class ShiftService
         return DB::transaction(function () use ($event, $data): Shift {
             $event = Event::query()->lockForUpdate()->findOrFail($event->id);
             $event->ensureWritable();
+            EventLocalTime::validate($data, $event->timezone);
 
             $slots = $data['slots'] ?? [];
             $breaks = $data['breaks'] ?? [];
-            $errors = ShiftBreaks::errors($data, collect());
+            $errors = ShiftBreaks::errors($data, collect(), $event->timezone);
             if ($errors !== []) {
                 throw ValidationException::withMessages($errors);
             }
@@ -42,10 +44,11 @@ class ShiftService
         DB::transaction(function () use ($shift, $data): void {
             $event = Event::query()->lockForUpdate()->findOrFail($shift->event_id);
             $event->ensureWritable();
+            EventLocalTime::validate($data, $event->timezone);
 
             $shift = $event->shifts()->lockForUpdate()->findOrFail($shift->id);
             $existingBreaks = $shift->breaks()->lockForUpdate()->get()->keyBy('id');
-            $errors = [...ShiftRosterChanges::errors($shift, $data, lock: true), ...ShiftAssignmentHours::containmentErrors($shift, $data), ...ShiftBreaks::errors($data, $existingBreaks)];
+            $errors = [...ShiftRosterChanges::errors($shift, $data, lock: true), ...ShiftAssignmentHours::containmentErrors($shift, $data), ...ShiftBreaks::errors($data, $existingBreaks, $event->timezone)];
             if ($errors !== []) {
                 throw ValidationException::withMessages($errors);
             }

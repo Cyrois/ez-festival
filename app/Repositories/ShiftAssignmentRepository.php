@@ -88,7 +88,7 @@ class ShiftAssignmentRepository
         $slots = $shift->roleSlots->keyBy('id');
         $breakMinutes = $shift->relationLoaded('breaks') ? $shift->breaks->sum('duration_minutes') : (int) $shift->break_minutes;
         foreach ($assignments as $assignment) {
-            $assignment->setAttribute('scheduled_minutes', ShiftAssignmentHours::scheduledMinutes($assignment, $breakMinutes));
+            $assignment->setAttribute('scheduled_minutes', ShiftAssignmentHours::scheduledMinutes($assignment, $breakMinutes, $timezone));
             $slot = $slots->get($assignment->shift_role_slot_id);
             $matches = $slot !== null && (int) $slot->role_id === (int) $assignment->role_id;
             $index = $positions[$slot?->id] ?? 0;

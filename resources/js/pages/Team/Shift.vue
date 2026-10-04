@@ -608,6 +608,7 @@ const destroy = () => {
             </form>
             <Card class="mt-4">
                 <ShiftTimelineRoster
+                    :timezone="event.timezone"
                     :shift="timelineShift"
                     :enabled="rosterEnabled"
                     :assign-enabled="assignmentsEnabled"
@@ -654,6 +655,7 @@ const destroy = () => {
                     <ShiftBreaks
                         ref="breakEditor"
                         v-model="form.breaks"
+                        :timezone="event.timezone"
                         :options="breakOptions"
                         :starts-at="form.starts_at"
                         :ends-at="form.ends_at"

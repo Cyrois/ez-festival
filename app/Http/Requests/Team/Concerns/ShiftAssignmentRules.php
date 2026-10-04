@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Team\Concerns;
 
+use App\Rules\EventLocalTimeRule;
 use App\Support\EventContext;
 use App\Support\ShiftAssignmentHours;
 use Illuminate\Support\Facades\Gate;
@@ -25,8 +26,8 @@ trait ShiftAssignmentRules
     {
         return [
             'hours_mode' => ['required', Rule::in(['full_shift', 'custom'])],
-            'starts_at' => ['required_if:hours_mode,custom', 'prohibited_if:hours_mode,full_shift', 'date_format:Y-m-d\TH:i'],
-            'ends_at' => ['required_if:hours_mode,custom', 'prohibited_if:hours_mode,full_shift', 'date_format:Y-m-d\TH:i', 'after:starts_at'],
+            'starts_at' => ['required_if:hours_mode,custom', 'prohibited_if:hours_mode,full_shift', 'date_format:Y-m-d\TH:i', new EventLocalTimeRule(($this->route('event') ?? $this->route('shift')->event)->timezone)],
+            'ends_at' => ['required_if:hours_mode,custom', 'prohibited_if:hours_mode,full_shift', 'date_format:Y-m-d\TH:i', new EventLocalTimeRule(($this->route('event') ?? $this->route('shift')->event)->timezone), 'after:starts_at'],
         ];
     }
 

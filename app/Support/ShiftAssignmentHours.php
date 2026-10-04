@@ -9,18 +9,16 @@ use Illuminate\Validation\ValidationException;
 
 final class ShiftAssignmentHours
 {
-    public static function scheduledMinutes(ShiftAssignment $assignment, int $breakMinutes): int
+    public static function scheduledMinutes(ShiftAssignment $assignment, int $breakMinutes, string $timezone = 'UTC'): int
     {
-        // Stored times are event-local wall clocks. UTC parsing avoids introducing DST/browser offsets.
-        $start = CarbonImmutable::parse($assignment->starts_at->format('Y-m-d H:i:s'), 'UTC');
-        $end = CarbonImmutable::parse($assignment->ends_at->format('Y-m-d H:i:s'), 'UTC');
-
-        return max(0, (int) $start->diffInMinutes($end) - $breakMinutes);
+        return max(0, EventLocalTime::elapsedMinutes($assignment->starts_at, $assignment->ends_at, $timezone) - $breakMinutes);
     }
 
     /** @return array{CarbonImmutable, CarbonImmutable} */
     public static function resolve(Shift $shift, array $data): array
     {
+        $timezone = $shift->event->timezone;
+        EventLocalTime::validate($data['hours_mode'] === 'full_shift' ? ['starts_at' => $shift->starts_at->format('Y-m-d\TH:i'), 'ends_at' => $shift->ends_at->format('Y-m-d\TH:i')] : $data, $timezone);
         $start = CarbonImmutable::parse($data['hours_mode'] === 'full_shift' ? $shift->starts_at : $data['starts_at']);
         $end = CarbonImmutable::parse($data['hours_mode'] === 'full_shift' ? $shift->ends_at : $data['ends_at']);
         if ($start->lt($shift->starts_at) || $end->gt($shift->ends_at) || ! $start->lt($end)) {

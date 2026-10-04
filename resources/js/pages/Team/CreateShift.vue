@@ -267,6 +267,7 @@ const clearSlotError = (key, field) => {
                     <ShiftBreaks
                         ref="breakEditor"
                         v-model="form.breaks"
+                        :timezone="event.timezone"
                         :options="breakOptions"
                         :starts-at="form.starts_at"
                         :ends-at="form.ends_at"

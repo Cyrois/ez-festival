@@ -1513,5 +1513,6 @@
     "team.scheduling.assignments.errors.stale_roster": "This roster changed. Reload the shift and try again.",
     "team.scheduling.assignments.apply_hours": "Apply hours",
     "team.scheduling.assignments.draft_hint": "Click Save at the bottom of the page to save your roster changes.",
-    "team.scheduling.roster.outside_bounds": "These hours are outside the shift. Adjust the hours before saving."
+    "team.scheduling.roster.outside_bounds": "These hours are outside the shift. Adjust the hours before saving.",
+    "team.scheduling.errors.local_time": "Choose an event-local time that exists and is unambiguous. Daylight-saving changes can skip or repeat local times."
 }
