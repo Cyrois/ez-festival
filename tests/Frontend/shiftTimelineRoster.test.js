@@ -12,6 +12,7 @@ import {
     scheduleRosterRows,
     validAssignmentHours,
     resizedAssignment,
+    translatedAssignment,
     draftRoster,
 } from '../../resources/js/lib/shiftAssignments.js';
 import {
@@ -49,6 +50,7 @@ const deps = {
     scheduleRosterRows,
     validAssignmentHours,
     resizedAssignment,
+    translatedAssignment,
     draftRoster,
     labelTokens,
     fallbackLabelToken,
@@ -393,6 +395,12 @@ test('view-only and locked roster omits Actions and explains disabled Assign; di
                 assert.equal(button, null);
             }
             for (const b of document.querySelectorAll('button')) b.click();
+            for (const handle of document.querySelectorAll('[data-move-handle]')) {
+                assert.equal(handle.disabled, true);
+                handle.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+                handle.dispatchEvent(new dom.window.MouseEvent('pointerdown', { clientX: 100, button: 0, bubbles: true }));
+            }
+            window.dispatchEvent(new dom.window.MouseEvent('pointerup', { clientX: 125 }));
             assert.deepEqual(events, []);
         } finally {
             app.unmount();
@@ -547,13 +555,20 @@ test('shift page stages removal without a popup or DELETE and writes roster chan
         assert.equal(document.querySelector('[data-save-reminder]'), null);
         const first = document.querySelector('[data-roster-row="person-8"]');
         globalThis.fetch = async () => ({ ok: true, json: async () => ({ data: [] }) });
-        first.querySelector('[role="slider"]').dispatchEvent(
+        first.querySelector('[role="slider"]:not([data-move-handle])').dispatchEvent(
             new dom.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
         );
         await nextTick();
         assert.equal(writes.length, 0);
         assert.equal(form.assignment_updates[0].starts_at, '2026-10-01T23:45');
         assert.ok(document.querySelector('[data-save-reminder]'));
+        first.querySelector('[data-move-handle]').dispatchEvent(
+            new dom.window.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }),
+        );
+        await nextTick();
+        assert.equal(writes.length, 0);
+        assert.equal(form.assignment_updates[0].starts_at, '2026-10-01T23:30');
+        assert.equal(form.assignment_updates[0].ends_at, '2026-10-01T23:45');
         first.querySelector('button[title*="remove_person"]').click();
         await nextTick();
         assert.equal(deletions.length, 0);
@@ -642,7 +657,7 @@ test('pointer resize previews locally, emits on release, supports keyboard steps
         const row = document.querySelector('[data-roster-row="person-8"]');
         const canvas = row.querySelector('[data-person-bar]').parentElement;
         canvas.getBoundingClientRect = () => ({ width: 600 });
-        const handles = row.querySelectorAll('[role="slider"]');
+        const handles = row.querySelectorAll('[role="slider"]:not([data-move-handle])');
         handles[0].dispatchEvent(
             new dom.window.MouseEvent('pointerdown', {
                 clientX: 100,
@@ -689,6 +704,53 @@ test('pointer resize previews locally, emits on release, supports keyboard steps
     } finally {
         app.unmount();
     }
+});
+
+test('moving an assignment preserves duration, snaps its start, clamps both boundaries and crosses midnight', () => {
+    const person = shift.assignments[0];
+    const move = (minute) => translatedAssignment(shift, person, timeline.timelineMinute(minute));
+    assert.deepEqual(move('2026-10-02T00:08'), { starts_at: '2026-10-02T00:15', ends_at: '2026-10-02T00:45' });
+    assert.deepEqual(move('2026-10-01T23:53'), { starts_at: '2026-10-02T00:00', ends_at: '2026-10-02T00:30' });
+    assert.deepEqual(move('2026-10-01T20:00'), { starts_at: shift.starts_at, ends_at: '2026-10-01T21:30' });
+    assert.deepEqual(move('2026-10-02T03:00'), { starts_at: '2026-10-02T01:30', ends_at: shift.ends_at });
+    assert.deepEqual(translatedAssignment(shift, shift, timeline.timelineMinute('2026-10-02T00:00')), { starts_at: shift.starts_at, ends_at: shift.ends_at });
+    const offGrid = { starts_at: '2026-10-01T23:32', ends_at: '2026-10-02T00:09' };
+    assert.deepEqual(translatedAssignment(shift, offGrid, timeline.timelineMinute('2026-10-02T01:57')), { starts_at: '2026-10-02T01:15', ends_at: '2026-10-02T01:52' });
+});
+
+test('middle drag previews both times, commits only on release, supports keyboard movement and cancels without writes', async () => {
+    const events = [];
+    const app = mount(Roster, { shift, enabled: true, canManage: true, onResize: event => events.push(event) });
+    try {
+        const row = document.querySelector('[data-roster-row="person-8"]');
+        row.querySelector('[data-person-bar]').parentElement.getBoundingClientRect = () => ({ width: 600 });
+        const handle = row.querySelector('[data-move-handle]');
+        const begin = () => handle.dispatchEvent(new dom.window.MouseEvent('pointerdown', { clientX: 100, button: 0, bubbles: true }));
+        begin();
+        window.dispatchEvent(new dom.window.MouseEvent('pointermove', { clientX: 125 }));
+        await nextTick();
+        assert.equal(events.length, 0);
+        assert.match(row.querySelector('[data-person-bar]').title, /23:45–2026-10-02 00:15/);
+        assert.match(row.querySelector('[data-assignment-duration]').textContent, /minutes=30/);
+        window.dispatchEvent(new dom.window.MouseEvent('pointerup', { clientX: 125 }));
+        assert.deepEqual(events[0].hours, { starts_at: '2026-10-01T23:45', ends_at: '2026-10-02T00:15' });
+        await nextTick();
+        handle.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+        assert.deepEqual(events[1].hours, { starts_at: '2026-10-01T23:15', ends_at: '2026-10-01T23:45' });
+        begin();
+        window.dispatchEvent(new dom.window.MouseEvent('pointermove', { clientX: 125 }));
+        window.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' }));
+        await nextTick();
+        assert.equal(events.length, 2);
+        assert.match(row.querySelector('[data-person-bar]').title, /23:30–2026-10-02 00:00/);
+        begin();
+        window.dispatchEvent(new dom.window.MouseEvent('pointercancel'));
+        window.dispatchEvent(new dom.window.MouseEvent('pointerup', { clientX: 125 }));
+        begin();
+        window.dispatchEvent(new dom.window.MouseEvent('pointerup', { clientX: 100 }));
+        document.querySelector('[data-roster-row="person-10"] [data-move-handle]').dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+        assert.equal(events.length, 2);
+    } finally { app.unmount(); }
 });
 
 test('deferred hours dialog emits a draft without issuing a PUT', async () => {

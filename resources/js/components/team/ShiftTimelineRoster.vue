@@ -17,6 +17,7 @@ import { labelTokens, fallbackLabelToken } from '../../lib/labelTokens';
 import {
     scheduleRosterRows,
     resizedAssignment,
+    translatedAssignment,
 } from '../../lib/shiftAssignments';
 import {
     timelineMinute,
@@ -188,17 +189,25 @@ const moveDrag = (event) => {
     if (!drag) return;
     const minute =
         timelineMinute(
-            drag.edge === 'start'
-                ? drag.assignment.starts_at
-                : drag.assignment.ends_at,
+            drag.edge === 'end'
+                ? drag.assignment.ends_at
+                : drag.assignment.starts_at,
         ) +
         ((event.clientX - drag.x) / drag.width) * duration.value;
-    const hours = resizedAssignment(
-        props.shift,
-        drag.assignment,
-        drag.edge,
-        minute,
-    );
+    const hours =
+        drag.edge === 'move'
+            ? event.clientX === drag.x
+                ? {
+                      starts_at: drag.assignment.starts_at,
+                      ends_at: drag.assignment.ends_at,
+                  }
+                : translatedAssignment(props.shift, drag.assignment, minute)
+            : resizedAssignment(
+                  props.shift,
+                  drag.assignment,
+                  drag.edge,
+                  minute,
+              );
     if (hours) drag.hours = hours;
 };
 const finishDrag = (event) => {
@@ -223,15 +232,29 @@ const resizeKey = (event, assignment, edge) => {
               : null;
     if (delta === null) return;
     event.preventDefault();
-    const hours = resizedAssignment(
-        props.shift,
-        assignment,
-        edge,
-        timelineMinute(
-            edge === 'start' ? assignment.starts_at : assignment.ends_at,
-        ) + delta,
-    );
-    if (hours) emit('resize', { assignment, hours });
+    const hours =
+        edge === 'move'
+            ? translatedAssignment(
+                  props.shift,
+                  assignment,
+                  timelineMinute(assignment.starts_at) + delta,
+              )
+            : resizedAssignment(
+                  props.shift,
+                  assignment,
+                  edge,
+                  timelineMinute(
+                      edge === 'start'
+                          ? assignment.starts_at
+                          : assignment.ends_at,
+                  ) + delta,
+              );
+    if (
+        hours &&
+        (hours.starts_at !== assignment.starts_at ||
+            hours.ends_at !== assignment.ends_at)
+    )
+        emit('resize', { assignment, hours });
 };
 </script>
 
@@ -455,13 +478,73 @@ const resizeKey = (event, assignment, edge) => {
                                     :title="assignmentTitle(row.assignment)"
                                     data-person-bar
                                 >
+                                    <button
+                                        v-if="canManage"
+                                        type="button"
+                                        role="slider"
+                                        class="absolute inset-y-0 right-3 left-3 z-10 touch-none rounded-sm focus-visible:outline-2 focus-visible:outline-primary"
+                                        :class="
+                                            dragging?.edge === 'move' &&
+                                            dragging.assignment.id ===
+                                                row.assignment.id
+                                                ? 'cursor-grabbing'
+                                                : 'cursor-grab'
+                                        "
+                                        :disabled="!enabled"
+                                        :aria-label="
+                                            $t(
+                                                'team.scheduling.roster.move_person',
+                                                { name: row.assignment.name },
+                                            )
+                                        "
+                                        :aria-valuemin="
+                                            timelineMinute(shift.starts_at)
+                                        "
+                                        :aria-valuemax="
+                                            timelineMinute(shift.ends_at) -
+                                            (timelineMinute(
+                                                row.assignment.ends_at,
+                                            ) -
+                                                timelineMinute(
+                                                    row.assignment.starts_at,
+                                                ))
+                                        "
+                                        :aria-valuenow="
+                                            timelineMinute(
+                                                row.assignment.starts_at,
+                                            )
+                                        "
+                                        :aria-valuetext="
+                                            shiftHoursLabel(row.assignment)
+                                        "
+                                        :title="
+                                            $t(
+                                                'team.scheduling.roster.move_hint',
+                                            )
+                                        "
+                                        data-move-handle
+                                        @pointerdown="
+                                            beginDrag(
+                                                $event,
+                                                row.assignment,
+                                                'move',
+                                            )
+                                        "
+                                        @keydown="
+                                            resizeKey(
+                                                $event,
+                                                row.assignment,
+                                                'move',
+                                            )
+                                        "
+                                    />
                                     <span
                                         v-if="!shortBar(row.assignment)"
-                                        class="relative z-10 block truncate px-4 py-1 pr-20 text-xs font-semibold"
+                                        class="pointer-events-none relative z-10 block truncate px-4 py-1 pr-20 text-xs font-semibold"
                                         >{{ row.assignment.name }}</span
                                     >
                                     <span
-                                        class="absolute inset-y-0 right-4 z-10 flex items-center text-xs font-semibold whitespace-nowrap"
+                                        class="pointer-events-none absolute inset-y-0 right-4 z-10 flex items-center text-xs font-semibold whitespace-nowrap"
                                         data-assignment-duration
                                         >{{ totalTime(row.assignment) }}</span
                                     >

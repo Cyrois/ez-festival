@@ -102,6 +102,26 @@ export function draftRoster(
     };
 }
 
+export function translatedAssignment(shift, assignment, minute) {
+    const origin = Date.parse(shift.starts_at + 'Z') / 60000;
+    const end = Date.parse(shift.ends_at + 'Z') / 60000;
+    const length =
+        (Date.parse(assignment.ends_at + 'Z') -
+            Date.parse(assignment.starts_at + 'Z')) /
+        60000;
+    const earliest = Math.ceil(origin / 15) * 15;
+    const latest = Math.floor((end - length) / 15) * 15;
+    if (length <= 0 || earliest > latest) return null;
+    const start = Math.max(
+        earliest,
+        Math.min(latest, Math.round(minute / 15) * 15),
+    );
+    return {
+        starts_at: new Date(start * 60000).toISOString().slice(0, 16),
+        ends_at: new Date((start + length) * 60000).toISOString().slice(0, 16),
+    };
+}
+
 export function resizedAssignment(shift, assignment, edge, minute) {
     const origin = Date.parse(shift.starts_at + 'Z') / 60000;
     const end = Date.parse(shift.ends_at + 'Z') / 60000;
