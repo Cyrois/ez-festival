@@ -1,4 +1,5 @@
 <script setup>
+import { CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { CustomDropdown } from '../ui/custom-dropdown';
 import { FormField } from '../ui/form-field';
@@ -65,9 +66,9 @@ const remove = (assignment) => {
 
 <template>
     <section>
-        <h2 class="m-0 text-lg font-semibold text-charcoal">
+        <CardTitle>
             {{ $t('credentials.assignments.title') }}
-        </h2>
+        </CardTitle>
         <p class="mt-1 mb-0 text-xs text-muted">
             {{ $t('credentials.assignments.lead') }}
         </p>

@@ -1,7 +1,7 @@
 <script setup>
 import SettingsLayout from '../../layouts/SettingsLayout.vue';
 import { Button } from '../../components/ui/button';
-import { Card } from '../../components/ui/card';
+import { Card, CardTitle } from '../../components/ui/card';
 import { Checkbox } from '../../components/ui/checkbox';
 import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
@@ -156,9 +156,9 @@ const remove = (field) => {
                 :class="['flex flex-col gap-4', index > 0 && 'pt-0']"
             >
                 <div class="flex items-center justify-between gap-4">
-                    <h2 class="m-0 text-lg font-semibold text-charcoal">
+                    <CardTitle>
                         {{ $t(`settings.custom_fields.target.${target}`) }}
-                    </h2>
+                    </CardTitle>
                     <Button
                         v-if="editing === null"
                         type="button"
@@ -190,9 +190,7 @@ const remove = (field) => {
                 >
                     <Card v-if="editingTarget === target">
                         <template #header>
-                            <h3
-                                class="m-0 text-base font-semibold text-charcoal"
-                            >
+                            <CardTitle as="h3">
                                 {{
                                     editing === 'new'
                                         ? $t(
@@ -207,7 +205,7 @@ const remove = (field) => {
                                               'settings.custom_fields.form.title.edit',
                                           )
                                 }}
-                            </h3>
+                            </CardTitle>
                         </template>
 
                         <form @submit.prevent="submit">

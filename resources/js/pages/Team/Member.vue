@@ -6,7 +6,7 @@ import TeamPassAssignmentsPanel from '../../components/team/TeamPassAssignmentsP
 import TeamMemberFields from '../../components/team/TeamMemberFields.vue';
 import { Avatar } from '../../components/ui/avatar';
 import { Button } from '../../components/ui/button';
-import { Card } from '../../components/ui/card';
+import { Card, CardTitle } from '../../components/ui/card';
 import { CustomDropdown } from '../../components/ui/custom-dropdown';
 import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
@@ -202,9 +202,9 @@ const submit = () => {
                 @submit.prevent="submit"
             >
                 <Card>
-                    <h2 class="m-0 text-xl font-bold text-muted">
+                    <CardTitle>
                         {{ $t('team.member.details') }}
-                    </h2>
+                    </CardTitle>
                     <p class="mt-1 mb-4 text-xs text-muted">
                         {{ $t('team.member.details_hint') }}
                     </p>
@@ -259,9 +259,9 @@ const submit = () => {
                 </Card>
 
                 <Card class="mt-4">
-                    <h2 class="m-0 text-xl font-bold text-muted">
+                    <CardTitle>
                         {{ $t('team.member.role.title') }}
-                    </h2>
+                    </CardTitle>
                     <div class="mt-4 max-w-md">
                         <FormField
                             v-slot="{ id, invalid }"
@@ -318,9 +318,9 @@ const submit = () => {
                     id="shifts"
                     class="mt-4"
                 >
-                    <h2 class="m-0 text-xl font-bold text-muted">
+                    <CardTitle>
                         {{ $t('team.member.sections.shifts.title') }}
-                    </h2>
+                    </CardTitle>
                     <p class="mt-1 mb-3 text-xs text-muted">
                         {{ $t('team.member.sections.shifts.description') }}
                     </p>
@@ -357,9 +357,9 @@ const submit = () => {
                     :key="section.key"
                     class="mt-4"
                 >
-                    <h2 class="m-0 text-xl font-bold text-muted">
+                    <CardTitle>
                         {{ section.title }}
-                    </h2>
+                    </CardTitle>
                     <p class="mt-1 mb-3 text-xs text-muted">
                         {{ section.description }}
                     </p>

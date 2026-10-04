@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import CardTitle from './CardTitle.vue';
 import { cn } from '../../../lib/utils';
 
 const props = defineProps({
@@ -28,12 +29,9 @@ const classes = computed(() =>
             class="mb-4"
         >
             <slot name="header">
-                <h3
-                    v-if="title"
-                    class="m-0 text-base font-semibold"
-                >
+                <CardTitle v-if="title">
                     {{ title }}
-                </h3>
+                </CardTitle>
             </slot>
         </div>
         <div>

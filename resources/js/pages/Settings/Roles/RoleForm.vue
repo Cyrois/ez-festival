@@ -4,7 +4,7 @@ import { roleMatchHint } from '../roleMatchHint';
 import RolePeopleCard from './RolePeopleCard.vue';
 import SettingsLayout from '../../../layouts/SettingsLayout.vue';
 import { Button } from '../../../components/ui/button';
-import { Card } from '../../../components/ui/card';
+import { Card, CardTitle } from '../../../components/ui/card';
 import { Checkbox } from '../../../components/ui/checkbox';
 import { FormField } from '../../../components/ui/form-field';
 import { Icon } from '../../../components/ui/icon';
@@ -101,9 +101,9 @@ const submit = () => {
                 @submit.prevent="submit"
             >
                 <Card>
-                    <h2 class="mb-4 text-xl font-bold text-muted">
+                    <CardTitle class="mb-4">
                         {{ $t('permissions.details') }}
-                    </h2>
+                    </CardTitle>
                     <FormField
                         v-slot="{ id, invalid }"
                         :label="$t('settings.roles.form.name')"
@@ -139,10 +139,10 @@ const submit = () => {
                     </p>
                 </Card>
                 <Card :class="form.errors.permissions && 'border-danger'">
-                    <h2 class="text-xl font-bold text-muted">
+                    <CardTitle>
                         {{ $t('permissions.title') }}
                         <span class="text-danger">*</span>
-                    </h2>
+                    </CardTitle>
                     <p class="mt-1 text-xs text-muted">
                         {{ $t('permissions.help') }}
                     </p>

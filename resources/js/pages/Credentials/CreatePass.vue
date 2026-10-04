@@ -1,7 +1,7 @@
 <script setup>
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Button } from '../../components/ui/button';
-import { Card } from '../../components/ui/card';
+import { Card, CardTitle } from '../../components/ui/card';
 import { Checkbox } from '../../components/ui/checkbox';
 import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
@@ -112,9 +112,9 @@ const submit = () => {
             <form @submit.prevent="submit">
                 <Card class="p-5">
                     <section>
-                        <h2 class="m-0 text-lg font-semibold text-muted">
+                        <CardTitle>
                             {{ $t('credentials.passes.details.title') }}
-                        </h2>
+                        </CardTitle>
                         <p class="mt-1 mb-4 text-xs text-muted">
                             {{ $t('credentials.passes.details.lead') }}
                         </p>
@@ -171,9 +171,9 @@ const submit = () => {
                     </section>
 
                     <section class="mt-5 border-t border-line pt-5">
-                        <h2 class="m-0 text-lg font-semibold text-muted">
+                        <CardTitle>
                             {{ $t('credentials.passes.labels.title') }}
-                        </h2>
+                        </CardTitle>
                         <p class="mt-1 mb-4 text-xs text-muted">
                             {{ $t('credentials.passes.labels.lead') }}
                         </p>
@@ -191,9 +191,9 @@ const submit = () => {
                     </section>
 
                     <section class="mt-5 border-t border-line pt-5">
-                        <h2 class="m-0 text-lg font-semibold text-muted">
+                        <CardTitle>
                             {{ $t('credentials.passes.custom_fields.title') }}
-                        </h2>
+                        </CardTitle>
                         <p class="mt-1 mb-4 text-xs text-muted">
                             {{ $t('credentials.passes.custom_fields.lead') }}
                         </p>
@@ -308,9 +308,9 @@ const submit = () => {
                     </section>
 
                     <section class="mt-5 border-t border-line pt-5">
-                        <h2 class="m-0 text-lg font-semibold text-muted">
+                        <CardTitle>
                             {{ $t('credentials.passes.entitlements.title') }}
-                        </h2>
+                        </CardTitle>
                         <p class="mt-1 mb-3 text-xs text-muted">
                             {{
                                 $t(
@@ -378,9 +378,9 @@ const submit = () => {
                     </section>
 
                     <section class="mt-5 border-t border-line pt-5">
-                        <h2 class="m-0 text-lg font-semibold text-muted">
+                        <CardTitle>
                             {{ $t('credentials.passes.products.title') }}
-                        </h2>
+                        </CardTitle>
                         <div
                             class="mt-2 rounded-xl border border-dashed border-line bg-page px-6 py-5 text-center"
                         >

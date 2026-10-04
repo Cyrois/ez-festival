@@ -1,7 +1,7 @@
 <script setup>
 import SettingsLayout from '../../../layouts/SettingsLayout.vue';
 import { Button } from '../../../components/ui/button';
-import { Card } from '../../../components/ui/card';
+import { Card, CardTitle } from '../../../components/ui/card';
 import { CustomDropdown } from '../../../components/ui/custom-dropdown';
 import { Dialog } from '../../../components/ui/dialog';
 import { FormField } from '../../../components/ui/form-field';
@@ -126,9 +126,9 @@ const submit = () => {
             >
                 <div class="grid gap-4 lg:grid-cols-2">
                     <Card>
-                        <h2 class="m-0 mb-4 text-lg font-bold text-muted">
+                        <CardTitle class="mb-4">
                             {{ $t('settings.team.details') }}
-                        </h2>
+                        </CardTitle>
                         <div class="grid gap-4">
                             <FormField
                                 v-slot="{ id, invalid }"
@@ -202,9 +202,9 @@ const submit = () => {
                     </Card>
 
                     <Card>
-                        <h2 class="m-0 text-lg font-bold text-muted">
+                        <CardTitle>
                             {{ $t('settings.team.security') }}
-                        </h2>
+                        </CardTitle>
                         <p class="mt-1 mb-4 text-xs text-muted">
                             {{ $t('settings.team.security_add_hint') }}
                         </p>
@@ -221,9 +221,9 @@ const submit = () => {
                 </div>
 
                 <Card>
-                    <h2 class="m-0 text-lg font-bold text-muted">
+                    <CardTitle>
                         {{ $t('settings.team.access.title') }}
-                    </h2>
+                    </CardTitle>
                     <p class="mt-1 mb-4 text-xs text-muted">
                         {{ $t('settings.team.add.access_hint') }}
                     </p>

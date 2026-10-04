@@ -1,4 +1,5 @@
 <script setup>
+import { CardTitle } from '../ui/card';
 import { computed, ref } from 'vue';
 import { Button } from '../ui/button';
 import { CustomDropdown } from '../ui/custom-dropdown';
@@ -79,7 +80,7 @@ const remove = (slot) => {
 <template>
     <section class="space-y-4">
         <div class="flex items-center justify-between gap-3">
-            <h2 class="m-0 text-xl font-bold text-muted">{{ title }}</h2>
+            <CardTitle>{{ title }}</CardTitle>
             <p class="m-0 shrink-0 text-sm text-muted">
                 {{ $t('team.scheduling.slots.total', { count: total }) }}
             </p>
