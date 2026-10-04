@@ -420,7 +420,7 @@ const destroy = () => {
                 >
                     <Button
                         :href="copyHref"
-                        variant="primary"
+                        variant="secondary"
                         :disabled="form.processing"
                     >
                         <Icon
