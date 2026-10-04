@@ -77,7 +77,7 @@ const clampInput = (event) => {
             :min="min"
             :max="max"
             step="1"
-            class="w-16 px-2 text-center"
+            class="w-16 [appearance:textfield] px-2 text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             :invalid="invalid"
             :disabled="disabled"
             @input.capture="clampInput"
