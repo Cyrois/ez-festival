@@ -275,7 +275,9 @@ const assignmentTitle = (assignment) =>
                     :class="
                         row.assignment?.overlaps.length
                             ? 'bg-warning/10 hover:bg-warning/10'
-                            : ''
+                            : !row.assignment
+                              ? 'hover:bg-transparent'
+                              : ''
                     "
                 >
                     <TableCell
@@ -457,7 +459,15 @@ const assignmentTitle = (assignment) =>
                             </template>
                             <div
                                 v-else
-                                class="absolute top-5 left-[var(--bar-start)] flex h-10 w-[var(--bar-width)] items-center gap-3 rounded-lg border border-dashed border-line bg-ground px-2 text-xs font-semibold text-charcoal"
+                                class="absolute top-5 left-[var(--bar-start)] flex h-10 w-[var(--bar-width)] items-center gap-3 rounded-lg border border-dashed border-line bg-ground px-2 text-xs font-semibold text-charcoal transition-colors"
+                                :class="
+                                    enabled
+                                        ? [
+                                              tokens.unfilledHover,
+                                              'hover:border-solid',
+                                          ]
+                                        : []
+                                "
                                 :style="geometry(shiftInterval)"
                                 data-open-bar
                             >
