@@ -763,6 +763,147 @@ class TeamShiftAssignmentsTest extends TestCase
         $this->getJson($url)->assertForbidden();
     }
 
+    public function test_create_shift_saves_details_headcount_breaks_and_complete_roster_together(): void
+    {
+        $different = Role::create(['name' => 'Sound']);
+        $first = $this->member('Full shift', $different);
+        $second = $this->member('Custom hours');
+        $extra = $this->member('Extra person');
+        $data = $this->createPayload([
+            'breaks' => [['duration_minutes' => 15, 'starts_at' => '2026-10-01T11:00']],
+            'assignment_additions' => [
+                ['slot_key' => 'draft-1', 'team_engagement_id' => $first->id, 'hours_mode' => 'full_shift'],
+                ['slot_key' => 'draft-2', 'team_engagement_id' => $second->id, 'hours_mode' => 'custom', 'starts_at' => '2026-10-01T11:00', 'ends_at' => '2026-10-01T12:00'],
+                ['slot_key' => 'draft-1', 'team_engagement_id' => $extra->id, 'hours_mode' => 'full_shift'],
+            ],
+        ]);
+        $this->post(route('team.shifts.store', $this->event), $data)->assertSessionHasNoErrors();
+        $created = $this->event->shifts()->where('name', 'New shift')->sole();
+        $slots = $created->roleSlots()->get();
+        $this->assertCount(2, $slots);
+        $this->assertSame(3, $created->assignments()->count());
+        $this->assertSame(1, $created->breaks()->count());
+        $this->assertSame($slots[0]->id, $created->assignments()->where('team_engagement_id', $first->id)->sole()->shift_role_slot_id);
+        $this->assertSame($slots[1]->id, $created->assignments()->where('team_engagement_id', $second->id)->sole()->shift_role_slot_id);
+        $this->assertSame($different->id, $first->fresh()->role_id);
+        $this->get(route('team.shifts.show', $created))->assertInertia(fn (Assert $page) => $page
+            ->where('shift.filled_count', 2)->where('shift.total_needs', 2)->where('shift.extra_count', 1)
+            ->where('shift.assignments.1.starts_at', '2026-10-01T11:00')
+            ->where('shift.assignments.2.is_extra', true));
+        $this->delete(route('team.shifts.destroy', [$this->event, $created]), ['assignment_count' => 3])->assertSessionHasNoErrors();
+        $this->assertDatabaseMissing('shifts', ['id' => $created->id]);
+        $this->assertDatabaseMissing('shift_assignments', ['shift_id' => $created->id]);
+        $this->assertDatabaseMissing('shift_role_slots', ['shift_id' => $created->id]);
+        $this->assertDatabaseMissing('shift_breaks', ['shift_id' => $created->id]);
+    }
+
+    public function test_create_shift_rejects_invalid_roster_drafts_without_partial_writes(): void
+    {
+        $member = $this->member('Draft');
+        $addition = ['slot_key' => 'draft-1', 'team_engagement_id' => $member->id, 'hours_mode' => 'full_shift'];
+        $foreign = $this->member('Foreign', event: $this->event('Other'));
+        $ineligible = $this->member('Not hired', status: 'applied');
+        $assignment = $this->assign($member);
+        foreach ([
+            ['slots' => [], 'assignment_additions' => [$addition]],
+            ['assignment_additions' => [[...$addition, 'slot_key' => 'draft-999']]],
+            ['assignment_additions' => [[...$addition, 'team_engagement_id' => $foreign->id]]],
+            ['assignment_additions' => [[...$addition, 'team_engagement_id' => $ineligible->id]]],
+            ['assignment_additions' => [[...$addition, 'shift_role_slot_id' => $this->slotId]]],
+            ['assignment_additions' => [$addition, $addition]],
+            ['assignment_additions' => [[...$addition, 'hours_mode' => 'custom', 'starts_at' => '2026-10-01T09:00', 'ends_at' => '2026-10-01T11:00']]],
+            ['assignment_additions' => [[...$addition, 'starts_at' => '2026-10-01T10:00']]],
+            ['assignment_updates' => [['id' => $assignment->id, 'hours_mode' => 'full_shift']]],
+            ['assignment_removals' => [$assignment->id]],
+            ['name' => ''],
+        ] as $invalid) {
+            $this->post(route('team.shifts.store', $this->event), $this->createPayload($invalid))->assertSessionHasErrors();
+            $this->assertSame(1, $this->event->shifts()->count());
+            $this->assertSame(1, $this->shift->assignments()->count());
+        }
+        $this->post(route('team.shifts.store', $this->event('Wrong route')), $this->createPayload())->assertNotFound();
+        $this->event->lock();
+        $this->post(route('team.shifts.store', $this->event), $this->createPayload(['assignment_additions' => [$addition]]))->assertForbidden();
+        try {
+            app(ShiftService::class)->create($this->event, $this->createPayload());
+            $this->fail('Locked event must reject shift creation.');
+        } catch (HttpException $exception) {
+            $this->assertSame(403, $exception->getStatusCode());
+        }
+        $this->assertSame(1, $this->event->shifts()->count());
+    }
+
+    public function test_create_shift_roster_conflict_rolls_back_the_whole_transaction(): void
+    {
+        $member = $this->member('Duplicate');
+        $addition = ['slot_key' => 'draft-1', 'team_engagement_id' => $member->id, 'hours_mode' => 'full_shift'];
+        $data = $this->createPayload(['assignment_additions' => [$addition, $addition]]);
+        try {
+            app(ShiftService::class)->create($this->event, $data);
+            $this->fail('Duplicate roster must reject shift creation.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('assignment_additions.1.team_engagement_id', $exception->errors());
+        }
+        $this->assertSame(1, $this->event->shifts()->count());
+        $this->assertDatabaseCount('shift_role_slots', 1);
+        $this->assertDatabaseCount('shift_assignments', 0);
+    }
+
+    public function test_create_roster_candidates_and_previews_are_scoped_paginated_and_read_only(): void
+    {
+        $member = $this->member('Suggested', $this->role);
+        $this->assign($member);
+        foreach (range(1, 6) as $index) {
+            $this->member('Person '.$index);
+        }
+        $this->member('Not hired', status: 'applied');
+        $foreignEvent = $this->event('Foreign');
+        $foreign = $this->member('Foreign', event: $foreignEvent);
+        $hours = ['hours_mode' => 'full_shift', 'shift_starts_at' => '2026-10-01T09:00', 'shift_ends_at' => '2026-10-01T11:00'];
+        $url = route('team.shifts.create.assignment-candidates', $this->event).'?'.http_build_query([...$hours, 'role_id' => $this->role->id]);
+        DB::enableQueryLog();
+        $this->getJson($url)->assertOk()->assertJsonCount(5, 'data')->assertJsonPath('meta.total', 7)
+            ->assertJsonPath('data.0.id', $member->id)->assertJsonPath('data.0.on_shift', false)
+            ->assertJsonPath('data.0.suggested', true)->assertJsonPath('data.0.overlaps.0.overlap_minutes', 60)
+            ->assertJsonMissingPath('data.0.email')->assertJsonMissingPath('data.0.hourly_pay');
+        $this->assertLessThan(25, count(DB::getQueryLog()));
+        DB::disableQueryLog();
+        $this->getJson($url.'&page=2')->assertJsonCount(2, 'data');
+        $preview = route('team.shifts.create.assignment-overlaps', $this->event).'?'.http_build_query([...$hours, 'team_engagement_id' => $member->id]);
+        $this->getJson($preview)->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.overlap_minutes', 60)
+            ->assertJsonPath('other_shifts.0.shift_id', $this->shift->id)->assertJsonMissingPath('data.0.team_engagement_id');
+        $this->getJson($preview.'&hours_mode=custom&starts_at=2026-10-01T09:00&ends_at=2026-10-01T10:00')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson(route('team.shifts.create.assignment-overlaps', $this->event).'?'.http_build_query([...$hours, 'team_engagement_id' => $foreign->id]))->assertUnprocessable();
+        $this->getJson($url.'&shift_role_slot_id='.$this->slotId)->assertUnprocessable();
+        $this->getJson(route('team.shifts.create.assignment-candidates', $this->event).'?hours_mode=full_shift&role_id='.$this->role->id)->assertUnprocessable();
+        $this->getJson(route('team.shifts.create.assignment-candidates', $foreignEvent).'?'.http_build_query([...$hours, 'role_id' => $this->role->id]))->assertNotFound();
+        $this->getJson($preview.'&unexpected=1')->assertUnprocessable();
+        $this->assertSame(1, $this->event->shifts()->count());
+        $this->assertSame(1, $this->shift->assignments()->count());
+        $this->get(route('team.shifts.create'))->assertInertia(fn (Assert $page) => $page
+            ->where('canManage', true)->where('event.is_locked', false));
+        $this->event->lock();
+        $this->getJson($url)->assertForbidden();
+        $this->getJson($preview)->assertForbidden();
+        $this->event->unlock();
+        $this->grantRoleAccess($this->user, ['scheduling.view']);
+        $this->getJson($url)->assertForbidden();
+        $this->getJson($preview)->assertForbidden();
+        $this->post(route('team.shifts.store', $this->event), $this->createPayload())->assertForbidden();
+    }
+
+    private function createPayload(array $overrides = []): array
+    {
+        return $this->shiftPayload([
+            'name' => 'New shift',
+            'slots' => [
+                ['id' => null, 'client_key' => 'draft-1', 'role_id' => $this->role->id, 'needed' => 1],
+                ['id' => null, 'client_key' => 'draft-2', 'role_id' => $this->role->id, 'needed' => 1],
+            ],
+            ...$overrides,
+        ]);
+    }
+
     private function shift(Event $event, string $name = 'Show run'): Shift
     {
         $location = $event->locations()->create(['name' => 'Gate']);

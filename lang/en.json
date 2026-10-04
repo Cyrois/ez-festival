@@ -1484,6 +1484,7 @@
     "team.scheduling.roster.timeline": "Hours",
     "team.scheduling.roster.actions": "Actions",
     "team.scheduling.roster.open": "Open",
+    "team.scheduling.roster.enter_hours": "Set the shift start and end to build its roster.",
     "team.scheduling.roster.empty_shift": "No one is on this shift yet.",
     "team.scheduling.roster.extra_one": "1 extra",
     "team.scheduling.roster.extra_many": ":count extra",
@@ -1512,6 +1513,6 @@
     "team.scheduling.roster.move_hint": "Drag to move both times in 15-minute steps while keeping the same duration, or use the left and right arrow keys.",
     "team.scheduling.assignments.errors.stale_roster": "This roster changed. Reload the shift and try again.",
     "team.scheduling.assignments.apply_hours": "Apply hours",
-    "team.scheduling.assignments.draft_hint": "Click Save at the bottom of the page to save your roster changes.",
+    "team.scheduling.assignments.draft_hint": "Click :action at the bottom of the page to save your roster changes.",
     "team.scheduling.roster.outside_bounds": "These hours are outside the shift. Adjust the hours before saving."
 }

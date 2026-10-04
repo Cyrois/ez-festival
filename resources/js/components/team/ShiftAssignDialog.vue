@@ -14,6 +14,7 @@ import { DataTable } from '../ui/data-table';
 import { useFlashToast } from '../../composables/useFlashToast';
 import {
     assignmentPayload,
+    assignmentCandidatesUrl,
     validAssignmentHours,
 } from '../../lib/shiftAssignments';
 import ShiftOverlapWarnings from './ShiftOverlapWarnings.vue';
@@ -143,9 +144,13 @@ const ajax = async (data, callback) => {
     query.search = data.search?.value || '';
     query.page = Math.floor(data.start / data.length) + 1;
     query.per_page = data.length;
+    if (!props.shift.id) {
+        query.shift_starts_at = props.shift.starts_at;
+        query.shift_ends_at = props.shift.ends_at;
+    }
     try {
         const response = await fetch(
-            `/team/shifts/${props.shift.id}/assignment-candidates?${new URLSearchParams(query)}`,
+            `${assignmentCandidatesUrl(props.shift, props.eventId)}?${new URLSearchParams(query)}`,
             {
                 headers: { Accept: 'application/json' },
                 signal: controller.signal,
@@ -306,7 +311,15 @@ const assign = () => {
                 v-if="deferred"
                 class="text-sm text-muted"
             >
-                {{ $t('team.scheduling.assignments.draft_hint') }}
+                {{
+                    $t('team.scheduling.assignments.draft_hint', {
+                        action: $t(
+                            shift.id
+                                ? 'team.scheduling.actions.save'
+                                : 'team.scheduling.actions.create',
+                        ),
+                    })
+                }}
             </p>
             <FormField
                 v-if="!requirement"
