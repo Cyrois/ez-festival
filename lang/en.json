@@ -1475,7 +1475,6 @@
     "team.scheduling.views.all_locations": "Locations & Shifts",
     "team.scheduling.views.location_shifts": "Shifts & People",
     "team.scheduling.views.label": "Schedule view",
-    "team.scheduling.assignments.toast.hours_updated": "Assignment hours saved.",
     "team.scheduling.assignments.edit_hours": "Edit hours for :name",
     "team.scheduling.assignments.hours_hint": "Inside the shift, :from–:to.",
     "team.scheduling.assignments.preview_loading": "Checking for overlaps…",

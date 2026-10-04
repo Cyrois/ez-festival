@@ -488,7 +488,7 @@ test('view-only and locked roster omits Actions and explains disabled Assign; di
     }
 });
 const settle = () => new Promise((resolve) => setTimeout(resolve, 280));
-test('Edit hours updates previews without stale responses and saves hours only; Cancel never writes', async () => {
+test('Edit hours updates previews without stale responses and stages hours only; Cancel never writes', async () => {
     const requests = [];
     globalThis.fetch = (url, options) =>
         new Promise((resolve) => requests.push({ url, options, resolve }));
@@ -497,11 +497,9 @@ test('Edit hours updates previews without stale responses and saves hours only; 
     const app = mount(Hours, {
         shift,
         assignment: shift.assignments[0],
-        eventId: 2,
         enabled: true,
-        returnContext: { return_tab: 'schedule' },
         onClose: () => events.push('close'),
-        onBusy: (busy) => events.push(busy),
+        onChanged: (change) => events.push(change),
     });
     try {
         assert.equal(form.hours_mode, 'custom');
@@ -532,21 +530,20 @@ test('Edit hours updates previews without stale responses and saves hours only; 
         assert.match(document.body.textContent, /New overlap/);
         assert.doesNotMatch(document.body.textContent, /Stale/);
         document.querySelector('#save').click();
-        assert.equal(writes.length, 1);
-        assert.deepEqual(writes[0].data, {
-            return_tab: 'schedule',
+        assert.equal(writes.length, 0);
+        assert.deepEqual(events[0], {
             hours_mode: 'custom',
             starts_at: '2026-10-01T22:00',
             ends_at: '2026-10-02T01:00',
+            overlaps: [{ shift_name: 'New overlap', overlap_minutes: 60 }],
+            other_shifts: [],
         });
         form.errors.ends_at = 'Server rejected these hours';
         await nextTick();
         assert.match(document.body.textContent, /Server rejected/);
-        writes[0].options.onSuccess();
-        writes[0].options.onFinish();
-        assert.deepEqual(events, [true, 'close', false]);
+        assert.equal(events[1], 'close');
         document.querySelector('#cancel').click();
-        assert.equal(writes.length, 1);
+        assert.equal(writes.length, 0);
     } finally {
         app.unmount();
     }
@@ -555,16 +552,18 @@ test('Edit hours updates previews without stale responses and saves hours only; 
 test('full-shift Edit hours omits timestamps; preview failure permits Save but invalid hours do not', async () => {
     globalThis.fetch = async () => ({ ok: false });
     writes.length = 0;
+    const changes = [];
     const app = mount(Hours, {
         shift,
         assignment: shift.assignments[1],
-        eventId: 2,
+        onChanged: change => changes.push(change),
         enabled: true,
     });
     try {
         assert.equal(form.hours_mode, 'full_shift');
         document.querySelector('#save').click();
-        assert.deepEqual(writes[0].data, { hours_mode: 'full_shift' });
+        assert.equal(writes.length, 0);
+        assert.deepEqual(changes[0], { hours_mode: 'full_shift', overlaps: [], other_shifts: [] });
         form.hours_mode = 'custom';
         form.starts_at = '2026-10-01T22:00';
         await nextTick();
@@ -816,7 +815,7 @@ test('middle drag previews both times, commits only on release, supports keyboar
     } finally { app.unmount(); }
 });
 
-test('deferred hours dialog emits a draft without issuing a PUT', async () => {
+test('hours dialog always emits a draft without issuing a PUT', async () => {
     writes.length = 0;
     const changes = [];
     const app = mount(Hours, {
@@ -824,7 +823,6 @@ test('deferred hours dialog emits a draft without issuing a PUT', async () => {
         assignment: shift.assignments[0],
         eventId: 2,
         enabled: true,
-        deferred: true,
         onChanged: (change) => changes.push(change),
     });
     try {

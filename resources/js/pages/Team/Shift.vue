@@ -733,10 +733,7 @@ const destroy = () => {
             :key="selectedAssignment.id"
             :shift="timelineShift"
             :assignment="selectedAssignment"
-            :event-id="event.id"
             :enabled="rosterEnabled"
-            deferred
-            :return-context="returnContext"
             @changed="stageHours(selectedAssignment, $event)"
             @close="selectedAssignment = null"
         />

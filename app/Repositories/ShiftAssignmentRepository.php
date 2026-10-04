@@ -14,6 +14,14 @@ use Illuminate\Support\Collection;
 
 class ShiftAssignmentRepository
 {
+    /** Other assignments within the proposed timeline, including its 30-minute padding. */
+    public function nearbyAssignments(Shift $shift, int $memberId): Collection
+    {
+        return ShiftAssignmentOverlaps::forMembers($shift, [$memberId],
+            $shift->starts_at->copy()->subMinutes(30), $shift->ends_at->copy()->addMinutes(30))
+            ->get($memberId, collect());
+    }
+
     public function candidates(Shift $shift, array $data): LengthAwarePaginator
     {
         $roleId = isset($data['shift_role_slot_id'])

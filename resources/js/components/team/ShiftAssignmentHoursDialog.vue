@@ -7,19 +7,15 @@ import { Input } from '../ui/input';
 import { FormField } from '../ui/form-field';
 import { Checkbox } from '../ui/checkbox';
 import { Button } from '../ui/button';
-import { useFlashToast } from '../../composables/useFlashToast';
 import { validAssignmentHours } from '../../lib/shiftAssignments';
 import ShiftOverlapWarnings from './ShiftOverlapWarnings.vue';
 
 const props = defineProps({
     shift: { type: Object, required: true },
     assignment: { type: Object, required: true },
-    eventId: { type: Number, required: true },
     enabled: { type: Boolean, default: false },
-    returnContext: { type: Object, default: () => ({}) },
-    deferred: { type: Boolean, default: false },
 });
-const emit = defineEmits(['close', 'busy', 'changed']);
+const emit = defineEmits(['close', 'changed']);
 const form = useForm({
     hours_mode:
         props.assignment.starts_at === props.shift.starts_at &&
@@ -29,7 +25,6 @@ const form = useForm({
     starts_at: props.assignment.starts_at,
     ends_at: props.assignment.ends_at,
 });
-const { showFormError } = useFlashToast();
 const fullShift = computed({
     get: () => form.hours_mode === 'full_shift',
     set: (checked) => {
@@ -118,25 +113,12 @@ onUnmounted(() => {
 });
 const save = () => {
     if (!props.enabled || !valid.value || form.processing) return;
-    if (props.deferred) {
-        emit('changed', {
-            ...hoursPayload(),
-            overlaps: overlaps.value,
-            other_shifts: otherShifts.value,
-        });
-        emit('close');
-        return;
-    }
-    emit('busy', true);
-    form.transform(() => ({ ...props.returnContext, ...hoursPayload() })).put(
-        `/team/events/${props.eventId}/shifts/${props.shift.id}/assignments/${props.assignment.id}`,
-        {
-            preserveScroll: true,
-            onError: (errors) => showFormError(errors),
-            onSuccess: () => emit('close'),
-            onFinish: () => emit('busy', false),
-        },
-    );
+    emit('changed', {
+        ...hoursPayload(),
+        overlaps: overlaps.value,
+        other_shifts: otherShifts.value,
+    });
+    emit('close');
 };
 </script>
 
@@ -151,13 +133,7 @@ const save = () => {
                 name: assignment.name,
             })
         "
-        :confirm-label="
-            $t(
-                deferred
-                    ? 'team.scheduling.assignments.apply_hours'
-                    : 'actions.save',
-            )
-        "
+        :confirm-label="$t('team.scheduling.assignments.apply_hours')"
         confirm-variant="primary"
         :confirm-disabled="!enabled || !valid"
         :busy="form.processing"
@@ -165,10 +141,7 @@ const save = () => {
         @confirm="save"
     >
         <div class="space-y-4">
-            <p
-                v-if="deferred"
-                class="text-sm text-muted"
-            >
+            <p class="text-sm text-muted">
                 {{ $t('team.scheduling.assignments.draft_hint') }}
             </p>
             <Checkbox
