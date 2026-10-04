@@ -148,7 +148,7 @@ const remove = (row) => {
     emit('clear-containment-errors');
 };
 const formatStart = (row) =>
-    new Intl.DateTimeFormat(undefined, {
+    new Intl.DateTimeFormat('en-US', {
         ...(row._day !== props.startsAt.slice(0, 10) || days.value.length > 1
             ? { year: 'numeric', month: 'short', day: 'numeric' }
             : {}),

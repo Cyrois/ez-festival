@@ -14,6 +14,7 @@ use App\Support\OrganizationContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -353,6 +354,51 @@ class TeamShiftBreaksTest extends TestCase
             $this->fail('Service must reject invalid break state.');
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey($field, $exception->errors());
+        }
+    }
+
+    public function test_break_length_migration_rollback_restores_the_schema_and_preserves_rows_and_sequences(): void
+    {
+        $shift = $this->shift([$this->breakRow(), $this->breakRow('2026-10-03T18:30', 30)]);
+        $discarded = $shift->breaks()->create([...$this->breakRow('2026-10-03T20:00'), 'sort_order' => 2]);
+        $lastId = $discarded->id;
+        $discarded->delete();
+        $columns = ['id', 'shift_id', 'duration_minutes', 'starts_at', 'sort_order', 'created_at', 'updated_at'];
+        $before = DB::table('shift_breaks')->orderBy('id')->get($columns)->toJson();
+        $migration = require database_path('migrations/2026_10_03_000003_simplify_shift_breaks_and_expand_lengths.php');
+        $migration->down();
+        $this->assertTrue(Schema::hasColumn('shift_breaks', 'name'));
+        $this->assertSame(['', ''], DB::table('shift_breaks')->orderBy('id')->pluck('name')->all());
+        $this->assertSame($before, DB::table('shift_breaks')->orderBy('id')->get($columns)->toJson());
+        try {
+            DB::transaction(fn () => DB::table('shift_breaks')->where('shift_id', $shift->id)->update(['duration_minutes' => 45]));
+            $this->fail('The legacy CHECK must refuse longer breaks.');
+        } catch (QueryException) {
+            $this->assertSame($before, DB::table('shift_breaks')->orderBy('id')->get($columns)->toJson());
+        }
+        $migration->up();
+        $this->assertFalse(Schema::hasColumn('shift_breaks', 'name'));
+        $this->assertSame($before, DB::table('shift_breaks')->orderBy('id')->get($columns)->toJson());
+        $next = $shift->breaks()->create([...$this->breakRow('2026-10-03T20:00', 60), 'sort_order' => 2]);
+        $this->assertGreaterThan($lastId, $next->id);
+    }
+
+    public function test_break_length_migration_refuses_lossy_rollback_before_any_schema_or_data_change(): void
+    {
+        $shift = $this->shift([$this->breakRow(duration: 45)]);
+        $break = $shift->breaks()->sole();
+        $migration = require database_path('migrations/2026_10_03_000003_simplify_shift_breaks_and_expand_lengths.php');
+        foreach ([45, 60] as $duration) {
+            $break->update(['duration_minutes' => $duration]);
+            $before = DB::table('shift_breaks')->get()->toJson();
+            try {
+                $migration->down();
+                $this->fail('Longer breaks cannot be downgraded losslessly.');
+            } catch (\RuntimeException $exception) {
+                $this->assertStringContainsString('Cannot roll back', $exception->getMessage());
+            }
+            $this->assertFalse(Schema::hasColumn('shift_breaks', 'name'));
+            $this->assertSame($before, DB::table('shift_breaks')->get()->toJson());
         }
     }
 
