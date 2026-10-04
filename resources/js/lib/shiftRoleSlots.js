@@ -23,11 +23,12 @@ export function totalShiftNeeds(slots) {
     }, 0);
 }
 
-export function shiftSlotPayload(slots) {
-    return slots.map(({ id, role_id, needed }) => ({
+export function shiftSlotPayload(slots, includeDraftKeys = false) {
+    return slots.map(({ id, role_id, needed, _key }) => ({
         id,
         role_id,
         needed,
+        ...(includeDraftKeys && id === null ? { client_key: _key } : {}),
     }));
 }
 

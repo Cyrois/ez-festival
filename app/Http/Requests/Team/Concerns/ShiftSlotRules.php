@@ -12,10 +12,11 @@ trait ShiftSlotRules
     {
         return [
             'slots' => ['sometimes', 'array', 'list'],
-            'slots.*' => ['required', 'array:id,role_id,needed'],
+            'slots.*' => ['required', 'array:id,role_id,needed,client_key'],
             'slots.*.id' => $this->route('shift') instanceof Shift
                 ? ['nullable', 'integer', 'distinct']
                 : ['prohibited'],
+            'slots.*.client_key' => ['sometimes', 'prohibits:slots.*.id', 'string', 'distinct', 'max:64', 'regex:/^draft-\d+$/'],
             'slots.*.role_id' => ['required', 'integer'],
             'slots.*.needed' => ['required', 'integer', 'min:1', 'max:2147483647'],
             'total_needs' => ['prohibited'],

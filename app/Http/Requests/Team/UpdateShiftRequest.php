@@ -3,11 +3,13 @@
 namespace App\Http\Requests\Team;
 
 use App\Http\Requests\Team\Concerns\ShiftBreakRules;
+use App\Http\Requests\Team\Concerns\ShiftRosterChangeRules;
 use App\Http\Requests\Team\Concerns\ShiftRules;
 use App\Http\Requests\Team\Concerns\ShiftSlotRules;
 use App\Support\EventContext;
 use App\Support\ShiftAssignmentHours;
 use App\Support\ShiftReturnContext;
+use App\Support\ShiftRosterChanges;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Validator;
@@ -15,6 +17,7 @@ use Illuminate\Validation\Validator;
 class UpdateShiftRequest extends FormRequest
 {
     use ShiftBreakRules;
+    use ShiftRosterChangeRules;
     use ShiftRules;
     use ShiftSlotRules { after as slotAfter;
         messages as slotMessages; }
@@ -31,7 +34,7 @@ class UpdateShiftRequest extends FormRequest
                 return;
             }
             $shift = $this->route('shift');
-            foreach (ShiftAssignmentHours::containmentErrors($shift, $this->all()) as $key => $message) {
+            foreach ([...ShiftRosterChanges::errors($shift, $this->all()), ...ShiftAssignmentHours::containmentErrors($shift, $this->all())] as $key => $message) {
                 $validator->errors()->add($key, $message);
             }
         }];
@@ -53,6 +56,6 @@ class UpdateShiftRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [...$this->shiftRules($this->route('event')), ...$this->slotRules(), ...$this->breakRules(), ...ShiftReturnContext::rules()];
+        return [...$this->shiftRules($this->route('event')), ...$this->slotRules(), ...$this->breakRules(), ...$this->rosterChangeRules(), ...ShiftReturnContext::rules()];
     }
 }

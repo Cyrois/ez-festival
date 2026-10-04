@@ -35,7 +35,8 @@ final class ShiftAssignmentHours
     /** @return array<string, string> */
     public static function containmentErrors(Shift $shift, array $data): array
     {
-        $names = $shift->assignments()
+        $changedIds = [...($data['assignment_removals'] ?? []), ...array_column($data['assignment_updates'] ?? [], 'id')];
+        $names = $shift->assignments()->whereNotIn('shift_assignments.id', $changedIds)
             ->where(fn ($query) => $query->where('starts_at', '<', CarbonImmutable::parse($data['starts_at']))
                 ->orWhere('ends_at', '>', CarbonImmutable::parse($data['ends_at'])))
             ->join('team_engagements', 'team_engagements.id', '=', 'shift_assignments.team_engagement_id')

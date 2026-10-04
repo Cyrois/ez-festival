@@ -7,18 +7,15 @@ import { Input } from '../ui/input';
 import { FormField } from '../ui/form-field';
 import { Checkbox } from '../ui/checkbox';
 import { Button } from '../ui/button';
-import { useFlashToast } from '../../composables/useFlashToast';
 import { validAssignmentHours } from '../../lib/shiftAssignments';
 import ShiftOverlapWarnings from './ShiftOverlapWarnings.vue';
 
 const props = defineProps({
     shift: { type: Object, required: true },
     assignment: { type: Object, required: true },
-    eventId: { type: Number, required: true },
     enabled: { type: Boolean, default: false },
-    returnContext: { type: Object, default: () => ({}) },
 });
-const emit = defineEmits(['close', 'busy']);
+const emit = defineEmits(['close', 'changed']);
 const form = useForm({
     hours_mode:
         props.assignment.starts_at === props.shift.starts_at &&
@@ -28,7 +25,6 @@ const form = useForm({
     starts_at: props.assignment.starts_at,
     ends_at: props.assignment.ends_at,
 });
-const { showFormError } = useFlashToast();
 const fullShift = computed({
     get: () => form.hours_mode === 'full_shift',
     set: (checked) => {
@@ -58,6 +54,7 @@ const valid = computed(() =>
     ),
 );
 const overlaps = ref(props.assignment.overlaps);
+const otherShifts = ref(props.assignment.other_shifts ?? []);
 const checking = ref(false);
 const previewFailed = ref(false);
 let controller;
@@ -77,7 +74,7 @@ const preview = async () => {
     controller = new AbortController();
     try {
         const response = await fetch(
-            `/team/shifts/${props.shift.id}/assignments/${props.assignment.id}/overlaps?${new URLSearchParams(hoursPayload())}`,
+            `/team/shifts/${props.shift.id}/${props.assignment.id > 0 ? `assignments/${props.assignment.id}/overlaps` : 'assignment-overlaps'}?${new URLSearchParams({ ...hoursPayload(), shift_starts_at: props.shift.starts_at, shift_ends_at: props.shift.ends_at, ...(props.assignment.id < 0 ? { team_engagement_id: props.assignment.team_engagement_id } : {}) })}`,
             {
                 headers: { Accept: 'application/json' },
                 signal: controller.signal,
@@ -85,7 +82,10 @@ const preview = async () => {
         );
         if (!response.ok) throw new Error('preview');
         const result = await response.json();
-        if (number === requestNumber) overlaps.value = result.data;
+        if (number === requestNumber) {
+            overlaps.value = result.data;
+            otherShifts.value = result.other_shifts ?? otherShifts.value;
+        }
     } catch (error) {
         if (number === requestNumber && error.name !== 'AbortError')
             previewFailed.value = true;
@@ -113,16 +113,12 @@ onUnmounted(() => {
 });
 const save = () => {
     if (!props.enabled || !valid.value || form.processing) return;
-    emit('busy', true);
-    form.transform(() => ({ ...props.returnContext, ...hoursPayload() })).put(
-        `/team/events/${props.eventId}/shifts/${props.shift.id}/assignments/${props.assignment.id}`,
-        {
-            preserveScroll: true,
-            onError: (errors) => showFormError(errors),
-            onSuccess: () => emit('close'),
-            onFinish: () => emit('busy', false),
-        },
-    );
+    emit('changed', {
+        ...hoursPayload(),
+        overlaps: overlaps.value,
+        other_shifts: otherShifts.value,
+    });
+    emit('close');
 };
 </script>
 
@@ -137,7 +133,7 @@ const save = () => {
                 name: assignment.name,
             })
         "
-        :confirm-label="$t('actions.save')"
+        :confirm-label="$t('team.scheduling.assignments.apply_hours')"
         confirm-variant="primary"
         :confirm-disabled="!enabled || !valid"
         :busy="form.processing"
@@ -145,6 +141,9 @@ const save = () => {
         @confirm="save"
     >
         <div class="space-y-4">
+            <p class="text-sm text-muted">
+                {{ $t('team.scheduling.assignments.draft_hint') }}
+            </p>
             <Checkbox
                 v-model="fullShift"
                 :label="$t('team.scheduling.assignments.full_shift')"
