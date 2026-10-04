@@ -37,6 +37,22 @@ class PostgresWriteConcurrencyTest extends TestCase
         $this->migrateTestDatabase();
     }
 
+    public function test_removing_and_editing_a_pass_serialize_on_the_event(): void
+    {
+        [$event, , $engagement] = $this->context();
+        $pass = $event->passTypes()->create(['name' => 'Original', 'max_assignments' => 1]);
+        app(PassAssignmentService::class)->give($engagement, $pass, 1);
+        $assignment = $engagement->passAssignments()->sole();
+        $results = $this->concurrently(
+            fn () => app(PassAssignmentService::class)->remove($assignment),
+            fn () => app(PassTypeService::class)->update($pass, ['name' => 'Updated', 'max_assignments' => 1], new Collection),
+        );
+        $this->assertSame(['committed', 'committed'], array_column($results, 'status'), json_encode($results));
+        $this->assertSame('events', $results[1]['first_lock']);
+        $this->assertSame(0, $pass->assignments()->count());
+        $this->assertSame('Updated', $pass->fresh()->name);
+    }
+
     public function test_giving_and_editing_a_pass_serialize_on_the_event(): void
     {
         [$event, , $engagement] = $this->context();
@@ -131,22 +147,6 @@ class PostgresWriteConcurrencyTest extends TestCase
         $this->assertSame(['committed', 'committed'], array_column($results, 'status'), json_encode($results));
         $this->assertSame('events', $results[1]['first_lock']);
         $this->assertSame('Global Edit', $person->fresh()->name);
-    }
-
-    public function test_removing_and_editing_a_pass_serialize_on_the_event(): void
-    {
-        [$event, , $engagement] = $this->context();
-        $pass = $event->passTypes()->create(['name' => 'Original', 'max_assignments' => 1]);
-        app(PassAssignmentService::class)->give($engagement, $pass, 1);
-        $assignment = $engagement->passAssignments()->sole();
-        $results = $this->concurrently(
-            fn () => app(PassAssignmentService::class)->remove($assignment),
-            fn () => app(PassTypeService::class)->update($pass, ['name' => 'Updated', 'max_assignments' => 1], new Collection),
-        );
-        $this->assertSame(['committed', 'committed'], array_column($results, 'status'), json_encode($results));
-        $this->assertSame('events', $results[1]['first_lock']);
-        $this->assertSame(0, $pass->assignments()->count());
-        $this->assertSame('Updated', $pass->fresh()->name);
     }
 
     private function context(): array
