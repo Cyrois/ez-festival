@@ -467,7 +467,7 @@ const assignmentTitle = (assignment) =>
                                     enabled
                                         ? [
                                               tokens.unfilledHover,
-                                              'hover:border-solid',
+                                              'group hover:border-solid',
                                           ]
                                         : []
                                 "
@@ -483,7 +483,7 @@ const assignmentTitle = (assignment) =>
                                     })
                                 }}</span>
                                 <span
-                                    class="ml-auto inline-flex h-7 shrink-0 items-center gap-2 rounded-lg border border-primary/30 bg-ground px-2 text-xs font-bold text-primary"
+                                    class="ml-auto inline-flex shrink-0 items-center gap-2 text-xs font-bold text-primary transition-colors group-hover:text-primary-hover group-hover:underline group-focus-visible:text-primary-hover group-focus-visible:underline"
                                 >
                                     <Icon
                                         :name="['fas', 'plus']"
