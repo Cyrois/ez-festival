@@ -7,6 +7,7 @@ use App\Models\Shift;
 use App\Models\ShiftAssignment;
 use App\Models\TeamEngagement;
 use App\Support\ShiftAssignmentHours;
+use App\Support\ShiftCopyAssignments;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -24,8 +25,8 @@ class ShiftAssignmentService
                 throw ValidationException::withMessages(['shift_role_slot_id' => __('team.scheduling.slots.errors.foreign_slot')]);
             }
             $member = TeamEngagement::query()->where('event_id', $event->id)->lockForUpdate()->find($data['team_engagement_id']);
-            if ($member === null || $member->status !== 'hired') {
-                throw ValidationException::withMessages(['team_engagement_id' => __('team.scheduling.assignments.errors.eligible')]);
+            if (($reason = ShiftCopyAssignments::eligibilityError($member)) !== null) {
+                throw ValidationException::withMessages(['team_engagement_id' => $reason]);
             }
             if ($shift->assignments()->where('team_engagement_id', $member->id)->exists()) {
                 $this->duplicate();

@@ -1,6 +1,6 @@
 <script setup>
 import { ColorPicker } from '../../components/ui/color-picker';
-import { computed, ref } from 'vue';
+import { computed, ref, watch, onBeforeUnmount } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Card, CardTitle } from '../../components/ui/card';
@@ -11,6 +11,14 @@ import { FormField } from '../../components/ui/form-field';
 import { Input } from '../../components/ui/input';
 import ShiftRoleSlots from '../../components/team/ShiftRoleSlots.vue';
 import ShiftRoster from '../../components/team/ShiftRoster.vue';
+import CopiedShiftRoster from '../../components/team/CopiedShiftRoster.vue';
+import {
+    copiedShiftDraft,
+    copiedAssignmentPayload,
+    copiedAssignmentErrors,
+    moveCopiedShift,
+} from '../../lib/shiftCopy';
+import { wallMinutes } from '../../lib/shiftBreaks';
 import ShiftBreaks from '../../components/team/ShiftBreaks.vue';
 import { shiftBreakPayload, shiftBreakErrors } from '../../lib/shiftBreaks';
 import { useFlashToast } from '../../composables/useFlashToast';
@@ -32,19 +40,22 @@ const props = defineProps({
     returnContext: { type: Object, default: () => ({}) },
 });
 const backHref = computed(() => scheduleReturnHref(props.returnContext));
+const copiedDraft = copiedShiftDraft(props.prefill);
 const form = useForm({
-    color: 'teal',
-    name: '',
+    copy: props.prefill.copy ?? null,
+    color: props.prefill.color ?? 'teal',
+    name: props.prefill.name ?? '',
     location_id: props.prefill.location_id ?? props.locations[0]?.id ?? '',
     starts_at: props.prefill.starts_at ?? '',
     ends_at: props.prefill.ends_at ?? '',
-    slots: [],
-    breaks: [],
+    ...copiedDraft,
     ...props.returnContext,
 });
 const slotErrors = ref({});
 const breakErrors = ref({});
 const breakEditor = ref(null);
+const rosterEditor = ref(null);
+const assignmentErrors = ref({});
 const clearBreakError = (key, field) => {
     if (breakErrors.value[key]) delete breakErrors.value[key][field];
     form.clearErrors('breaks');
@@ -67,8 +78,123 @@ const locationItems = computed(() =>
         title: location.name,
     })),
 );
+const payload = (data) => ({
+    copy: data.copy,
+    name: data.name,
+    color: data.color,
+    location_id: data.location_id,
+    starts_at: data.starts_at,
+    ends_at: data.ends_at,
+    ...props.returnContext,
+    slots: shiftSlotPayload(data.slots),
+    breaks: shiftBreakPayload(data.breaks),
+    assignments: copiedAssignmentPayload(data.assignments, data.slots),
+});
+let previousStart = form.starts_at;
+watch(
+    () => [form.starts_at, form.ends_at],
+    () => {
+        if (!form.copy) return;
+        const moved = moveCopiedShift(form, previousStart);
+        form.assignments = moved.assignments;
+        form.breaks = moved.breaks;
+        if (Number.isFinite(wallMinutes(form.starts_at)))
+            previousStart = form.starts_at;
+    },
+    { flush: 'sync' },
+);
+const updateAssignment = (row, field, value) => {
+    form.assignments = form.assignments.map((item) =>
+        item._key === row._key
+            ? {
+                  ...item,
+                  [field]: value,
+                  ...(field === 'hours_mode' && value === 'full_shift'
+                      ? { starts_at: form.starts_at, ends_at: form.ends_at }
+                      : {}),
+              }
+            : item,
+    );
+};
+const removeAssignment = (row) => {
+    form.assignments = form.assignments.filter(
+        (item) => item._key !== row._key,
+    );
+};
+let previewTimer;
+let previewController;
+watch(
+    () => payload(form),
+    () => {
+        if (!form.copy) return;
+        clearTimeout(previewTimer);
+        previewController?.abort();
+        assignmentErrors.value = {};
+        // A time edit invalidates previous warnings until the server checks the new draft.
+        for (const row of form.assignments) row.overlaps = [];
+        previewTimer = setTimeout(async () => {
+            const controller = new AbortController();
+            previewController = controller;
+            const submitted = [...form.assignments];
+            try {
+                const xsrf = document.cookie
+                    .split('; ')
+                    .find((cookie) => cookie.startsWith('XSRF-TOKEN='))
+                    ?.split('=')
+                    .slice(1)
+                    .join('=');
+                const response = await fetch(
+                    `/team/events/${props.event.id}/shifts/copy-preview`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            Accept: 'application/json',
+                            'Content-Type': 'application/json',
+                            ...(xsrf
+                                ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrf) }
+                                : {}),
+                        },
+                        body: JSON.stringify(payload(form.data())),
+                        signal: controller.signal,
+                    },
+                );
+                const result = await response.json();
+                if (controller.signal.aborted) return;
+                if (response.status === 422) {
+                    assignmentErrors.value = copiedAssignmentErrors(
+                        submitted,
+                        result.errors ?? {},
+                    );
+                } else if (response.ok) {
+                    for (const [index, row] of submitted.entries()) {
+                        row.overlaps = result.data.overlaps[index] ?? [];
+                        row.error = null;
+                    }
+                } else
+                    showFormError({
+                        copy: trans('team.scheduling.copy.errors.preview'),
+                    });
+            } catch (error) {
+                if (error.name !== 'AbortError')
+                    showFormError({
+                        copy: trans('team.scheduling.copy.errors.preview'),
+                    });
+            }
+        }, 250);
+    },
+);
+onBeforeUnmount(() => {
+    clearTimeout(previewTimer);
+    previewController?.abort();
+});
 const submit = () => {
     if (form.processing) return;
+    if (rosterEditor.value && !rosterEditor.value.validate()) {
+        showFormError({
+            assignments: trans('team.scheduling.copy.errors.review'),
+        });
+        return;
+    }
     if (breakEditor.value && !breakEditor.value.validate()) {
         showFormError({
             breaks: trans('team.scheduling.breaks.errors.review'),
@@ -77,18 +203,21 @@ const submit = () => {
     }
     const submitted = [...form.slots];
     const submittedBreaks = [...form.breaks];
-    form.transform((data) => ({
-        ...data,
-        slots: shiftSlotPayload(data.slots),
-        breaks: shiftBreakPayload(data.breaks),
-    })).post('/team/events/' + props.event.id + '/shifts', {
+    const submittedAssignments = [...form.assignments];
+    form.transform(payload).post('/team/events/' + props.event.id + '/shifts', {
         onError: (errors) => {
+            assignmentErrors.value = copiedAssignmentErrors(
+                submittedAssignments,
+                errors,
+            );
             slotErrors.value = shiftSlotErrors(submitted, errors);
             breakErrors.value = shiftBreakErrors(submittedBreaks, errors);
             if (
                 Object.keys(errors).some(
                     (key) =>
-                        key.startsWith('slots') || key.startsWith('breaks'),
+                        key.startsWith('slots') ||
+                        key.startsWith('breaks') ||
+                        key.startsWith('assignments'),
                 )
             ) {
                 showFormError(errors);
@@ -128,6 +257,13 @@ const clearSlotError = (key, field) => {
                 role="status"
             >
                 {{ $t('team.scheduling.no_locations') }}
+            </p>
+            <p
+                v-if="form.errors.copy || form.errors.assignments"
+                class="mb-4 text-sm text-danger"
+                role="alert"
+            >
+                {{ form.errors.copy || form.errors.assignments }}
             </p>
             <form
                 id="create-shift-form"
@@ -257,7 +393,17 @@ const clearSlotError = (key, field) => {
                 </Card>
             </form>
             <Card class="mt-4">
+                <CopiedShiftRoster
+                    v-if="form.copy"
+                    ref="rosterEditor"
+                    :draft="form"
+                    :errors="assignmentErrors"
+                    :busy="form.processing"
+                    @update="updateAssignment"
+                    @remove="removeAssignment"
+                />
                 <ShiftRoster
+                    v-else
                     :shift="draftRoster"
                     :empty-text="$t('team.scheduling.assignments.create_first')"
                 />
@@ -282,7 +428,7 @@ const clearSlotError = (key, field) => {
         <footer
             class="fixed right-0 bottom-0 left-0 z-20 border-t border-line bg-ground lg:left-[var(--app-sidebar-width)]"
         >
-            <div class="container mx-auto px-4 md:px-6 xl:px-0">
+            <div class="container mx-auto px-4 md:px-6">
                 <div
                     class="mx-auto flex max-w-6xl items-center justify-between gap-3 py-4 xl:max-w-none"
                 >

@@ -8,6 +8,7 @@ use App\Http\Requests\Team\DestroyShiftRequest;
 use App\Http\Requests\Team\ShowShiftRequest;
 use App\Http\Requests\Team\StoreShiftRequest;
 use App\Http\Requests\Team\UpdateShiftRequest;
+use App\Http\Resources\ShiftCopyResource;
 use App\Http\Resources\ShiftResource;
 use App\Models\Event;
 use App\Models\Shift;
@@ -40,13 +41,19 @@ class ShiftController extends Controller
             $data['location_id'] = (int) $data['location_id'];
         }
 
+        $prefill = array_intersect_key($data, array_flip(['location_id', 'starts_at', 'ends_at']));
+        if (isset($data['copy'])) {
+            $source = $event->shifts()->with(['event', 'breaks', 'roleSlots.role', 'assignments.role', 'assignments.teamEngagement.person'])->findOrFail($data['copy']);
+            $prefill = (new ShiftCopyResource($source))->resolve($request);
+        }
+
         return Inertia::render('Team/CreateShift', [
             'event' => $event->only('id', 'name'),
             'locations' => $this->locations->optionsFor($event),
             'roles' => ShiftSlotReferences::options(),
             'labelColors' => LabelColors::ALL,
             'breakOptions' => ShiftBreaks::options(),
-            'prefill' => array_intersect_key($data, array_flip(['location_id', 'starts_at', 'ends_at'])),
+            'prefill' => $prefill,
             'returnContext' => ShiftReturnContext::from($data),
         ]);
     }

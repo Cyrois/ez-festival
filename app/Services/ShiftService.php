@@ -6,6 +6,7 @@ use App\Models\Event;
 use App\Models\Shift;
 use App\Support\ShiftAssignmentHours;
 use App\Support\ShiftBreaks;
+use App\Support\ShiftCopyAssignments;
 use App\Support\ShiftSlotReferences;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -26,10 +27,17 @@ class ShiftService
             if ($errors !== []) {
                 throw ValidationException::withMessages($errors);
             }
-            unset($data['slots'], $data['breaks']);
+            $assignments = ShiftCopyAssignments::resolve($event, $data, lock: true);
+            unset($data['slots'], $data['breaks'], $data['assignments'], $data['copy']);
             $shift = $event->shifts()->create($data);
             $this->syncSlots($shift, $slots);
             $this->syncBreaks($shift, $breaks, collect());
+            $createdSlots = $shift->roleSlots()->get()->values();
+            foreach ($assignments as $row) {
+                $slotIndex = $row['slot_index'];
+                unset($row['slot_index']);
+                $shift->assignments()->create([...$row, 'shift_role_slot_id' => $slotIndex === null ? null : $createdSlots[$slotIndex]->id]);
+            }
 
             return $shift;
         });

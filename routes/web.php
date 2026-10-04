@@ -49,6 +49,7 @@ use App\Http\Controllers\Team\SchedulingController as TeamSchedulingController;
 use App\Http\Controllers\Team\ShiftAssignmentController;
 use App\Http\Controllers\Team\ShiftAssignmentOverlapController;
 use App\Http\Controllers\Team\ShiftController as TeamShiftController;
+use App\Http\Controllers\Team\ShiftCopyPreviewController;
 use App\Http\Controllers\Team\ShiftDataTableController as TeamShiftDataTableController;
 use App\Http\Controllers\UiKitController;
 use App\Http\Controllers\VendorCheckInController;
@@ -160,6 +161,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
                 Route::put('forms/{teamForm}', [TeamFormsController::class, 'update'])->name('forms.update');
                 Route::put('events/{event}/groups/{group}', [TeamGroupController::class, 'update'])->name('groups.update');
                 Route::delete('events/{event}/groups/{group}', [TeamGroupController::class, 'destroy'])->name('groups.destroy');
+                Route::post('events/{event}/shifts/copy-preview', [ShiftCopyPreviewController::class, 'store'])->name('shifts.copy-preview');
                 Route::post('events/{event}/shifts', [TeamShiftController::class, 'store'])->name('shifts.store');
                 Route::post('events/{event}/shifts/{shift}/assignments', [ShiftAssignmentController::class, 'store'])->name('shifts.assignments.store');
                 Route::put('events/{event}/shifts/{shift}/assignments/{assignment}', [ShiftAssignmentController::class, 'update'])->name('shifts.assignments.update');

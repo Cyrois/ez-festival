@@ -52,6 +52,14 @@ const form = useForm({
     ...props.returnContext,
 });
 const backHref = computed(() => scheduleReturnHref(props.returnContext));
+const copyHref = computed(
+    () =>
+        '/team/shifts/create?' +
+        new URLSearchParams({
+            copy: props.shift.id,
+            ...props.returnContext,
+        }).toString(),
+);
 const slotErrors = ref({});
 const breakErrors = ref({});
 const breakEditor = ref(null);
@@ -231,19 +239,34 @@ const destroy = () => {
                         {{ $t('team.scheduling.shift_lead') }}
                     </p>
                 </div>
-                <Button
+                <div
                     v-if="canWrite"
-                    type="button"
-                    variant="outline-danger"
-                    class="shrink-0"
-                    @click="openDelete"
+                    class="flex shrink-0 flex-wrap items-center justify-end gap-2"
                 >
-                    <Icon
-                        :name="['fas', 'trash-can']"
-                        size="sm"
-                    />
-                    {{ $t('team.scheduling.actions.delete') }}
-                </Button>
+                    <Button
+                        :href="copyHref"
+                        variant="outline"
+                        :disabled="form.processing"
+                    >
+                        <Icon
+                            :name="['fas', 'copy']"
+                            size="sm"
+                        />
+                        {{ $t('team.scheduling.actions.copy') }}
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline-danger"
+                        class="shrink-0"
+                        @click="openDelete"
+                    >
+                        <Icon
+                            :name="['fas', 'trash-can']"
+                            size="sm"
+                        />
+                        {{ $t('team.scheduling.actions.delete') }}
+                    </Button>
+                </div>
             </header>
 
             <p
@@ -503,7 +526,7 @@ const destroy = () => {
             v-if="canWrite"
             class="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-ground py-4 lg:left-[var(--app-sidebar-width)]"
         >
-            <div class="container mx-auto px-4 md:px-6 xl:px-0">
+            <div class="container mx-auto px-4 md:px-6">
                 <div
                     class="mx-auto flex max-w-6xl items-center justify-between gap-3 xl:max-w-none"
                 >
