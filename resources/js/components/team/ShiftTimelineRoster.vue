@@ -48,11 +48,24 @@ onMounted(() => {
 });
 onUnmounted(() => observer?.disconnect());
 const rows = computed(() => scheduleRosterRows(props.shift));
-const ticks = computed(() => shiftTimelineTicks(props.shift));
+const timelinePadding = 30;
+const bounds = computed(() => ({
+    starts_at: new Date(
+        (timelineMinute(props.shift.starts_at) - timelinePadding) * 60000,
+    )
+        .toISOString()
+        .slice(0, 16),
+    ends_at: new Date(
+        (timelineMinute(props.shift.ends_at) + timelinePadding) * 60000,
+    )
+        .toISOString()
+        .slice(0, 16),
+}));
+const ticks = computed(() => shiftTimelineTicks(bounds.value));
 const duration = computed(
     () =>
-        timelineMinute(props.shift.ends_at) -
-        timelineMinute(props.shift.starts_at),
+        timelineMinute(bounds.value.ends_at) -
+        timelineMinute(bounds.value.starts_at),
 );
 const personWidth = computed(() =>
     width.value && width.value < 600 ? 144 : 240,
@@ -67,9 +80,12 @@ const tokens = computed(
     () => labelTokens[props.shift.color] ?? labelTokens[fallbackLabelToken],
 );
 const geometry = (interval) => ({
-    '--bar-start': `${(interval.start / duration.value) * 100}%`,
+    '--bar-start': `${((interval.start + timelinePadding) / duration.value) * 100}%`,
     '--bar-width': `${((interval.end - interval.start) / duration.value) * 100}%`,
 });
+const shiftInterval = computed(() =>
+    timelineIntersection(props.shift, props.shift),
+);
 const personInterval = (assignment) =>
     timelineIntersection(assignment, props.shift);
 const shortBar = (assignment) => {
@@ -148,8 +164,8 @@ const assignmentTitle = (assignment) =>
                     >
                     <TableHead class="p-0 normal-case">
                         <div
-                            class="relative h-14 w-[var(--timeline-width)]"
-                            :aria-label="shiftHoursLabel(shift)"
+                            class="relative h-10 w-[var(--timeline-width)]"
+                            :aria-label="shiftHoursLabel(bounds)"
                         >
                             <div
                                 v-for="(tick, index) in ticks"
@@ -199,7 +215,7 @@ const assignmentTitle = (assignment) =>
             <TableBody>
                 <TableRow>
                     <TableCell
-                        class="sticky left-0 z-10 border-r border-line bg-ground px-3"
+                        class="sticky left-0 z-10 border-r border-line bg-ground px-3 py-2"
                     >
                         <div class="w-[calc(var(--person-width)-1.5rem)]">
                             <p
@@ -219,10 +235,11 @@ const assignmentTitle = (assignment) =>
                     </TableCell>
                     <TableCell class="p-0">
                         <div
-                            class="relative flex min-h-20 w-[var(--timeline-width)] items-center"
+                            class="relative flex min-h-16 w-[var(--timeline-width)] items-center"
                         >
                             <div
-                                class="flex h-7 w-full items-center gap-2 overflow-hidden rounded-lg border px-3 text-xs font-semibold"
+                                class="absolute left-[var(--bar-start)] flex h-7 w-[var(--bar-width)] items-center gap-2 overflow-hidden rounded-lg border px-3 text-xs font-semibold"
+                                :style="geometry(shiftInterval)"
                                 :class="tokens.solid"
                                 data-roster-summary
                             >
@@ -248,7 +265,7 @@ const assignmentTitle = (assignment) =>
                     </TableCell>
                     <TableCell
                         v-if="canManage"
-                        class="sticky right-0 z-10 border-l border-line bg-ground px-2"
+                        class="sticky right-0 z-10 border-l border-line bg-ground px-2 py-2"
                     />
                 </TableRow>
                 <TableRow
@@ -258,11 +275,13 @@ const assignmentTitle = (assignment) =>
                     :class="
                         row.assignment?.overlaps.length
                             ? 'bg-warning/10 hover:bg-warning/10'
-                            : ''
+                            : !row.assignment
+                              ? 'hover:bg-transparent'
+                              : ''
                     "
                 >
                     <TableCell
-                        class="sticky left-0 z-10 border-r border-line bg-ground px-3"
+                        class="sticky left-0 z-10 border-r border-line bg-ground px-3 py-2"
                     >
                         <div
                             class="flex w-[calc(var(--person-width)-1.5rem)] items-center gap-2 rounded-lg"
@@ -331,7 +350,7 @@ const assignmentTitle = (assignment) =>
                     </TableCell>
                     <TableCell class="p-0">
                         <div
-                            class="relative isolate h-18 w-[var(--timeline-width)]"
+                            class="relative isolate h-14 w-[var(--timeline-width)]"
                         >
                             <div
                                 class="pointer-events-none absolute inset-0"
@@ -353,7 +372,7 @@ const assignmentTitle = (assignment) =>
                                 "
                             >
                                 <div
-                                    class="absolute top-6 left-[var(--bar-start)] h-7 w-[var(--bar-width)] rounded-lg border"
+                                    class="absolute top-3 left-[var(--bar-start)] h-7 w-[var(--bar-width)] rounded-lg border"
                                     :class="
                                         row.assignment.overlaps.length
                                             ? 'border-warning/30 bg-warning/20'
@@ -384,14 +403,14 @@ const assignmentTitle = (assignment) =>
                                         shift,
                                     )"
                                     :key="index"
-                                    class="pointer-events-none absolute top-6 left-[var(--bar-start)] h-7 w-[var(--bar-width)] rounded-lg bg-[repeating-linear-gradient(135deg,transparent,transparent_4px,currentColor_4px,currentColor_6px)] text-warning opacity-40"
+                                    class="pointer-events-none absolute top-3 left-[var(--bar-start)] h-7 w-[var(--bar-width)] rounded-lg bg-[repeating-linear-gradient(135deg,transparent,transparent_4px,currentColor_4px,currentColor_6px)] text-warning opacity-40"
                                     :style="geometry(overlap)"
                                     aria-hidden="true"
                                     data-overlap-hatch
                                 />
                                 <span
                                     v-if="shortBar(row.assignment)"
-                                    class="absolute top-1 left-[var(--bar-start)] z-10 max-w-64 truncate text-xs font-semibold"
+                                    class="absolute top-0 left-[var(--bar-start)] z-10 max-w-64 truncate text-xs font-semibold"
                                     :style="
                                         geometry(personInterval(row.assignment))
                                     "
@@ -404,8 +423,8 @@ const assignmentTitle = (assignment) =>
                                     class="absolute left-[var(--bar-start)] z-10 w-[var(--bar-width)] truncate px-2 text-right text-xs text-warning"
                                     :class="
                                         shortBar(row.assignment)
-                                            ? 'top-14'
-                                            : 'top-7'
+                                            ? 'top-10'
+                                            : 'top-4'
                                     "
                                     :style="
                                         geometry(
@@ -438,52 +457,47 @@ const assignmentTitle = (assignment) =>
                                     assignmentTitle(row.assignment)
                                 }}</span>
                             </template>
-                            <div
+                            <Button
                                 v-else
-                                class="absolute inset-x-0 top-5 flex h-8 items-center gap-2 rounded-lg border border-dashed border-line px-2 text-xs text-muted"
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                class="absolute top-3 left-[var(--bar-start)] flex h-8 w-[var(--bar-width)] justify-between gap-3 rounded-lg border border-dashed border-line bg-ground px-2 text-xs font-semibold text-charcoal transition-colors"
+                                :class="
+                                    enabled
+                                        ? [
+                                              tokens.unfilledHover,
+                                              'group hover:border-solid',
+                                          ]
+                                        : []
+                                "
+                                :style="geometry(shiftInterval)"
+                                :disabled="!enabled"
+                                :title="disabledReason"
                                 data-open-bar
+                                @click="enabled && $emit('assign', row.slot)"
                             >
-                                <span>{{
+                                <span class="min-w-0 truncate">{{
                                     $t('team.scheduling.roster.open_role', {
                                         role: row.slot.role_name,
                                     })
                                 }}</span>
                                 <span
-                                    :title="disabledReason"
-                                    :tabindex="
-                                        !enabled && disabledReason
-                                            ? 0
-                                            : undefined
-                                    "
-                                    :aria-label="
-                                        !enabled ? disabledReason : undefined
-                                    "
+                                    class="ml-auto inline-flex shrink-0 items-center gap-2 text-xs font-bold text-primary transition-colors group-hover:text-primary-hover group-hover:underline group-focus-visible:text-primary-hover group-focus-visible:underline"
                                 >
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
+                                    <Icon
+                                        :name="['fas', 'plus']"
                                         size="sm"
-                                        :disabled="!enabled"
-                                        :title="disabledReason"
-                                        @click="
-                                            enabled && $emit('assign', row.slot)
-                                        "
-                                        ><Icon
-                                            :name="['fas', 'plus']"
-                                            size="sm"
-                                        />{{
-                                            $t(
-                                                'team.scheduling.assignments.assign',
-                                            )
-                                        }}</Button
-                                    >
+                                    />{{
+                                        $t('team.scheduling.assignments.assign')
+                                    }}
                                 </span>
-                            </div>
+                            </Button>
                         </div>
                     </TableCell>
                     <TableCell
                         v-if="canManage"
-                        class="sticky right-0 z-10 border-l border-line bg-ground px-2"
+                        class="sticky right-0 z-10 border-l border-line bg-ground px-2 py-2"
                     >
                         <span
                             v-if="row.assignment"
