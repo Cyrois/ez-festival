@@ -47,7 +47,7 @@ class EngagementPersonService
 
             $relation = $this->peopleRelation($engagement);
             abort_unless($relation->whereKey($person->id)->exists(), 404);
-            $this->people->updateProfile($person, $data);
+            $this->people->updateContactProfile($person, $engagement, $data);
 
             if (($data['is_primary'] ?? false) === true) {
                 $relation->updateExistingPivot($relation->allRelatedIds(), ['is_primary' => false]);

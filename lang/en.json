@@ -1513,5 +1513,6 @@
     "team.scheduling.assignments.errors.stale_roster": "This roster changed. Reload the shift and try again.",
     "team.scheduling.assignments.apply_hours": "Apply hours",
     "team.scheduling.assignments.draft_hint": "Click Save at the bottom of the page to save your roster changes.",
-    "team.scheduling.roster.outside_bounds": "These hours are outside the shift. Adjust the hours before saving."
+    "team.scheduling.roster.outside_bounds": "These hours are outside the shift. Adjust the hours before saving.",
+    "contacts.errors.shared_profile": "This profile is shared. Update it in Account or Global Team."
 }
