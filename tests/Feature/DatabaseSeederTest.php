@@ -21,7 +21,7 @@ class DatabaseSeederTest extends TestCase
 
         Person::query()
             ->whereIn('name', ['Calvin Kyle Chan', 'Maya Chen', 'Priya Nair', 'Morgan West'])
-            ->update(['email' => 'stale@example.test']);
+            ->each(fn (Person $person) => $person->update(['email' => 'stale-'.$person->id.'@example.test']));
 
         $this->artisan('db:seed')->assertSuccessful();
 

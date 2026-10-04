@@ -14,6 +14,7 @@ use App\Services\EventService;
 use App\Services\GlobalTeamService;
 use App\Services\PassAssignmentService;
 use App\Services\PassTypeService;
+use App\Services\PersonService;
 use App\Services\TeamEngagementService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
@@ -131,6 +132,39 @@ class PostgresWriteConcurrencyTest extends TestCase
         $this->assertSame(['committed', 'committed'], array_column($results, 'status'), json_encode($results));
         $this->assertSame('events', $results[1]['first_lock']);
         $this->assertSame('Global Edit', $person->fresh()->name);
+    }
+
+    public function test_cross_event_contact_creation_reuses_one_canonical_person(): void
+    {
+        [$event] = $this->context();
+        $other = Event::create(['name' => 'Other', 'starts_on' => '2027-06-01', 'ends_on' => '2027-06-03', 'timezone' => 'UTC']);
+        $barrier = tempnam(sys_get_temp_dir(), 'ez-identity-race-');
+        $operation = function (Event $scope, int $worker) use ($barrier): void {
+            DB::listen(function ($query) use ($barrier, $worker): void {
+                if (! str_contains($query->sql, 'lower(trim(email))')) {
+                    return;
+                }
+                touch($barrier.'.'.$worker);
+                $deadline = microtime(true) + 4;
+                while (! is_file($barrier.'.'.(1 - $worker)) && microtime(true) < $deadline) {
+                    usleep(10000);
+                    clearstatcache();
+                }
+            });
+            DB::transaction(function () use ($scope, $worker): void {
+                Event::query()->lockForUpdate()->findOrFail($scope->id);
+                app(PersonService::class)->findOrCreateByEmail(['name' => 'Worker '.$worker, 'email' => 'race@example.test']);
+            });
+        };
+        try {
+            $results = $this->concurrently(fn () => $operation($event, 0), fn () => $operation($other, 1));
+            $this->assertSame(['committed', 'committed'], array_column($results, 'status'), json_encode($results));
+            $this->assertSame(1, Person::where('email', 'race@example.test')->count());
+        } finally {
+            foreach (glob($barrier.'*') as $file) {
+                unlink($file);
+            }
+        }
     }
 
     private function context(): array

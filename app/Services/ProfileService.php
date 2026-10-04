@@ -14,7 +14,7 @@ class ProfileService
     {
         DB::transaction(function () use ($person, $data): void {
             $person = Person::query()->lockForUpdate()->findOrFail($person->id);
-            $email = app(PersonService::class)->normalizeEmail($data['email'] ?? $person->email);
+            $email = app(PersonService::class)->normalizeEmail(array_key_exists('email', $data) ? $data['email'] : $person->email);
             if ($email !== null && (Person::query()->whereKeyNot($person->id)->whereRaw('lower(email) = ?', [$email])->exists()
                 || User::query()->where('person_id', '!=', $person->id)->whereRaw('lower(email) = ?', [$email])->exists())) {
                 throw ValidationException::withMessages(['email' => __('validation.unique', ['attribute' => 'email'])]);

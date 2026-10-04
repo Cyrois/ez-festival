@@ -148,20 +148,13 @@ class VendorService
         $relation->detach(array_diff($existingIds, $submittedIds));
 
         foreach ($people as $index => $data) {
+            $profiles = app(PersonService::class);
             $person = isset($data['id'])
                 ? Person::query()->findOrFail($data['id'])
-                : Person::query()->create([
-                    'name' => $data['name'],
-                    'email' => $data['email'] ?: null,
-                    'phone' => $data['phone'] ?: null,
-                ]);
+                : $profiles->findOrCreateByEmail($data);
 
             if (isset($data['id'])) {
-                $person->update([
-                    'name' => $data['name'],
-                    'email' => $data['email'] ?: null,
-                    'phone' => $data['phone'] ?: null,
-                ]);
+                $profiles->updateContactProfile($person, $engagement, $data);
             }
 
             $relation->syncWithoutDetaching([

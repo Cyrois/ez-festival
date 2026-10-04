@@ -11,7 +11,7 @@ class PersonServiceTest extends TestCase
 {
     use LazilyRefreshDatabase;
 
-    public function test_find_or_create_by_email_updates_name_and_phone_for_existing_person(): void
+    public function test_find_or_create_by_email_preserves_existing_canonical_profile(): void
     {
         $person = Person::query()->create([
             'name' => 'Old Name',
@@ -29,9 +29,9 @@ class PersonServiceTest extends TestCase
         $this->assertDatabaseCount('people', 1);
         $this->assertDatabaseHas('people', [
             'id' => $person->id,
-            'name' => 'New Name',
+            'name' => 'Old Name',
             'email' => 'alex@example.com',
-            'phone' => '222',
+            'phone' => '111',
         ]);
     }
 

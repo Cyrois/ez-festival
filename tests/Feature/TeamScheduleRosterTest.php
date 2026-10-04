@@ -73,7 +73,7 @@ class TeamScheduleRosterTest extends TestCase
             ->where('shift.assignments', $roster->json('data.0.assignments'))->where('shift.slots', $roster->json('data.0.slots')));
         $this->assertSame($expected->assignments->pluck('is_extra')->all(), array_column($roster->json('data.0.assignments'), 'is_extra'));
         $this->assertDoesNotMatchRegularExpression('/"(?:email|phone|hourly_pay|pay|team_engagement_id)"/', $roster->getContent());
-        $roster->assertDontSee('private@example.test', false);
+        $roster->assertDontSee('@example.test', false);
     }
 
     public function test_only_selected_location_day_and_event_with_overnight_people_retained_on_both_days(): void
@@ -159,7 +159,7 @@ class TeamScheduleRosterTest extends TestCase
 
     private function member(string $name): TeamEngagement
     {
-        $person = Person::create(['name' => $name, 'email' => 'private@example.test']);
+        $person = Person::create(['name' => $name, 'email' => 'private-'.mb_strtolower(str_replace(' ', '-', $name)).'@example.test']);
 
         return TeamEngagement::create(['event_id' => $this->event->id, 'person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
     }
