@@ -1,4 +1,5 @@
 <script setup>
+import { CardTitle } from '../ui/card';
 import TeamPassCard from './TeamPassCard.vue';
 import { Button } from '../ui/button';
 import { CustomDropdown } from '../ui/custom-dropdown';
@@ -79,9 +80,9 @@ const removePass = (index) => {
     <section>
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
-                <h2 class="m-0 text-xl font-bold text-muted">
+                <CardTitle>
                     {{ $t('team.member.passes.title') }}
-                </h2>
+                </CardTitle>
                 <p class="mt-1 mb-0 text-xs text-muted">
                     {{ $t('team.member.passes.description') }}
                 </p>

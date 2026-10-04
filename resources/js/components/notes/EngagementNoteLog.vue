@@ -1,6 +1,6 @@
 <script setup>
 import { Button } from '../ui/button';
-import { Card } from '../ui/card';
+import { Card, CardTitle } from '../ui/card';
 import { FormField } from '../ui/form-field';
 import { Icon } from '../ui/icon';
 import { Textarea } from '../ui/textarea';
@@ -76,9 +76,9 @@ const formatNoteTime = (iso) => {
 <template>
     <Card>
         <div class="flex items-start justify-between gap-3">
-            <h2 class="m-0 text-xl font-bold tracking-tight text-muted">
+            <CardTitle>
                 {{ $t(translationKey('note_log')) }}
-            </h2>
+            </CardTitle>
             <Button
                 v-if="canWrite"
                 size="sm"

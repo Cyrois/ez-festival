@@ -1,7 +1,7 @@
 <script setup>
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { Card } from '../ui/card';
+import { Card, CardTitle } from '../ui/card';
 import { FormField } from '../ui/form-field';
 import { Icon } from '../ui/icon';
 import { IconButton } from '../ui/icon-button';
@@ -181,9 +181,9 @@ onUnmounted(() => window.clearInterval(clock));
 <template>
     <Card>
         <div class="flex items-start justify-between gap-3">
-            <h2 class="m-0 text-xl font-bold tracking-tight text-muted">
+            <CardTitle>
                 {{ $t('team.member.note_log') }}
-            </h2>
+            </CardTitle>
             <Button
                 v-if="canWrite"
                 type="button"

@@ -1,7 +1,7 @@
 <script setup>
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Button } from '../../components/ui/button';
-import { Card } from '../../components/ui/card';
+import { Card, CardTitle } from '../../components/ui/card';
 import { CustomDropdown } from '../../components/ui/custom-dropdown';
 import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
@@ -207,9 +207,9 @@ const formatWhen = (value) =>
                 @submit.prevent="submit"
             >
                 <Card class="p-5 sm:p-6">
-                    <h2 class="m-0 text-lg font-bold">
+                    <CardTitle>
                         {{ $t('credentials.entitlements.details.title') }}
-                    </h2>
+                    </CardTitle>
                     <p class="mt-1 mb-5 text-sm text-muted">
                         {{ $t('credentials.entitlements.details.lead') }}
                     </p>

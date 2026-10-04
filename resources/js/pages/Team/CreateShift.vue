@@ -3,7 +3,7 @@ import { ColorPicker } from '../../components/ui/color-picker';
 import { computed, ref } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import AppLayout from '../../layouts/AppLayout.vue';
-import { Card } from '../../components/ui/card';
+import { Card, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { trans } from 'laravel-vue-i18n';
 import { CustomDropdown } from '../../components/ui/custom-dropdown';
@@ -136,9 +136,9 @@ const clearSlotError = (key, field) => {
                 @submit.prevent="submit"
             >
                 <Card class="min-w-0">
-                    <h2 class="m-0 mb-4 text-xl font-bold text-muted">
+                    <CardTitle class="mb-4">
                         {{ $t('team.scheduling.shift_section') }}
-                    </h2>
+                    </CardTitle>
                     <div class="space-y-4">
                         <FormField
                             :label="$t('team.scheduling.fields.name')"

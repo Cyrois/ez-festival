@@ -4,7 +4,7 @@ import AppLayout from '../../layouts/AppLayout.vue';
 import EngagementNoteLog from '../../components/notes/EngagementNoteLog.vue';
 import { Avatar } from '../../components/ui/avatar';
 import { Button } from '../../components/ui/button';
-import { Card } from '../../components/ui/card';
+import { Card, CardTitle } from '../../components/ui/card';
 import EngagementPeoplePanel from '../../components/people/EngagementPeoplePanel.vue';
 import PassAssignmentsPanel from '../../components/credentials/PassAssignmentsPanel.vue';
 import { FormField } from '../../components/ui/form-field';
@@ -101,9 +101,9 @@ const submit = () => {
 
             <div class="grid items-stretch gap-4 lg:grid-cols-2">
                 <Card>
-                    <h2 class="m-0 text-xl font-bold text-muted">
+                    <CardTitle>
                         {{ $t('artists.details') }}
-                    </h2>
+                    </CardTitle>
                     <p class="mt-1 mb-4 text-xs text-muted">
                         {{ $t('artists.details_hint') }}
                     </p>
@@ -241,9 +241,9 @@ const submit = () => {
 
             <Card class="mt-4">
                 <div class="flex items-start justify-between gap-3">
-                    <h2 class="m-0 text-xl font-bold text-muted">
+                    <CardTitle>
                         {{ $t('artists.custom_fields') }}
-                    </h2>
+                    </CardTitle>
                     <IconButton
                         v-if="$page.props.auth.user.is_admin"
                         href="/settings/custom-fields"
@@ -272,9 +272,9 @@ const submit = () => {
             </Card>
 
             <Card class="mt-4">
-                <h2 class="m-0 text-xl font-bold text-muted">
+                <CardTitle>
                     {{ $t('artists.contracts_phase') }}
-                </h2>
+                </CardTitle>
                 <div
                     class="mt-3 rounded-lg border border-dashed border-line bg-page p-5 text-center text-sm text-muted"
                 >

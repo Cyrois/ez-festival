@@ -15,7 +15,7 @@ import {
     shiftSlotErrors,
 } from '../../lib/shiftRoleSlots';
 import { Button } from '../../components/ui/button';
-import { Card } from '../../components/ui/card';
+import { Card, CardTitle } from '../../components/ui/card';
 import { CustomDropdown } from '../../components/ui/custom-dropdown';
 import { Dialog } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/form-field';
@@ -262,9 +262,9 @@ const destroy = () => {
                 @submit.prevent="submit"
             >
                 <Card class="min-w-0">
-                    <h2 class="m-0 mb-4 text-xl font-bold text-muted">
+                    <CardTitle class="mb-4">
                         {{ $t('team.scheduling.shift_section') }}
-                    </h2>
+                    </CardTitle>
 
                     <dl
                         v-if="!canWrite"

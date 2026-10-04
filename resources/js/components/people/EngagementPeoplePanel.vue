@@ -1,4 +1,5 @@
 <script setup>
+import { CardTitle } from '../ui/card';
 import HiddenPersonalInfo from './HiddenPersonalInfo.vue';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
@@ -77,9 +78,9 @@ const remove = (person) => {
     <section>
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
-                <h2 class="m-0 text-lg font-semibold text-charcoal">
+                <CardTitle>
                     {{ $t('people.title') }}
-                </h2>
+                </CardTitle>
                 <p class="mt-1 mb-0 text-xs text-muted">
                     {{ $t('people.lead') }}
                 </p>

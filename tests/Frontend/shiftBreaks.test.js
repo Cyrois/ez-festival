@@ -94,9 +94,16 @@ const iconButtonUrl = await compile(
         ],
     ],
 );
+const cardTitleUrl = await compile(
+    '../../resources/js/components/ui/card/CardTitle.vue',
+);
 const componentUrl = await compile(
     '../../resources/js/components/team/ShiftBreaks.vue',
     [
+        [
+            /import \{ CardTitle \} from ['"].*?['"];?/,
+            `import CardTitle from '${cardTitleUrl}';`,
+        ],
         [
             /import \{ Button \} from ['"].*?['"];?/,
             `import Button from '${buttonUrl}';`,

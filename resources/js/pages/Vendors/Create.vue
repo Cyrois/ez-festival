@@ -1,7 +1,7 @@
 <script setup>
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Button } from '../../components/ui/button';
-import { Card } from '../../components/ui/card';
+import { Card, CardTitle } from '../../components/ui/card';
 import { Checkbox } from '../../components/ui/checkbox';
 import { FormField } from '../../components/ui/form-field';
 import { Input } from '../../components/ui/input';
@@ -124,9 +124,9 @@ const submit = () =>
 
                 <Card v-if="customFields.length > 0">
                     <template #header>
-                        <h2 class="m-0 text-base font-semibold text-charcoal">
+                        <CardTitle>
                             {{ $t('vendors.custom_fields.title') }}
-                        </h2>
+                        </CardTitle>
                         <p class="mt-1 mb-0 text-sm text-muted">
                             {{ $t('vendors.custom_fields.lead') }}
                         </p>

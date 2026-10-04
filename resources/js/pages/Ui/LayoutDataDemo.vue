@@ -6,7 +6,7 @@ import { Badge } from '../../components/ui/badge';
 import { Avatar } from '../../components/ui/avatar';
 import { Tabs, TabList, Tab, TabPanel } from '../../components/ui/tabs';
 import { SegmentedControl } from '../../components/ui/segmented-control';
-import { Card } from '../../components/ui/card';
+import { Card, CardTitle } from '../../components/ui/card';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Icon } from '../../components/ui/icon';
 import { DataTable } from '../../components/ui/data-table';
@@ -161,19 +161,31 @@ const dataTableOptions = {
         <p class="m-0 mb-4 text-xs text-muted">
             {{ $t('ui.demo.cards_lead') }}
         </p>
-        <Card
-            :title="$t('ui.demo.card.title')"
-            class="max-w-md"
-        >
-            <p class="m-0 text-sm text-muted">
-                {{ $t('ui.demo.card.body') }}
-            </p>
-            <template #footer>
-                <p class="m-0 text-xs text-muted">
-                    {{ $t('ui.demo.card.footer') }}
+        <div class="grid max-w-3xl gap-4 sm:grid-cols-2">
+            <Card :title="$t('ui.demo.card.title')">
+                <p class="m-0 text-sm text-muted">
+                    {{ $t('ui.demo.card.body') }}
                 </p>
-            </template>
-        </Card>
+                <template #footer>
+                    <p class="m-0 text-xs text-muted">
+                        {{ $t('ui.demo.card.footer') }}
+                    </p>
+                </template>
+            </Card>
+            <Card>
+                <template #header>
+                    <CardTitle>{{ $t('ui.demo.card.title') }}</CardTitle>
+                </template>
+                <p class="m-0 text-sm text-muted">
+                    {{ $t('ui.demo.card.body') }}
+                </p>
+                <template #footer>
+                    <p class="m-0 text-xs text-muted">
+                        {{ $t('ui.demo.card.footer') }}
+                    </p>
+                </template>
+            </Card>
+        </div>
     </section>
 
     <section class="mb-4 rounded-xl border border-line bg-ground px-5 py-5">
