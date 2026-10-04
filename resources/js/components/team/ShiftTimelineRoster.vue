@@ -387,12 +387,12 @@ const resizeKey = (event, assignment, edge) => {
                         class="sticky left-0 z-10 border-r border-line bg-ground px-3 py-2"
                     >
                         <div
-                            class="flex w-[calc(var(--person-width)-1.5rem)] items-center gap-2 rounded-lg"
-                            :class="
-                                row.assignment?.overlaps.length
-                                    ? 'bg-warning/10'
-                                    : ''
-                            "
+                            v-if="row.assignment?.overlaps.length"
+                            class="pointer-events-none absolute inset-0 bg-warning/10"
+                            aria-hidden="true"
+                        />
+                        <div
+                            class="relative flex w-[calc(var(--person-width)-1.5rem)] items-center gap-2"
                         >
                             <Avatar
                                 v-if="row.assignment"
@@ -439,6 +439,15 @@ const resizeKey = (event, assignment, edge) => {
                                     }}
                                 </p>
                             </div>
+                            <span
+                                v-if="row.assignment?.overlaps.length"
+                                class="ml-auto shrink-0 text-warning"
+                                :title="warningDetails(row.assignment)"
+                                :aria-label="warningDetails(row.assignment)"
+                                role="img"
+                            >
+                                <Icon :name="['fas', 'triangle-exclamation']" />
+                            </span>
                         </div>
                     </TableCell>
                     <TableCell class="p-0">
