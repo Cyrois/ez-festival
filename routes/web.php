@@ -11,6 +11,7 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\TemporaryPasswordController;
 use App\Http\Controllers\CheckInController;
 use App\Http\Controllers\Credentials\EntitlementItemController;
+use App\Http\Controllers\Credentials\IssuedEntitlementController;
 use App\Http\Controllers\Credentials\PassTypeController;
 use App\Http\Controllers\Credentials\ProductsController;
 use App\Http\Controllers\CurrentEventController;
@@ -189,6 +190,8 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             ->name('credentials.entitlements');
         Route::get('credentials/entitlements/{entitlementItem}', [EntitlementItemController::class, 'show'])
             ->name('credentials.entitlements.show');
+        Route::get('credentials/entitlements/{entitlementItem}/issued', [IssuedEntitlementController::class, 'index'])
+            ->middleware('can:view-credentials')->name('credentials.entitlements.issued');
         Route::get('credentials/entitlements/{entitlementItem}/edit', [EntitlementItemController::class, 'edit'])
             ->name('credentials.entitlements.edit');
         Route::post('events/{event}/credentials/entitlements', [EntitlementItemController::class, 'store'])

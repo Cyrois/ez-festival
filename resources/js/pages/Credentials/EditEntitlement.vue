@@ -2,6 +2,7 @@
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Button } from '../../components/ui/button';
 import { Card, CardTitle } from '../../components/ui/card';
+import { DataTable } from '../../components/ui/data-table';
 import { CustomDropdown } from '../../components/ui/custom-dropdown';
 import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
@@ -32,7 +33,6 @@ const props = defineProps({
     labelColors: { type: Array, default: () => [] },
     stats: { type: Object, required: true },
     locations: { type: Array, default: () => [] },
-    issued_log: { type: Array, default: () => [] },
     pass_usage: { type: Array, default: () => [] },
     locations_for_adjust: { type: Array, default: () => [] },
     adjust_location_id: { type: Number, default: null },
@@ -40,6 +40,38 @@ const props = defineProps({
     is_read_only: { type: Boolean, default: false },
 });
 /* eslint-enable vue/prop-name-casing */
+
+const issuedColumns = computed(() => [
+    {
+        data: 'when',
+        title: trans('credentials.entitlements.view.table.when'),
+        render: { display: '#whenCell' },
+    },
+    {
+        data: 'pass_name',
+        title: trans('credentials.entitlements.view.table.pass'),
+        render: { display: '#passCell' },
+    },
+    {
+        data: 'code',
+        title: trans('credentials.entitlements.view.table.code'),
+        render: { display: '#codeCell' },
+    },
+    {
+        data: null,
+        title: trans('credentials.entitlements.view.table.issued_by'),
+        render: { display: '#byCell' },
+    },
+]);
+const issuedOptions = computed(() => ({
+    serverSide: true,
+    ordering: false,
+    pageLength: 25,
+    lengthMenu: [10, 25, 50],
+    language: {
+        emptyTable: trans('credentials.entitlements.view.issued_empty'),
+    },
+}));
 
 const form = useForm({
     name: props.item.name,
@@ -411,58 +443,29 @@ const formatWhen = (value) =>
                 <p class="mt-1 mb-3 text-sm text-muted">
                     {{ $t('credentials.entitlements.view.issued_lead') }}
                 </p>
-                <Table>
-                    <TableHeader>
-                        <TableRow variant="header">
-                            <TableHead>{{
-                                $t('credentials.entitlements.view.table.when')
-                            }}</TableHead>
-                            <TableHead>{{
-                                $t('credentials.entitlements.view.table.pass')
-                            }}</TableHead>
-                            <TableHead>{{
-                                $t('credentials.entitlements.view.table.code')
-                            }}</TableHead>
-                            <TableHead>{{
-                                $t(
-                                    'credentials.entitlements.view.table.issued_by',
-                                )
-                            }}</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        <TableRow
-                            v-for="issue in issued_log"
-                            :key="issue.id"
-                        >
-                            <TableCell>{{ formatWhen(issue.when) }}</TableCell>
-                            <TableCell>{{
-                                issue.pass_name ??
-                                $t('credentials.entitlements.view.not_recorded')
-                            }}</TableCell>
-                            <TableCell class="font-mono">{{
-                                issue.code ??
-                                $t('credentials.entitlements.view.not_recorded')
-                            }}</TableCell>
-                            <TableCell>{{
-                                issue.issued_by?.name ??
-                                $t('credentials.entitlements.view.not_recorded')
-                            }}</TableCell>
-                        </TableRow>
-                        <TableRow v-if="issued_log.length === 0">
-                            <TableCell
-                                colspan="4"
-                                class="py-8 text-center text-sm text-muted"
-                            >
-                                {{
-                                    $t(
-                                        'credentials.entitlements.view.issued_empty',
-                                    )
-                                }}
-                            </TableCell>
-                        </TableRow>
-                    </TableBody>
-                </Table>
+                <DataTable
+                    :ajax="`/credentials/entitlements/${item.id}/issued`"
+                    :columns="issuedColumns"
+                    :options="issuedOptions"
+                >
+                    <template #whenCell="{ cellData }">{{
+                        formatWhen(cellData)
+                    }}</template>
+                    <template #passCell="{ cellData }">{{
+                        cellData ??
+                        $t('credentials.entitlements.view.not_recorded')
+                    }}</template>
+                    <template #codeCell="{ cellData }"
+                        ><span class="font-mono">{{
+                            cellData ??
+                            $t('credentials.entitlements.view.not_recorded')
+                        }}</span></template
+                    >
+                    <template #byCell="{ rowData }">{{
+                        rowData.issued_by?.name ??
+                        $t('credentials.entitlements.view.not_recorded')
+                    }}</template>
+                </DataTable>
                 <p class="mt-2 mb-0 text-xs text-muted">
                     {{ $t('credentials.entitlements.view.issued_hint') }}
                 </p>
