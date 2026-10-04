@@ -315,7 +315,7 @@ test('complete roster shows exact bars, open rows, Extras and hours; writable co
             first
                 .querySelector('[data-person-bar]')
                 .style.getPropertyValue('--bar-width'),
-            '10%',
+            `${(30 / 360) * 100}%`,
         );
         assert.ok(
             Math.abs(
@@ -323,10 +323,25 @@ test('complete roster shows exact bars, open rows, Extras and hours; writable co
                     first
                         .querySelector('[data-overlap-hatch]')
                         .style.getPropertyValue('--bar-start'),
-                ) - 55,
+                ) -
+                    (195 / 360) * 100,
             ) < 1e-8,
         );
         assert.ok(first.querySelector('[data-short-label]'));
+        const summary = document.querySelector('[data-roster-summary]');
+        const open = document.querySelector('[data-open-bar]');
+        for (const bar of [summary, open]) {
+            assert.equal(
+                bar.style.getPropertyValue('--bar-start'),
+                `${(30 / 360) * 100}%`,
+            );
+            assert.equal(
+                bar.style.getPropertyValue('--bar-width'),
+                `${(300 / 360) * 100}%`,
+            );
+        }
+        assert.match(document.querySelector('thead').textContent, /20:30/);
+        assert.match(document.querySelector('thead').textContent, /02:30/);
         assert.match(first.textContent, /23:30–2026-10-02 00:00/);
         assert.match(first.textContent, /name=Other minutes=15/);
         assert.match(

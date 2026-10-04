@@ -48,11 +48,24 @@ onMounted(() => {
 });
 onUnmounted(() => observer?.disconnect());
 const rows = computed(() => scheduleRosterRows(props.shift));
-const ticks = computed(() => shiftTimelineTicks(props.shift));
+const timelinePadding = 30;
+const bounds = computed(() => ({
+    starts_at: new Date(
+        (timelineMinute(props.shift.starts_at) - timelinePadding) * 60000,
+    )
+        .toISOString()
+        .slice(0, 16),
+    ends_at: new Date(
+        (timelineMinute(props.shift.ends_at) + timelinePadding) * 60000,
+    )
+        .toISOString()
+        .slice(0, 16),
+}));
+const ticks = computed(() => shiftTimelineTicks(bounds.value));
 const duration = computed(
     () =>
-        timelineMinute(props.shift.ends_at) -
-        timelineMinute(props.shift.starts_at),
+        timelineMinute(bounds.value.ends_at) -
+        timelineMinute(bounds.value.starts_at),
 );
 const personWidth = computed(() =>
     width.value && width.value < 600 ? 144 : 240,
@@ -67,9 +80,12 @@ const tokens = computed(
     () => labelTokens[props.shift.color] ?? labelTokens[fallbackLabelToken],
 );
 const geometry = (interval) => ({
-    '--bar-start': `${(interval.start / duration.value) * 100}%`,
+    '--bar-start': `${((interval.start + timelinePadding) / duration.value) * 100}%`,
     '--bar-width': `${((interval.end - interval.start) / duration.value) * 100}%`,
 });
+const shiftInterval = computed(() =>
+    timelineIntersection(props.shift, props.shift),
+);
 const personInterval = (assignment) =>
     timelineIntersection(assignment, props.shift);
 const shortBar = (assignment) => {
@@ -149,7 +165,7 @@ const assignmentTitle = (assignment) =>
                     <TableHead class="p-0 normal-case">
                         <div
                             class="relative h-14 w-[var(--timeline-width)]"
-                            :aria-label="shiftHoursLabel(shift)"
+                            :aria-label="shiftHoursLabel(bounds)"
                         >
                             <div
                                 v-for="(tick, index) in ticks"
@@ -222,7 +238,8 @@ const assignmentTitle = (assignment) =>
                             class="relative flex min-h-20 w-[var(--timeline-width)] items-center"
                         >
                             <div
-                                class="flex h-7 w-full items-center gap-2 overflow-hidden rounded-lg border px-3 text-xs font-semibold"
+                                class="absolute left-[var(--bar-start)] flex h-7 w-[var(--bar-width)] items-center gap-2 overflow-hidden rounded-lg border px-3 text-xs font-semibold"
+                                :style="geometry(shiftInterval)"
                                 :class="tokens.solid"
                                 data-roster-summary
                             >
@@ -440,15 +457,21 @@ const assignmentTitle = (assignment) =>
                             </template>
                             <div
                                 v-else
-                                class="absolute inset-x-0 top-5 flex h-8 items-center gap-2 rounded-lg border border-dashed border-line px-2 text-xs text-muted"
+                                class="absolute top-5 left-[var(--bar-start)] flex h-10 w-[var(--bar-width)] items-center gap-3 rounded-lg border border-dashed border-line bg-ground px-2 text-xs font-semibold text-charcoal"
+                                :style="geometry(shiftInterval)"
                                 data-open-bar
                             >
-                                <span>{{
+                                <span
+                                    class="pointer-events-none absolute inset-0 rounded-lg bg-[repeating-linear-gradient(135deg,transparent,transparent_7px,currentColor_7px,currentColor_8px)] text-muted opacity-10"
+                                    aria-hidden="true"
+                                />
+                                <span class="relative">{{
                                     $t('team.scheduling.roster.open_role', {
                                         role: row.slot.role_name,
                                     })
                                 }}</span>
                                 <span
+                                    class="relative"
                                     :title="disabledReason"
                                     :tabindex="
                                         !enabled && disabledReason
@@ -461,8 +484,8 @@ const assignmentTitle = (assignment) =>
                                 >
                                     <Button
                                         type="button"
-                                        variant="ghost"
-                                        size="sm"
+                                        variant="outline-primary"
+                                        size="xs"
                                         :disabled="!enabled"
                                         :title="disabledReason"
                                         @click="
@@ -549,7 +572,7 @@ const assignmentTitle = (assignment) =>
             >
             <span class="flex items-center gap-1.5"
                 ><span
-                    class="h-2.5 w-4 rounded-sm border border-dashed border-line"
+                    class="h-2.5 w-4 rounded-sm border border-dashed border-line bg-[repeating-linear-gradient(135deg,transparent,transparent_7px,currentColor_7px,currentColor_8px)] text-muted/10"
                     aria-hidden="true"
                 />{{ $t('team.scheduling.roster.legend_open') }}</span
             >
