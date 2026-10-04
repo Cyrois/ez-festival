@@ -286,8 +286,8 @@ const resizeKey = (event, assignment, edge) => {
                             :aria-label="shiftHoursLabel(bounds)"
                         >
                             <div
-                                class="pointer-events-none absolute inset-y-0 left-[var(--bar-start)] w-[var(--bar-width)] border-x"
-                                :class="tokens.classes"
+                                class="pointer-events-none absolute inset-y-0 left-[var(--bar-start)] w-[var(--bar-width)] border-x opacity-50"
+                                :class="tokens.solid"
                                 :style="geometry(shiftInterval)"
                                 aria-hidden="true"
                             />
