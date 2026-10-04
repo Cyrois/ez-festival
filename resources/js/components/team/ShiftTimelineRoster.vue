@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, useId } from 'vue';
 import { CardTitle } from '../ui/card';
 import { Avatar } from '../ui/avatar';
 import { Badge } from '../ui/badge';
@@ -41,6 +41,7 @@ const props = defineProps({
 });
 const emit = defineEmits(['assign', 'edit', 'remove', 'resize']);
 const dragging = ref(null);
+const warningTooltipId = useId();
 const canAssign = computed(() => props.assignEnabled ?? props.enabled);
 const grid = computed(() => shiftTimelineGrid(bounds.value));
 const totalTime = (assignment) => {
@@ -458,12 +459,21 @@ const resizeKey = (event, assignment, edge) => {
                             </div>
                             <span
                                 v-if="row.assignment?.overlaps.length"
-                                class="ml-auto shrink-0 text-warning"
-                                :title="warningDetails(row.assignment)"
+                                class="group relative ml-auto inline-flex shrink-0 text-warning"
                                 :aria-label="warningDetails(row.assignment)"
-                                role="img"
+                                :aria-describedby="`${warningTooltipId}-${row.key}`"
+                                tabindex="0"
                             >
-                                <Icon :name="['fas', 'triangle-exclamation']" />
+                                <Icon
+                                    :name="['fas', 'triangle-exclamation']"
+                                    aria-hidden="true"
+                                />
+                                <span
+                                    :id="`${warningTooltipId}-${row.key}`"
+                                    role="tooltip"
+                                    class="pointer-events-none absolute bottom-full left-0 z-50 mb-2 hidden w-56 rounded-lg bg-charcoal px-3 py-2 text-xs whitespace-pre-line text-white shadow-lg group-hover:block group-focus-visible:block sm:right-0 sm:left-auto"
+                                    >{{ warningDetails(row.assignment) }}</span
+                                >
                             </span>
                         </div>
                     </TableCell>

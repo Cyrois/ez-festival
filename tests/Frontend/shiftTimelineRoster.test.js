@@ -359,8 +359,14 @@ test('complete roster shows exact bars, open rows, Extras and hours; writable co
         assert.ok(first.querySelector('[data-short-label]'));
         assert.match(first.textContent, /23:30–2026-10-02 00:00/);
         assert.match(first.textContent, /name=Other minutes=15/);
+        const tooltip = first.querySelector('[role="tooltip"]');
+        assert.match(tooltip.textContent, /name=Other minutes=15.*23:45–2026-10-02 01:00/);
+        assert.equal(tooltip.parentElement.getAttribute('tabindex'), '0');
+        assert.equal(tooltip.parentElement.getAttribute('aria-describedby'), tooltip.id);
         for (const cell of document.querySelectorAll('[data-roster-row] td:first-child')) {
-            assert.doesNotMatch(cell.textContent, /assignments.full_shift|\d{2}:\d{2}/);
+            const labels = cell.cloneNode(true);
+            labels.querySelector('[role="tooltip"]')?.remove();
+            assert.doesNotMatch(labels.textContent, /assignments.full_shift|\d{2}:\d{2}/);
         }
         document.querySelector('[data-open-assign]').click();
         first.querySelector('button[title*="edit_hours"]').click();
