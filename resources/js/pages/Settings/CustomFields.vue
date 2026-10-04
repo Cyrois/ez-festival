@@ -156,9 +156,9 @@ const remove = (field) => {
                 :class="['flex flex-col gap-4', index > 0 && 'pt-0']"
             >
                 <div class="flex items-center justify-between gap-4">
-                    <h2 class="m-0 text-lg font-semibold text-charcoal">
+                    <CardTitle>
                         {{ $t(`settings.custom_fields.target.${target}`) }}
-                    </h2>
+                    </CardTitle>
                     <Button
                         v-if="editing === null"
                         type="button"

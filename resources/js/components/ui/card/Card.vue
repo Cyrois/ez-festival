@@ -29,10 +29,7 @@ const classes = computed(() =>
             class="mb-4"
         >
             <slot name="header">
-                <CardTitle
-                    v-if="title"
-                    as="h3"
-                >
+                <CardTitle v-if="title">
                     {{ title }}
                 </CardTitle>
             </slot>

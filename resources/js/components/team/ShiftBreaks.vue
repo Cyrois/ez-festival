@@ -1,4 +1,5 @@
 <script setup>
+import { CardTitle } from '../ui/card';
 import { computed, ref, useId, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 import { Button } from '../ui/button';
@@ -162,9 +163,9 @@ defineExpose({ validate: () => Object.keys(localErrors.value).length === 0 });
 <template>
     <section class="@container space-y-4">
         <div class="flex items-center justify-between gap-3">
-            <h2 class="m-0 text-xl font-bold text-muted">
+            <CardTitle>
                 {{ $t('team.scheduling.breaks.title') }}
-            </h2>
+            </CardTitle>
             <span class="text-sm text-muted">{{
                 $t('team.scheduling.breaks.optional')
             }}</span>
