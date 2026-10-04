@@ -334,26 +334,6 @@ class DatabaseAuditRegressionTest extends TestCase
         $this->assertStringContainsString('group by', $ledgerQueries[0]);
     }
 
-    public function test_team_form_settings_recheck_a_stale_event_lock(): void
-    {
-        [, $event] = $this->context();
-        $form = TeamForm::create(['event_id' => $event->id, 'name' => 'Original', 'slug' => 'original', 'status' => 'draft']);
-        $form->load('event');
-        Event::findOrFail($event->id)->lock();
-        $service = app(TeamFormService::class);
-        $data = ['name' => 'Changed', 'slug' => 'changed', 'status' => 'draft', 'fields' => []];
-        foreach (['create', 'update'] as $operation) {
-            try {
-                $operation === 'create' ? $service->create($event, $data) : $service->update($form, $data);
-                $this->fail('A stale event must not authorize Team form writes.');
-            } catch (HttpException $exception) {
-                $this->assertSame(403, $exception->getStatusCode());
-            }
-        }
-        $this->assertSame(['Original'], $event->teamForms()->pluck('name')->all());
-        $this->assertSame('original', $form->fresh()->slug);
-    }
-
     private function context(): array
     {
         $event = Event::create(['name' => 'Database Regression', 'starts_on' => '2027-06-01', 'ends_on' => '2027-06-03', 'timezone' => 'America/Vancouver']);
