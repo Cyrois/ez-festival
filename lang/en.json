@@ -1405,6 +1405,7 @@
     "permissions.forms.edit.label": "Edit forms",
     "permissions.forms.edit.tooltip": "Create and edit Team forms, including their fields and publication status, at this event. Includes View forms.",
     "team.scheduling.assignments.errors.hours": "Hours must be inside the shift, :from–:to.",
+    "team.scheduling.errors.local_time": "Choose an event-local time that exists and is unambiguous. Daylight-saving changes can skip or repeat local times.",
     "team.scheduling.assignments.errors.containment": "These assignments would fall outside the new shift hours: :names. Preserve their hours when editing the shift.",
     "team.scheduling.assignments.errors.unexpected": "This field cannot be supplied when managing a shift assignment.",
     "team.scheduling.assignments.errors.eligible": "Choose a hired Team member in this event.",
@@ -1513,6 +1514,5 @@
     "team.scheduling.assignments.errors.stale_roster": "This roster changed. Reload the shift and try again.",
     "team.scheduling.assignments.apply_hours": "Apply hours",
     "team.scheduling.assignments.draft_hint": "Click Save at the bottom of the page to save your roster changes.",
-    "team.scheduling.roster.outside_bounds": "These hours are outside the shift. Adjust the hours before saving.",
-    "team.scheduling.errors.local_time": "Choose an event-local time that exists and is unambiguous. Daylight-saving changes can skip or repeat local times."
+    "team.scheduling.roster.outside_bounds": "These hours are outside the shift. Adjust the hours before saving."
 }
