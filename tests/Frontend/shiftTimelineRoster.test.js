@@ -391,10 +391,12 @@ test('other shifts render their full clipped span, name and color behind editabl
         const bars = document.querySelectorAll('[data-other-shift]');
         assert.equal(bars.length, 2);
         assert.match(bars[0].textContent, /Before/);
+        assert.match(bars[0].textContent, /duration_both hours=1 minutes=15/);
         assert.match(bars[0].className, /bg-danger/);
         assert.equal(bars[0].style.getPropertyValue('--bar-start'), '0%');
         assert.equal(bars[0].style.getPropertyValue('--bar-width'), '12.5%');
         assert.match(bars[1].textContent, /Later/);
+        assert.match(bars[1].textContent, /duration_hours hours=1/);
         assert.match(bars[1].className, /bg-label-violet/);
         for (const bar of bars) {
             assert.equal(bar.querySelector('button, [role="slider"]'), null);

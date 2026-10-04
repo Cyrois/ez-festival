@@ -479,10 +479,7 @@ const resizeKey = (event, assignment, edge) => {
                     </TableCell>
                     <TableCell class="p-0">
                         <div
-                            class="relative isolate h-[var(--roster-row-height)] w-[var(--timeline-width)]"
-                            :style="{
-                                '--roster-row-height': `${56 + Math.max(0, otherShifts(row.assignment).length - 1) * 16}px`,
-                            }"
+                            class="relative isolate h-14 w-[var(--timeline-width)]"
                         >
                             <div
                                 class="pointer-events-none absolute inset-0"
@@ -499,16 +496,11 @@ const resizeKey = (event, assignment, edge) => {
                                 />
                             </div>
                             <div
-                                v-for="(other, index) in otherShifts(
-                                    row.assignment,
-                                )"
+                                v-for="other in otherShifts(row.assignment)"
                                 :key="other.shift_id"
                                 class="absolute top-3 left-[var(--bar-start)] h-7 w-[var(--bar-width)] rounded-lg border"
                                 :class="otherShiftTokens(other).classes"
-                                :style="{
-                                    ...geometry(other.interval),
-                                    '--other-label-top': `${28 + index * 16}px`,
-                                }"
+                                :style="geometry(other.interval)"
                                 :title="`${other.shift_name || $t('team.scheduling.unnamed_shift')} · ${shiftHoursLabel(other)}`"
                                 data-other-shift
                             >
@@ -517,12 +509,15 @@ const resizeKey = (event, assignment, edge) => {
                                     aria-hidden="true"
                                 />
                                 <span
-                                    class="absolute top-[var(--other-label-top)] left-0 w-full truncate px-2 text-xs font-semibold"
+                                    class="pointer-events-none relative flex h-full items-center gap-2 px-2 text-xs font-semibold"
                                 >
-                                    {{
+                                    <span class="min-w-0 flex-1 truncate">{{
                                         other.shift_name ||
                                         $t('team.scheduling.unnamed_shift')
-                                    }}
+                                    }}</span>
+                                    <span class="shrink-0 whitespace-nowrap">{{
+                                        totalTime(other)
+                                    }}</span>
                                 </span>
                             </div>
                             <template
