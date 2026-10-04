@@ -16,7 +16,9 @@ class ShiftAssignmentRepository
 {
     public function candidates(Shift $shift, array $data): LengthAwarePaginator
     {
-        $slot = $shift->roleSlots()->findOrFail($data['shift_role_slot_id']);
+        $roleId = isset($data['shift_role_slot_id'])
+            ? $shift->roleSlots()->findOrFail($data['shift_role_slot_id'])->role_id
+            : $data['role_id'];
         [$start, $end] = ShiftAssignmentHours::resolve($shift, $data);
         $pattern = '%'.SqlLike::escape(mb_strtolower(trim($data['search'] ?? ''))).'%';
         $candidates = TeamEngagement::query()->where('team_engagements.event_id', $shift->event_id)
@@ -25,13 +27,13 @@ class ShiftAssignmentRepository
             ->with(['role:id,name', 'group:id,name'])
             ->withExists(['shiftAssignments as on_shift' => fn ($query) => $query->where('shift_id', $shift->id)])
             ->whereRaw("LOWER(people.name) LIKE ? ESCAPE '!'", [$pattern])
-            ->orderByRaw('CASE WHEN team_engagements.role_id = ? THEN 0 ELSE 1 END', [$slot->role_id])
+            ->orderByRaw('CASE WHEN team_engagements.role_id = ? THEN 0 ELSE 1 END', [$roleId])
             ->orderByRaw('LOWER(people.name)')->orderBy('team_engagements.id')
             ->paginate((int) ($data['per_page'] ?? 5), ['*'], 'page', (int) ($data['page'] ?? 1))->withQueryString();
         $others = ShiftAssignmentOverlaps::forMembers($shift, $candidates->getCollection()->modelKeys(), $start, $end);
         $timezone = $shift->event->timezone;
         foreach ($candidates as $candidate) {
-            $candidate->setAttribute('suggested', (int) $candidate->role_id === (int) $slot->role_id);
+            $candidate->setAttribute('suggested', (int) $candidate->role_id === (int) $roleId);
             $candidate->setAttribute('overlaps', ShiftAssignmentOverlaps::warnings($others->get($candidate->id, collect()), $start, $end, $timezone));
         }
 

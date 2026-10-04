@@ -39,6 +39,38 @@ final class ShiftRosterChanges
             }
         }
 
+        $slots = collect($data['slots'] ?? []);
+        $draftKeys = $slots->filter(fn ($row) => empty($row['id']))->pluck('client_key')->filter()->all();
+        foreach ($data['assignment_additions'] ?? [] as $index => $row) {
+            if (isset($row['slot_key']) && ! in_array($row['slot_key'], $draftKeys, true)) {
+                $errors["assignment_additions.$index.slot_key"] = __('team.scheduling.slots.errors.foreign_slot');
+            }
+        }
+        if (array_key_exists('slots', $data)) {
+            $savedSlots = $shift->roleSlots()->when($lock, fn ($query) => $query->lockForUpdate())->get();
+            $counts = $existing->reject(fn ($assignment) => in_array($assignment->id, $removals))->countBy('shift_role_slot_id');
+            foreach ($data['assignment_additions'] ?? [] as $row) {
+                if (isset($row['shift_role_slot_id'])) {
+                    $id = $row['shift_role_slot_id'];
+                    $counts[$id] = ($counts[$id] ?? 0) + 1;
+                }
+            }
+            foreach ($savedSlots as $slot) {
+                $index = $slots->search(fn ($row) => isset($row['id']) && (int) $row['id'] === $slot->id);
+                $count = $counts[$slot->id] ?? 0;
+                if ($count === 0) {
+                    continue;
+                }
+                if ($index === false) {
+                    $errors['slots'] = __('team.scheduling.slots.errors.assigned_role');
+                } elseif ((int) $slots[$index]['role_id'] !== (int) $slot->role_id) {
+                    $errors["slots.$index.role_id"] = __('team.scheduling.slots.errors.assigned_role');
+                } elseif ((int) $slots[$index]['needed'] < $slot->needed && (int) $slots[$index]['needed'] < $count) {
+                    $errors["slots.$index.needed"] = __('team.scheduling.slots.errors.assigned_qty', ['count' => $count]);
+                }
+            }
+        }
+
         return $errors;
     }
 }

@@ -568,3 +568,20 @@ test('deferred assignment returns the selected person and position without writi
         app.unmount();
     }
 });
+
+
+test('unsaved Headcount searches by suggested role and emits a draft slot reference without writes', async () => {
+    const drafts = [];
+    const requirement = { id: 'draft-12', role_id: 3, role_name: 'Crew', needed: 1, assigned_count: 0 };
+    const app = await mount({ deferred: true, requirement, onAssigned: draft => drafts.push(draft) });
+    try {
+        await choose('Alpha');
+        const query = harness.requests.at(-1).searchParams;
+        assert.equal(query.get('role_id'), '3');
+        assert.equal(query.has('shift_role_slot_id'), false);
+        document.querySelector('#assign').click();
+        assert.equal(harness.writes.length, 0);
+        assert.equal(drafts[0].slot_key, 'draft-12');
+        assert.equal('shift_role_slot_id' in drafts[0], false);
+    } finally { app.unmount(); }
+});

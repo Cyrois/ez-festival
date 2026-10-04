@@ -16,8 +16,9 @@ trait ShiftRosterChangeRules
             'assignment_removals' => ['sometimes', 'array', 'list'],
             'assignment_removals.*' => ['required', 'integer', 'distinct', Rule::exists('shift_assignments', 'id')->where('shift_id', $shift->id)],
             'assignment_additions' => ['sometimes', 'array', 'list'],
-            'assignment_additions.*' => ['required', 'array:shift_role_slot_id,team_engagement_id,hours_mode,starts_at,ends_at'],
-            'assignment_additions.*.shift_role_slot_id' => ['required', 'integer', Rule::exists('shift_role_slots', 'id')->where('shift_id', $shift->id)],
+            'assignment_additions.*' => ['required', 'array:shift_role_slot_id,slot_key,team_engagement_id,hours_mode,starts_at,ends_at'],
+            'assignment_additions.*.shift_role_slot_id' => ['required_without:assignment_additions.*.slot_key', 'prohibits:assignment_additions.*.slot_key', 'integer', Rule::exists('shift_role_slots', 'id')->where('shift_id', $shift->id)],
+            'assignment_additions.*.slot_key' => ['required_without:assignment_additions.*.shift_role_slot_id', 'prohibits:assignment_additions.*.shift_role_slot_id', 'string', 'max:64', 'regex:/^draft-\d+$/'],
             'assignment_additions.*.team_engagement_id' => ['required', 'integer', 'distinct', Rule::exists('team_engagements', 'id')->where('event_id', $shift->event_id)->where('status', 'hired')],
         ];
         foreach (['assignment_updates', 'assignment_additions'] as $field) {

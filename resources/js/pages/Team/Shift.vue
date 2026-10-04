@@ -14,6 +14,7 @@ import {
     draftShiftSlots,
     shiftSlotPayload,
     shiftSlotErrors,
+    totalShiftNeeds,
 } from '../../lib/shiftRoleSlots';
 import { Button } from '../../components/ui/button';
 import { Card, CardTitle } from '../../components/ui/card';
@@ -84,6 +85,17 @@ const rosterShift = computed(() =>
     draftRoster(
         {
             ...props.shift,
+            slots: form.slots.map((slot, index) => ({
+                ...slot,
+                id: slot.id ?? slot._key,
+                needed:
+                    Number.isInteger(Number(slot.needed)) &&
+                    Number(slot.needed) > 0
+                        ? Number(slot.needed)
+                        : 0,
+                sort_order: index,
+            })),
+            total_needs: totalShiftNeeds(form.slots),
             starts_at:
                 form.starts_at && form.ends_at > form.starts_at
                     ? form.starts_at
@@ -129,13 +141,9 @@ const timelineShift = computed(() => ({
 }));
 const detailsDirty = computed(
     () =>
-        ['name', 'color', 'location_id', 'starts_at', 'ends_at'].some(
+        ['name', 'location_id', 'starts_at', 'ends_at'].some(
             (key) => form[key] !== props.shift[key],
         ) ||
-        JSON.stringify(shiftSlotPayload(form.slots)) !==
-            JSON.stringify(
-                shiftSlotPayload(draftShiftSlots(props.shift.slots)),
-            ) ||
         JSON.stringify(shiftBreakPayload(form.breaks)) !==
             JSON.stringify(
                 shiftBreakPayload(draftShiftBreaks(props.shift.breaks)),
@@ -301,7 +309,7 @@ const submit = () => {
     const submittedBreaks = [...form.breaks];
     form.transform((data) => ({
         ...data,
-        slots: shiftSlotPayload(data.slots),
+        slots: shiftSlotPayload(data.slots, true),
         breaks: shiftBreakPayload(data.breaks),
         assignment_additions: data.assignment_additions.map(
             ({ _key, ...row }) => row,
@@ -603,7 +611,7 @@ const destroy = () => {
                         <span
                             :title="
                                 assignmentReason ||
-                                (!shift.slots.length
+                                (!timelineShift.slots.length
                                     ? $t(
                                           'team.scheduling.assignments.no_requirements',
                                       )
@@ -614,7 +622,8 @@ const destroy = () => {
                                 size="sm"
                                 variant="ghost"
                                 :disabled="
-                                    !assignmentsEnabled || !shift.slots.length
+                                    !assignmentsEnabled ||
+                                    !timelineShift.slots.length
                                 "
                                 @click="headerAssignOpen = true"
                             >
@@ -696,7 +705,7 @@ const destroy = () => {
         <ShiftAssignDialog
             v-if="selectedSlot || headerAssignOpen"
             :key="selectedSlot?.id ?? 'header'"
-            :shift="shift"
+            :shift="timelineShift"
             :event-id="event.id"
             :requirement="selectedSlot"
             :return-context="returnContext"

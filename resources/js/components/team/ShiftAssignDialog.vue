@@ -136,6 +136,10 @@ const ajax = async (data, callback) => {
         form.ends_at,
     );
     delete query.team_engagement_id;
+    if (typeof targetSlot.value.id === 'string') {
+        delete query.shift_role_slot_id;
+        query.role_id = targetSlot.value.role_id;
+    }
     query.search = data.search?.value || '';
     query.page = Math.floor(data.start / data.length) + 1;
     query.per_page = data.length;
@@ -224,16 +228,21 @@ const assign = () => {
     )
         return;
     if (props.deferred) {
+        const payload = assignmentPayload(
+            targetSlot.value.id,
+            selected.value.id,
+            form.hours_mode,
+            form.starts_at,
+            form.ends_at,
+        );
+        if (typeof targetSlot.value.id === 'string') {
+            delete payload.shift_role_slot_id;
+            payload.slot_key = targetSlot.value.id;
+        }
         emit('assigned', {
             candidate: selected.value,
             slot: targetSlot.value,
-            ...assignmentPayload(
-                targetSlot.value.id,
-                selected.value.id,
-                form.hours_mode,
-                form.starts_at,
-                form.ends_at,
-            ),
+            ...payload,
         });
         emit('close');
         return;

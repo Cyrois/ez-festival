@@ -78,11 +78,11 @@ class TeamShiftBreaksTest extends TestCase
             ->where('shift.assignments.0.scheduled_minutes', 375)->missing('shift.breaks.0.name'));
         $this->getJson($this->rosterUrl())->assertJsonPath('data.0.assignments.0.scheduled_minutes', 375);
         $first = $shift->breaks()->first();
-        $this->put($this->updateUrl($shift), $this->payload([
+        $this->put($this->updateUrl($shift), $this->updatePayload([
             ['id' => $first->id, ...$this->breakRow('2026-10-03T21:00', 60)],
         ]))->assertSessionHasNoErrors();
         $this->assertSame(60, $first->fresh()->duration_minutes);
-        $this->put($this->updateUrl($shift), $this->payload([
+        $this->put($this->updateUrl($shift), $this->updatePayload([
             ['id' => $first->id, ...$this->breakRow('2026-10-03T21:01', 60)],
         ]))->assertSessionHasErrors('breaks.0.starts_at');
         $this->post(route('team.shifts.store', $this->event), $this->payload([
@@ -283,9 +283,9 @@ class TeamShiftBreaksTest extends TestCase
             ->assertJsonPath('data.0.assignments.1.scheduled_minutes', 195)->assertJsonPath('data.0.assignments.2.scheduled_minutes', 0)
             ->assertJsonPath('data.0.assignments.3.scheduled_minutes', 75)->assertJsonMissingPath('data.0.breaks');
         $first = $shift->breaks()->first();
-        $this->put($this->updateUrl($shift), $this->payload([['id' => $first->id, ...$this->breakRow(duration: 30)]]))->assertSessionHasNoErrors();
+        $this->put($this->updateUrl($shift), $this->updatePayload([['id' => $first->id, ...$this->breakRow(duration: 30)]]))->assertSessionHasNoErrors();
         $this->getJson($this->rosterUrl())->assertJsonPath('data.0.assignments.0.scheduled_minutes', 450);
-        $this->put($this->updateUrl($shift), $this->payload())->assertSessionHasNoErrors();
+        $this->put($this->updateUrl($shift), $this->updatePayload())->assertSessionHasNoErrors();
         $this->get(route('team.shifts.show', $shift))->assertInertia(fn (Assert $page) => $page->where('shift.assignments.0.scheduled_minutes', 480));
         $this->assertSame('2026-10-03T14:00', $full->fresh()->starts_at->format('Y-m-d\TH:i'));
         $this->assertSame('2026-10-03T22:00', $full->fresh()->ends_at->format('Y-m-d\TH:i'));
@@ -406,6 +406,14 @@ class TeamShiftBreaksTest extends TestCase
     {
         return ['name' => 'Show run', 'location_id' => $this->location->id, 'starts_at' => '2026-10-03T14:00', 'ends_at' => '2026-10-03T22:00',
             'slots' => [['role_id' => $this->role->id, 'needed' => 1]], 'breaks' => $breaks];
+    }
+
+    private function updatePayload(array $breaks = []): array
+    {
+        $data = $this->payload($breaks);
+        unset($data['slots']);
+
+        return $data;
     }
 
     private function breakRow(string $start = '2026-10-03T15:30', int $duration = 15): array

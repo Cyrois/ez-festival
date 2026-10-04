@@ -49,8 +49,9 @@ class ShiftService
             if ($errors !== []) {
                 throw ValidationException::withMessages($errors);
             }
+            $draftSlots = [];
             if (array_key_exists('slots', $data)) {
-                $this->syncSlots($shift, $data['slots']);
+                $draftSlots = $this->syncSlots($shift, $data['slots']);
                 unset($data['slots']);
             }
             if (array_key_exists('breaks', $data)) {
@@ -69,6 +70,10 @@ class ShiftService
             }
             foreach ($additions as $index => $row) {
                 try {
+                    if (isset($row['slot_key'])) {
+                        $row['shift_role_slot_id'] = $draftSlots[$row['slot_key']] ?? null;
+                        unset($row['slot_key']);
+                    }
                     app(ShiftAssignmentService::class)->create($shift, $row);
                 } catch (ValidationException $exception) {
                     $errors = [];
@@ -98,7 +103,7 @@ class ShiftService
         $shift->breaks()->whereNotIn('id', $kept)->delete();
     }
 
-    private function syncSlots(Shift $shift, array $slots): void
+    private function syncSlots(Shift $shift, array $slots): array
     {
         $existing = $shift->roleSlots()->lockForUpdate()->get()->keyBy('id');
         $errors = ShiftSlotReferences::errors($slots, $existing, lock: true);
@@ -107,9 +112,11 @@ class ShiftService
         }
         $nextOrder = ($existing->max('sort_order') ?? -1) + 1;
         $kept = [];
+        $draftSlots = [];
         foreach ($slots as $data) {
             $slot = isset($data['id']) ? $existing->get((int) $data['id']) : null;
-            unset($data['id']);
+            $clientKey = $data['client_key'] ?? null;
+            unset($data['id'], $data['client_key']);
             if ($slot !== null) {
                 if ((int) $slot->role_id !== (int) $data['role_id']) {
                     $slot->assignments()->update(['shift_role_slot_id' => null]);
@@ -119,8 +126,13 @@ class ShiftService
                 $slot = $shift->roleSlots()->create([...$data, 'sort_order' => $nextOrder++]);
             }
             $kept[] = $slot->id;
+            if ($clientKey !== null) {
+                $draftSlots[$clientKey] = $slot->id;
+            }
         }
         $shift->roleSlots()->whereNotIn('id', $kept)->delete();
+
+        return $draftSlots;
     }
 
     public function delete(Shift $shift, int $confirmationCount = 0): void

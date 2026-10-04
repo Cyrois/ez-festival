@@ -71,7 +71,7 @@ const deps = {
             () =>
                 h(
                     'button',
-                    { ...attrs, title: p.label, disabled: p.disabled },
+                    { type: 'button', ...attrs, title: p.label, disabled: p.disabled },
                     p.label,
                 ),
     },
@@ -176,6 +176,7 @@ const deps = {
     },
 };
 globalThis.__shiftTimelineTest = deps;
+let compileId = 0;
 async function compile(name, folder = 'components/team') {
     const { descriptor } = parse(
         readFileSync(
@@ -202,7 +203,7 @@ async function compile(name, folder = 'components/team') {
     );
     return (
         await import(
-            `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`
+            `data:text/javascript;base64,${Buffer.from(source).toString('base64')}#${++compileId}`
         )
     ).default;
 }
@@ -706,4 +707,107 @@ test('deferred hours dialog emits a draft without issuing a PUT', async () => {
     } finally {
         app.unmount();
     }
+});
+
+
+test('color and Headcount edits keep the roster active; draft roles assign before Save and quantities respect pending people', async () => {
+    writes.length = 0;
+    Object.assign(deps, {
+        ...slotHelpers,
+        CustomDropdown: {
+            props: ['items', 'modelValue', 'disabled'],
+            setup: (p, { emit }) => () => h('select', {
+                disabled: p.disabled, value: p.modelValue,
+                onChange: event => emit('update:modelValue', Number(event.target.value)),
+            }, [h('option', { value: '' }, ''), ...p.items.map(item => h('option', { value: item.value }, item.title))]),
+        },
+    });
+    deps.QuantityInput = await compile('QuantityInput', 'components/ui/quantity-input');
+    deps.ShiftRoleSlots = await compile('ShiftRoleSlots');
+    deps.ShiftAssignDialog = {
+        props: ['requirement', 'shift'],
+        setup: (p, { emit }) => () => h('button', {
+            id: 'draft-confirm',
+            onClick: () => {
+                emit('assigned', {
+                    candidate: { id: 20, name: 'Draft person', overlaps: [] },
+                    slot: p.requirement,
+                    slot_key: p.requirement.id,
+                    team_engagement_id: 20,
+                    hours_mode: 'full_shift',
+                });
+                emit('close');
+            },
+        }, 'Assign draft'),
+    };
+    const Page = await compile('Shift', 'pages/Team');
+    const app = mount(Page, {
+        shift: { ...shift, breaks: [], assignment_count: 2 },
+        event: { id: 2, is_locked: false }, canManage: true,
+        roles: [{ id: 4, name: 'Crew' }, { id: 5, name: 'Sound' }],
+        locations: [], labelColors: [], breakOptions: { lengths: [] },
+    });
+    try {
+        form.color = 'warning';
+        await nextTick();
+        assert.equal(document.querySelector('[data-open-bar]').disabled, false);
+        const picker = document.querySelector('select:has(option[value="5"])');
+        picker.value = '5';
+        picker.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+        const pendingQty = picker.parentElement.parentElement.querySelector('input[type="number"]');
+        pendingQty.value = '2';
+        pendingQty.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+        await nextTick();
+        [...document.querySelectorAll('button')].find(button => button.textContent.trim().startsWith('team.scheduling.slots.add')).click();
+        await nextTick();
+        const slot = form.slots.at(-1);
+        assert.equal(slot.role_id, 5);
+        assert.equal(slot.needed, 2);
+        const open = document.querySelector(`[data-roster-row="open-${slot._key}-0"] [data-open-bar]`);
+        assert.equal(open.disabled, false);
+        assert.equal(writes.length, 0);
+        open.click();
+        await nextTick();
+        document.querySelector('#draft-confirm').click();
+        await nextTick();
+        assert.equal(form.assignment_additions[0].slot_key, slot._key);
+        assert.match(document.body.textContent, /Draft person/);
+        const controls = document.querySelector(`[data-headcount-row="${slot._key}"]`);
+        const minus = controls.querySelector('button[title^="ui.quantity.decrease"]');
+        minus.click();
+        await nextTick();
+        assert.equal(form.slots.at(-1).needed, 1);
+        const removeRole = controls.querySelector('button[title="team.scheduling.slots.remove role=Sound"]');
+        assert.equal(removeRole.disabled, true);
+        assert.match(removeRole.parentElement.title, /slots.errors.assigned_qty/);
+        assert.equal(controls.querySelectorAll('button').length, 2);
+        const qty = controls.querySelector('input[type="number"]');
+        qty.value = '0';
+        qty.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+        await nextTick();
+        assert.equal(Number(form.slots.at(-1).needed), 1);
+        assert.equal(qty.value, '1');
+        controls.querySelector('button[title^="ui.quantity.increase"]').click();
+        await nextTick();
+        assert.equal(form.slots.at(-1).needed, 2);
+        document.querySelector('#shift-details-form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+        assert.equal(writes.length, 1);
+        assert.equal(writes[0].data.slots.at(-1).client_key, slot._key);
+        assert.equal('_key' in writes[0].data.slots.at(-1), false);
+        assert.equal(writes[0].data.assignment_additions[0].slot_key, slot._key);
+        const draftRow = [...document.querySelectorAll('[data-roster-row]')].find(row => row.textContent.includes('Draft person'));
+        draftRow.querySelector('button[title*="remove_person"]').click();
+        await nextTick();
+        const decrease = controls.querySelector('button[title^="ui.quantity.decrease"]');
+        assert.equal(decrease.disabled, false);
+        decrease.click();
+        await nextTick();
+        const removeEmpty = controls.querySelector('button[title="team.scheduling.slots.remove role=Sound"]');
+        assert.equal(removeEmpty.disabled, false);
+        removeEmpty.click();
+        await nextTick();
+        assert.equal(form.slots.length, 1);
+        assert.equal(form.assignment_additions.length, 0);
+        assert.equal(document.querySelector(`[data-roster-row="open-${slot._key}-0"]`), null);
+    } finally { app.unmount(); }
 });
