@@ -11,6 +11,11 @@ const props = defineProps({
     disabled: { type: Boolean, default: false },
     invalid: { type: Boolean, default: false },
     label: { type: String, required: true },
+    size: {
+        type: String,
+        default: 'md',
+        validator: (value) => ['sm', 'md'].includes(value),
+    },
     removeAtOne: { type: Boolean, default: false },
     removeDisabled: { type: Boolean, default: false },
     removeLabel: { type: String, default: '' },
@@ -61,7 +66,8 @@ const clampInput = (event) => {
             <IconButton
                 :icon="['fas', isRemove ? 'circle-minus' : 'minus']"
                 :tone="isRemove ? 'delete' : 'default'"
-                class="h-10 w-10 shrink-0 disabled:pointer-events-none"
+                class="shrink-0 disabled:pointer-events-none"
+                :class="size === 'md' ? 'h-10 w-10' : ''"
                 :label="
                     isRemove
                         ? removeLabel
@@ -88,6 +94,7 @@ const clampInput = (event) => {
             :max="max"
             step="1"
             class="w-16 [appearance:textfield] px-2 text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            :class="size === 'sm' ? 'h-8' : ''"
             :invalid="invalid"
             :disabled="disabled"
             @input.capture="clampInput"
@@ -95,7 +102,8 @@ const clampInput = (event) => {
         />
         <IconButton
             :icon="['fas', 'plus']"
-            class="h-10 w-10 shrink-0"
+            class="shrink-0"
+            :class="size === 'md' ? 'h-10 w-10' : ''"
             :label="$t('ui.quantity.increase', { label })"
             :disabled="disabled || amount >= max"
             @click="adjust(1)"

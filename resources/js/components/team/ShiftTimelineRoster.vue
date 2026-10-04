@@ -125,13 +125,12 @@ const shiftInterval = computed(() =>
 );
 const personInterval = (assignment) =>
     timelineIntersection(assignment, props.shift);
-const shortBar = (assignment) => {
-    const interval = personInterval(assignment);
+const fitsShiftName = (interval, name) => {
     return (
         interval &&
         ((interval.end - interval.start) / duration.value) *
-            timelineWidth.value <
-            assignment.name.length * 6 + 92
+            timelineWidth.value >=
+            name.length * 6 + 92
     );
 };
 const warnings = (assignment) =>
@@ -511,13 +510,26 @@ const resizeKey = (event, assignment, edge) => {
                                 <span
                                     class="pointer-events-none relative flex h-full items-center gap-2 px-2 text-xs font-semibold"
                                 >
-                                    <span class="min-w-0 flex-1 truncate">{{
-                                        other.shift_name ||
-                                        $t('team.scheduling.unnamed_shift')
-                                    }}</span>
-                                    <span class="shrink-0 whitespace-nowrap">{{
-                                        totalTime(other)
-                                    }}</span>
+                                    <span
+                                        v-if="
+                                            fitsShiftName(
+                                                other.interval,
+                                                other.shift_name ||
+                                                    $t(
+                                                        'team.scheduling.unnamed_shift',
+                                                    ),
+                                            )
+                                        "
+                                        class="min-w-0 flex-1 truncate"
+                                        >{{
+                                            other.shift_name ||
+                                            $t('team.scheduling.unnamed_shift')
+                                        }}</span
+                                    >
+                                    <span
+                                        class="ml-auto shrink-0 whitespace-nowrap"
+                                        >{{ totalTime(other) }}</span
+                                    >
                                 </span>
                             </div>
                             <template
@@ -600,9 +612,16 @@ const resizeKey = (event, assignment, edge) => {
                                         "
                                     />
                                     <span
-                                        v-if="!shortBar(row.assignment)"
+                                        v-if="
+                                            otherShifts(row.assignment)
+                                                .length &&
+                                            fitsShiftName(
+                                                personInterval(row.assignment),
+                                                shift.name,
+                                            )
+                                        "
                                         class="pointer-events-none relative z-10 block truncate px-4 py-1 pr-20 text-xs font-semibold"
-                                        >{{ row.assignment.name }}</span
+                                        >{{ shift.name }}</span
                                     >
                                     <span
                                         class="pointer-events-none absolute inset-y-0 right-4 z-10 flex items-center text-xs font-semibold whitespace-nowrap"
@@ -698,16 +717,6 @@ const resizeKey = (event, assignment, edge) => {
                                     aria-hidden="true"
                                     data-overlap-hatch
                                 />
-                                <span
-                                    v-if="shortBar(row.assignment)"
-                                    class="absolute top-0 left-[var(--bar-start)] z-10 max-w-64 truncate text-xs font-semibold"
-                                    :style="
-                                        geometry(personInterval(row.assignment))
-                                    "
-                                    :title="row.assignment.name"
-                                    data-short-label
-                                    >{{ row.assignment.name }}</span
-                                >
                                 <span
                                     v-if="
                                         row.assignment.overlaps.length &&

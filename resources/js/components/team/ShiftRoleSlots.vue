@@ -91,7 +91,7 @@ const remove = (slot) => {
         </div>
         <div
             v-if="editable"
-            class="grid gap-3 rounded-lg border border-line bg-page p-3 sm:grid-cols-[minmax(0,1fr)_10rem_auto]"
+            class="grid gap-[1em] rounded-lg border border-line bg-page p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
         >
             <FormField
                 :label="$t('team.scheduling.slots.role')"
@@ -129,6 +129,7 @@ const remove = (slot) => {
             </FormField>
             <Button
                 type="button"
+                variant="soft-primary"
                 class="h-10 border-0 sm:self-end"
                 :disabled="!editable || busy"
                 @click="add"
@@ -170,6 +171,7 @@ const remove = (slot) => {
                             :id="id"
                             :label="$t('team.scheduling.slots.qty')"
                             :model-value="slot.needed"
+                            size="sm"
                             :min="Math.max(1, assignedCount(slot))"
                             remove-at-one
                             :remove-disabled="assignedCount(slot) > 0"

@@ -356,7 +356,7 @@ test('complete roster shows exact bars, open rows, Extras and hours; writable co
                     (195 / 360) * 100,
             ) < 1e-8,
         );
-        assert.ok(first.querySelector('[data-short-label]'));
+        assert.equal(first.querySelector('[data-short-label]'), null);
         assert.match(first.textContent, /23:30–2026-10-02 00:00/);
         assert.match(first.textContent, /name=Other minutes=15/);
         const tooltip = first.querySelector('[role="tooltip"]');
@@ -377,7 +377,30 @@ test('complete roster shows exact bars, open rows, Extras and hours; writable co
     }
 });
 
-test('other shifts render their full clipped span, name and color behind editable hours without any controls', () => {
+test('shift names appear only with a visible other shift and enough room beside the duration', () => {
+    const other = { shift_id: 21, shift_name: 'Before', color: 'danger', starts_at: shift.starts_at, ends_at: shift.ends_at };
+    for (const scenario of [
+        { others: [], starts_at: shift.starts_at, ends_at: shift.ends_at, visible: false },
+        { others: [{ ...other, starts_at: '2026-10-02T04:00', ends_at: '2026-10-02T05:00' }], starts_at: shift.starts_at, ends_at: shift.ends_at, visible: false },
+        { others: [other], starts_at: shift.starts_at, ends_at: shift.ends_at, visible: true },
+        { others: [other], starts_at: '2026-10-01T23:30', ends_at: '2026-10-02T00:00', visible: false },
+    ]) {
+        const app = mount(Roster, {
+            shift: { ...shift, assignments: [{ ...shift.assignments[0], starts_at: scenario.starts_at, ends_at: scenario.ends_at, overlaps: [], other_shifts: scenario.others }] },
+        });
+        try {
+            const bar = document.querySelector('[data-person-bar]');
+            assert.equal(bar.textContent.includes(shift.name), scenario.visible);
+            assert.ok(bar.querySelector('[data-assignment-duration]').textContent);
+            assert.equal(document.querySelector('[data-short-label]'), null);
+            if (scenario.others.length && scenario.others[0] === other) {
+                assert.match(document.querySelector('[data-other-shift]').textContent, /Before/);
+            }
+        } finally { app.unmount(); }
+    }
+});
+
+test('other shifts render their full clipped span and color, hiding narrow names without any controls', () => {
     const events = [];
     const app = mount(Roster, {
         shift: { ...shift, assignments: [{ ...shift.assignments[0], overlaps: [], other_shifts: [
@@ -390,12 +413,14 @@ test('other shifts render their full clipped span, name and color behind editabl
     try {
         const bars = document.querySelectorAll('[data-other-shift]');
         assert.equal(bars.length, 2);
-        assert.match(bars[0].textContent, /Before/);
+        assert.doesNotMatch(bars[0].textContent, /Before/);
+        assert.match(bars[0].title, /Before/);
         assert.match(bars[0].textContent, /duration_both hours=1 minutes=15/);
         assert.match(bars[0].className, /bg-danger/);
         assert.equal(bars[0].style.getPropertyValue('--bar-start'), '0%');
         assert.equal(bars[0].style.getPropertyValue('--bar-width'), '12.5%');
-        assert.match(bars[1].textContent, /Later/);
+        assert.doesNotMatch(bars[1].textContent, /Later/);
+        assert.match(bars[1].title, /Later/);
         assert.match(bars[1].textContent, /duration_hours hours=1/);
         assert.match(bars[1].className, /bg-label-violet/);
         for (const bar of bars) {
