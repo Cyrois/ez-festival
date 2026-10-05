@@ -174,11 +174,68 @@ class TeamShiftAssignmentsTest extends TestCase
             ->assertJsonMissingPath('data.0.email')->assertJsonMissingPath('data.0.role_id')->assertJsonMissingPath('data.0.permissions');
         $this->getJson($this->candidateUrl(['page' => 2, 'per_page' => 1]))->assertJsonPath('data.0.id', $matching->id);
         $this->getJson($this->candidateUrl(['page' => 3, 'per_page' => 1]))->assertJsonPath('data.0.name', 'Aardvark')->assertJsonPath('data.0.suggested', false);
-        $this->getJson($this->candidateUrl())->assertJsonPath('meta.per_page', 5);
+        $this->getJson($this->candidateUrl())->assertJsonPath('meta.per_page', 25);
         $this->assign($matching);
         $this->getJson($this->candidateUrl(['search' => 'zULu']))->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.on_shift', true);
-        $this->getJson($this->candidateUrl(['per_page' => 6]))->assertUnprocessable()->assertJsonValidationErrors('per_page');
+        $this->getJson($this->candidateUrl(['per_page' => 26]))->assertUnprocessable()->assertJsonValidationErrors('per_page');
         $this->getJson($this->candidateUrl(['search' => '%']))->assertJsonPath('meta.total', 0);
+    }
+
+    public function test_candidates_rank_availability_before_roles_across_pages_and_refresh_for_custom_hours(): void
+    {
+        $freeRole = $this->member('Zulu free crew', $this->role);
+        $freeOther = $this->member('Alpha free other');
+        $busyRole = $this->member('Zulu busy crew', $this->role);
+        $busyOther = $this->member('Alpha busy other');
+        $onRole = $this->member('Zulu on crew', $this->role);
+        $onOther = $this->member('Alpha on other');
+        $this->assign($onOther);
+        $this->assign($onRole);
+        $later = $this->shift($this->event, 'Later');
+        foreach ([$busyOther, $busyRole, $onRole] as $member) {
+            app(ShiftAssignmentService::class)->create($later, $this->payload($member, [
+                'shift_role_slot_id' => $later->roleSlots()->sole()->id,
+                'hours_mode' => 'custom', 'starts_at' => '2026-10-01T12:00', 'ends_at' => '2026-10-01T13:00',
+            ]));
+        }
+        $expected = [$freeRole, $freeOther, $busyRole, $busyOther, $onRole, $onOther];
+        foreach ($expected as $index => $member) {
+            $this->getJson($this->candidateUrl(['per_page' => 1, 'page' => $index + 1]))
+                ->assertOk()->assertJsonPath('meta.total', 6)->assertJsonPath('data.0.id', $member->id);
+        }
+        $this->getJson($this->candidateUrl(['hours_mode' => 'custom', 'starts_at' => '2026-10-01T10:00', 'ends_at' => '2026-10-01T12:00']))
+            ->assertOk()->assertJsonPath('data.0.id', $busyRole->id)->assertJsonPath('data.0.overlaps', [])
+            ->assertJsonPath('data.1.id', $freeRole->id)->assertJsonPath('data.2.id', $busyOther->id);
+    }
+
+    public function test_role_filter_and_selected_lookup_stay_scoped_to_hired_event_members_and_search(): void
+    {
+        $crew = $this->member('Crew', $this->role);
+        $other = $this->member('Other', Role::create(['name' => 'Sound']));
+        $this->member('Declined', $this->role, 'declined');
+        $foreign = $this->member('Foreign', $this->role, 'hired', $this->event('Other event'));
+        $this->getJson($this->candidateUrl(['role_filter' => 'has_role']))->assertOk()
+            ->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $crew->id);
+        $this->getJson($this->candidateUrl(['role_filter' => 'everyone']))->assertOk()->assertJsonPath('meta.total', 2);
+        $this->getJson($this->candidateUrl(['role_filter' => 'has_role', 'search' => 'other']))->assertJsonCount(0, 'data');
+        foreach ([['selected_id' => $foreign->id], ['selected_id' => $other->id, 'role_filter' => 'has_role'],
+            ['selected_id' => $crew->id, 'search' => 'other']] as $filter) {
+            $this->getJson($this->candidateUrl($filter))->assertOk()->assertJsonCount(0, 'data');
+        }
+        $this->getJson($this->candidateUrl(['selected_id' => $crew->id]))->assertOk()->assertJsonPath('data.0.id', $crew->id);
+        $this->getJson($this->candidateUrl(['role_filter' => 'invalid']))->assertUnprocessable()->assertJsonValidationErrors('role_filter');
+        $this->getJson($this->candidateUrl(['selected_id' => 0]))->assertUnprocessable()->assertJsonValidationErrors('selected_id');
+    }
+
+    public function test_default_candidate_page_contains_25_people_and_caps_larger_requests(): void
+    {
+        for ($i = 0; $i < 26; $i++) {
+            $this->member(sprintf('Person %02d', $i), $this->role);
+        }
+        $this->getJson($this->candidateUrl())->assertOk()->assertJsonCount(25, 'data')
+            ->assertJsonPath('meta.per_page', 25)->assertJsonPath('meta.last_page', 2);
+        $this->getJson($this->candidateUrl(['page' => 2]))->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson($this->candidateUrl(['per_page' => 26]))->assertUnprocessable()->assertJsonValidationErrors('per_page');
     }
 
     public function test_invalid_hours_missing_fields_and_unexpected_fields_never_write(): void
@@ -361,6 +418,7 @@ class TeamShiftAssignmentsTest extends TestCase
             if (! $admin) {
                 $this->grantRoleAccess($this->user, ['scheduling.edit']);
             }
+            $this->getJson($this->candidateUrl(['role_filter' => 'has_role']))->assertForbidden();
             $this->post($this->storeUrl(), $this->payload($this->member('New '.($admin ? 'admin' : 'editor'))))->assertForbidden();
             $this->delete(route('team.shifts.assignments.destroy', [$this->event, $this->shift, $assignment]))->assertForbidden();
         }
@@ -860,15 +918,17 @@ class TeamShiftAssignmentsTest extends TestCase
         $foreignEvent = $this->event('Foreign');
         $foreign = $this->member('Foreign', event: $foreignEvent);
         $hours = ['hours_mode' => 'full_shift', 'shift_starts_at' => '2026-10-01T09:00', 'shift_ends_at' => '2026-10-01T11:00'];
-        $url = route('team.shifts.create.assignment-candidates', $this->event).'?'.http_build_query([...$hours, 'role_id' => $this->role->id]);
+        $url = route('team.shifts.create.assignment-candidates', $this->event).'?'.http_build_query([...$hours, 'role_id' => $this->role->id, 'per_page' => 5]);
         DB::enableQueryLog();
         $this->getJson($url)->assertOk()->assertJsonCount(5, 'data')->assertJsonPath('meta.total', 7)
-            ->assertJsonPath('data.0.id', $member->id)->assertJsonPath('data.0.on_shift', false)
-            ->assertJsonPath('data.0.suggested', true)->assertJsonPath('data.0.overlaps.0.overlap_minutes', 60)
+            ->assertJsonPath('data.0.on_shift', false)
+            ->assertJsonPath('data.0.suggested', false)->assertJsonCount(0, 'data.0.overlaps')
             ->assertJsonMissingPath('data.0.email')->assertJsonMissingPath('data.0.hourly_pay');
         $this->assertLessThan(25, count(DB::getQueryLog()));
         DB::disableQueryLog();
-        $this->getJson($url.'&page=2')->assertJsonCount(2, 'data');
+        $this->getJson($url.'&page=2')->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.1.id', $member->id)->assertJsonPath('data.1.on_shift', false)
+            ->assertJsonPath('data.1.suggested', true)->assertJsonPath('data.1.overlaps.0.overlap_minutes', 60);
         $preview = route('team.shifts.create.assignment-overlaps', $this->event).'?'.http_build_query([...$hours, 'team_engagement_id' => $member->id]);
         $this->getJson($preview)->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.overlap_minutes', 60)
             ->assertJsonPath('other_shifts.0.shift_id', $this->shift->id)->assertJsonMissingPath('data.0.team_engagement_id');

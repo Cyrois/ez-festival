@@ -25,7 +25,9 @@ class IndexShiftAssignmentCandidatesRequest extends FormRequest
             'role_id' => ['required_without:shift_role_slot_id', 'prohibits:shift_role_slot_id', 'integer', Rule::exists('roles', 'id')->where('active', true)],
             'search' => ['sometimes', 'nullable', 'string', 'max:255'],
             'page' => ['sometimes', 'integer', 'min:1'],
-            'per_page' => ['sometimes', 'integer', 'min:1', 'max:5'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:25'],
+            'role_filter' => ['sometimes', Rule::in(['everyone', 'has_role'])],
+            'selected_id' => ['sometimes', 'integer', 'min:1'],
         ];
     }
 }

@@ -2,6 +2,7 @@
 import { CardTitle } from '../ui/card';
 import { computed, ref } from 'vue';
 import { Button } from '../ui/button';
+import { Icon } from '../ui/icon';
 import { CustomDropdown } from '../ui/custom-dropdown';
 import { FormField } from '../ui/form-field';
 import { QuantityInput } from '../ui/quantity-input';
@@ -129,20 +130,24 @@ const remove = (slot) => {
             </FormField>
             <Button
                 type="button"
-                variant="soft-primary"
+                variant="primary"
                 class="h-10 border-0 sm:self-end"
                 :disabled="!editable || busy"
                 @click="add"
-                >{{ $t('team.scheduling.slots.add') }}</Button
             >
+                <Icon :name="['fas', 'plus']" />
+                {{ $t('team.scheduling.slots.add') }}
+            </Button>
         </div>
         <Button
             v-if="!editable"
             type="button"
             disabled
             :title="disabledReason"
-            >{{ $t('team.scheduling.slots.add') }}</Button
         >
+            <Icon :name="['fas', 'plus']" />
+            {{ $t('team.scheduling.slots.add') }}
+        </Button>
         <div
             v-for="slot in ordered"
             :key="slot._key"
