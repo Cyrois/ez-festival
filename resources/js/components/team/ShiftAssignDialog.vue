@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch, onUnmounted } from 'vue';
+import { computed, ref, watch, onUnmounted, useId } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import { Badge } from '../ui/badge';
@@ -32,6 +32,7 @@ const props = defineProps({
 });
 const emit = defineEmits(['close', 'assigned']);
 const table = ref(null);
+const overlapTooltipId = useId();
 const selectedSlotId = ref('');
 const targetSlot = computed(
     () =>
@@ -515,102 +516,125 @@ const assign = () => {
                         )
                     }}
                 </p>
-                <DataTable
-                    :key="targetSlot.id"
-                    ref="table"
-                    :ajax="ajax"
-                    :columns="columns"
-                    :options="tableOptions"
-                    class="[&_tbody_td]:py-2!"
-                >
-                    <template #candidate="{ rowData }">
-                        <div class="flex min-w-0 items-center gap-3">
-                            <Radio
-                                :model-value="selected?.id ?? ''"
-                                :value="rowData.id"
-                                name="assignment-person"
-                                :aria-label="rowData.name"
-                                :disabled="rowData.on_shift || form.processing"
-                                @update:model-value="pick(rowData)"
-                            />
-                            <Avatar
-                                :name="rowData.name"
-                                size="sm"
-                            />
-                            <div class="min-w-0">
-                                <p
-                                    :title="rowData.name"
-                                    class="max-w-36 truncate font-semibold sm:max-w-64"
-                                    :class="
-                                        selected?.id === rowData.id
-                                            ? 'text-primary'
-                                            : 'text-charcoal'
+                <div class="[&_.dt-layout-table>div]:overflow-visible!">
+                    <DataTable
+                        :key="targetSlot.id"
+                        ref="table"
+                        :ajax="ajax"
+                        :columns="columns"
+                        :options="tableOptions"
+                        class="[&_tbody_td]:py-2!"
+                    >
+                        <template #candidate="{ rowData }">
+                            <div class="flex min-w-0 items-center gap-3">
+                                <Radio
+                                    :model-value="selected?.id ?? ''"
+                                    :value="rowData.id"
+                                    name="assignment-person"
+                                    :aria-label="rowData.name"
+                                    :disabled="
+                                        rowData.on_shift || form.processing
                                     "
-                                >
-                                    {{ rowData.name }}
-                                </p>
+                                    @update:model-value="pick(rowData)"
+                                />
+                                <Avatar
+                                    :name="rowData.name"
+                                    size="sm"
+                                />
+                                <div class="min-w-0">
+                                    <p
+                                        :title="rowData.name"
+                                        class="max-w-36 truncate font-semibold sm:max-w-64"
+                                        :class="
+                                            selected?.id === rowData.id
+                                                ? 'text-primary'
+                                                : 'text-charcoal'
+                                        "
+                                    >
+                                        {{ rowData.name }}
+                                    </p>
+                                </div>
                             </div>
-                        </div>
-                    </template>
-                    <template #role="{ rowData }">
-                        <Tag
-                            v-if="rowData.role_name"
-                            :name="rowData.role_name"
-                            color="soft_blue"
-                        />
-                        <span
-                            v-else
-                            class="text-muted"
-                        >
-                            {{ $t('team.scheduling.assignments.no_role') }}
-                        </span>
-                    </template>
-                    <template #availability="{ rowData }">
-                        <Badge
-                            v-if="rowData.on_shift"
-                            pill
-                            class="gap-1"
-                        >
-                            <Icon :name="['fas', 'check']" />
-                            {{ trans('team.scheduling.assignments.on_shift') }}
-                        </Badge>
-                        <Badge
-                            v-else-if="rowData.overlaps.length"
-                            pill
-                            variant="warning"
-                            class="gap-1"
-                            :title="overlapDetails(rowData)"
-                            :aria-label="overlapDetails(rowData)"
-                            tabindex="0"
-                        >
-                            <Icon :name="['fas', 'circle-exclamation']" />
-                            {{
-                                trans(
-                                    'team.scheduling.assignments.overlap_chip',
-                                    {
-                                        name: rowData.overlaps[0].shift_name,
-                                        length: assignmentDurationLabel(
-                                            rowData.overlaps[0].overlap_minutes,
-                                            trans,
-                                        ),
-                                    },
-                                )
-                            }}
-                        </Badge>
-                        <Badge
-                            v-else
-                            pill
-                            variant="success"
-                            class="gap-1"
-                        >
-                            <Icon
-                                :name="['fas', 'circle']"
-                                class="text-[6px]"
+                        </template>
+                        <template #role="{ rowData }">
+                            <Tag
+                                v-if="rowData.role_name"
+                                :name="rowData.role_name"
+                                color="soft_blue"
                             />
-                            {{ trans('team.scheduling.assignments.free') }}
-                        </Badge>
-                    </template>
-                </DataTable>
+                            <span
+                                v-else
+                                class="text-muted"
+                            >
+                                {{ $t('team.scheduling.assignments.no_role') }}
+                            </span>
+                        </template>
+                        <template #availability="{ rowData }">
+                            <Badge
+                                v-if="rowData.on_shift"
+                                pill
+                                class="gap-1"
+                            >
+                                <Icon :name="['fas', 'check']" />
+                                {{
+                                    trans(
+                                        'team.scheduling.assignments.on_shift',
+                                    )
+                                }}
+                            </Badge>
+                            <span
+                                v-else-if="rowData.overlaps.length"
+                                class="group relative inline-flex"
+                                :aria-label="overlapDetails(rowData)"
+                                :aria-describedby="`${overlapTooltipId}-${rowData.id}`"
+                                tabindex="0"
+                            >
+                                <Badge
+                                    pill
+                                    variant="warning"
+                                    class="gap-1"
+                                >
+                                    <Icon
+                                        :name="['fas', 'circle-exclamation']"
+                                    />
+                                    {{
+                                        trans(
+                                            'team.scheduling.assignments.overlap_chip',
+                                            {
+                                                name: rowData.overlaps[0]
+                                                    .shift_name,
+                                                length: assignmentDurationLabel(
+                                                    rowData.overlaps[0]
+                                                        .overlap_minutes,
+                                                    trans,
+                                                ),
+                                            },
+                                        )
+                                    }}
+                                </Badge>
+                                <span
+                                    :id="`${overlapTooltipId}-${rowData.id}`"
+                                    role="tooltip"
+                                    class="pointer-events-none absolute right-0 bottom-full z-50 mb-2 hidden w-56 rounded-lg bg-charcoal px-3 py-2 text-xs whitespace-pre-line text-white shadow-lg group-hover:block group-focus-visible:block"
+                                >
+                                    {{ overlapDetails(rowData) }}
+                                </span>
+                            </span>
+                            <Badge
+                                v-else
+                                pill
+                                variant="success"
+                                class="gap-1"
+                            >
+                                <Icon
+                                    :name="['fas', 'circle']"
+                                    class="text-[6px]"
+                                />
+                                {{ trans('team.scheduling.assignments.free') }}
+                            </Badge>
+                        </template>
+                    </DataTable>
+                </div>
             </template>
             <div class="space-y-3 border-t border-line pt-4">
                 <h3 class="m-0 text-sm font-bold">

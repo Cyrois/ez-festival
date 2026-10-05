@@ -753,12 +753,18 @@ test('clicking anywhere on a row selects with a teal edge, and overlapping candi
                 'Overlaps Gate close by 30 min. You can still assign them.',
             ),
         );
-        const chip = document.querySelector('[title^="Also on"]');
+        const tooltip = document.querySelector('[role="tooltip"]');
+        const chip = tooltip.parentElement;
+        assert.equal(chip.getAttribute('aria-describedby'), tooltip.id);
+        assert.equal(chip.getAttribute('tabindex'), '0');
+        assert.equal(chip.hasAttribute('title'), false);
+        assert.ok(tooltip.classList.contains('group-hover:block'));
+        assert.ok(tooltip.classList.contains('group-focus-visible:block'));
         assert.ok(
-            chip.title.includes('Also on Gate close\n2026-10-01 11:00–13:00'),
+            tooltip.textContent.includes('Also on Gate close\n2026-10-01 11:00–13:00'),
         );
         assert.ok(
-            chip.title.includes('Overlaps this shift 11:00–13:00 (30 min)'),
+            tooltip.textContent.includes('Overlaps this shift 11:00–13:00 (30 min)'),
         );
         document.querySelector('tr[data-id="10"]').click();
         await nextTick();
