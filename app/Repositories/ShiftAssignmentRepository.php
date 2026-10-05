@@ -29,15 +29,28 @@ class ShiftAssignmentRepository
             : $data['role_id'];
         [$start, $end] = ShiftAssignmentHours::resolve($shift, $data);
         $pattern = '%'.SqlLike::escape(mb_strtolower(trim($data['search'] ?? ''))).'%';
+        // Rank the entire scoped set before pagination, using the same interval
+        // boundaries and event scope as the displayed overlap warnings.
+        $onShift = ShiftAssignment::query()->selectRaw('1')
+            ->whereColumn('team_engagement_id', 'team_engagements.id')->where('shift_id', $shift->id);
+        $overlapping = ShiftAssignment::query()->selectRaw('1')
+            ->whereColumn('team_engagement_id', 'team_engagements.id')->where('shift_id', '!=', $shift->id)
+            ->whereHas('shift', fn ($query) => $query->where('event_id', $shift->event_id))
+            ->where('starts_at', '<', $end)->where('ends_at', '>', $start);
         $candidates = TeamEngagement::query()->where('team_engagements.event_id', $shift->event_id)
-            ->where('status', 'hired')->join('people', 'people.id', '=', 'team_engagements.person_id')
+            ->where('team_engagements.status', 'hired')->join('people', 'people.id', '=', 'team_engagements.person_id')
             ->select(['team_engagements.id', 'team_engagements.role_id', 'team_engagements.group_id', 'people.name as person_name'])
+            ->selectRaw('CASE WHEN EXISTS ('.$onShift->toSql().') THEN 2 WHEN EXISTS ('.$overlapping->toSql().') THEN 1 ELSE 0 END AS availability_order',
+                [...$onShift->getBindings(), ...$overlapping->getBindings()])
             ->with(['role:id,name', 'group:id,name'])
             ->withExists(['shiftAssignments as on_shift' => fn ($query) => $query->where('shift_id', $shift->id)])
             ->whereRaw("LOWER(people.name) LIKE ? ESCAPE '!'", [$pattern])
+            ->when(($data['role_filter'] ?? 'everyone') === 'has_role', fn ($query) => $query->where('team_engagements.role_id', $roleId))
+            ->when(isset($data['selected_id']), fn ($query) => $query->where('team_engagements.id', $data['selected_id']))
+            ->orderBy('availability_order')
             ->orderByRaw('CASE WHEN team_engagements.role_id = ? THEN 0 ELSE 1 END', [$roleId])
             ->orderByRaw('LOWER(people.name)')->orderBy('team_engagements.id')
-            ->paginate((int) ($data['per_page'] ?? 5), ['*'], 'page', (int) ($data['page'] ?? 1))->withQueryString();
+            ->paginate((int) ($data['per_page'] ?? 25), ['*'], 'page', (int) ($data['page'] ?? 1))->withQueryString();
         $others = ShiftAssignmentOverlaps::forMembers($shift, $candidates->getCollection()->modelKeys(), $shift->starts_at->copy()->subMinutes(30), $shift->ends_at->copy()->addMinutes(30));
         $timezone = $shift->event->timezone;
         foreach ($candidates as $candidate) {

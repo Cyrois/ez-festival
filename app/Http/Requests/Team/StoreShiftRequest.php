@@ -3,11 +3,14 @@
 namespace App\Http\Requests\Team;
 
 use App\Http\Requests\Team\Concerns\ShiftBreakRules;
+use App\Http\Requests\Team\Concerns\ShiftRosterChangeRules;
 use App\Http\Requests\Team\Concerns\ShiftRules;
 use App\Http\Requests\Team\Concerns\ShiftSlotRules;
+use App\Models\Shift;
 use App\Support\EventContext;
 use App\Support\ShiftCopyAssignments;
 use App\Support\ShiftReturnContext;
+use App\Support\ShiftRosterChanges;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -17,6 +20,7 @@ use Illuminate\Validation\Validator;
 class StoreShiftRequest extends FormRequest
 {
     use ShiftBreakRules;
+    use ShiftRosterChangeRules;
     use ShiftRules;
     use ShiftSlotRules { after as slotAfter;
         messages as slotMessages; }
@@ -35,6 +39,10 @@ class StoreShiftRequest extends FormRequest
                         $validator->errors()->add($key, $message);
                     }
                 }
+            }
+            $shift = new Shift(['event_id' => $this->route('event')->id]);
+            foreach (ShiftRosterChanges::errors($shift, $this->all()) as $key => $message) {
+                $validator->errors()->add($key, $message);
             }
         }];
     }
@@ -71,6 +79,7 @@ class StoreShiftRequest extends FormRequest
             'assignments.*.ends_at' => ['required_if:assignments.*.hours_mode,custom', 'prohibited_if:assignments.*.hours_mode,full_shift', 'date_format:Y-m-d\TH:i', 'after:assignments.*.starts_at'],
             ...$this->slotRules(),
             ...$this->breakRules(),
+            ...$this->rosterChangeRules(),
             ...ShiftReturnContext::rules(),
         ];
     }

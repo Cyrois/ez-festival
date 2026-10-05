@@ -270,6 +270,8 @@ async function compile(path) {
     ).default;
 }
 deps.CopiedShiftRoster = await compile('components/team/CopiedShiftRoster');
+deps.CopyShiftEditor = await compile('components/team/CopyShiftEditor');
+deps.ShiftEditor = await compile('components/team/ShiftEditor');
 const Create = await compile('pages/Team/CreateShift');
 const Shift = await compile('pages/Team/Shift');
 const Scheduling = await compile('pages/Team/Scheduling');

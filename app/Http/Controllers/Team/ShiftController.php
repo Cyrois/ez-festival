@@ -48,7 +48,8 @@ class ShiftController extends Controller
         }
 
         return Inertia::render('Team/CreateShift', [
-            'event' => $event->only('id', 'name'),
+            'event' => [...$event->only('id', 'name'), 'is_locked' => $event->isLocked()],
+            'canManage' => Gate::allows('scheduling.edit'),
             'locations' => $this->locations->optionsFor($event),
             'roles' => ShiftSlotReferences::options(),
             'labelColors' => LabelColors::ALL,

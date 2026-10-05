@@ -7,6 +7,17 @@ export function assignmentPayload(slotId, memberId, mode, start, end) {
     };
 }
 
+export function assignmentCandidatesUrl(shift, eventId) {
+    return shift.id
+        ? `/team/shifts/${shift.id}/assignment-candidates`
+        : `/team/events/${eventId}/shifts/assignment-candidates`;
+}
+
+export function assignmentOverlapUrl(shift, eventId, assignment) {
+    if (!shift.id) return `/team/events/${eventId}/shifts/assignment-overlaps`;
+    return `/team/shifts/${shift.id}/${assignment.id > 0 ? `assignments/${assignment.id}/overlaps` : 'assignment-overlaps'}`;
+}
+
 export function validAssignmentHours(shift, mode, start, end) {
     return (
         mode === 'full_shift' ||
@@ -48,6 +59,51 @@ export function scheduleRosterRows(shift) {
                 assignment,
             })),
     ];
+}
+
+// Durations come from the server (including event-timezone DST handling).
+export function assignmentDurationLabel(minutes, translate) {
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    return hours
+        ? translate(
+              remainder
+                  ? 'team.scheduling.assignments.duration_hours_minutes'
+                  : 'team.scheduling.assignments.duration_hours',
+              { hours, minutes: remainder },
+          )
+        : translate('team.scheduling.assignments.duration_minutes', {
+              minutes,
+          });
+}
+
+export function assignmentOverlapDetails(overlaps, hours, translate) {
+    return overlaps
+        .map((overlap) => {
+            const start =
+                hours.starts_at > overlap.starts_at
+                    ? hours.starts_at
+                    : overlap.starts_at;
+            const end =
+                hours.ends_at < overlap.ends_at
+                    ? hours.ends_at
+                    : overlap.ends_at;
+            return [
+                translate('team.scheduling.assignments.also_on', {
+                    name: overlap.shift_name,
+                }),
+                `${overlap.starts_at.slice(0, 10)} ${overlap.starts_at.slice(11, 16)}–${overlap.ends_at.slice(11, 16)}`,
+                translate('team.scheduling.assignments.overlap_details', {
+                    from: start.slice(11, 16),
+                    to: end.slice(11, 16),
+                    length: assignmentDurationLabel(
+                        overlap.overlap_minutes,
+                        translate,
+                    ),
+                }),
+            ].join('\n');
+        })
+        .join('\n\n');
 }
 
 export function draftRoster(

@@ -7,8 +7,11 @@ import { JSDOM } from 'jsdom';
 import { parse, compileScript } from '@vue/compiler-sfc';
 import {
     assignmentPayload,
+    assignmentCandidatesUrl,
     validAssignmentHours,
     requirementRoster,
+    assignmentOverlapDetails,
+    assignmentDurationLabel,
 } from '../../resources/js/lib/shiftAssignments.js';
 
 const dom = new JSDOM('<div id="app"></div>');
@@ -25,6 +28,7 @@ const { createApp, h, ref, reactive, nextTick, onMounted } =
     await import('vue');
 const shift = {
     id: 3,
+    name: 'Morning crew',
     starts_at: '2026-10-01T10:00',
     ends_at: '2026-10-01T14:00',
 };
@@ -34,6 +38,10 @@ const harness = {
     errors: [],
     page: 0,
     failSearch: false,
+    total: 21,
+    overlapMinutes: 30,
+    onlyOnShift: false,
+    noRoleMatches: false,
 };
 const Box = {
     setup:
@@ -41,10 +49,21 @@ const Box = {
         () =>
             h('div', slots.default?.()),
 };
+const copy = JSON.parse(
+    readFileSync(new URL('../../lang/en.json', import.meta.url), 'utf8'),
+);
+const translate = (key, params = {}) =>
+    Object.entries(params).reduce(
+        (text, [name, value]) => text.replaceAll(`:${name}`, value),
+        copy[key] ?? key,
+    );
 const dependencies = {
     assignmentPayload,
+    assignmentCandidatesUrl,
     validAssignmentHours,
-    trans: (key) => key,
+    trans: translate,
+    assignmentOverlapDetails,
+    assignmentDurationLabel,
     useFlashToast: () => ({
         showError: (error) => harness.errors.push(error),
         showFormError: (error) => harness.errors.push(error),
@@ -71,7 +90,9 @@ const dependencies = {
             (props, { slots, emit }) =>
             () =>
                 h('div', [
+                    slots.subtitle?.(),
                     slots.default?.(),
+                    slots['footer-hint']?.(),
                     h(
                         'button',
                         { id: 'cancel', onClick: () => emit('cancel') },
@@ -84,7 +105,7 @@ const dependencies = {
                             disabled: props.confirmDisabled,
                             onClick: () => emit('confirm'),
                         },
-                        'Assign',
+                        props.confirmLabel,
                     ),
                 ]),
     },
@@ -109,10 +130,11 @@ const dependencies = {
     Radio: {
         props: ['modelValue', 'value', 'label', 'disabled'],
         setup:
-            (props, { emit }) =>
+            (props, { emit, attrs }) =>
             () =>
                 h('label', [
                     h('input', {
+                        ...attrs,
                         type: 'radio',
                         checked: props.modelValue === props.value,
                         disabled: props.disabled,
@@ -166,66 +188,175 @@ const dependencies = {
                 h('button', attrs, slots.default?.()),
     },
     Badge: Box,
+    Avatar: {
+        props: ['name'],
+        setup: (props) => () =>
+            h('span', { 'data-ui': 'avatar' }, props.name.slice(0, 2)),
+    },
+    Tag: { props: ['name'], setup: (props) => () => h('span', props.name) },
+    SegmentedControl: {
+        props: ['modelValue', 'options'],
+        setup:
+            (props, { emit }) =>
+            () =>
+                h(
+                    'div',
+                    props.options.map((option) =>
+                        h(
+                            'button',
+                            {
+                                'data-filter': option.value,
+                                'aria-checked':
+                                    props.modelValue === option.value,
+                                onClick: () =>
+                                    emit('update:modelValue', option.value),
+                            },
+                            option.label,
+                        ),
+                    ),
+                ),
+    },
     ShiftOverlapWarnings: {
         props: ['overlaps'],
         setup: (props) => () => h('span', JSON.stringify(props.overlaps)),
     },
     DataTable: {
-        props: ['ajax'],
+        props: ['ajax', 'options', 'columns'],
         setup: (props, { slots, expose }) => {
             const rows = ref([]);
+            const root = ref(null);
+            let search = '';
+            let total = 0;
+            const api = () => ({
+                table: () => ({
+                    node: () => root.value.querySelector('table'),
+                    container: () => root.value,
+                }),
+                page: {
+                    info: () => ({
+                        pages: Math.ceil(total / props.options.pageLength),
+                    }),
+                },
+            });
             const load = () =>
                 props.ajax(
                     {
                         draw: 1,
-                        start: harness.page * 5,
-                        length: 5,
-                        search: { value: '' },
+                        start: harness.page * props.options.pageLength,
+                        length: props.options.pageLength,
+                        search: { value: search },
                     },
-                    (response) => {
+                    async (response) => {
+                        total = response.recordsFiltered;
                         rows.value = response.data;
+                        await nextTick();
+                        root.value
+                            .querySelectorAll('tbody tr[data-id]')
+                            .forEach((row, index) =>
+                                props.options.createdRow(
+                                    row,
+                                    rows.value[index],
+                                ),
+                            );
+                        props.options.drawCallback.call({ api });
                     },
                 );
-            expose({ reload: load, search: load });
+            expose({
+                reload: load,
+                search: (value) => {
+                    search = value;
+                    harness.page = 0;
+                    return load();
+                },
+            });
             harness.reload = load;
             onMounted(load);
             return () =>
-                h(
-                    'div',
-                    rows.value.map((row) =>
-                        Object.values(slots).map((slot) =>
-                            slot({ rowData: row }),
+                h('div', { ref: root }, [
+                    h('table', [
+                        h(
+                            'tbody',
+                            rows.value.length
+                                ? rows.value.map((row) =>
+                                      h(
+                                          'tr',
+                                          { key: row.id, 'data-id': row.id },
+                                          Object.values(slots).map((slot) =>
+                                              h('td', slot({ rowData: row })),
+                                          ),
+                                      ),
+                                  )
+                                : h('tr', [h('td', { class: 'dt-empty' })]),
                         ),
-                    ),
-                );
+                    ]),
+                    h('div', { class: 'dt-paging' }, 'Previous Next'),
+                ]);
         },
     },
 };
 globalThis.__shiftDialogTest = dependencies;
 globalThis.fetch = async (url) => {
-    harness.requests.push(new URL(url, 'http://localhost'));
-    const name = harness.page === 0 ? 'Alpha' : 'Beta';
+    const request = new URL(url, 'http://localhost');
+    harness.requests.push(request);
+    const candidates = [
+        {
+            id: 8,
+            name: 'Alpha',
+            role_name: 'Crew',
+            group_name: 'Stage',
+            suggested: true,
+            on_shift: false,
+            overlaps: harness.overlapMinutes
+                ? [
+                      {
+                          shift_id: 20,
+                          shift_name: 'Gate close',
+                          starts_at: '2026-10-01T11:00',
+                          ends_at: '2026-10-01T13:00',
+                          overlap_minutes: harness.overlapMinutes,
+                      },
+                  ]
+                : [],
+        },
+        {
+            id: 9,
+            name: 'Beta',
+            role_name: 'Sound',
+            suggested: false,
+            on_shift: false,
+            overlaps: [],
+        },
+        {
+            id: 10,
+            name: 'Already assigned',
+            role_name: 'Crew',
+            suggested: true,
+            on_shift: true,
+            overlaps: [],
+        },
+    ];
+    const selectedId = request.searchParams.get('selected_id');
+    const search = request.searchParams.get('search').toLowerCase();
+    const filtered = candidates.filter(
+        (candidate) =>
+            (!harness.onlyOnShift || candidate.on_shift) &&
+            (!harness.noRoleMatches ||
+                request.searchParams.get('role_filter') !== 'has_role') &&
+            (!selectedId || candidate.id === Number(selectedId)) &&
+            (!search || candidate.name.toLowerCase().includes(search)) &&
+            (request.searchParams.get('role_filter') !== 'has_role' ||
+                candidate.suggested),
+    );
     return {
         ok: !harness.failSearch,
         json: async () => ({
-            data: [
-                {
-                    id: harness.page === 0 ? 8 : 9,
-                    name,
-                    role_name: 'Crew',
-                    group_name: 'Stage',
-                    suggested: true,
-                    on_shift: false,
-                    overlaps: [{ shift_id: 20 }],
-                },
-                {
-                    id: 10,
-                    name: 'Already assigned',
-                    on_shift: true,
-                    overlaps: [],
-                },
-            ],
-            meta: { total: 21 },
+            data:
+                !selectedId && harness.page > 0
+                    ? filtered.filter((row) => row.id === 9)
+                    : filtered,
+            meta: {
+                total: selectedId || search ? filtered.length : harness.total,
+            },
         }),
     };
 };
@@ -268,6 +399,10 @@ const mount = async (overrides = {}) => {
     harness.requests = [];
     harness.page = 0;
     harness.failSearch = false;
+    harness.total = 21;
+    harness.overlapMinutes = 30;
+    harness.onlyOnShift = false;
+    harness.noRoleMatches = false;
     const app = createApp({
         setup: () => () =>
             h(AssignDialog, {
@@ -280,17 +415,14 @@ const mount = async (overrides = {}) => {
                 },
             }),
     });
-    app.config.globalProperties.$t = (key) => key;
+    app.config.globalProperties.$t = translate;
     harness.closed = false;
     app.mount(document.getElementById('app'));
     await settle();
     return app;
 };
 const choose = async (name) => {
-    [...document.querySelectorAll('label')]
-        .find((label) => label.textContent === name)
-        .querySelector('input')
-        .click();
+    document.querySelector(`input[type=radio][aria-label="${name}"]`).click();
     await nextTick();
 };
 
@@ -341,26 +473,28 @@ test('dialog retains selection across pages, disables assigned people, and maps 
     try {
         assert.equal(document.querySelector('#assign').disabled, true);
         assert.equal(
-            [...document.querySelectorAll('label')]
-                .find((label) => label.textContent === 'Already assigned')
-                .querySelector('input').disabled,
+            document.querySelector('input[aria-label="Already assigned"]')
+                .disabled,
             true,
         );
         assert.ok(document.body.textContent.includes('Crew'));
-        assert.ok(document.body.textContent.includes('Stage'));
+        assert.ok(!document.body.textContent.includes('Stage'));
         assert.ok(
-            document.body.textContent.includes(
-                'team.scheduling.assignments.not_available',
-            ),
+            document.body.textContent.includes('Overlaps Gate close · 30 min'),
         );
-        assert.equal(harness.requests[0].searchParams.get('per_page'), '5');
+        assert.equal(harness.requests[0].searchParams.get('per_page'), '25');
         await choose('Alpha');
         harness.page = 1;
         await harness.reload();
         await settle();
         document.querySelector('#assign').click();
         assert.equal(harness.writes[0].data.team_engagement_id, 8);
-        assert.equal(harness.requests.at(-1).searchParams.get('page'), '2');
+        assert.equal(
+            harness.requests
+                .find((request) => request.searchParams.get('page') === '2')
+                .searchParams.get('page'),
+            '2',
+        );
         harness.form.errors = { team_engagement_id: 'Already on shift' };
         harness.writes[0].options.onError(harness.form.errors);
         await settle();
@@ -409,7 +543,10 @@ test('changing hours refreshes search, invalid hours disable Assign, and cancel/
         await nextTick();
         assert.equal(harness.form.starts_at, shift.starts_at);
         assert.equal(harness.form.ends_at, shift.ends_at);
-        assert.ok(inputs.every((input) => input.disabled));
+        assert.equal(
+            document.querySelectorAll('input[type=datetime-local]').length,
+            0,
+        );
         const count = harness.writes.length;
         document.querySelector('#cancel').click();
         assert.equal(harness.closed, true);
@@ -422,9 +559,8 @@ test('changing hours refreshes search, invalid hours disable Assign, and cancel/
             true,
         );
         assert.ok(
-            [...document.querySelectorAll('input[type=datetime-local]')].every(
-                (input) => input.disabled,
-            ),
+            document.querySelectorAll('input[type=datetime-local]').length ===
+                0,
         );
     } finally {
         app.unmount();
@@ -441,7 +577,7 @@ test('candidate errors prevent assignment until a successful refresh', async () 
         assert.equal(document.querySelector('#assign').disabled, true);
         assert.ok(
             document.body.textContent.includes(
-                'team.scheduling.assignments.search_failed',
+                copy['team.scheduling.assignments.search_failed'],
             ),
         );
         assert.equal(harness.writes.length, 0);
@@ -551,6 +687,215 @@ test('header assignment chooses a Headcount position, permits a different Team r
     }
 });
 
+test('popup opens on Has this role with subtitle, hidden single-page pager, full-shift text and disabled footer hint', async () => {
+    const app = await mount();
+    try {
+        assert.equal(
+            document
+                .querySelector('[data-filter="has_role"]')
+                .getAttribute('aria-checked'),
+            'true',
+        );
+        assert.equal(
+            harness.requests[0].searchParams.get('role_filter'),
+            'has_role',
+        );
+        assert.ok(
+            document.body.textContent.includes(
+                'Morning crew · Open Crew slot · 10:00–14:00',
+            ),
+        );
+        assert.ok(
+            document.body.textContent.includes('Pick a person to assign'),
+        );
+        assert.ok(
+            document.body.textContent.includes('10:00–14:00 (full shift)'),
+        );
+        assert.equal(
+            document.querySelectorAll('input[type=datetime-local]').length,
+            0,
+        );
+        assert.equal(
+            document.querySelector('.dt-paging').classList.contains('hidden'),
+            true,
+        );
+        harness.total = 26;
+        await harness.reload();
+        await settle();
+        assert.equal(
+            document.querySelector('.dt-paging').classList.contains('hidden'),
+            false,
+        );
+    } finally {
+        app.unmount();
+    }
+});
+
+test('clicking anywhere on a row selects with a teal edge, and overlapping candidates remain assignable', async () => {
+    const app = await mount();
+    try {
+        document.querySelector('tr[data-id="8"] td:last-child').click();
+        await nextTick();
+        const row = document.querySelector('tr[data-id="8"]');
+        assert.ok(row.classList.contains('bg-primary-soft'));
+        assert.ok(
+            row.classList.contains('[&>td:first-child]:border-l-primary'),
+        );
+        assert.equal(
+            document.querySelector('input[aria-label="Alpha"]').checked,
+            true,
+        );
+        assert.equal(
+            document.querySelector('#assign').textContent,
+            'Assign Alpha',
+        );
+        assert.equal(document.querySelector('#assign').disabled, false);
+        assert.ok(
+            document.body.textContent.includes(
+                'Overlaps Gate close by 30 min. You can still assign them.',
+            ),
+        );
+        const tooltip = document.querySelector('[role="tooltip"]');
+        const chip = tooltip.parentElement;
+        assert.equal(chip.getAttribute('aria-describedby'), tooltip.id);
+        assert.equal(chip.getAttribute('tabindex'), '0');
+        assert.equal(chip.hasAttribute('title'), false);
+        assert.ok(tooltip.classList.contains('group-hover:block'));
+        assert.ok(tooltip.classList.contains('group-focus-visible:block'));
+        assert.ok(
+            tooltip.textContent.includes('Also on Gate close\n2026-10-01 11:00–13:00'),
+        );
+        assert.ok(
+            tooltip.textContent.includes('Overlaps this shift 11:00–13:00 (30 min)'),
+        );
+        document.querySelector('tr[data-id="10"]').click();
+        await nextTick();
+        assert.equal(
+            document.querySelector('#assign').textContent,
+            'Assign Alpha',
+        );
+    } finally {
+        app.unmount();
+    }
+});
+
+test('Everyone shows nonmatching people with their roles; filtering or searching a picked person away clears selection', async () => {
+    const app = await mount();
+    try {
+        document.querySelector('[data-filter="everyone"]').click();
+        await settle();
+        const beta = document.querySelector('tr[data-id="9"]');
+        assert.equal(beta.children[1].textContent, 'Sound');
+        beta.click();
+        await nextTick();
+        assert.equal(
+            document.querySelector('#assign').textContent,
+            'Assign Beta',
+        );
+        document.querySelector('[data-filter="has_role"]').click();
+        await settle();
+        assert.equal(document.querySelector('#assign').disabled, true);
+        assert.ok(
+            document.body.textContent.includes('Pick a person to assign'),
+        );
+        await choose('Alpha');
+        const search = document.querySelector('input[type=search]');
+        search.value = 'Nobody';
+        search.dispatchEvent(new window.Event('input', { bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 320));
+        await settle();
+        assert.equal(document.querySelector('#assign').disabled, true);
+        assert.ok(
+            document.body.textContent.includes(
+                'No hired Team members match ‘Nobody’.',
+            ),
+        );
+    } finally {
+        app.unmount();
+    }
+});
+
+test('hours changes refresh a selected candidate even when they are on another page', async () => {
+    const app = await mount();
+    try {
+        await choose('Alpha');
+        harness.page = 1;
+        harness.overlapMinutes = 0;
+        document.querySelector('input[type=checkbox]').click();
+        await new Promise((resolve) => setTimeout(resolve, 270));
+        await settle();
+        assert.ok(
+            harness.requests.some(
+                (request) => request.searchParams.get('selected_id') === '8',
+            ),
+        );
+        assert.equal(
+            document.querySelector('#assign').textContent,
+            'Assign Alpha',
+        );
+        assert.equal(document.querySelector('#assign').disabled, false);
+        assert.ok(
+            !document.body.textContent.includes('You can still assign them.'),
+        );
+    } finally {
+        app.unmount();
+    }
+});
+
+test('tooltip includes every overlap and crosses midnight without browser-timezone conversion', () => {
+    const details = assignmentOverlapDetails(
+        [
+            {
+                shift_name: 'Load-out',
+                starts_at: '2026-10-01T21:00',
+                ends_at: '2026-10-02T00:00',
+                overlap_minutes: 60,
+            },
+            {
+                shift_name: 'Gate close',
+                starts_at: '2026-10-01T21:30',
+                ends_at: '2026-10-01T22:00',
+                overlap_minutes: 30,
+            },
+        ],
+        { starts_at: '2026-10-01T14:00', ends_at: '2026-10-01T22:00' },
+        translate,
+    );
+    assert.ok(details.includes('2026-10-01 21:00–00:00'));
+    assert.ok(details.includes('Overlaps this shift 21:00–22:00 (1 h)'));
+    assert.ok(details.includes('Also on Gate close'));
+    assert.equal(assignmentDurationLabel(90, translate), '1 h 30 min');
+});
+
+test('an empty role gives the switch hint and all-on-shift candidates stay disabled', async () => {
+    const app = await mount();
+    try {
+        harness.noRoleMatches = true;
+        await harness.reload();
+        await settle();
+        assert.ok(
+            document.body.textContent.includes(
+                'No one has the Crew role yet. Switch to Everyone to pick anyone.',
+            ),
+        );
+        assert.equal(document.querySelector('#assign').disabled, true);
+        harness.noRoleMatches = false;
+        harness.onlyOnShift = true;
+        await harness.reload();
+        await settle();
+        assert.ok(
+            [...document.querySelectorAll('input[type=radio]')].every(
+                (input) => input.disabled,
+            ),
+        );
+        document.querySelector('tbody tr').click();
+        await nextTick();
+        assert.equal(document.querySelector('#assign').disabled, true);
+    } finally {
+        app.unmount();
+    }
+});
+
 test('deferred assignment returns the selected person and position without writing', async () => {
     const drafts = [];
     const app = await mount({
@@ -569,11 +914,20 @@ test('deferred assignment returns the selected person and position without writi
     }
 });
 
-
 test('unsaved Headcount searches by suggested role and emits a draft slot reference without writes', async () => {
     const drafts = [];
-    const requirement = { id: 'draft-12', role_id: 3, role_name: 'Crew', needed: 1, assigned_count: 0 };
-    const app = await mount({ deferred: true, requirement, onAssigned: draft => drafts.push(draft) });
+    const requirement = {
+        id: 'draft-12',
+        role_id: 3,
+        role_name: 'Crew',
+        needed: 1,
+        assigned_count: 0,
+    };
+    const app = await mount({
+        deferred: true,
+        requirement,
+        onAssigned: (draft) => drafts.push(draft),
+    });
     try {
         await choose('Alpha');
         const query = harness.requests.at(-1).searchParams;
@@ -583,5 +937,47 @@ test('unsaved Headcount searches by suggested role and emits a draft slot refere
         assert.equal(harness.writes.length, 0);
         assert.equal(drafts[0].slot_key, 'draft-12');
         assert.equal('shift_role_slot_id' in drafts[0], false);
+    } finally {
+        app.unmount();
+    }
+});
+
+
+test('create-shift candidates use event scope and proposed bounds, stage draft assignments, and disable pending people', async () => {
+    const events = [];
+    const draftSlot = { id: 'draft-1', role_id: 12, role_name: 'Crew' };
+    const app = await mount({
+        shift: { ...shift, id: undefined, slots: [draftSlot] },
+        requirement: draftSlot,
+        deferred: true,
+        pendingMemberIds: [10],
+        onAssigned: data => events.push(data),
+    });
+    try {
+        const request = harness.requests[0];
+        assert.equal(request.pathname, '/team/events/2/shifts/assignment-candidates');
+        assert.equal(request.searchParams.get('role_id'), '12');
+        assert.equal(request.searchParams.get('shift_starts_at'), shift.starts_at);
+        assert.equal(request.searchParams.get('shift_ends_at'), shift.ends_at);
+        assert.equal(request.searchParams.get('per_page'), '25');
+        assert.equal(request.searchParams.has('shift_role_slot_id'), false);
+        await choose('Alpha');
+        document.querySelector('#assign').click();
+        assert.equal(harness.writes.length, 0);
+        assert.equal(events[0].slot_key, 'draft-1');
+        assert.equal(events[0].team_engagement_id, 8);
+        assert.equal(events[0].hours_mode, 'full_shift');
     } finally { app.unmount(); }
+    const pending = await mount({
+        shift: { ...shift, id: undefined, slots: [draftSlot] },
+        requirement: draftSlot,
+        deferred: true,
+        pendingMemberIds: [8],
+    });
+    try {
+        const radio = document.querySelector('input[aria-label="Alpha"]');
+        assert.equal(radio.disabled, true);
+        assert.equal(document.querySelector('#assign').disabled, true);
+        assert.equal(harness.writes.length, 0);
+    } finally { pending.unmount(); }
 });

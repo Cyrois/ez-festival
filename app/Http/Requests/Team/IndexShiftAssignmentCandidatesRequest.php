@@ -12,17 +12,22 @@ class IndexShiftAssignmentCandidatesRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return $this->authorizeShift() && ! $this->route('shift')->event->isLocked();
+        return $this->authorizeShift() && ! ($this->route('shift')?->event ?? $this->route('event'))->isLocked();
     }
 
     public function rules(): array
     {
         return [...$this->hoursRules(),
-            'shift_role_slot_id' => ['required_without:role_id', 'prohibits:role_id', 'integer', Rule::exists('shift_role_slots', 'id')->where('shift_id', $this->route('shift')->id)],
+            ...$this->proposedShiftRules(),
+            'shift_role_slot_id' => $this->route('shift')
+                ? ['required_without:role_id', 'prohibits:role_id', 'integer', Rule::exists('shift_role_slots', 'id')->where('shift_id', $this->route('shift')->id)]
+                : ['prohibited'],
             'role_id' => ['required_without:shift_role_slot_id', 'prohibits:shift_role_slot_id', 'integer', Rule::exists('roles', 'id')->where('active', true)],
             'search' => ['sometimes', 'nullable', 'string', 'max:255'],
             'page' => ['sometimes', 'integer', 'min:1'],
-            'per_page' => ['sometimes', 'integer', 'min:1', 'max:5'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:25'],
+            'role_filter' => ['sometimes', Rule::in(['everyone', 'has_role'])],
+            'selected_id' => ['sometimes', 'integer', 'min:1'],
         ];
     }
 }

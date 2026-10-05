@@ -1,0 +1,444 @@
+<script setup>
+import { ColorPicker } from '../ui/color-picker';
+import { computed, ref, watch, onBeforeUnmount } from 'vue';
+import { useForm } from '@inertiajs/vue3';
+import AppLayout from '../../layouts/AppLayout.vue';
+import { Card, CardTitle } from '../ui/card';
+import { Button } from '../ui/button';
+import { trans } from 'laravel-vue-i18n';
+import { CustomDropdown } from '../ui/custom-dropdown';
+import { FormField } from '../ui/form-field';
+import { Input } from '../ui/input';
+import ShiftRoleSlots from './ShiftRoleSlots.vue';
+import CopiedShiftRoster from './CopiedShiftRoster.vue';
+import {
+    copiedShiftDraft,
+    copiedAssignmentPayload,
+    copiedAssignmentErrors,
+    moveCopiedShift,
+} from '../../lib/shiftCopy';
+import { wallMinutes } from '../../lib/shiftBreaks';
+import ShiftBreaks from './ShiftBreaks.vue';
+import { shiftBreakPayload, shiftBreakErrors } from '../../lib/shiftBreaks';
+import { useFlashToast } from '../../composables/useFlashToast';
+import { fieldError, toastFormErrors } from '../../lib/fieldError';
+import {
+    shiftSlotPayload,
+    shiftSlotErrors,
+    totalShiftNeeds,
+} from '../../lib/shiftRoleSlots';
+import { scheduleReturnHref } from '../../lib/scheduleTimeline';
+
+const props = defineProps({
+    event: { type: Object, required: true },
+    locations: { type: Array, required: true },
+    labelColors: { type: Array, required: true },
+    roles: { type: Array, required: true },
+    breakOptions: { type: Object, required: true },
+    prefill: { type: Object, default: () => ({}) },
+    returnContext: { type: Object, default: () => ({}) },
+});
+const backHref = computed(() => scheduleReturnHref(props.returnContext));
+const copiedDraft = copiedShiftDraft(props.prefill);
+const form = useForm({
+    copy: props.prefill.copy ?? null,
+    color: props.prefill.color ?? 'teal',
+    name: props.prefill.name ?? '',
+    location_id: props.prefill.location_id ?? props.locations[0]?.id ?? '',
+    starts_at: props.prefill.starts_at ?? '',
+    ends_at: props.prefill.ends_at ?? '',
+    ...copiedDraft,
+    ...props.returnContext,
+});
+const slotErrors = ref({});
+const breakErrors = ref({});
+const breakEditor = ref(null);
+const rosterEditor = ref(null);
+const assignmentErrors = ref({});
+const clearBreakError = (key, field) => {
+    if (breakErrors.value[key]) delete breakErrors.value[key][field];
+    form.clearErrors('breaks');
+};
+const clearBreakContainmentErrors = () => {
+    for (const errors of Object.values(breakErrors.value))
+        delete errors.starts_at;
+};
+const draftRoster = computed(() => ({
+    assignments: [],
+    slots: [],
+    filled_count: 0,
+    total_needs: totalShiftNeeds(form.slots),
+    extra_count: 0,
+}));
+const { showError, showFormError } = useFlashToast();
+const locationItems = computed(() =>
+    props.locations.map((location) => ({
+        value: location.id,
+        title: location.name,
+    })),
+);
+const payload = (data) => ({
+    copy: data.copy,
+    name: data.name,
+    color: data.color,
+    location_id: data.location_id,
+    starts_at: data.starts_at,
+    ends_at: data.ends_at,
+    ...props.returnContext,
+    slots: shiftSlotPayload(data.slots),
+    breaks: shiftBreakPayload(data.breaks),
+    assignments: copiedAssignmentPayload(data.assignments, data.slots),
+});
+let previousStart = form.starts_at;
+watch(
+    () => [form.starts_at, form.ends_at],
+    () => {
+        if (!form.copy) return;
+        const moved = moveCopiedShift(form, previousStart);
+        form.assignments = moved.assignments;
+        form.breaks = moved.breaks;
+        if (Number.isFinite(wallMinutes(form.starts_at)))
+            previousStart = form.starts_at;
+    },
+    { flush: 'sync' },
+);
+const updateAssignment = (row, field, value) => {
+    form.assignments = form.assignments.map((item) =>
+        item._key === row._key
+            ? {
+                  ...item,
+                  [field]: value,
+                  ...(field === 'hours_mode' && value === 'full_shift'
+                      ? { starts_at: form.starts_at, ends_at: form.ends_at }
+                      : {}),
+              }
+            : item,
+    );
+};
+const removeAssignment = (row) => {
+    form.assignments = form.assignments.filter(
+        (item) => item._key !== row._key,
+    );
+};
+let previewTimer;
+let previewController;
+watch(
+    () => payload(form),
+    () => {
+        if (!form.copy) return;
+        clearTimeout(previewTimer);
+        previewController?.abort();
+        assignmentErrors.value = {};
+        // A time edit invalidates previous warnings until the server checks the new draft.
+        for (const row of form.assignments) row.overlaps = [];
+        previewTimer = setTimeout(async () => {
+            const controller = new AbortController();
+            previewController = controller;
+            const submitted = [...form.assignments];
+            try {
+                const xsrf = document.cookie
+                    .split('; ')
+                    .find((cookie) => cookie.startsWith('XSRF-TOKEN='))
+                    ?.split('=')
+                    .slice(1)
+                    .join('=');
+                const response = await fetch(
+                    `/team/events/${props.event.id}/shifts/copy-preview`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            Accept: 'application/json',
+                            'Content-Type': 'application/json',
+                            ...(xsrf
+                                ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrf) }
+                                : {}),
+                        },
+                        body: JSON.stringify(payload(form.data())),
+                        signal: controller.signal,
+                    },
+                );
+                const result = await response.json();
+                if (controller.signal.aborted) return;
+                if (response.status === 422) {
+                    assignmentErrors.value = copiedAssignmentErrors(
+                        submitted,
+                        result.errors ?? {},
+                    );
+                } else if (response.ok) {
+                    for (const [index, row] of submitted.entries()) {
+                        row.overlaps = result.data.overlaps[index] ?? [];
+                        row.error = null;
+                    }
+                } else
+                    showFormError({
+                        copy: trans('team.scheduling.copy.errors.preview'),
+                    });
+            } catch (error) {
+                if (error.name !== 'AbortError')
+                    showFormError({
+                        copy: trans('team.scheduling.copy.errors.preview'),
+                    });
+            }
+        }, 250);
+    },
+);
+onBeforeUnmount(() => {
+    clearTimeout(previewTimer);
+    previewController?.abort();
+});
+const submit = () => {
+    if (form.processing) return;
+    if (rosterEditor.value && !rosterEditor.value.validate()) {
+        showFormError({
+            assignments: trans('team.scheduling.copy.errors.review'),
+        });
+        return;
+    }
+    if (breakEditor.value && !breakEditor.value.validate()) {
+        showFormError({
+            breaks: trans('team.scheduling.breaks.errors.review'),
+        });
+        return;
+    }
+    const submitted = [...form.slots];
+    const submittedBreaks = [...form.breaks];
+    const submittedAssignments = [...form.assignments];
+    form.transform(payload).post('/team/events/' + props.event.id + '/shifts', {
+        onError: (errors) => {
+            assignmentErrors.value = copiedAssignmentErrors(
+                submittedAssignments,
+                errors,
+            );
+            slotErrors.value = shiftSlotErrors(submitted, errors);
+            breakErrors.value = shiftBreakErrors(submittedBreaks, errors);
+            if (
+                Object.keys(errors).some(
+                    (key) =>
+                        key.startsWith('slots') ||
+                        key.startsWith('breaks') ||
+                        key.startsWith('assignments'),
+                )
+            ) {
+                showFormError(errors);
+            } else {
+                toastFormErrors(form, errors, { showError, showFormError });
+            }
+        },
+    });
+};
+const clearSlotError = (key, field) => {
+    if (slotErrors.value[key]) delete slotErrors.value[key][field];
+};
+</script>
+
+<template>
+    <AppLayout
+        :title="$t('team.scheduling.actions.new')"
+        :breadcrumbs="[
+            { label: trans('app.name'), href: '/dashboard' },
+            { label: trans('team.title'), href: '/team/advancement' },
+            {
+                label: trans('nav.team.scheduling'),
+                href: backHref,
+            },
+            { label: trans('team.scheduling.actions.new') },
+        ]"
+        :back-href="backHref"
+        :back-label="$t('team.scheduling.actions.back')"
+    >
+        <div class="container mx-auto max-w-6xl pb-24 xl:max-w-none">
+            <h1 class="mb-5 text-2xl font-bold tracking-tight">
+                {{ $t('team.scheduling.actions.new') }}
+            </h1>
+            <p
+                v-if="!locations.length"
+                class="mb-4 text-sm text-muted"
+                role="status"
+            >
+                {{ $t('team.scheduling.no_locations') }}
+            </p>
+            <p
+                v-if="form.errors.copy || form.errors.assignments"
+                class="mb-4 text-sm text-danger"
+                role="alert"
+            >
+                {{ form.errors.copy || form.errors.assignments }}
+            </p>
+            <form
+                id="create-shift-form"
+                class="grid items-start gap-4 xl:grid-cols-2 xl:items-stretch"
+                novalidate
+                @submit.prevent="submit"
+            >
+                <Card class="min-w-0">
+                    <CardTitle class="mb-4">
+                        {{ $t('team.scheduling.shift_section') }}
+                    </CardTitle>
+                    <div class="space-y-4">
+                        <FormField
+                            :label="$t('team.scheduling.fields.name')"
+                            :error="fieldError(form, 'name')"
+                            required
+                        >
+                            <template #default="{ id, invalid }">
+                                <Input
+                                    :id="id"
+                                    v-model="form.name"
+                                    :invalid="invalid"
+                                    :placeholder="
+                                        $t(
+                                            'team.scheduling.fields.name_placeholder',
+                                        )
+                                    "
+                                    :disabled="form.processing"
+                                />
+                            </template>
+                        </FormField>
+
+                        <FormField
+                            :label="$t('team.scheduling.fields.color')"
+                            :error="fieldError(form, 'color')"
+                        >
+                            <template #default="{ id, invalid }">
+                                <ColorPicker
+                                    :id="id"
+                                    v-model="form.color"
+                                    :colors="labelColors"
+                                    :aria-label="
+                                        $t('team.scheduling.fields.color')
+                                    "
+                                    :invalid="invalid"
+                                    :disabled="form.processing"
+                                />
+                            </template>
+                        </FormField>
+
+                        <FormField
+                            :label="$t('team.scheduling.fields.location')"
+                            :error="fieldError(form, 'location_id')"
+                            required
+                        >
+                            <template #default="{ id, invalid }">
+                                <CustomDropdown
+                                    :id="id"
+                                    v-model="form.location_id"
+                                    :items="locationItems"
+                                    :invalid="invalid"
+                                    :disabled="form.processing"
+                                    :placeholder="
+                                        $t(
+                                            'team.scheduling.fields.location_placeholder',
+                                        )
+                                    "
+                                    :empty-text="
+                                        $t('team.scheduling.no_locations')
+                                    "
+                                />
+                            </template>
+                        </FormField>
+
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <FormField
+                                :label="$t('team.scheduling.fields.start')"
+                                :error="fieldError(form, 'starts_at')"
+                                required
+                            >
+                                <template #default="{ id, invalid }">
+                                    <Input
+                                        :id="id"
+                                        v-model="form.starts_at"
+                                        type="datetime-local"
+                                        :max="form.ends_at || undefined"
+                                        :invalid="invalid"
+                                        :disabled="form.processing"
+                                    />
+                                </template>
+                            </FormField>
+                            <FormField
+                                :label="$t('team.scheduling.fields.end')"
+                                :error="fieldError(form, 'ends_at')"
+                                required
+                            >
+                                <template #default="{ id, invalid }">
+                                    <Input
+                                        :id="id"
+                                        v-model="form.ends_at"
+                                        type="datetime-local"
+                                        :min="form.starts_at || undefined"
+                                        :invalid="invalid"
+                                        :disabled="form.processing"
+                                    />
+                                </template>
+                            </FormField>
+                        </div>
+                    </div>
+                </Card>
+                <Card class="min-w-0">
+                    <ShiftRoleSlots
+                        v-model="form.slots"
+                        :roles="roles"
+                        :errors="slotErrors"
+                        :busy="form.processing"
+                        :title="$t('team.scheduling.slots.detail_title')"
+                        @clear-error="clearSlotError"
+                    />
+                    <p
+                        v-if="form.errors.slots"
+                        class="text-sm text-danger"
+                        role="alert"
+                    >
+                        {{ form.errors.slots }}
+                    </p>
+                </Card>
+            </form>
+            <Card class="mt-4">
+                <CopiedShiftRoster
+                    ref="rosterEditor"
+                    :draft="form"
+                    :errors="assignmentErrors"
+                    :busy="form.processing"
+                    @update="updateAssignment"
+                    @remove="removeAssignment"
+                />
+            </Card>
+            <div class="mt-4 grid items-start gap-4 xl:grid-cols-2">
+                <Card class="min-w-0">
+                    <ShiftBreaks
+                        ref="breakEditor"
+                        v-model="form.breaks"
+                        :options="breakOptions"
+                        :starts-at="form.starts_at"
+                        :ends-at="form.ends_at"
+                        :errors="breakErrors"
+                        :collection-error="form.errors.breaks"
+                        :busy="form.processing"
+                        @clear-error="clearBreakError"
+                        @clear-containment-errors="clearBreakContainmentErrors"
+                    />
+                </Card>
+            </div>
+        </div>
+        <footer
+            class="fixed right-0 bottom-0 left-0 z-20 border-t border-line bg-ground lg:left-[var(--app-sidebar-width)]"
+        >
+            <div class="container mx-auto px-4 md:px-6">
+                <div
+                    class="mx-auto flex max-w-6xl items-center justify-between gap-3 py-4 xl:max-w-none"
+                >
+                    <Button
+                        :href="backHref"
+                        variant="cancel"
+                        >{{ $t('ui.dialog.cancel') }}</Button
+                    >
+                    <Button
+                        type="submit"
+                        form="create-shift-form"
+                        :loading="form.processing"
+                        :disabled="form.processing || !locations.length"
+                        >{{ $t('team.scheduling.actions.create') }}</Button
+                    >
+                </div>
+            </div>
+        </footer>
+    </AppLayout>
+</template>

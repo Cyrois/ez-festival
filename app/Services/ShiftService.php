@@ -24,14 +24,15 @@ class ShiftService
 
             $slots = $data['slots'] ?? [];
             $breaks = $data['breaks'] ?? [];
-            $errors = ShiftBreaks::errors($data, collect());
+            $additions = $data['assignment_additions'] ?? [];
+            $errors = [...ShiftBreaks::errors($data, collect()), ...ShiftRosterChanges::errors(new Shift(['event_id' => $event->id]), $data)];
             if ($errors !== []) {
                 throw ValidationException::withMessages($errors);
             }
             $assignments = ShiftCopyAssignments::resolve($event, $data, lock: true);
-            unset($data['slots'], $data['breaks'], $data['assignments'], $data['copy']);
+            unset($data['slots'], $data['breaks'], $data['assignments'], $data['copy'], $data['assignment_additions'], $data['assignment_updates'], $data['assignment_removals']);
             $shift = $event->shifts()->create($data);
-            $this->syncSlots($shift, $slots);
+            $draftSlots = $this->syncSlots($shift, $slots);
             $this->syncBreaks($shift, $breaks, collect());
             $createdSlots = $shift->roleSlots()->get()->values();
             foreach ($assignments as $row) {
@@ -39,6 +40,7 @@ class ShiftService
                 unset($row['slot_index']);
                 $shift->assignments()->create([...$row, 'shift_role_slot_id' => $slotIndex === null ? null : $createdSlots[$slotIndex]->id]);
             }
+            $this->addAssignments($shift, $additions, $draftSlots);
 
             return $shift;
         });
@@ -76,22 +78,27 @@ class ShiftService
                 [$start, $end] = ShiftAssignmentHours::resolve($shift, $row);
                 $shift->assignments()->whereKey($row['id'])->update(['starts_at' => $start, 'ends_at' => $end]);
             }
-            foreach ($additions as $index => $row) {
-                try {
-                    if (isset($row['slot_key'])) {
-                        $row['shift_role_slot_id'] = $draftSlots[$row['slot_key']] ?? null;
-                        unset($row['slot_key']);
-                    }
-                    app(ShiftAssignmentService::class)->create($shift, $row);
-                } catch (ValidationException $exception) {
-                    $errors = [];
-                    foreach ($exception->errors() as $key => $messages) {
-                        $errors["assignment_additions.$index.$key"] = $messages;
-                    }
-                    throw ValidationException::withMessages($errors);
-                }
-            }
+            $this->addAssignments($shift, $additions, $draftSlots);
         });
+    }
+
+    private function addAssignments(Shift $shift, array $additions, array $draftSlots): void
+    {
+        foreach ($additions as $index => $row) {
+            try {
+                if (isset($row['slot_key'])) {
+                    $row['shift_role_slot_id'] = $draftSlots[$row['slot_key']] ?? null;
+                    unset($row['slot_key']);
+                }
+                app(ShiftAssignmentService::class)->create($shift, $row);
+            } catch (ValidationException $exception) {
+                $errors = [];
+                foreach ($exception->errors() as $key => $messages) {
+                    $errors["assignment_additions.$index.$key"] = $messages;
+                }
+                throw ValidationException::withMessages($errors);
+            }
+        }
     }
 
     private function syncBreaks(Shift $shift, array $breaks, Collection $existing): void
