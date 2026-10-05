@@ -23,21 +23,21 @@ class ShiftAssignmentController extends Controller
 {
     public function __construct(private readonly ShiftAssignmentService $assignments, private readonly ShiftAssignmentRepository $roster) {}
 
-    public function index(IndexShiftAssignmentCandidatesRequest $request, Shift $shift): AnonymousResourceCollection
+    public function index(IndexShiftAssignmentCandidatesRequest $request, ?Shift $shift = null, ?Event $event = null): AnonymousResourceCollection
     {
         Gate::authorize('scheduling.edit');
 
-        return ShiftAssignmentCandidateResource::collection($this->roster->candidates($shift, $request->validated()));
+        return ShiftAssignmentCandidateResource::collection($this->roster->candidates($request->proposedShift(), $request->validated()));
     }
 
     /**
      * Preview conflicts and nearby shifts for proposed hours without saving the assignment.
      */
-    public function overlaps(IndexShiftAssignmentOverlapsRequest $request, Shift $shift, ?ShiftAssignment $assignment = null): AnonymousResourceCollection
+    public function overlaps(IndexShiftAssignmentOverlapsRequest $request, ?Shift $shift = null, ?ShiftAssignment $assignment = null, ?Event $event = null): AnonymousResourceCollection
     {
         Gate::authorize('scheduling.edit');
 
-        $preview = $this->assignments->previewOverlaps($shift, $assignment, $request->validated());
+        $preview = $this->assignments->previewOverlaps($request->proposedShift(), $request->route('assignment'), $request->validated());
 
         return ShiftAssignmentOverlapResource::collection($preview['warnings'])
             ->additional(['other_shifts' => $preview['other_shifts']]);

@@ -16,7 +16,7 @@ final class ShiftAssignmentOverlaps
         }
 
         return ShiftAssignment::query()->whereIn('team_engagement_id', $memberIds)
-            ->where('shift_id', '!=', $shift->id)
+            ->when($shift->exists, fn ($query) => $query->where('shift_id', '!=', $shift->id))
             ->whereHas('shift', fn ($query) => $query->where('event_id', $shift->event_id))
             ->where('starts_at', '<', $end)->where('ends_at', '>', $start)
             ->with('shift:id,name,color')->orderBy('starts_at')->orderBy('id')->get()

@@ -7,13 +7,17 @@ import { Input } from '../ui/input';
 import { FormField } from '../ui/form-field';
 import { Checkbox } from '../ui/checkbox';
 import { Button } from '../ui/button';
-import { validAssignmentHours } from '../../lib/shiftAssignments';
+import {
+    validAssignmentHours,
+    assignmentOverlapUrl,
+} from '../../lib/shiftAssignments';
 import ShiftOverlapWarnings from './ShiftOverlapWarnings.vue';
 
 const props = defineProps({
     shift: { type: Object, required: true },
     assignment: { type: Object, required: true },
     enabled: { type: Boolean, default: false },
+    eventId: { type: Number, default: null },
 });
 const emit = defineEmits(['close', 'changed']);
 const form = useForm({
@@ -74,7 +78,7 @@ const preview = async () => {
     controller = new AbortController();
     try {
         const response = await fetch(
-            `/team/shifts/${props.shift.id}/${props.assignment.id > 0 ? `assignments/${props.assignment.id}/overlaps` : 'assignment-overlaps'}?${new URLSearchParams({ ...hoursPayload(), shift_starts_at: props.shift.starts_at, shift_ends_at: props.shift.ends_at, ...(props.assignment.id < 0 ? { team_engagement_id: props.assignment.team_engagement_id } : {}) })}`,
+            `${assignmentOverlapUrl(props.shift, props.eventId, props.assignment)}?${new URLSearchParams({ ...hoursPayload(), shift_starts_at: props.shift.starts_at, shift_ends_at: props.shift.ends_at, ...(props.assignment.id < 0 ? { team_engagement_id: props.assignment.team_engagement_id } : {}) })}`,
             {
                 headers: { Accept: 'application/json' },
                 signal: controller.signal,
@@ -142,7 +146,15 @@ const save = () => {
     >
         <div class="space-y-4">
             <p class="text-sm text-muted">
-                {{ $t('team.scheduling.assignments.draft_hint') }}
+                {{
+                    $t('team.scheduling.assignments.draft_hint', {
+                        action: $t(
+                            shift.id
+                                ? 'team.scheduling.actions.save'
+                                : 'team.scheduling.actions.create',
+                        ),
+                    })
+                }}
             </p>
             <Checkbox
                 v-model="fullShift"
