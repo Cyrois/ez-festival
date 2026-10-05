@@ -17,6 +17,7 @@ import { DataTable } from '../ui/data-table';
 import { useFlashToast } from '../../composables/useFlashToast';
 import {
     assignmentPayload,
+    assignmentCandidatesUrl,
     validAssignmentHours,
     assignmentOverlapDetails,
     assignmentDurationLabel,
@@ -215,9 +216,13 @@ const ajax = async (data, callback) => {
     query.page = Math.floor(data.start / data.length) + 1;
     query.per_page = data.length;
     query.role_filter = roleFilter.value;
+    if (!props.shift.id) {
+        query.shift_starts_at = props.shift.starts_at;
+        query.shift_ends_at = props.shift.ends_at;
+    }
     const fetchCandidates = async (params) => {
         const response = await fetch(
-            `/team/shifts/${props.shift.id}/assignment-candidates?${new URLSearchParams(params)}`,
+            `${assignmentCandidatesUrl(props.shift, props.eventId)}?${new URLSearchParams(params)}`,
             {
                 headers: { Accept: 'application/json' },
                 signal: controller.signal,
@@ -429,7 +434,15 @@ const assign = () => {
                 v-if="deferred"
                 class="text-sm text-muted"
             >
-                {{ $t('team.scheduling.assignments.draft_hint') }}
+                {{
+                    $t('team.scheduling.assignments.draft_hint', {
+                        action: $t(
+                            shift.id
+                                ? 'team.scheduling.actions.save'
+                                : 'team.scheduling.actions.create',
+                        ),
+                    })
+                }}
             </p>
             <FormField
                 v-if="!requirement"

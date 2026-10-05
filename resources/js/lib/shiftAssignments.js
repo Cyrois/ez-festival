@@ -7,6 +7,17 @@ export function assignmentPayload(slotId, memberId, mode, start, end) {
     };
 }
 
+export function assignmentCandidatesUrl(shift, eventId) {
+    return shift.id
+        ? `/team/shifts/${shift.id}/assignment-candidates`
+        : `/team/events/${eventId}/shifts/assignment-candidates`;
+}
+
+export function assignmentOverlapUrl(shift, eventId, assignment) {
+    if (!shift.id) return `/team/events/${eventId}/shifts/assignment-overlaps`;
+    return `/team/shifts/${shift.id}/${assignment.id > 0 ? `assignments/${assignment.id}/overlaps` : 'assignment-overlaps'}`;
+}
+
 export function validAssignmentHours(shift, mode, start, end) {
     return (
         mode === 'full_shift' ||

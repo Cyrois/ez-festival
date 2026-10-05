@@ -15,6 +15,8 @@ import {
     resizedAssignment,
     translatedAssignment,
     draftRoster,
+    assignmentCandidatesUrl,
+    assignmentOverlapUrl,
 } from '../../resources/js/lib/shiftAssignments.js';
 import {
     labelTokens,
@@ -58,6 +60,8 @@ const deps = {
     resizedAssignment,
     translatedAssignment,
     draftRoster,
+    assignmentCandidatesUrl,
+    assignmentOverlapUrl,
     labelTokens,
     fallbackLabelToken,
     trans: text,
@@ -179,7 +183,9 @@ const deps = {
             return form;
         };
         form.put = (url, options) =>
-            writes.push({ url, data: transform(form), options });
+            writes.push({ url, data: transform(form), options, method: 'put' });
+        form.post = (url, options) =>
+            writes.push({ url, data: transform(form), options, method: 'post' });
         return form;
     },
 };
@@ -610,7 +616,7 @@ test('shift page stages removal without a popup or DELETE and writes roster chan
         toastFormErrors: () => {},
         router: { delete: (url, options) => deletions.push({ url, options }) },
     });
-    const Page = await compile('Shift', 'pages/Team');
+    const Page = await compile('ShiftEditor');
     const app = mount(Page, {
         shift: { ...shift, breaks: [], assignment_count: 2 },
         event: { id: 2, is_locked: false },
@@ -873,7 +879,7 @@ test('color and Headcount edits keep the roster active; draft roles assign befor
             },
         }, 'Assign draft'),
     };
-    const Page = await compile('Shift', 'pages/Team');
+    const Page = await compile('ShiftEditor');
     const app = mount(Page, {
         shift: { ...shift, breaks: [], assignment_count: 2 },
         event: { id: 2, is_locked: false }, canManage: true,
@@ -974,7 +980,7 @@ test('only sidebar and breadcrumb links warn; Continue discards and Save waits f
     };
     deps.Dialog = await compile('Dialog', 'components/ui/dialog');
     deps.UnsavedChangesDialog = await compile('UnsavedChangesDialog', 'components/ui/unsaved-changes-dialog');
-    const Page = await compile('Shift', 'pages/Team');
+    const Page = await compile('ShiftEditor');
     const app = mount(Page, {
         shift: { ...shift, breaks: [], assignment_count: 2 },
         event: { id: 1, is_locked: false }, canManage: true,
@@ -1040,4 +1046,113 @@ test('only sidebar and breadcrumb links warn; Continue discards and Save waits f
     assert.equal(attempt().defaultPrevented, false);
     assert.equal(unload().defaultPrevented, false);
     navigation.remove();
+});
+
+
+test('create page shares the draft timeline, stages hours and removal, and POSTs its roster without delete or save reminder', async () => {
+    writes.length = 0;
+    const requests = [];
+    globalThis.fetch = async (url) => {
+        requests.push(new URL(url, 'http://localhost'));
+        return { ok: true, json: async () => ({ data: [], other_shifts: [] }) };
+    };
+    deps.ShiftEditor = await compile('ShiftEditor');
+    const Page = await compile('CreateShift', 'pages/Team');
+    const app = mount(Page, {
+        event: { id: 2, is_locked: false }, canManage: true,
+        prefill: { starts_at: shift.starts_at, ends_at: shift.ends_at, location_id: 1 },
+        locations: [{ id: 1, name: 'Gate' }], roles: [{ id: 4, name: 'Crew' }], labelColors: [], breakOptions: {},
+    });
+    const editorForm = form;
+    try {
+        assert.equal(editorForm.isDirty, false);
+        assert.equal([...document.querySelectorAll('button')].some(button => button.textContent.trim() === 'team.scheduling.actions.delete'), false);
+        editorForm.name = 'Draft shift';
+        editorForm.slots.push({ ...slotHelpers.newShiftSlot(), role_id: 4, role_name: 'Crew' });
+        await nextTick();
+        const slot = editorForm.slots[0];
+        assert.equal(document.querySelector('[data-open-assign]').disabled, false);
+        document.querySelector('[data-open-assign]').click();
+        await nextTick();
+        document.querySelector('#draft-confirm').click();
+        await nextTick();
+        assert.equal(editorForm.assignment_additions.length, 1);
+        assert.equal(editorForm.assignment_additions[0].slot_key, slot._key);
+        let person = document.querySelector('[data-roster-row="person--1"]');
+        assert.match(person.textContent, /Draft person/);
+        assert.equal(document.querySelector('[data-save-reminder]'), null);
+        person.querySelector('[role="slider"]:last-of-type').dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+        await nextTick();
+        await new Promise(resolve => setTimeout(resolve, 0));
+        assert.equal(editorForm.assignment_additions[0].hours_mode, 'custom');
+        assert.equal(requests[0].pathname, '/team/events/2/shifts/assignment-overlaps');
+        assert.equal(requests[0].searchParams.get('team_engagement_id'), '20');
+        assert.equal(writes.length, 0);
+        person.querySelector('button[title*="remove_person"]').click();
+        await nextTick();
+        assert.equal(editorForm.assignment_additions.length, 0);
+        assert.equal(editorForm.assignment_removals.length, 0);
+        assert.equal(writes.length, 0);
+        assert.ok(document.querySelector('[data-open-assign]'));
+        document.querySelector('[data-open-assign]').click();
+        await nextTick();
+        document.querySelector('#draft-confirm').click();
+        await nextTick();
+        document.querySelector('#create-shift-form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+        assert.equal(writes.length, 1);
+        assert.equal(writes[0].method, 'post');
+        assert.equal(writes[0].url, '/team/events/2/shifts');
+        assert.equal(writes[0].data.slots[0].client_key, slot._key);
+        assert.equal(writes[0].data.assignment_additions[0].slot_key, slot._key);
+        assert.equal('_key' in writes[0].data.assignment_additions[0], false);
+        assert.equal(document.querySelector('[data-save-reminder]'), null);
+    } finally { app.unmount(); }
+});
+
+test('create page handles missing dates and retains the navigation warning until saving succeeds', async () => {
+    const originalVisit = navigationRouter.visit;
+    const originalDialog = deps.Dialog;
+    const destinations = [];
+    navigationRouter.visit = url => destinations.push(url);
+    deps.Dialog = await compile('Dialog', 'components/ui/dialog');
+    deps.UnsavedChangesDialog = await compile('UnsavedChangesDialog', 'components/ui/unsaved-changes-dialog');
+    deps.ShiftEditor = await compile('ShiftEditor');
+    const Page = await compile('CreateShift', 'pages/Team');
+    const navigation = document.createElement('nav');
+    navigation.dataset.unsavedNavigation = '';
+    navigation.innerHTML = '<a href="https://example.com/dashboard">Dashboard</a>';
+    document.body.append(navigation);
+    const app = mount(Page, {
+        event: { id: 2, is_locked: false }, canManage: true,
+        locations: [{ id: 1, name: 'Gate' }], roles: [], labelColors: [], breakOptions: {},
+    });
+    const attempt = () => navigation.querySelector('a').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
+    const save = () => [...document.querySelectorAll('[role="alertdialog"] button')].find(button => button.textContent.trim() === 'ui.unsaved_changes.save_continue');
+    writes.length = 0;
+    try {
+        assert.match(document.body.textContent, /roster.enter_hours/);
+        form.name = 'Draft';
+        await nextTick();
+        assert.equal(attempt(), false);
+        await nextTick();
+        assert.ok(document.querySelector('[role="alertdialog"]'));
+        save().click();
+        assert.equal(writes[0].method, 'post');
+        writes[0].options.onError({ starts_at: 'Required' });
+        await nextTick();
+        assert.ok(document.querySelector('[role="alertdialog"]'));
+        assert.equal(destinations.length, 0);
+        form.starts_at = shift.starts_at;
+        form.ends_at = shift.ends_at;
+        save().click();
+        writes[1].options.onSuccess();
+        await nextTick();
+        assert.equal(destinations.length, 1);
+        assert.equal(document.querySelector('[role="alertdialog"]'), null);
+        assert.equal(document.querySelector('[data-save-reminder]'), null);
+    } finally {
+        app.unmount(); navigation.remove();
+        navigationRouter.visit = originalVisit;
+        deps.Dialog = originalDialog;
+    }
 });

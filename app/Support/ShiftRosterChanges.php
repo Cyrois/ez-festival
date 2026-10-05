@@ -13,7 +13,7 @@ final class ShiftRosterChanges
         if ($lock) {
             $existing->lockForUpdate();
         }
-        $existing = $existing->get()->keyBy('id');
+        $existing = $shift->exists ? $existing->get()->keyBy('id') : collect();
         $removals = $data['assignment_removals'] ?? [];
         $errors = [];
         foreach ($removals as $index => $id) {
@@ -46,7 +46,7 @@ final class ShiftRosterChanges
                 $errors["assignment_additions.$index.slot_key"] = __('team.scheduling.slots.errors.foreign_slot');
             }
         }
-        if (array_key_exists('slots', $data)) {
+        if ($shift->exists && array_key_exists('slots', $data)) {
             $savedSlots = $shift->roleSlots()->when($lock, fn ($query) => $query->lockForUpdate())->get();
             $counts = $existing->reject(fn ($assignment) => in_array($assignment->id, $removals))->countBy('shift_role_slot_id');
             foreach ($data['assignment_additions'] ?? [] as $row) {

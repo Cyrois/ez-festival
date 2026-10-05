@@ -7,6 +7,7 @@ import { JSDOM } from 'jsdom';
 import { parse, compileScript } from '@vue/compiler-sfc';
 import {
     assignmentPayload,
+    assignmentCandidatesUrl,
     validAssignmentHours,
     requirementRoster,
     assignmentOverlapDetails,
@@ -58,6 +59,7 @@ const translate = (key, params = {}) =>
     );
 const dependencies = {
     assignmentPayload,
+    assignmentCandidatesUrl,
     validAssignmentHours,
     trans: translate,
     assignmentOverlapDetails,
@@ -938,4 +940,44 @@ test('unsaved Headcount searches by suggested role and emits a draft slot refere
     } finally {
         app.unmount();
     }
+});
+
+
+test('create-shift candidates use event scope and proposed bounds, stage draft assignments, and disable pending people', async () => {
+    const events = [];
+    const draftSlot = { id: 'draft-1', role_id: 12, role_name: 'Crew' };
+    const app = await mount({
+        shift: { ...shift, id: undefined, slots: [draftSlot] },
+        requirement: draftSlot,
+        deferred: true,
+        pendingMemberIds: [10],
+        onAssigned: data => events.push(data),
+    });
+    try {
+        const request = harness.requests[0];
+        assert.equal(request.pathname, '/team/events/2/shifts/assignment-candidates');
+        assert.equal(request.searchParams.get('role_id'), '12');
+        assert.equal(request.searchParams.get('shift_starts_at'), shift.starts_at);
+        assert.equal(request.searchParams.get('shift_ends_at'), shift.ends_at);
+        assert.equal(request.searchParams.get('per_page'), '25');
+        assert.equal(request.searchParams.has('shift_role_slot_id'), false);
+        await choose('Alpha');
+        document.querySelector('#assign').click();
+        assert.equal(harness.writes.length, 0);
+        assert.equal(events[0].slot_key, 'draft-1');
+        assert.equal(events[0].team_engagement_id, 8);
+        assert.equal(events[0].hours_mode, 'full_shift');
+    } finally { app.unmount(); }
+    const pending = await mount({
+        shift: { ...shift, id: undefined, slots: [draftSlot] },
+        requirement: draftSlot,
+        deferred: true,
+        pendingMemberIds: [8],
+    });
+    try {
+        const radio = document.querySelector('input[aria-label="Alpha"]');
+        assert.equal(radio.disabled, true);
+        assert.equal(document.querySelector('#assign').disabled, true);
+        assert.equal(harness.writes.length, 0);
+    } finally { pending.unmount(); }
 });
