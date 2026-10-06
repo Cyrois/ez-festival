@@ -40,6 +40,8 @@ class ShiftController extends Controller
             $data['location_id'] = (int) $data['location_id'];
         }
 
+        $prefill = array_intersect_key($data, array_flip(['location_id', 'starts_at', 'ends_at']));
+
         return Inertia::render('Team/CreateShift', [
             'event' => [...$event->only('id', 'name'), 'is_locked' => $event->isLocked()],
             'canManage' => Gate::allows('scheduling.edit'),
@@ -47,7 +49,7 @@ class ShiftController extends Controller
             'roles' => ShiftSlotReferences::options(),
             'labelColors' => LabelColors::ALL,
             'breakOptions' => ShiftBreaks::options(),
-            'prefill' => array_intersect_key($data, array_flip(['location_id', 'starts_at', 'ends_at'])),
+            'prefill' => $prefill,
             'returnContext' => ShiftReturnContext::from($data),
         ]);
     }

@@ -35,9 +35,7 @@ const props = defineProps({
 const page = usePage();
 const initialTab = new URLSearchParams(page.url.split('?')[1] ?? '').get('tab');
 const activeTab = ref(
-    ['schedule', 'list', 'templates'].includes(initialTab)
-        ? initialTab
-        : 'schedule',
+    ['schedule', 'list'].includes(initialTab) ? initialTab : 'schedule',
 );
 const selectedDate = ref(props.scheduleDate);
 const scheduleView = ref(scheduleViewFromUrl(page.url, props.locations));
@@ -94,8 +92,7 @@ watch(
         if (scheduleView.value === 'location_shifts' && !selectedLocation.value)
             selectedLocation.value = props.locations[0]?.id ?? '';
         const tab = new URLSearchParams(url.split('?')[1] ?? '').get('tab');
-        if (['schedule', 'list', 'templates'].includes(tab))
-            activeTab.value = tab;
+        activeTab.value = ['schedule', 'list'].includes(tab) ? tab : 'schedule';
     },
 );
 watch(
@@ -249,9 +246,6 @@ const formatDateTime = (value) =>
                     </Tab>
                     <Tab value="list">
                         {{ $t('team.scheduling.tabs.list') }}
-                    </Tab>
-                    <Tab value="templates">
-                        {{ $t('team.scheduling.tabs.templates') }}
                     </Tab>
                 </TabList>
 
@@ -439,15 +433,6 @@ const formatDateTime = (value) =>
                             </Link>
                         </template>
                     </DataTable>
-                </TabPanel>
-
-                <TabPanel value="templates">
-                    <EmptyState
-                        :title="$t('team.scheduling.future.templates.title')"
-                        :description="
-                            $t('team.scheduling.future.templates.description')
-                        "
-                    />
                 </TabPanel>
             </Tabs>
         </div>

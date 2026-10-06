@@ -112,6 +112,7 @@ final class RoutePermissions
         'team.groups.destroy' => 'team.edit',
         'team.members.store' => 'team.edit',
         'team.shifts.store' => 'scheduling.edit',
+        'team.shifts.copy' => 'scheduling.edit',
         'team.shifts.assignment-candidates' => 'scheduling.edit',
         'team.shifts.create.assignment-candidates' => 'scheduling.edit',
         'team.shifts.create.assignment-overlaps' => 'scheduling.edit',
