@@ -12,6 +12,7 @@ use App\Services\EntitlementConsumeService;
 use App\Services\EntitlementItemService;
 use App\Services\EventService;
 use App\Services\GlobalTeamService;
+use App\Services\MealTypeService;
 use App\Services\PassAssignmentService;
 use App\Services\PassTypeService;
 use App\Services\TeamEngagementService;
@@ -140,6 +141,29 @@ class PostgresWriteConcurrencyTest extends TestCase
         $engagement = ArtistEngagement::factory()->for($event)->create(['status' => 'confirmed']);
 
         return [$event, $user, $engagement];
+    }
+
+    public function test_concurrent_meal_type_windows_return_a_validation_conflict(): void
+    {
+        [$event] = $this->context();
+        $results = $this->concurrently(
+            fn () => app(MealTypeService::class)->create($event, ['name' => 'Snack', 'starts_at' => '23:00', 'ends_at' => '01:00']),
+            fn () => app(MealTypeService::class)->create($event, ['name' => 'Night snack', 'starts_at' => '00:30', 'ends_at' => '02:00']),
+        );
+        $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+        $this->assertSame('events', $results[1]['first_lock']);
+        $this->assertSame(1, $event->mealTypes()->count());
+    }
+
+    public function test_concurrent_meal_type_names_return_a_validation_conflict(): void
+    {
+        [$event] = $this->context();
+        $results = $this->concurrently(
+            fn () => app(MealTypeService::class)->create($event, ['name' => 'Snack', 'starts_at' => '02:00', 'ends_at' => '03:00']),
+            fn () => app(MealTypeService::class)->create($event, ['name' => 'SNACK', 'starts_at' => '04:00', 'ends_at' => '05:00']),
+        );
+        $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+        $this->assertSame(1, $event->mealTypes()->count());
     }
 
     /** Run real service transactions on committed fixtures and independent connections. */

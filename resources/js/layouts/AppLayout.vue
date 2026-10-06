@@ -148,6 +148,12 @@ const navItems = computed(() =>
                 },
             ],
         },
+        {
+            key: 'meals',
+            href: '/meals',
+            icon: ['fas', 'utensils'],
+            enabled: true,
+        },
     ]
         .map((item) => {
             if (item.key !== 'team') return item;
@@ -169,6 +175,7 @@ const navItems = computed(() =>
                 vendors: 'vendors.view',
                 check_in: 'checkin.view',
                 patrons: 'patrons.view',
+                meals: 'meals.view',
             }[item.key];
             return item.key === 'credentials'
                 ? user.value?.is_admin

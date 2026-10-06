@@ -23,6 +23,8 @@ final class Permissions
         'scheduling.edit' => ['scheduling.view'],
         'forms.view' => [],
         'forms.edit' => ['forms.view'],
+        'meals.view' => [],
+        'meals.edit' => ['meals.view'],
         'patrons.view' => [],
         'patrons.personal_info' => ['patrons.view'],
     ];

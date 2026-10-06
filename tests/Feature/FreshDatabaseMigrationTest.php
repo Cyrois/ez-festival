@@ -41,6 +41,7 @@ class FreshDatabaseMigrationTest extends TestCase
         $this->assertDatabaseCount('organizations', 1);
         $this->assertDatabaseCount('users', 1);
         $this->assertDatabaseCount('events', 1);
+        $this->assertDatabaseCount('meal_types', 4);
         $this->assertDatabaseCount('vendor_types', 3);
         $this->assertDatabaseCount('pass_assignments', 6);
         $this->assertDatabaseCount('expected_entitlements', 14);

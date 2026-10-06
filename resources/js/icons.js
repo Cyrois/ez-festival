@@ -51,6 +51,7 @@ import {
     faTriangleExclamation,
     faUser,
     faUsers,
+    faUtensils,
     faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 
@@ -110,6 +111,7 @@ export const kitIcons = [
     faTriangleExclamation,
     faUser,
     faUsers,
+    faUtensils,
     faXmark,
 ];
 

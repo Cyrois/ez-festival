@@ -16,6 +16,9 @@ use App\Http\Controllers\Credentials\ProductsController;
 use App\Http\Controllers\CurrentEventController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\Kitchen\KitchenController;
+use App\Http\Controllers\Kitchen\KitchenSettingsController;
+use App\Http\Controllers\Kitchen\MealTypeController;
 use App\Http\Controllers\PassAssignmentController;
 use App\Http\Controllers\PatronController;
 use App\Http\Controllers\Settings\AccountController;
@@ -96,6 +99,13 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
     }
 
     Route::middleware(['organization', 'setup.complete', 'login.access', 'event.access'])->group(function () {
+        Route::get('meals', [KitchenController::class, 'index'])->name('meals.index');
+        Route::get('meals/settings', [KitchenSettingsController::class, 'index'])->name('meals.settings');
+        Route::get('meals/settings/meal-types', [MealTypeController::class, 'index'])->name('meals.types.index');
+        Route::post('events/{event}/meals/types', [MealTypeController::class, 'store'])
+            ->middleware('event.writable')->name('meals.types.store');
+        Route::put('events/{event}/meals/types/{mealType}', [MealTypeController::class, 'update'])
+            ->middleware('event.writable')->name('meals.types.update');
         Route::get('dashboard', DashboardController::class)->name('dashboard');
 
         Route::get('check-in', [CheckInController::class, 'index'])->name('check-in.index');
