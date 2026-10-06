@@ -31,7 +31,6 @@ import {
     SCHEDULE_SLOT_MINUTES,
 } from '../../lib/scheduleTimeline';
 import { wallMinutes } from '../../lib/shiftBreaks';
-import { translatedPersonalBreak } from '../../lib/personalBreaks';
 import { trans } from 'laravel-vue-i18n';
 
 const props = defineProps({
@@ -41,13 +40,9 @@ const props = defineProps({
     canManage: { type: Boolean, default: false },
     disabledReason: { type: String, default: '' },
 });
-const emit = defineEmits(['assign', 'edit', 'remove', 'resize', 'move-break']);
+const emit = defineEmits(['assign', 'edit', 'remove', 'resize']);
 const dragging = ref(null);
 const warningTooltipId = useId();
-const isDraggingBreak = (assignment, index) =>
-    dragging.value?.edge === 'break' &&
-    dragging.value.assignment.id === assignment.id &&
-    dragging.value.breakIndex === index;
 const breakPattern =
     'bg-page bg-[repeating-linear-gradient(135deg,transparent,transparent_4px,var(--color-line)_4px,var(--color-line)_8px)] text-muted';
 const hasBreaks = computed(() =>
@@ -56,7 +51,7 @@ const hasBreaks = computed(() =>
 const breakLabel = (row) =>
     `${row.starts_at.slice(11, 16)} · ${row.duration_minutes === 60 ? trans('team.scheduling.breaks.hour') : trans('team.scheduling.breaks.minutes', { minutes: row.duration_minutes })}`;
 const breakIntervals = (person) =>
-    (person.breaks ?? []).flatMap((row, breakIndex) => {
+    (person.breaks ?? []).flatMap((row) => {
         const start = wallMinutes(row.starts_at);
         if (
             !Number.isFinite(start) ||
@@ -87,9 +82,6 @@ const breakIntervals = (person) =>
             ? [
                   {
                       ...interval,
-                      breakIndex,
-                      starts_at: row.starts_at,
-                      duration_minutes: Number(row.duration_minutes),
                       atStart: hit.start === 0,
                       atEnd:
                           hit.end === timelineMinute(person.ends_at) - origin,
@@ -240,14 +232,14 @@ const cancelDrag = () => {
 const escapeDrag = (event) => {
     if (event.key === 'Escape') cancelDrag();
 };
-const beginDrag = (event, assignment, edge, breakIndex = null) => {
+const beginDrag = (event, assignment, edge) => {
     if (!props.enabled || !props.canManage || event.button !== 0) return;
     event.preventDefault();
-    const canvas = event.currentTarget.closest('[data-roster-canvas]');
+    const canvas =
+        event.currentTarget.closest('[data-person-bar]').parentElement;
     dragging.value = {
         assignment,
         edge,
-        breakIndex,
         x: event.clientX,
         width: canvas.getBoundingClientRect().width,
         hours: { starts_at: assignment.starts_at, ends_at: assignment.ends_at },
@@ -261,30 +253,6 @@ const beginDrag = (event, assignment, edge, breakIndex = null) => {
 const moveDrag = (event) => {
     const drag = dragging.value;
     if (!drag) return;
-    if (drag.edge === 'break') {
-        if (event.clientX === drag.x) {
-            drag.hours = {
-                starts_at: drag.assignment.starts_at,
-                ends_at: drag.assignment.ends_at,
-            };
-            return;
-        }
-        const moved = translatedPersonalBreak(
-            drag.assignment,
-            drag.breakIndex,
-            wallMinutes(drag.assignment.breaks[drag.breakIndex].starts_at) +
-                ((event.clientX - drag.x) / drag.width) * duration.value,
-        );
-        if (moved)
-            drag.hours = {
-                starts_at: drag.assignment.starts_at,
-                ends_at: drag.assignment.ends_at,
-                breaks: drag.assignment.breaks.map((row, index) =>
-                    index === drag.breakIndex ? moved : row,
-                ),
-            };
-        return;
-    }
     const minute =
         timelineMinute(
             drag.edge === 'end'
@@ -311,47 +279,14 @@ const moveDrag = (event) => {
 const finishDrag = (event) => {
     if (!dragging.value) return;
     moveDrag(event);
-    const { assignment, hours, edge, breakIndex } = dragging.value;
+    const { assignment, hours } = dragging.value;
     cancelDrag();
-    if (!props.enabled || !props.canManage) return;
-    if (edge === 'break') {
-        if (
-            hours.breaks &&
-            hours.breaks[breakIndex].starts_at !==
-                assignment.breaks[breakIndex].starts_at
-        )
-            emit('move-break', { assignment, breaks: hours.breaks });
-        return;
-    }
     if (
         props.enabled &&
         (assignment.starts_at !== hours.starts_at ||
             assignment.ends_at !== hours.ends_at)
     )
         emit('resize', { assignment, hours });
-};
-const moveBreakKey = (event, assignment, index) => {
-    if (!props.enabled || !props.canManage) return;
-    const delta =
-        event.key === 'ArrowLeft'
-            ? -15
-            : event.key === 'ArrowRight'
-              ? 15
-              : null;
-    if (delta === null) return;
-    event.preventDefault();
-    const moved = translatedPersonalBreak(
-        assignment,
-        index,
-        wallMinutes(assignment.breaks[index].starts_at) + delta,
-    );
-    if (moved && moved.starts_at !== assignment.breaks[index].starts_at)
-        emit('move-break', {
-            assignment,
-            breaks: assignment.breaks.map((row, i) =>
-                i === index ? moved : row,
-            ),
-        });
 };
 const resizeKey = (event, assignment, edge) => {
     if (!props.enabled || !props.canManage) return;
@@ -509,7 +444,9 @@ const resizeKey = (event, assignment, edge) => {
                     :class="
                         row.assignment?.overlaps.length
                             ? 'bg-warning/10 hover:bg-warning/10'
-                            : 'hover:bg-transparent'
+                            : !row.assignment
+                              ? 'hover:bg-transparent'
+                              : ''
                     "
                 >
                     <TableCell
@@ -607,7 +544,6 @@ const resizeKey = (event, assignment, edge) => {
                     <TableCell class="p-0">
                         <div
                             class="relative isolate h-14 w-[var(--timeline-width)]"
-                            data-roster-canvas
                         >
                             <div
                                 class="pointer-events-none absolute inset-0"
@@ -668,25 +604,12 @@ const resizeKey = (event, assignment, edge) => {
                                 "
                             >
                                 <div
-                                    class="absolute top-3 left-[var(--bar-start)] h-7 w-[var(--bar-width)] rounded-lg border transition duration-150"
-                                    :class="[
-                                        tokens.highlightRing,
+                                    class="absolute top-3 left-[var(--bar-start)] h-7 w-[var(--bar-width)] rounded-lg border"
+                                    :class="
                                         row.assignment.overlaps.length
                                             ? 'border-warning/30 bg-warning/20'
-                                            : tokens.classes,
-                                        enabled && canManage
-                                            ? 'hover:ring-2 hover:brightness-95'
-                                            : '',
-                                        {
-                                            'ring-2 brightness-95':
-                                                enabled &&
-                                                canManage &&
-                                                dragging &&
-                                                dragging.edge !== 'break' &&
-                                                dragging.assignment.id ===
-                                                    row.assignment.id,
-                                        },
-                                    ]"
+                                            : tokens.classes
+                                    "
                                     :style="
                                         geometry(personInterval(row.assignment))
                                     "
@@ -859,35 +782,15 @@ const resizeKey = (event, assignment, edge) => {
                                     aria-hidden="true"
                                     data-overlap-hatch
                                 />
-                                <component
-                                    :is="canManage ? 'button' : 'span'"
-                                    v-for="interval in breakIntervals(
+                                <span
+                                    v-for="(interval, index) in breakIntervals(
                                         row.assignment,
                                     )"
-                                    :key="`break-${interval.breakIndex}`"
-                                    class="absolute top-3 left-[var(--bar-start)] z-30 flex h-7 w-[var(--bar-width)] touch-none items-center justify-center overflow-hidden border-y transition duration-150 focus-visible:outline-2 focus-visible:outline-primary"
+                                    :key="`break-${index}`"
+                                    class="pointer-events-none absolute top-3 left-[var(--bar-start)] flex h-7 w-[var(--bar-width)] items-center justify-center overflow-hidden border-y"
                                     :class="[
                                         breakPattern,
-                                        tokens.highlightRing,
-                                        enabled && canManage
-                                            ? isDraggingBreak(
-                                                  row.assignment,
-                                                  interval.breakIndex,
-                                              )
-                                                ? 'cursor-grabbing'
-                                                : 'cursor-grab'
-                                            : 'cursor-default',
-                                        enabled && canManage
-                                            ? 'hover:ring-2 hover:brightness-95'
-                                            : '',
                                         {
-                                            'ring-2 brightness-95':
-                                                enabled &&
-                                                canManage &&
-                                                isDraggingBreak(
-                                                    row.assignment,
-                                                    interval.breakIndex,
-                                                ),
                                             'rounded-l-lg border-l':
                                                 interval.atStart,
                                             'rounded-r-lg border-r':
@@ -900,72 +803,8 @@ const resizeKey = (event, assignment, edge) => {
                                             ),
                                     ]"
                                     :style="geometry(interval)"
-                                    :type="canManage ? 'button' : undefined"
-                                    :role="canManage ? 'slider' : undefined"
-                                    :disabled="canManage ? !enabled : undefined"
-                                    :aria-label="
-                                        canManage
-                                            ? $t(
-                                                  'team.scheduling.breaks.move_person',
-                                                  {
-                                                      name: row.assignment.name,
-                                                      time: interval.starts_at.slice(
-                                                          11,
-                                                          16,
-                                                      ),
-                                                  },
-                                              )
-                                            : undefined
-                                    "
-                                    :aria-valuemin="
-                                        canManage
-                                            ? Math.ceil(
-                                                  wallMinutes(
-                                                      row.assignment.starts_at,
-                                                  ) / 15,
-                                              ) * 15
-                                            : undefined
-                                    "
-                                    :aria-valuemax="
-                                        canManage
-                                            ? Math.floor(
-                                                  (wallMinutes(
-                                                      row.assignment.ends_at,
-                                                  ) -
-                                                      interval.duration_minutes) /
-                                                      15,
-                                              ) * 15
-                                            : undefined
-                                    "
-                                    :aria-valuenow="
-                                        canManage
-                                            ? wallMinutes(interval.starts_at)
-                                            : undefined
-                                    "
-                                    :aria-valuetext="
-                                        canManage ? interval.title : undefined
-                                    "
-                                    :title="
-                                        canManage
-                                            ? `${interval.title}\n${$t('team.scheduling.breaks.move_hint')}`
-                                            : interval.title
-                                    "
+                                    :title="interval.title"
                                     data-person-break-hatch
-                                    @pointerdown.stop="
-                                        beginDrag(
-                                            $event,
-                                            row.assignment,
-                                            'break',
-                                            interval.breakIndex,
-                                        )
-                                    "
-                                    @keydown.stop="
-                                        moveBreakKey(
-                                            $event,
-                                            row.assignment,
-                                            interval.breakIndex,
-                                        )
-                                    "
                                 >
                                     <Icon
                                         :name="['fas', 'mug-saucer']"
@@ -974,7 +813,7 @@ const resizeKey = (event, assignment, edge) => {
                                     <span class="sr-only">{{
                                         interval.title
                                     }}</span>
-                                </component>
+                                </span>
                                 <span
                                     v-if="
                                         row.assignment.overlaps.length &&

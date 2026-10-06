@@ -8,9 +8,9 @@ use App\Models\Shift;
 use App\Models\ShiftAssignment;
 use App\Models\TeamEngagement;
 use App\Repositories\ShiftAssignmentRepository;
+use App\Repositories\ShiftBreakRepository;
 use App\Support\ShiftAssignmentHours;
 use App\Support\ShiftAssignmentOverlaps;
-use App\Support\ShiftPersonalBreaks;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -52,8 +52,8 @@ class ShiftAssignmentService
                     'role_id' => $slot?->role_id ?? $role->id, 'starts_at' => $start, 'ends_at' => $end,
                 ]));
                 $assignment->setRelation('shift', $shift);
-                $breaks = $data['breaks'] ?? ShiftPersonalBreaks::snapshot($shift->breaks()->get(), $start, $end);
-                ShiftPersonalBreaks::sync($assignment, $breaks, $draftBreaks);
+                $breaks = $data['breaks'] ?? app(ShiftBreakService::class)->snapshot(app(ShiftBreakRepository::class)->defaults($shift), $start, $end);
+                app(ShiftBreakService::class)->sync($assignment, $breaks, $draftBreaks);
 
                 return $assignment;
             } catch (UniqueConstraintViolationException) {

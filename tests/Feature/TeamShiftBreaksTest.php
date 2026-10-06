@@ -666,6 +666,29 @@ class TeamShiftBreaksTest extends TestCase
         $this->assertSame(1, $free->breaks()->count());
     }
 
+    public function test_replay_accepts_reordered_equivalent_breaks_but_rejects_changed_final_values(): void
+    {
+        $shift = $this->shift();
+        $person = $this->assign($shift, 'Current', '2026-10-03T14:00', '2026-10-03T22:00');
+        $saved = $person->breaks()->create([...$this->breakRow(), 'sort_order' => 0]);
+        $next = $this->breakRow('2026-10-03T16:00');
+        $payload = [...$this->updatePayload(),
+            'break_operations' => [['type' => 'mass', 'assignment_keys' => [$person->id], 'break' => $next]],
+            'assignment_updates' => [['id' => $person->id, 'hours_mode' => 'full_shift', 'breaks' => [
+                $next, ['id' => $saved->id, ...$this->breakRow()],
+            ]]],
+        ];
+        $changed = $payload;
+        $changed['assignment_updates'][0]['breaks'][0]['starts_at'] = '2026-10-03T17:00';
+        $this->put($this->updateUrl($shift), $changed)->assertSessionHasErrors('break_operations');
+        $this->assertSame(1, $person->breaks()->count());
+
+        // Saved database timestamps include seconds; the request uses wall minutes and reverses display order.
+        $this->put($this->updateUrl($shift), $payload)->assertSessionHasNoErrors();
+        $this->assertSame(2, $person->breaks()->count());
+        $this->assertSame($saved->id, $person->breaks()->orderBy('sort_order')->get()->last()->id);
+    }
+
     public function test_mass_add_rejects_foreign_targets_malformed_operations_and_locked_events(): void
     {
         $shift = $this->shift();
