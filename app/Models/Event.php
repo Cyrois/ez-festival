@@ -27,6 +27,11 @@ class Event extends Model
         return $this->hasMany(Location::class);
     }
 
+    public function mealTypes(): HasMany
+    {
+        return $this->hasMany(MealType::class);
+    }
+
     public function isLocked(): bool
     {
         return (bool) $this->locked;

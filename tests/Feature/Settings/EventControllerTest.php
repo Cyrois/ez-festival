@@ -56,6 +56,7 @@ class EventControllerTest extends TestCase
         $event = Event::query()->sole();
         $this->assertSame('2027-07-10', $event->starts_on->toDateString());
         $this->assertSame('2027-07-12', $event->ends_on->toDateString());
+        $this->assertSame(['Breakfast', 'Lunch', 'Dinner', 'Midnight'], $event->mealTypes()->orderBy('sort_order')->pluck('name')->all());
     }
 
     public function test_event_index_repeat_load_uses_the_cached_list(): void
@@ -237,6 +238,7 @@ class EventControllerTest extends TestCase
         ]);
 
         $personalBreak = $assignment->breaks()->create(['shift_break_id' => $break->id, 'duration_minutes' => 15, 'starts_at' => $break->starts_at, 'sort_order' => 0]);
+        $mealType = $event->mealTypes()->where('name', 'Breakfast')->sole();
 
         $this->actingAs($user)
             ->delete(route('settings.events.destroy', $event))
@@ -244,6 +246,7 @@ class EventControllerTest extends TestCase
 
         $this->assertModelMissing($assignment);
         $this->assertModelMissing($personalBreak);
+        $this->assertModelMissing($mealType);
         $this->assertModelMissing($break);
         $this->assertModelMissing($slot);
         $this->assertModelExists($role);

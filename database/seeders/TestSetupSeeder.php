@@ -6,6 +6,7 @@ use App\Models\ArtistType;
 use App\Models\Event;
 use App\Models\User;
 use App\Models\VendorType;
+use App\Services\EventService;
 use App\Support\OrganizationContext;
 use Illuminate\Database\Seeder;
 
@@ -15,14 +16,13 @@ class TestSetupSeeder extends Seeder
     {
         $organization = app(OrganizationContext::class)->organization();
         $event = $organization->activeEvent()->first()
-            ?? Event::query()->firstOrCreate(
-                ['name' => 'Sunrise Folk Fest 2026'],
-                [
-                    'starts_on' => '2026-07-10',
-                    'ends_on' => '2026-07-12',
-                    'timezone' => 'America/Vancouver',
-                ],
-            );
+            ?? Event::query()->where('name', 'Sunrise Folk Fest 2026')->first()
+            ?? app(EventService::class)->create([
+                'name' => 'Sunrise Folk Fest 2026',
+                'starts_on' => '2026-07-10',
+                'ends_on' => '2026-07-12',
+                'timezone' => 'America/Vancouver',
+            ]);
 
         $organization->forceFill([
             'active_event_id' => $event->id,

@@ -5,6 +5,11 @@ namespace App\Support;
 final class RoutePermissions
 {
     public const ABILITIES = [
+        'meals.index' => 'meals.view',
+        'meals.settings' => 'meals.view',
+        'meals.types.index' => 'meals.view',
+        'meals.types.store' => 'meals.edit',
+        'meals.types.update' => 'meals.edit',
         'artists.index' => 'artists.view',
         'artists.check-in' => 'checkin.view',
         'artists.check-in.issues.store' => 'checkin.edit',

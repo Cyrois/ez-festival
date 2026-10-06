@@ -112,6 +112,7 @@ class OrganizationDatabaseArchitectureTest extends TestCase
         $event = Event::query()->sole();
         $this->assertTrue(app(OrganizationContext::class)->defaultEvent()->is($event));
         $this->assertSame($event->id, $user->fresh()->current_event_id);
+        $this->assertSame(['Breakfast', 'Lunch', 'Dinner', 'Midnight'], $event->mealTypes()->orderBy('sort_order')->pluck('name')->all());
 
         $this->get(route('setup.locations'))->assertInertia(fn (Assert $page) => $page
             ->component('Setup/Locations')
