@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
     massPersonalBreaks,
+    translatedPersonalBreak,
     personalBreakPayload,
 } from '../../resources/js/lib/personalBreaks.js';
 import {
@@ -192,4 +193,34 @@ test('mass add rejects all overlaps without mutation and only adds fitting indep
     assert.equal(result.people[0].breaks.length, 2);
     assert.deepEqual(personalBreakPayload(result.people[1].breaks), [{duration_minutes: 30, starts_at: '2026-10-04T01:00', shift_break_id: null}]);
     assert.equal(JSON.stringify(people), before);
+});
+
+
+test('moving a personal break snaps to the nearest clock quarter, preserves its identity and length, and crosses midnight', () => {
+    const original = {...person, breaks: [{...person.breaks[0], shift_break_key: 'draft-break-1'}]};
+    const before = JSON.stringify(original);
+    const move = (stamp) => translatedPersonalBreak(original, 0, timelineMinute(stamp));
+    assert.equal(move('2026-10-03T23:53').starts_at, '2026-10-04T00:00');
+    const moved = move('2026-10-04T00:08');
+    assert.equal(moved.starts_at, '2026-10-04T00:15');
+    assert.equal(moved.duration_minutes, 30);
+    assert.equal(moved.id, 11);
+    assert.equal(moved.shift_break_id, null);
+    assert.equal(moved.shift_break_key, undefined);
+    assert.equal(moved._day, '2026-10-04');
+    assert.equal(moved._time, '00:15');
+    assert.equal(move(source.starts_at).shift_break_id, 10);
+    assert.equal(JSON.stringify(original), before);
+});
+
+test('personal break moves clamp to fitting quarter-hours and reject overlap without moving other breaks', () => {
+    const bounded = {...person, starts_at: '2026-10-03T23:32', ends_at: '2026-10-04T02:09'};
+    assert.equal(translatedPersonalBreak(bounded, 0, timelineMinute('2026-10-03T22:00')).starts_at, '2026-10-03T23:45');
+    assert.equal(translatedPersonalBreak(bounded, 0, timelineMinute('2026-10-04T03:00')).starts_at, '2026-10-04T01:30');
+    const busy = {...person, breaks: [...person.breaks, {duration_minutes: 15, starts_at: '2026-10-04T02:00'}]};
+    assert.equal(translatedPersonalBreak(busy, 0, timelineMinute('2026-10-04T01:45')), null);
+    assert.equal(translatedPersonalBreak(busy, 0, timelineMinute('2026-10-04T02:00')), null);
+    assert.equal(translatedPersonalBreak(busy, 0, timelineMinute('2026-10-04T01:30')).starts_at, '2026-10-04T01:30');
+    assert.equal(translatedPersonalBreak({...person, ends_at: '2026-10-03T22:15'}, 0, timelineMinute(source.starts_at)), null);
+    assert.equal(translatedPersonalBreak(person, 5, timelineMinute(source.starts_at)), null);
 });

@@ -13,3 +13,5 @@ Create, Edit, and Copy save the roster and personal breaks in the same transacti
 Meals and a separate per-person reset-to-shift-time control are outside this change.
 
 Resizing a person's hours in the roster grid removes their breaks that no longer fit entirely inside the resized interval. The removal is staged with the hours change and persisted on Save; expanding the hours again does not restore removed breaks. Moving the whole bar still moves its breaks by the same offset. Manual Edit hours continues to validate staged breaks on Save.
+
+Personal break blocks can be dragged along their roster row or moved with left/right arrow keys. The break start snaps to the nearest clock quarter-hour, retaining its duration and identity. Moves stay inside that person's hours and cannot overlap their other breaks. Pointer previews commit only on release; Escape and pointer cancellation discard the preview. The move clears default provenance, leaves shift defaults and assignment hours unchanged, and saves through the existing personal draft operation on page Save.

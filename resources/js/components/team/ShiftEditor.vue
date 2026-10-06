@@ -317,6 +317,22 @@ const stageHours = (assignment, data, record = true) => {
             ...(other_shifts ? { other_shifts } : {}),
         };
 };
+const stageBreaks = (assignment, breaks) => {
+    const pending =
+        assignment.id < 0
+            ? form.assignment_additions.find(
+                  (row) => row._key === assignment.id,
+              )
+            : form.assignment_updates.find((row) => row.id === assignment.id);
+    const mode = pending?.hours_mode ?? 'custom';
+    stageHours(assignment, {
+        hours_mode: mode,
+        ...(mode === 'custom'
+            ? { starts_at: assignment.starts_at, ends_at: assignment.ends_at }
+            : {}),
+        breaks,
+    });
+};
 const resizeHours = async (assignment, hours) => {
     stageHours(assignment, { hours_mode: 'custom', ...hours });
     await previewHours(assignment, {
@@ -941,6 +957,7 @@ const destroy = () => {
                     @edit="rosterEnabled && (selectedAssignment = $event)"
                     @remove="removeAssignment"
                     @resize="resizeHours($event.assignment, $event.hours)"
+                    @move-break="stageBreaks($event.assignment, $event.breaks)"
                 >
                     <template #footer-actions>
                         <span

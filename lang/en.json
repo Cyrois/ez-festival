@@ -1528,6 +1528,8 @@
     "team.scheduling.assignments.apply_hours": "Apply hours",
     "team.scheduling.assignments.draft_hint": "Click :action at the bottom of the page to save your roster changes.",
     "team.scheduling.roster.outside_bounds": "These hours are outside the shift. Adjust the hours before saving.",
+    "team.scheduling.breaks.move_person": "Move break for :name at :time",
+    "team.scheduling.breaks.move_hint": "Drag to move this break to a 15-minute mark, or use the left and right arrow keys. Keep it inside this person's hours without overlapping another break.",
     "team.scheduling.breaks.mass_description": "Add an unpaid break to people currently on this shift. Edit or remove individual breaks in each person's Edit hours popup.",
     "team.scheduling.breaks.mass_hint": "Add break stages it for the current roster. Create shift or Save saves your changes.",
     "team.scheduling.breaks.errors.mass_conflict": "Someone already has a break overlapping this time. No breaks were added.",

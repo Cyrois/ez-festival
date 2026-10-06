@@ -75,3 +75,39 @@ export function massPersonalBreaks(people, row) {
         })),
     };
 }
+
+export function translatedPersonalBreak(person, index, minute) {
+    const row = person.breaks?.[index];
+    if (!row) return null;
+    const length = Number(row.duration_minutes);
+    const earliest = Math.ceil(wallMinutes(person.starts_at) / 15) * 15;
+    const latest = Math.floor((wallMinutes(person.ends_at) - length) / 15) * 15;
+    if (
+        !Number.isFinite(minute) ||
+        !Number.isFinite(earliest) ||
+        !Number.isFinite(latest) ||
+        length <= 0 ||
+        earliest > latest
+    )
+        return null;
+    const start = Math.max(
+        earliest,
+        Math.min(latest, Math.round(minute / 15) * 15),
+    );
+    const moved = {
+        ...row,
+        starts_at: new Date(start * 60000).toISOString().slice(0, 16),
+    };
+    if (
+        overlappingBreak(
+            moved,
+            person.breaks.filter((_, i) => i !== index),
+        )
+    )
+        return null;
+    if (moved.starts_at !== row.starts_at) {
+        moved.shift_break_id = null;
+        delete moved.shift_break_key;
+    }
+    return personalBreakDraft([moved])[0];
+}
