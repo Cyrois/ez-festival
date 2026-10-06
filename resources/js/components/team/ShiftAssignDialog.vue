@@ -12,7 +12,6 @@ import { FormField } from '../ui/form-field';
 import { Checkbox } from '../ui/checkbox';
 import { Radio } from '../ui/radio';
 import { Icon } from '../ui/icon';
-import { CustomDropdown } from '../ui/custom-dropdown';
 import { DataTable } from '../ui/data-table';
 import { useFlashToast } from '../../composables/useFlashToast';
 import {
@@ -34,27 +33,12 @@ const props = defineProps({
 const emit = defineEmits(['close', 'assigned']);
 const table = ref(null);
 const overlapTooltipId = useId();
-const selectedSlotId = ref('');
-const targetSlot = computed(
-    () =>
-        props.requirement ??
-        props.shift.slots?.find((slot) => slot.id === selectedSlotId.value),
-);
-const slotItems = computed(() =>
-    (props.shift.slots ?? []).map((slot, index) => ({
-        value: slot.id,
-        title: trans('team.scheduling.assignments.position_option', {
-            role: slot.role_name,
-            position: index + 1,
-            filled: slot.assigned_count,
-            needed: slot.needed,
-        }),
-    })),
-);
+const targetSlot = computed(() => props.requirement);
+const override = computed(() => !props.requirement);
 
 const selected = ref(null);
 const search = ref('');
-const roleFilter = ref('has_role');
+const roleFilter = ref(override.value ? 'everyone' : 'has_role');
 const roleOptions = computed(() => [
     { value: 'everyone', label: trans('team.scheduling.assignments.everyone') },
     { value: 'has_role', label: trans('team.scheduling.assignments.has_role') },
@@ -195,27 +179,28 @@ const ajax = async (data, callback) => {
             recordsFiltered: 0,
             data: [],
         });
-    if (!targetSlot.value || !validHours.value) {
+    if (!validHours.value) {
         loading.value = false;
         empty();
         return;
     }
     const query = assignmentPayload(
-        targetSlot.value.id,
+        targetSlot.value?.id ?? null,
         null,
         form.hours_mode,
         form.starts_at,
         form.ends_at,
     );
     delete query.team_engagement_id;
-    if (typeof targetSlot.value.id === 'string') {
+    if (override.value) query.override = '1';
+    if (typeof targetSlot.value?.id === 'string') {
         delete query.shift_role_slot_id;
         query.role_id = targetSlot.value.role_id;
     }
     query.search = search.value.trim();
     query.page = Math.floor(data.start / data.length) + 1;
     query.per_page = data.length;
-    query.role_filter = roleFilter.value;
+    if (!override.value) query.role_filter = roleFilter.value;
     if (!props.shift.id) {
         query.shift_starts_at = props.shift.starts_at;
         query.shift_ends_at = props.shift.ends_at;
@@ -304,17 +289,6 @@ watch(
         refreshTimer = setTimeout(() => table.value?.reload(), 250);
     },
 );
-watch(selectedSlotId, () => {
-    ++requestNumber;
-    controller?.abort();
-    selected.value = null;
-    roleFilter.value = 'has_role';
-    search.value = '';
-    loaded.value = false;
-    loading.value = false;
-    candidateError.value = '';
-    form.clearErrors();
-});
 onUnmounted(() => {
     clearTimeout(searchTimer);
     clearTimeout(refreshTimer);
@@ -323,7 +297,6 @@ onUnmounted(() => {
 });
 const assign = () => {
     if (
-        !targetSlot.value ||
         !selected.value ||
         selected.value.on_shift ||
         !validHours.value ||
@@ -334,13 +307,13 @@ const assign = () => {
         return;
     if (props.deferred) {
         const payload = assignmentPayload(
-            targetSlot.value.id,
+            targetSlot.value?.id ?? null,
             selected.value.id,
             form.hours_mode,
             form.starts_at,
             form.ends_at,
         );
-        if (typeof targetSlot.value.id === 'string') {
+        if (typeof targetSlot.value?.id === 'string') {
             delete payload.shift_role_slot_id;
             payload.slot_key = targetSlot.value.id;
         }
@@ -355,7 +328,7 @@ const assign = () => {
     form.transform(() => ({
         ...props.returnContext,
         ...assignmentPayload(
-            targetSlot.value.id,
+            targetSlot.value?.id ?? null,
             selected.value.id,
             form.hours_mode,
             form.starts_at,
@@ -401,12 +374,7 @@ const assign = () => {
         "
         confirm-variant="primary"
         :confirm-disabled="
-            !targetSlot ||
-            !selected ||
-            selected.on_shift ||
-            !validHours ||
-            loading ||
-            !loaded
+            !selected || selected.on_shift || !validHours || loading || !loaded
         "
         :busy="form.processing"
         @cancel="emit('close')"
@@ -420,7 +388,10 @@ const assign = () => {
                           role: targetSlot.role_name,
                           times: shiftTimes,
                       })
-                    : shift.name
+                    : $t('team.scheduling.assignments.override_subtitle', {
+                          name: shift.name,
+                          times: shiftTimes,
+                      })
             }}
         </template>
         <template
@@ -444,23 +415,6 @@ const assign = () => {
                     })
                 }}
             </p>
-            <FormField
-                v-if="!requirement"
-                :label="$t('team.scheduling.assignments.position')"
-                required
-            >
-                <template #default="{ id }">
-                    <CustomDropdown
-                        :id="id"
-                        v-model="selectedSlotId"
-                        :items="slotItems"
-                        :placeholder="
-                            $t('team.scheduling.assignments.pick_position')
-                        "
-                        :disabled="form.processing"
-                    />
-                </template>
-            </FormField>
             <p
                 v-if="!validHours"
                 class="text-sm text-danger"
@@ -474,7 +428,11 @@ const assign = () => {
                 }}
             </p>
             <p
-                v-for="field in ['shift_role_slot_id', 'team_engagement_id']"
+                v-for="field in [
+                    'override',
+                    'shift_role_slot_id',
+                    'team_engagement_id',
+                ]"
                 v-show="form.errors[field]"
                 :key="field"
                 class="text-sm text-danger"
@@ -489,7 +447,7 @@ const assign = () => {
             >
                 {{ candidateError }}
             </p>
-            <template v-if="targetSlot">
+            <template v-if="targetSlot || override">
                 <div class="flex flex-col gap-3 sm:flex-row">
                     <div class="relative min-w-0 flex-1">
                         <Icon
@@ -510,6 +468,7 @@ const assign = () => {
                         />
                     </div>
                     <SegmentedControl
+                        v-if="!override"
                         v-model="roleFilter"
                         :options="roleOptions"
                         :aria-label="
@@ -519,7 +478,10 @@ const assign = () => {
                         class="shrink-0"
                     />
                 </div>
-                <p class="text-xs text-muted">
+                <p
+                    v-if="!override"
+                    class="text-xs text-muted"
+                >
                     {{
                         $t(
                             roleFilter === 'has_role'
@@ -531,7 +493,7 @@ const assign = () => {
                 </p>
                 <div class="[&_.dt-layout-table>div]:overflow-visible!">
                     <DataTable
-                        :key="targetSlot.id"
+                        :key="targetSlot?.id ?? 'override'"
                         ref="table"
                         :ajax="ajax"
                         :columns="columns"

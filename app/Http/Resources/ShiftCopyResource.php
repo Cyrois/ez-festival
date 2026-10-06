@@ -32,7 +32,7 @@ class ShiftCopyResource extends JsonResource
                 ])->all(),
                 'name' => $assignment->teamEngagement->person->name,
                 'role_id' => $assignment->role_id,
-                'role_name' => $assignment->role->name,
+                'role_name' => $assignment->role?->name,
                 'slot_index' => $indices->get($assignment->shift_role_slot_id),
                 'hours_mode' => $assignment->starts_at->eq($this->starts_at) && $assignment->ends_at->eq($this->ends_at) ? 'full_shift' : 'custom',
                 'starts_at' => $assignment->starts_at->format('Y-m-d\TH:i'),

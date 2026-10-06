@@ -605,3 +605,21 @@ test('a failed grid request does not show the empty state and can retry', async 
         app.unmount();
     }
 });
+
+test('schedule summaries count overrides as assigned without changing required headcount or role occupancy', async () => {
+    const app = createApp({
+        setup: () => () => h(Timeline, {
+            rows: [{ id: 19, name: 'Gate', shifts: [{ ...shifts[0], assignment_count: 3, filled_count: 2, total_needs: 3 }] }],
+            date,
+            canCreate: false,
+        }),
+    });
+    app.config.globalProperties.$t = (key, data = {}) => `${key} ${JSON.stringify(data)}`;
+    app.mount(document.querySelector('#app'));
+    try {
+        await nextTick();
+        assert.match(document.body.textContent, /"filled":3,"needed":3/);
+        assert.equal(timeline.scheduleShiftIsFilled({ assignment_count: 3, filled_count: 2, total_needs: 3 }), true);
+        assert.equal(timeline.scheduleShiftIsFilled({ assignment_count: 1, filled_count: 0, total_needs: 0 }), false);
+    } finally { app.unmount(); }
+});

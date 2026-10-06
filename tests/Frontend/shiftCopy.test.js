@@ -392,6 +392,21 @@ test('snapshot strips source ids and maps people to fresh draft slots, including
     assert.deepEqual(prefill.assignments[1].slot_index, 1);
 });
 
+test('copy preserves a role-free override without creating a role or headcount slot', () => {
+    const source = structuredClone(prefill);
+    source.assignments[1].slot_index = null;
+    source.assignments[1].role_id = null;
+    source.assignments[1].role_name = null;
+    const draft = copy.copiedShiftDraft(source);
+    const row = draft.assignment_additions[1];
+    assert.equal(row.override, true);
+    assert.equal('role_id' in row, false);
+    assert.equal('slot_key' in row, false);
+    assert.equal(draft.slots.length, source.slots.length);
+    assert.equal(draft.people[-2].shift_role_slot_id, null);
+    assert.equal(draft.people[-2].role_name, null);
+});
+
 test('Copy opens its dedicated page in a new tab even with unsaved changes and keeps return context', async () => {
     for (const [canManage, locked, shown] of [
         [true, false, true],

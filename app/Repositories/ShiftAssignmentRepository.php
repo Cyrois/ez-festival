@@ -36,9 +36,10 @@ class ShiftAssignmentRepository
 
     public function candidates(Shift $shift, array $data): LengthAwarePaginator
     {
+        $override = filter_var($data['override'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $roleId = isset($data['shift_role_slot_id'])
             ? $shift->roleSlots()->findOrFail($data['shift_role_slot_id'])->role_id
-            : $data['role_id'];
+            : ($data['role_id'] ?? null);
         [$start, $end] = ShiftAssignmentHours::resolve($shift, $data);
         $pattern = '%'.SqlLike::escape(mb_strtolower(trim($data['search'] ?? ''))).'%';
         // Rank the entire scoped set before pagination, using the same interval
@@ -57,16 +58,16 @@ class ShiftAssignmentRepository
             ->with(['role:id,name', 'group:id,name'])
             ->withExists(['shiftAssignments as on_shift' => fn ($query) => $query->where('shift_id', $shift->id)])
             ->whereRaw("LOWER(people.name) LIKE ? ESCAPE '!'", [$pattern])
-            ->when(($data['role_filter'] ?? 'everyone') === 'has_role', fn ($query) => $query->where('team_engagements.role_id', $roleId))
+            ->when(! $override && ($data['role_filter'] ?? 'everyone') === 'has_role', fn ($query) => $query->where('team_engagements.role_id', $roleId))
             ->when(isset($data['selected_id']), fn ($query) => $query->where('team_engagements.id', $data['selected_id']))
             ->orderBy('availability_order')
-            ->orderByRaw('CASE WHEN team_engagements.role_id = ? THEN 0 ELSE 1 END', [$roleId])
+            ->when(! $override, fn ($query) => $query->orderByRaw('CASE WHEN team_engagements.role_id = ? THEN 0 ELSE 1 END', [$roleId]))
             ->orderByRaw('LOWER(people.name)')->orderBy('team_engagements.id')
             ->paginate((int) ($data['per_page'] ?? 25), ['*'], 'page', (int) ($data['page'] ?? 1))->withQueryString();
         $others = ShiftAssignmentOverlaps::forMembers($shift, $candidates->getCollection()->modelKeys(), $shift->starts_at->copy()->subMinutes(30), $shift->ends_at->copy()->addMinutes(30));
         $timezone = $shift->event->timezone;
         foreach ($candidates as $candidate) {
-            $candidate->setAttribute('suggested', (int) $candidate->role_id === (int) $roleId);
+            $candidate->setAttribute('suggested', ! $override && (int) $candidate->role_id === (int) $roleId);
             $candidate->setAttribute('other_shifts', ShiftAssignmentOverlaps::shifts($others->get($candidate->id, collect())));
             $candidate->setAttribute('overlaps', ShiftAssignmentOverlaps::warnings($others->get($candidate->id, collect()), $start, $end, $timezone));
         }

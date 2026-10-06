@@ -41,7 +41,11 @@ export function copiedShiftDraft(prefill) {
                 })),
             ),
             team_engagement_id: person.team_engagement_id,
-            ...(slot ? { slot_key: slot._key } : { role_id: person.role_id }),
+            ...(slot
+                ? { slot_key: slot._key }
+                : person.role_id == null
+                  ? { override: true }
+                  : { role_id: person.role_id }),
             hours_mode: person.hours_mode,
             ...(person.hours_mode === 'custom'
                 ? { starts_at: person.starts_at, ends_at: person.ends_at }

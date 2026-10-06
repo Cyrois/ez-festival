@@ -13,7 +13,7 @@ export function scheduleInitialScroll(firstShiftMinute) {
 }
 
 export function scheduleShiftIsFilled(shift) {
-    return shift.total_needs > 0 && shift.filled_count >= shift.total_needs;
+    return shift.total_needs > 0 && shift.assignment_count >= shift.total_needs;
 }
 
 // Date arithmetic is deliberately independent of the browser's timezone.

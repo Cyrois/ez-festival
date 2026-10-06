@@ -1406,3 +1406,58 @@ test('moving a break stages its independent time in Save without changing person
         assert.equal(payload.break_operations.at(-1).assignment_key, 8);
     } finally {app.unmount();}
 });
+
+test('override works in Create and Edit without roles or slots, stages a role-free row and reverses its count on removal', async () => {
+    const previousDialog = deps.ShiftAssignDialog;
+    deps.ShiftAssignDialog = {
+        props: ['requirement'],
+        setup: (p, { emit }) => () => h('button', {
+            id: 'override-confirm',
+            onClick: () => {
+                assert.equal(p.requirement, null);
+                emit('assigned', {
+                    candidate: { id: 20, name: 'Override person', overlaps: [] },
+                    slot: null,
+                    override: true,
+                    team_engagement_id: 20,
+                    hours_mode: 'full_shift',
+                });
+                emit('close');
+            },
+        }, 'Assign override'),
+    };
+    const Page = await compile('ShiftEditor');
+    try {
+        for (const creating of [false, true]) {
+            writes.length = 0;
+            const empty = { ...shift, slots: [], assignments: [], breaks: [], assignment_count: 0, total_needs: 0, filled_count: 0 };
+            const app = mount(Page, {
+                ...(creating ? { prefill: empty } : { shift: empty }),
+                event: { id: 2, is_locked: false }, canManage: true,
+                locations: [{ id: 1, name: 'Gate' }], roles: [], labelColors: [], breakOptions: { durations: [15, 30, 45, 60] },
+            });
+            try {
+                const editorForm = form;
+                const button = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'team.scheduling.assignments.override_assign');
+                assert.equal(button.disabled, false);
+                button.click();
+                await nextTick();
+                document.querySelector('#override-confirm').click();
+                await nextTick();
+                assert.equal(editorForm.slots.length, 0);
+                assert.equal(editorForm.assignment_additions[0].override, true);
+                assert.match(document.body.textContent, /Override person/);
+                assert.match(document.body.textContent, /filled=1 needed=0/);
+                assert.equal(writes.length, 0);
+                document.querySelector('form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+                assert.equal(writes[0].data.assignment_additions[0].override, true);
+                assert.equal(writes[0].data.slots.length, 0);
+                const row = document.querySelector('[data-roster-row="person--1"]');
+                row.querySelector('button[title*="remove_person"]').click();
+                await nextTick();
+                assert.equal(editorForm.assignment_additions.length, 0);
+                assert.match(document.body.textContent, /filled=0 needed=0/);
+            } finally { app.unmount(); }
+        }
+    } finally { deps.ShiftAssignDialog = previousDialog; }
+});

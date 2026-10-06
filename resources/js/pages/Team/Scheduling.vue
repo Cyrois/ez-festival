@@ -390,7 +390,7 @@ const formatDateTime = (value) =>
                         <template #needsCell="{ rowData }">
                             {{
                                 $t('team.scheduling.slots.filled', {
-                                    filled: rowData.filled_count,
+                                    filled: rowData.assignment_count,
                                     count: rowData.total_needs,
                                 })
                             }}
