@@ -4,7 +4,7 @@ namespace App\Support;
 
 final class MealTypeDefaults
 {
-    // Initial defaults are also used by the Meals 1 backfill. Keep this version immutable.
+    // Shared defaults for new events and the standard meal-type seeder.
     public const TYPES = [
         ['name' => 'Breakfast', 'starts_at' => '07:00:00', 'ends_at' => '10:00:00'],
         ['name' => 'Lunch', 'starts_at' => '11:00:00', 'ends_at' => '14:00:00'],

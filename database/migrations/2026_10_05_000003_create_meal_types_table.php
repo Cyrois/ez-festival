@@ -1,6 +1,5 @@
 <?php
 
-use App\Support\MealTypeDefaults;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -45,10 +44,6 @@ return new class extends Migration
             $table->index(['event_id', 'sort_order', 'id'], 'meal_types_event_order_idx');
         });
 
-        DB::table('events')->select('id')->chunkById(200, function ($events): void {
-            $rows = $events->flatMap(fn ($event) => MealTypeDefaults::rows($event->id))->all();
-            DB::table('meal_types')->insert($rows);
-        });
     }
 
     public function down(): void
