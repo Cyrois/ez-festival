@@ -14,5 +14,8 @@ const props = defineProps({
 </script>
 
 <template>
-    <ShiftEditor v-bind="props" />
+    <ShiftEditor
+        v-bind="props"
+        copying
+    />
 </template>

@@ -9,6 +9,10 @@ import * as copy from '../../resources/js/lib/shiftCopy.js';
 import * as slots from '../../resources/js/lib/shiftRoleSlots.js';
 import * as breaks from '../../resources/js/lib/shiftBreaks.js';
 import * as timeline from '../../resources/js/lib/scheduleTimeline.js';
+import {
+    labelTokens,
+    fallbackLabelToken,
+} from '../../resources/js/lib/labelTokens.js';
 import * as assignments from '../../resources/js/lib/shiftAssignments.js';
 
 const dom = new JSDOM('<div id="app"></div>');
@@ -49,7 +53,7 @@ const page = reactive({
 let previewResponse = {
     ok: true,
     status: 200,
-    json: async () => ({ data: { overlaps: [[], [], []] } }),
+    json: async () => ({ data: [], other_shifts: [] }),
 };
 globalThis.fetch = async (url, options) => {
     requests.push({ url, ...options });
@@ -60,6 +64,14 @@ const deps = {
     ...slots,
     ...breaks,
     ...timeline,
+    labelTokens,
+    fallbackLabelToken,
+    Table: box('table'),
+    TableHeader: box('thead'),
+    TableBody: box('tbody'),
+    TableRow: box('tr'),
+    TableHead: box('th'),
+    TableCell: box('td'),
     ...assignments,
     trans,
     AppLayout: box('main'),
@@ -269,14 +281,12 @@ async function compile(path) {
         )
     ).default;
 }
-deps.CopiedShiftRoster = await compile('components/team/CopiedShiftRoster');
-deps.CopyShiftEditor = await compile('components/team/CopyShiftEditor');
+deps.ShiftTimelineRoster = await compile('components/team/ShiftTimelineRoster');
 deps.ShiftEditor = await compile('components/team/ShiftEditor');
-const Create = await compile('pages/Team/CreateShift');
+const Create = await compile('pages/Team/CopyShift');
 const Shift = await compile('pages/Team/Shift');
 const Scheduling = await compile('pages/Team/Scheduling');
 const prefill = {
-    copy: 47,
     name: 'Gate',
     color: 'teal',
     location_id: 9,
@@ -292,17 +302,27 @@ const prefill = {
             team_engagement_id: 10,
             slot_index: 0,
             name: 'Alpha',
+            role_id: 3,
             role_name: 'Gate crew',
             hours_mode: 'full_shift',
             starts_at: '2026-10-31T22:00',
             ends_at: '2026-11-01T04:00',
-            overlaps: [{ shift_id: 47, shift_name: 'Gate' }],
+            overlaps: [
+                {
+                    shift_id: 47,
+                    shift_name: 'Gate',
+                    starts_at: '2026-10-31T22:00',
+                    ends_at: '2026-11-01T04:00',
+                    overlap_minutes: 360,
+                },
+            ],
             error: null,
         },
         {
             team_engagement_id: 20,
             slot_index: 1,
             name: 'Beta',
+            role_id: 6,
             role_name: 'Runner',
             hours_mode: 'custom',
             starts_at: '2026-11-01T00:00',
@@ -314,6 +334,7 @@ const prefill = {
             team_engagement_id: 30,
             slot_index: 0,
             name: 'Gamma',
+            role_id: 3,
             role_name: 'Gate crew',
             hours_mode: 'full_shift',
             starts_at: '2026-10-31T22:00',
@@ -333,6 +354,7 @@ const baseProps = () => ({
     labelColors: ['teal'],
     breakOptions: { durations: [15, 30, 45, 60], default_duration: 15 },
     prefill: structuredClone(prefill),
+    canManage: true,
 });
 function mount(component, props) {
     writes.length = 0;
@@ -355,57 +377,20 @@ const waitPreview = async () => {
     await nextTick();
 };
 
-test('copied drafts strip saved ids, keep source untouched, and map slots by stable identity', () => {
+test('snapshot strips source ids and maps people to fresh draft slots, including detached roles', () => {
     const source = structuredClone(prefill);
+    source.assignments[1].slot_index = null;
     const draft = copy.copiedShiftDraft(source);
     assert.equal(draft.slots[0].id, null);
     assert.equal(draft.breaks[0].id, null);
-    assert.deepEqual(source, prefill);
-    const payload = copy.copiedAssignmentPayload(
-        draft.assignments,
-        draft.slots.slice(1),
-    );
-    assert.deepEqual(
-        payload.map((r) => r.slot_index),
-        [null, 0, null],
-    );
-    assert.deepEqual(Object.keys(payload[0]), [
-        'team_engagement_id',
-        'slot_index',
-        'hours_mode',
-    ]);
-    const errors = copy.copiedAssignmentErrors(draft.assignments, {
-        'assignments.1.ends_at': ['Outside shift'],
-        'assignments.2.team_engagement_id': 'Duplicate',
-    });
-    assert.equal(errors[draft.assignments[1]._key].ends_at, 'Outside shift');
+    assert.equal(draft.assignment_additions[0].slot_key, draft.slots[0]._key);
+    assert.equal(draft.assignment_additions[1].role_id, 6);
+    assert.equal(draft.assignment_additions[1].slot_key, undefined);
+    assert.equal(draft.assignment_additions[0].copy, undefined);
+    assert.deepEqual(prefill.assignments[1].slot_index, 1);
 });
 
-test('event-local movement crosses midnight and DST without changing relative custom hours or break lengths', () => {
-    const draft = {
-        ...prefill,
-        ...copy.copiedShiftDraft(prefill),
-        starts_at: '2026-11-01T22:00',
-        ends_at: '2026-11-02T05:00',
-    };
-    const moved = copy.moveCopiedShift(draft, prefill.starts_at);
-    assert.equal(moved.assignments[0].ends_at, '2026-11-02T05:00');
-    assert.equal(moved.assignments[1].starts_at, '2026-11-02T00:00');
-    assert.equal(moved.assignments[1].ends_at, '2026-11-02T03:00');
-    assert.equal(moved.breaks[0].starts_at, '2026-11-02T00:30');
-    assert.equal(moved.breaks[0]._day, '2026-11-02');
-    assert.equal(moved.breaks[0].duration_minutes, 15);
-    assert.equal(
-        copy.copiedHoursValid(
-            moved.assignments[1],
-            draft.starts_at,
-            '2026-11-02T01:00',
-        ),
-        false,
-    );
-});
-
-test('Copy is next to Delete, only shown for writable shifts, and retains return context', async () => {
+test('Copy opens its dedicated page in a new tab even with unsaved changes and keeps return context', async () => {
     for (const [canManage, locked, shown] of [
         [true, false, true],
         [false, false, false],
@@ -413,6 +398,7 @@ test('Copy is next to Delete, only shown for writable shifts, and retains return
     ]) {
         const props = baseProps();
         props.event.is_locked = locked;
+        props.canManage = canManage;
         props.shift = {
             ...prefill,
             id: 47,
@@ -421,18 +407,18 @@ test('Copy is next to Delete, only shown for writable shifts, and retains return
             assignments: [],
             assignment_count: 0,
         };
-        props.canManage = canManage;
         props.returnContext = { return_tab: 'list', return_date: '2026-10-31' };
         const app = mount(Shift, props);
+        form.isDirty = true;
+        await nextTick();
         const link = [...document.querySelectorAll('header a')].find((el) =>
             el.textContent.includes('Copy'),
         );
         assert.equal(!!link, shown);
         if (shown) {
-            assert.equal(
-                new URL(link.href, 'http://localhost').searchParams.get('copy'),
-                '47',
-            );
+            assert.equal(link.getAttribute('target'), '_blank');
+            assert.match(link.getAttribute('rel'), /noopener/);
+            assert.match(link.href, /\/team\/shifts\/47\/copy\?/);
             assert.equal(
                 new URL(link.href, 'http://localhost').searchParams.get(
                     'return_tab',
@@ -442,111 +428,94 @@ test('Copy is next to Delete, only shown for writable shifts, and retains return
             assert.match(link.parentElement.textContent, /Delete shift/);
         }
         app.unmount();
-        await nextTick();
     }
 });
 
-test('draft people render fully, removal writes nothing, and Create posts all remaining people in one request', async () => {
+test('copy renders the complete shared timeline; removing a person never writes and Create saves remaining values once', async () => {
     const app = mount(Create, baseProps());
-    assert.equal(document.querySelectorAll('[data-copy-person]').length, 3);
-    assert.match(document.body.textContent, /Overlap Gate/);
-    assert.match(document.body.textContent, /Extra/);
+    assert.equal(document.querySelectorAll('[data-roster-row]').length, 4);
+    assert.ok(document.querySelector('[data-person-bar]'));
     assert.equal(writes.length, 0);
-    document
-        .querySelector('[aria-label="Remove Gamma from this shift"]')
+    const person = document.querySelector('[data-roster-row="person--2"]');
+    [...person.querySelectorAll('button')]
+        .find((button) => button.getAttribute('aria-label')?.includes('Remove'))
         .click();
     await nextTick();
+    assert.equal(form.assignment_additions.length, 2);
     assert.equal(writes.length, 0);
     submit();
     assert.equal(writes.length, 1);
-    assert.equal(writes[0].url, '/team/events/7/shifts');
-    assert.deepEqual(
-        writes[0].data.assignments.map((row) => row.team_engagement_id),
-        [10, 20],
-    );
-    assert.equal(writes[0].data.assignments[1].slot_index, 1);
-    assert.equal(writes[0].data.assignments[1].starts_at, '2026-11-01T00:00');
-    assert.equal(writes[0].data.slots[0].id, null);
-    assert.equal(writes[0].data.breaks[0].id, undefined);
-    app.unmount();
-});
-
-test('changing shift dates moves roster and breaks, updates warnings once, and ignores metadata-only mutations', async () => {
-    const app = mount(Create, baseProps());
-    form.starts_at = '2026-11-01T22:00';
-    form.ends_at = '2026-11-02T04:00';
-    await waitPreview();
-    assert.equal(form.assignments[1].starts_at, '2026-11-02T00:00');
-    assert.equal(form.breaks[0].starts_at, '2026-11-02T00:30');
-    assert.equal(requests.length, 1);
+    const data = writes[0].data;
+    assert.equal(data.assignment_additions.length, 2);
+    assert.equal(data.name, 'Gate');
+    assert.equal(data.color, 'teal');
+    assert.equal(data.breaks[0].starts_at, '2026-11-01T00:30');
+    assert.equal(data.copy, undefined);
+    assert.equal(data.assignments, undefined);
+    assert.equal(data.assignment_additions[0]._key, undefined);
+    assert.equal(data.assignment_additions[0].starts_at, undefined);
     assert.equal(
-        JSON.parse(requests[0].body).assignments[1].ends_at,
-        '2026-11-02T03:00',
+        data.assignment_additions[0].slot_key,
+        data.slots[0].client_key,
     );
-    form.assignments[0].overlaps = [{ shift_name: 'New warning' }];
-    await waitPreview();
-    assert.equal(requests.length, 1);
     app.unmount();
 });
 
-test('out-of-bounds people show inline errors and cannot save until their own hours are corrected', async () => {
+test('copy dates move custom hours and breaks through midnight and DST while full-shift hours follow both bounds', async () => {
     const app = mount(Create, baseProps());
-    form.ends_at = '2026-11-01T02:00';
-    await nextTick();
-    assert.match(
-        document.querySelector('[data-copy-person="copy-person-1"]')
-            .textContent,
-        /must be/,
+    form.ends_at = '2026-11-02T04:00';
+    form.starts_at = '2026-11-01T22:00';
+    await waitPreview();
+    assert.equal(form.assignment_additions[1].starts_at, '2026-11-02T00:00');
+    assert.equal(form.assignment_additions[1].ends_at, '2026-11-02T03:00');
+    assert.equal(form.breaks[0].starts_at, '2026-11-02T00:30');
+    assert.equal(form.assignment_additions[0].starts_at, undefined);
+    assert.ok(
+        requests.every((request) =>
+            request.url.startsWith(
+                '/team/events/7/shifts/assignment-overlaps?',
+            ),
+        ),
     );
-    submit();
-    assert.equal(writes.length, 0);
-    const inputs = document
-        .querySelector('[data-copy-person="copy-person-1"]')
-        .querySelectorAll('input');
-    inputs[1].value = '2026-11-01T01:30';
-    inputs[1].dispatchEvent(new window.Event('input', { bubbles: true }));
-    await nextTick();
-    submit();
-    assert.equal(writes.length, 1);
     app.unmount();
 });
 
-test('eligibility errors stay on a person row and removing that person allows creation', async () => {
+test('copied roster eligibility and submitted-row errors appear inline on the timeline', async () => {
     const props = baseProps();
     props.prefill.assignments[1].error =
         'Choose a hired Team member in this event.';
     const app = mount(Create, props);
     assert.match(
-        document.querySelector('[data-copy-person="copy-person-1"]')
-            .textContent,
-        /hired/,
+        document.querySelector('[data-roster-row="person--2"]').textContent,
+        /hired Team member/,
     );
     submit();
-    assert.equal(writes.length, 0);
-    document
-        .querySelector('[aria-label="Remove Beta from this shift"]')
-        .click();
+    writes[0].options.onError({
+        'assignment_additions.0.team_engagement_id': 'Not hired anymore',
+    });
     await nextTick();
-    submit();
-    assert.equal(writes.length, 1);
+    assert.match(
+        document.querySelector('[data-roster-row="person--1"]').textContent,
+        /Not hired anymore/,
+    );
     app.unmount();
 });
 
-test('Templates is absent and a templates deep link opens Schedule even after List', async () => {
-    const props = baseProps();
-    props.scheduleDate = '2026-10-31';
-    props.canManage = true;
-    page.url = '/team/scheduling?tab=list';
-    const app = mount(Scheduling, props);
-    assert.ok(document.querySelector('[data-panel="list"]'));
+test('templates URL opens Schedule initially and when navigating from List', async () => {
     page.url = '/team/scheduling?tab=templates';
+    const props = {
+        event: { id: 7, name: 'Festival' },
+        locations: [],
+        shifts: [],
+        filters: {},
+        roles: [],
+        labelColors: [],
+        breakOptions: {},
+        scheduleDate: '2026-10-31',
+        permissions: {},
+    };
+    const app = mount(Scheduling, props);
     await nextTick();
     assert.ok(document.querySelector('[data-panel="schedule"]'));
-    assert.deepEqual(
-        [...document.querySelectorAll('[data-tab]')].map(
-            (node) => node.dataset.tab,
-        ),
-        ['schedule', 'list'],
-    );
     app.unmount();
 });

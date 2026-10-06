@@ -4,9 +4,10 @@ namespace App\Services;
 
 use App\Models\Event;
 use App\Models\Shift;
+use App\Repositories\ShiftAssignmentRepository;
 use App\Support\ShiftAssignmentHours;
+use App\Support\ShiftAssignmentOverlaps;
 use App\Support\ShiftBreaks;
-use App\Support\ShiftCopyAssignments;
 use App\Support\ShiftRosterChanges;
 use App\Support\ShiftSlotReferences;
 use Illuminate\Support\Collection;
@@ -15,6 +16,20 @@ use Illuminate\Validation\ValidationException;
 
 class ShiftService
 {
+    public function copyDraft(Shift $shift): Shift
+    {
+        $repository = app(ShiftAssignmentRepository::class);
+        $shift = $repository->copySource($shift);
+        $others = $repository->copyOverlaps($shift);
+        foreach ($shift->assignments as $assignment) {
+            $rows = $others->get($assignment->team_engagement_id, collect());
+            $assignment->setAttribute('copy_overlaps', ShiftAssignmentOverlaps::warnings($rows, $assignment->starts_at, $assignment->ends_at, $shift->event->timezone));
+            $assignment->setAttribute('copy_other_shifts', ShiftAssignmentOverlaps::shifts($rows));
+        }
+
+        return $shift;
+    }
+
     /** @param array<string, mixed> $data */
     public function create(Event $event, array $data): Shift
     {
@@ -29,17 +44,10 @@ class ShiftService
             if ($errors !== []) {
                 throw ValidationException::withMessages($errors);
             }
-            $assignments = ShiftCopyAssignments::resolve($event, $data, lock: true);
-            unset($data['slots'], $data['breaks'], $data['assignments'], $data['copy'], $data['assignment_additions'], $data['assignment_updates'], $data['assignment_removals']);
+            unset($data['slots'], $data['breaks'], $data['assignment_additions'], $data['assignment_updates'], $data['assignment_removals']);
             $shift = $event->shifts()->create($data);
             $draftSlots = $this->syncSlots($shift, $slots);
             $this->syncBreaks($shift, $breaks, collect());
-            $createdSlots = $shift->roleSlots()->get()->values();
-            foreach ($assignments as $row) {
-                $slotIndex = $row['slot_index'];
-                unset($row['slot_index']);
-                $shift->assignments()->create([...$row, 'shift_role_slot_id' => $slotIndex === null ? null : $createdSlots[$slotIndex]->id]);
-            }
             $this->addAssignments($shift, $additions, $draftSlots);
 
             return $shift;

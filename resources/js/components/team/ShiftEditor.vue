@@ -28,13 +28,16 @@ import { useFlashToast } from '../../composables/useFlashToast';
 import { fieldError, toastFormErrors } from '../../lib/fieldError';
 import AppLayout from '../../layouts/AppLayout.vue';
 import { router, useForm } from '@inertiajs/vue3';
-import { computed, ref, onUnmounted } from 'vue';
+import { computed, ref, watch, onUnmounted } from 'vue';
+import { copiedShiftDraft, moveCopiedShift } from '../../lib/shiftCopy';
+import { wallMinutes } from '../../lib/shiftBreaks';
 import { trans } from 'laravel-vue-i18n';
 import { draftRoster, assignmentOverlapUrl } from '../../lib/shiftAssignments';
 import { scheduleReturnHref } from '../../lib/scheduleTimeline';
 
 const props = defineProps({
     event: { type: Object, required: true },
+    copying: { type: Boolean, default: false },
     shift: { type: Object, default: null },
     prefill: { type: Object, default: () => ({}) },
     locations: { type: Array, required: true },
@@ -49,8 +52,8 @@ const creating = computed(() => !props.shift);
 const initialShift = computed(
     () =>
         props.shift ?? {
-            color: 'teal',
-            name: '',
+            color: props.prefill.color ?? 'teal',
+            name: props.prefill.name ?? '',
             location_id:
                 props.prefill.location_id ?? props.locations[0]?.id ?? '',
             starts_at: props.prefill.starts_at ?? '',
@@ -62,27 +65,26 @@ const initialShift = computed(
         },
 );
 
+const copied = props.copying ? copiedShiftDraft(props.prefill) : null;
+const assignmentErrors = ref({});
 const form = useForm({
     color: initialShift.value.color ?? 'teal',
     name: initialShift.value.name ?? '',
     location_id: initialShift.value.location_id,
     starts_at: initialShift.value.starts_at,
     ends_at: initialShift.value.ends_at,
-    slots: draftShiftSlots(initialShift.value.slots),
-    breaks: draftShiftBreaks(initialShift.value.breaks),
+    slots: copied?.slots ?? draftShiftSlots(initialShift.value.slots),
+    breaks: copied?.breaks ?? draftShiftBreaks(initialShift.value.breaks),
     assignment_updates: [],
     assignment_removals: [],
-    assignment_additions: [],
+    assignment_additions: copied?.assignment_additions ?? [],
     ...props.returnContext,
 });
 const backHref = computed(() => scheduleReturnHref(props.returnContext));
 const copyHref = computed(
     () =>
-        '/team/shifts/create?' +
-        new URLSearchParams({
-            copy: props.shift?.id,
-            ...props.returnContext,
-        }).toString(),
+        `/team/shifts/${props.shift?.id}/copy?` +
+        new URLSearchParams(props.returnContext).toString(),
 );
 const slotErrors = ref({});
 const breakErrors = ref({});
@@ -103,9 +105,9 @@ const deleteBusy = ref(false);
 const confirmationCount = ref(0);
 const selectedSlot = ref(null);
 const headerAssignOpen = ref(false);
-const draftPeople = ref({});
+const draftPeople = ref(copied?.people ?? {});
 const overlapPreviews = ref({});
-let nextDraftId = -1;
+let nextDraftId = -(form.assignment_additions.length + 1);
 const previewRequests = new Map();
 const selectedAssignment = ref(null);
 const rosterShift = computed(() =>
@@ -164,6 +166,7 @@ const timelineShift = computed(() => ({
     assignments: rosterShift.value.assignments.map((row) => ({
         ...row,
         ...(overlapPreviews.value[row.id] ?? {}),
+        validation_errors: assignmentErrors.value[row.id] ?? [],
     })),
 }));
 const detailsDirty = computed(
@@ -221,6 +224,7 @@ const removeAssignment = (assignment) => {
     if (!rosterEnabled.value) return;
     previewRequests.get(assignment.id)?.abort();
     delete overlapPreviews.value[assignment.id];
+    delete assignmentErrors.value[assignment.id];
     if (assignment.id < 0) {
         form.assignment_additions = form.assignment_additions.filter(
             (row) => row._key !== assignment.id,
@@ -274,6 +278,9 @@ const stageHours = (assignment, data) => {
 };
 const resizeHours = async (assignment, hours) => {
     stageHours(assignment, { hours_mode: 'custom', ...hours });
+    await previewHours(assignment, { hours_mode: 'custom', ...hours });
+};
+const previewHours = async (assignment, hours) => {
     previewRequests.get(assignment.id)?.abort();
     const controller = new AbortController();
     previewRequests.set(assignment.id, controller);
@@ -289,7 +296,7 @@ const resizeHours = async (assignment, hours) => {
         );
         const query = {
             ...hours,
-            hours_mode: 'custom',
+            hours_mode: hours.hours_mode ?? 'custom',
             shift_starts_at: form.starts_at,
             shift_ends_at: form.ends_at,
             ...(assignment.id < 0
@@ -325,13 +332,46 @@ const resizeHours = async (assignment, hours) => {
             };
     }
 };
+let previousCopyStart = form.starts_at;
+watch(
+    () => [form.starts_at, form.ends_at],
+    () => {
+        if (
+            !props.copying ||
+            !Number.isFinite(wallMinutes(form.starts_at)) ||
+            !Number.isFinite(wallMinutes(form.ends_at)) ||
+            form.starts_at >= form.ends_at
+        )
+            return;
+        const moved = moveCopiedShift(form, previousCopyStart);
+        form.assignment_additions = moved.assignment_additions;
+        form.breaks = moved.breaks;
+        previousCopyStart = form.starts_at;
+        for (const assignment of rosterShift.value.assignments) {
+            const row = form.assignment_additions.find(
+                (row) => row._key === assignment.id,
+            );
+            if (row)
+                previewHours(assignment, {
+                    hours_mode: row.hours_mode,
+                    ...(row.hours_mode === 'custom'
+                        ? { starts_at: row.starts_at, ends_at: row.ends_at }
+                        : {}),
+                });
+        }
+    },
+);
 onUnmounted(() => previewRequests.forEach((controller) => controller.abort()));
 const { showError, showFormError } = useFlashToast();
 
 const canWrite = computed(() => props.canManage && !props.event.is_locked);
 const displayName = computed(() =>
     creating.value
-        ? trans('team.scheduling.actions.new')
+        ? trans(
+              props.copying
+                  ? 'team.scheduling.copy.title'
+                  : 'team.scheduling.actions.new',
+          )
         : initialShift.value.name || trans('team.scheduling.unnamed_shift'),
 );
 const locationItems = computed(() =>
@@ -361,6 +401,7 @@ const submit = (afterSave) => {
 
     const submitted = [...form.slots];
     const submittedBreaks = [...form.breaks];
+    const submittedPeople = [...form.assignment_additions];
     form.transform((data) => ({
         ...data,
         slots: shiftSlotPayload(data.slots, true),
@@ -372,6 +413,17 @@ const submit = (afterSave) => {
     const options = {
         preserveScroll: true,
         onError: (errors) => {
+            assignmentErrors.value = {};
+            for (const [path, message] of Object.entries(errors)) {
+                const match = /^assignment_additions\.(\d+)(?:\..*)?$/.exec(
+                    path,
+                );
+                const key = match && submittedPeople[Number(match[1])]?._key;
+                if (key) {
+                    assignmentErrors.value[key] ??= [];
+                    assignmentErrors.value[key].push(message);
+                }
+            }
             slotErrors.value = shiftSlotErrors(submitted, errors);
             breakErrors.value = shiftBreakErrors(submittedBreaks, errors);
             if (
@@ -456,7 +508,13 @@ const destroy = () => {
                         v-if="!creating"
                         class="mt-1 mb-0 text-sm text-muted"
                     >
-                        {{ $t('team.scheduling.shift_lead') }}
+                        {{
+                            $t(
+                                copying
+                                    ? 'team.scheduling.copy.unsaved'
+                                    : 'team.scheduling.shift_lead',
+                            )
+                        }}
                     </p>
                 </div>
                 <div
@@ -465,6 +523,8 @@ const destroy = () => {
                 >
                     <Button
                         :href="copyHref"
+                        target="_blank"
+                        rel="noopener noreferrer"
                         variant="secondary"
                         :disabled="form.processing"
                     >

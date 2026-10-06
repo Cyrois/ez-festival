@@ -62,264 +62,193 @@ class TeamShiftCopyTest extends TestCase
         $this->actingAs($this->user);
     }
 
-    public function test_copy_prefills_every_field_and_never_saves_on_open(): void
+    public function test_dedicated_copy_page_snapshots_every_value_without_writing(): void
     {
         $before = $this->snapshot();
-        $this->get(route('team.shifts.create', ['copy' => $this->source->id, 'return_tab' => 'schedule', 'return_date' => '2026-10-01']))
-            ->assertOk()->assertInertia(fn (Assert $page) => $page->component('Team/CreateShift')
-            ->where('prefill.copy', $this->source->id)->where('prefill.name', 'Morning gate')
-            ->where('prefill.color', 'violet')->where('prefill.location_id', $this->source->location_id)
-            ->where('prefill.starts_at', '2026-10-01T10:00')->where('prefill.ends_at', '2026-10-01T14:00')
-            ->has('prefill.slots', 2)->where('prefill.slots.0.role_id', $this->slots[0]['role_id'])
-            ->where('prefill.slots.0.needed', 1)->where('prefill.slots.1.role_name', 'Runner')
-            ->where('prefill.slots.1.needed', 2)->missing('prefill.slots.0.id')
-            ->has('prefill.breaks', 1)->where('prefill.breaks.0.duration_minutes', 15)
-            ->where('prefill.breaks.0.starts_at', '2026-10-01T11:00')->missing('prefill.breaks.0.id')
-            ->has('prefill.assignments', 3)->where('prefill.assignments.0.name', 'Alpha')
-            ->where('prefill.assignments.0.team_engagement_id', $this->members[0]->id)
-            ->where('prefill.assignments.0.slot_index', 0)->where('prefill.assignments.0.hours_mode', 'full_shift')
-            ->where('prefill.assignments.1.name', 'Beta')->where('prefill.assignments.1.slot_index', 1)
+        $this->get(route('team.shifts.copy', [$this->source, 'return_tab' => 'schedule']))->assertInertia(fn (Assert $page) => $page
+            ->component('Team/CopyShift')->where('prefill.name', 'Morning gate')->where('prefill.color', 'violet')
+            ->where('prefill.location_id', $this->source->location_id)->where('prefill.starts_at', '2026-10-01T10:00')
+            ->where('prefill.ends_at', '2026-10-01T14:00')->has('prefill.slots', 2)->has('prefill.assignments', 3)->has('prefill.breaks', 1)
             ->where('prefill.assignments.1.hours_mode', 'custom')->where('prefill.assignments.1.starts_at', '2026-10-01T11:30')
-            ->where('prefill.assignments.1.ends_at', '2026-10-01T13:00')->where('prefill.assignments.2.slot_index', 0)
+            ->where('prefill.assignments.1.role_id', $this->slots[1]['role_id'])
             ->where('prefill.assignments.0.overlaps.0.shift_id', $this->source->id)
-            ->where('prefill.assignments.0.overlaps.0.overlap_minutes', 240)
-            ->where('returnContext.return_tab', 'schedule')->missing('prefill.assignments.0.email'));
+            ->where('returnContext.return_tab', 'schedule')->missing('prefill.copy')->missing('prefill.assignments.0.email'));
         $this->assertSame($before, $this->snapshot());
     }
 
-    public function test_people_breaks_and_slots_save_together_on_the_new_shift(): void
+    public function test_snapshot_still_saves_all_people_and_breaks_after_source_is_deleted(): void
+    {
+        $payload = $this->snapshotPayload();
+        app(ShiftService::class)->delete($this->source, 3);
+        $this->post(route('team.shifts.store', $this->event), $payload)->assertSessionHasNoErrors();
+        $this->assertCopiedValues(Shift::sole());
+    }
+
+    public function test_snapshot_still_saves_all_original_values_after_source_is_edited(): void
+    {
+        $payload = $this->snapshotPayload();
+        $this->source->update(['name' => 'Changed', 'color' => 'teal', 'starts_at' => '2026-10-02T10:00', 'ends_at' => '2026-10-02T14:00']);
+        $this->source->assignments()->delete();
+        $this->source->breaks()->delete();
+        $this->post(route('team.shifts.store', $this->event), $payload)->assertSessionHasNoErrors();
+        $this->assertCopiedValues(Shift::whereKeyNot($this->source->id)->sole());
+        $this->assertSame('Changed', $this->source->fresh()->name);
+    }
+
+    public function test_normal_create_path_saves_moved_snapshot_atomically_and_keeps_source_unchanged(): void
     {
         $before = $this->snapshot();
-        $payload = $this->payload();
-        $payload['name'] = 'Next day gate';
-        $payload['color'] = 'teal';
+        $payload = $this->snapshotPayload();
         $payload['starts_at'] = '2026-10-02T12:00';
         $payload['ends_at'] = '2026-10-02T16:00';
         $payload['breaks'][0]['starts_at'] = '2026-10-02T13:00';
-        $payload['assignments'][1]['starts_at'] = '2026-10-02T13:30';
-        $payload['assignments'][1]['ends_at'] = '2026-10-02T15:00';
+        $payload['assignment_additions'][1]['starts_at'] = '2026-10-02T13:30';
+        $payload['assignment_additions'][1]['ends_at'] = '2026-10-02T15:00';
         $this->post(route('team.shifts.store', $this->event), $payload)->assertSessionHasNoErrors();
         $new = Shift::whereKeyNot($this->source->id)->sole();
-        $this->assertSame('Next day gate', $new->name);
-        $this->assertSame('teal', $new->color);
+        $this->assertSame(3, $new->assignments()->count());
+        $this->assertSame('2026-10-02T12:00', $new->assignments()->first()->starts_at->format('Y-m-d\TH:i'));
         $this->assertSame('2026-10-02T13:00', $new->breaks()->sole()->starts_at->format('Y-m-d\TH:i'));
-        $this->assertSame($before, $this->snapshot($this->source->id));
-        $this->get(route('team.shifts.show', $new))->assertInertia(fn (Assert $page) => $page
-            ->where('shift.assignment_count', 3)->where('shift.extra_count', 1)->where('shift.filled_count', 2)
-            ->where('shift.assignments.0.starts_at', '2026-10-02T12:00')->where('shift.assignments.0.ends_at', '2026-10-02T16:00')
-            ->where('shift.assignments.1.starts_at', '2026-10-02T13:30')->where('shift.assignments.1.ends_at', '2026-10-02T15:00')
-            ->where('shift.assignments.2.is_extra', true));
-        $slots = $new->roleSlots()->get();
-        $this->assertSame([$slots[0]->id, $slots[1]->id, $slots[0]->id], $new->assignments()->pluck('shift_role_slot_id')->all());
+        $this->assertSame($before, $this->snapshot());
     }
 
-    public function test_same_time_overlaps_and_extras_warn_and_do_not_block_the_save(): void
+    public function test_same_time_overlaps_use_existing_create_preview_and_never_block(): void
     {
         $before = $this->snapshot();
-        $this->postJson(route('team.shifts.copy-preview', $this->event), $this->payload())
-            ->assertOk()->assertJsonPath('data.overlaps.0.0.shift_id', $this->source->id)
-            ->assertJsonPath('data.overlaps.1.0.overlap_minutes', 90);
+        $this->getJson(route('team.shifts.create.assignment-overlaps', [$this->event, 'team_engagement_id' => $this->members[1]->id,
+            'hours_mode' => 'custom', 'starts_at' => '2026-10-01T11:30', 'ends_at' => '2026-10-01T13:00',
+            'shift_starts_at' => '2026-10-01T10:00', 'shift_ends_at' => '2026-10-01T14:00']))
+            ->assertOk()->assertJsonPath('data.0.shift_id', $this->source->id)->assertJsonPath('data.0.overlap_minutes', 90);
         $this->assertSame($before, $this->snapshot());
-        $this->post(route('team.shifts.store', $this->event), $this->payload())->assertSessionHasNoErrors();
-        $this->assertDatabaseCount('shifts', 2);
+        $this->post(route('team.shifts.store', $this->event), $this->snapshotPayload())->assertSessionHasNoErrors();
         $this->assertDatabaseCount('shift_assignments', 6);
     }
 
-    public function test_preview_rechecks_new_hours_and_includes_other_shifts(): void
+    public function test_only_normal_assignment_checks_apply_and_people_need_not_remain_on_source(): void
     {
-        $other = app(ShiftService::class)->create($this->event, [
-            'name' => 'Later', 'location_id' => $this->source->location_id,
-            'starts_at' => '2026-10-02T10:00', 'ends_at' => '2026-10-02T14:00', 'slots' => [$this->slots[0]],
-        ]);
-        app(ShiftAssignmentService::class)->create($other, ['team_engagement_id' => $this->members[0]->id, 'shift_role_slot_id' => $other->roleSlots()->sole()->id, 'hours_mode' => 'full_shift']);
-        $payload = $this->payload();
-        $payload['starts_at'] = '2026-10-02T10:00';
-        $payload['ends_at'] = '2026-10-02T14:00';
-        $payload['breaks'] = [];
-        $payload['assignments'] = [$payload['assignments'][0]];
-        $this->postJson(route('team.shifts.copy-preview', $this->event), $payload)->assertOk()
-            ->assertJsonPath('data.overlaps.0.0.shift_id', $other->id)->assertJsonCount(1, 'data.overlaps.0');
-        $this->assertDatabaseCount('shifts', 2);
-    }
-
-    public function test_failed_people_are_shown_in_prefill_and_rejected_inline_on_save(): void
-    {
-        $this->members[1]->update(['status' => 'declined']);
-        $this->get(route('team.shifts.create', ['copy' => $this->source->id]))->assertInertia(fn (Assert $page) => $page
-            ->where('prefill.assignments.1.error', __('team.scheduling.assignments.errors.eligible')));
-        $before = $this->snapshot();
-        $response = $this->postJson(route('team.shifts.store', $this->event), $this->payload())->assertUnprocessable()
-            ->assertJsonValidationErrors('assignments.1.team_engagement_id');
-        $this->assertSame([__('team.scheduling.assignments.errors.eligible')], $response->json('errors')['assignments.1.team_engagement_id']);
-        $this->assertSame($before, $this->snapshot());
-        $payload = $this->payload();
-        unset($payload['assignments'][1]);
-        $payload['assignments'] = array_values($payload['assignments']);
+        $payload = $this->snapshotPayload();
+        $stranger = $this->member('Not on original');
+        $payload['assignment_additions'][1]['team_engagement_id'] = $stranger->id;
         $this->post(route('team.shifts.store', $this->event), $payload)->assertSessionHasNoErrors();
-        $this->assertDatabaseCount('shift_assignments', 5);
+        $this->assertDatabaseHas('shift_assignments', ['team_engagement_id' => $stranger->id]);
     }
 
-    public function test_invalid_members_duplicates_slots_and_hours_cannot_write_any_part_of_a_copy(): void
+    public function test_foreign_ineligible_duplicate_people_invalid_slots_roles_and_hours_roll_back(): void
     {
-        $otherEvent = $this->event('Other');
-        $foreign = $this->member('Foreign', $otherEvent);
-        $stranger = $this->member('Not on source');
-        $cases = [
+        $payload = $this->snapshotPayload();
+        $foreign = $this->member('Foreign', $this->event('Other'));
+        $ineligible = $this->member('Declined');
+        $ineligible->update(['status' => 'declined']);
+        foreach ([
             [['team_engagement_id' => $foreign->id], 'team_engagement_id'],
-            [['team_engagement_id' => $stranger->id], 'team_engagement_id'],
+            [['team_engagement_id' => $ineligible->id], 'team_engagement_id'],
             [['team_engagement_id' => $this->members[0]->id], 'team_engagement_id'],
-            [['slot_index' => 999], 'slot_index'],
+            [['slot_key' => 'draft-999'], 'slot_key'],
             [['hours_mode' => 'custom', 'starts_at' => '2026-10-01T09:00', 'ends_at' => '2026-10-01T13:00'], 'ends_at'],
-            [['hours_mode' => 'custom', 'starts_at' => '2026-10-01T11:00', 'ends_at' => '2026-10-01T15:00'], 'ends_at'],
-            [['hours_mode' => 'custom', 'starts_at' => '2026-10-01T13:00', 'ends_at' => '2026-10-01T12:00'], 'ends_at'],
-            [['starts_at' => 'bad'], 'starts_at'],
             [['hours_mode' => 'invalid'], 'hours_mode'],
-            [['role_id' => $this->slots[0]['role_id']], 'row'],
-        ];
-        $before = $this->snapshot();
-        foreach ($cases as [$changes, $field]) {
-            $payload = $this->payload();
-            $payload['assignments'][1] = [...$payload['assignments'][1], ...$changes];
-            $key = $field === 'row' ? 'assignments.1' : 'assignments.1.'.$field;
-            $this->postJson(route('team.shifts.store', $this->event), $payload)->assertUnprocessable()->assertJsonValidationErrors($key);
-            $this->assertSame($before, $this->snapshot());
+        ] as [$changes, $field]) {
+            $bad = $payload;
+            $bad['assignment_additions'][1] = [...$bad['assignment_additions'][1], ...$changes];
+            $this->postJson(route('team.shifts.store', $this->event), $bad)->assertUnprocessable()->assertJsonValidationErrors('assignment_additions.1.'.$field);
             $this->assertDatabaseCount('shifts', 1);
             $this->assertDatabaseCount('shift_assignments', 3);
-            $this->assertDatabaseCount('shift_role_slots', 2);
-            $this->assertDatabaseCount('shift_breaks', 1);
         }
-        $payload = $this->payload();
-        unset($payload['assignments'][1]['starts_at']);
-        $this->postJson(route('team.shifts.store', $this->event), $payload)->assertUnprocessable()->assertJsonValidationErrors('assignments.1.starts_at');
+        unset($payload['assignment_additions'][1]['slot_key']);
+        $payload['assignment_additions'][1]['role_id'] = 999999999;
+        $this->postJson(route('team.shifts.store', $this->event), $payload)->assertUnprocessable()->assertJsonValidationErrors('assignment_additions.1.role_id');
     }
 
-    public function test_removed_slots_leave_copied_people_as_detached_extras_with_their_original_roles(): void
-    {
-        $payload = $this->payload();
-        $payload['slots'] = [];
-        foreach ($payload['assignments'] as &$row) {
-            $row['slot_index'] = null;
-        } unset($row);
-        $this->post(route('team.shifts.store', $this->event), $payload)->assertSessionHasNoErrors();
-        $new = Shift::whereKeyNot($this->source->id)->sole();
-        $this->assertSame([null, null, null], $new->assignments()->pluck('shift_role_slot_id')->all());
-        $this->assertSame([$this->slots[0]['role_id'], $this->slots[1]['role_id'], $this->slots[0]['role_id']], $new->assignments()->pluck('role_id')->all());
-        $this->get(route('team.shifts.show', $new))->assertInertia(fn (Assert $page) => $page->where('shift.extra_count', 3));
-    }
-
-    public function test_copying_a_source_with_detached_extras_preserves_all_people(): void
+    public function test_detached_extras_keep_snapshot_role_and_save_after_source_is_deleted(): void
     {
         $this->source->roleSlots()->where('role_id', $this->slots[1]['role_id'])->delete();
-        $this->get(route('team.shifts.create', ['copy' => $this->source->id]))->assertInertia(fn (Assert $page) => $page
-            ->has('prefill.assignments', 3)->where('prefill.assignments.1.slot_index', null)->where('prefill.assignments.1.role_name', 'Runner'));
-        $payload = $this->payload();
-        array_pop($payload['slots']);
-        $payload['assignments'][1]['slot_index'] = null;
+        $payload = $this->snapshotPayload();
+        $this->assertArrayHasKey('role_id', $payload['assignment_additions'][1]);
+        app(ShiftService::class)->delete($this->source, 3);
         $this->post(route('team.shifts.store', $this->event), $payload)->assertSessionHasNoErrors();
+        $extra = Shift::sole()->assignments()->where('team_engagement_id', $this->members[1]->id)->sole();
+        $this->assertNull($extra->shift_role_slot_id);
+        $this->assertSame($this->slots[1]['role_id'], $extra->role_id);
     }
 
-    public function test_foreign_missing_and_multiple_source_ids_are_refused(): void
+    public function test_copy_page_wrong_event_missing_source_permission_and_lock_gates(): void
     {
+        $payload = $this->snapshotPayload();
         $other = $this->event('Other');
-        $location = $other->locations()->create(['name' => 'Elsewhere']);
-        $foreign = app(ShiftService::class)->create($other, ['name' => 'Foreign', 'location_id' => $location->id, 'starts_at' => '2026-10-01T10:00', 'ends_at' => '2026-10-01T14:00']);
-        $this->get(route('team.shifts.create', ['copy' => $foreign->id]))->assertNotFound();
-        $this->get(route('team.shifts.create', ['copy' => [$this->source->id, $foreign->id]]))->assertSessionHasErrors('copy');
-        foreach ([$foreign->id, null] as $copy) {
-            $payload = $this->payload();
-            $payload['copy'] = $copy;
-            $this->postJson(route('team.shifts.store', $this->event), $payload)->assertUnprocessable()->assertJsonValidationErrors('copy');
-            $this->postJson(route('team.shifts.copy-preview', $this->event), $payload)->assertUnprocessable()->assertJsonValidationErrors('copy');
-        }
-        $this->postJson(route('team.shifts.store', $other), $this->payload())->assertNotFound();
-        $this->assertDatabaseCount('shifts', 2);
-    }
-
-    public function test_copy_visibility_and_page_preview_and_save_require_permission_and_unlocked_event(): void
-    {
-        $this->get(route('team.shifts.show', $this->source))->assertInertia(fn (Assert $page) => $page->where('canManage', true)->where('event.is_locked', false));
+        $foreign = Shift::create(['event_id' => $other->id, 'location_id' => $other->locations()->create(['name' => 'Other'])->id,
+            'starts_at' => '2026-10-01T10:00', 'ends_at' => '2026-10-01T14:00']);
+        $this->get(route('team.shifts.copy', $foreign))->assertNotFound();
+        $this->get('/team/shifts/999999999/copy')->assertNotFound();
+        $this->post(route('team.shifts.store', $other), $payload)->assertNotFound();
         $this->grantRoleAccess($this->user, ['scheduling.view']);
         $this->actingAs($this->user->fresh());
-        $this->get(route('team.shifts.show', $this->source))->assertInertia(fn (Assert $page) => $page->where('canManage', false));
-        $this->assertCopyForbidden();
+        $this->get(route('team.shifts.copy', $this->source))->assertForbidden();
+        $this->post(route('team.shifts.store', $this->event), $payload)->assertForbidden();
         $this->grantRoleAccess($this->user, ['scheduling.view', 'scheduling.edit']);
         $this->actingAs($this->user->fresh());
         $this->event->lock();
-        $this->get(route('team.shifts.show', $this->source))->assertInertia(fn (Assert $page) => $page->where('event.is_locked', true));
-        $this->assertCopyForbidden();
-        $this->assertDatabaseCount('shifts', 1);
+        $this->get(route('team.shifts.copy', $this->source))->assertForbidden();
+        $this->post(route('team.shifts.store', $this->event), $payload)->assertForbidden();
     }
 
-    public function test_service_rechecks_eligibility_source_and_lock_and_rolls_back_all_related_writes(): void
+    public function test_service_revalidates_people_roles_and_lock_without_partial_writes(): void
     {
-        $before = $this->snapshot();
+        $payload = $this->snapshotPayload();
         $this->members[1]->update(['status' => 'declined']);
         try {
-            app(ShiftService::class)->create($this->event, $this->payload());
+            app(ShiftService::class)->create($this->event, $payload);
             $this->fail('Expected validation');
         } catch (ValidationException $exception) {
-            $this->assertArrayHasKey('assignments.1.team_engagement_id', $exception->errors());
+            $this->assertArrayHasKey('assignment_additions.1.team_engagement_id', $exception->errors());
         }
-        $this->assertSame($before, $this->snapshot());
-        $this->members[1]->update(['status' => 'hired']);
-        $payload = $this->payload();
-        $payload['slots'][1]['role_id'] = 999999999;
-        try {
-            app(ShiftService::class)->create($this->event, $payload);
-            $this->fail('Expected invalid slot');
-        } catch (ValidationException $exception) {
-            $this->assertArrayHasKey('slots.1.role_id', $exception->errors());
-        }
-        $this->assertSame($before, $this->snapshot());
-        $payload = $this->payload();
-        $payload['copy'] = Shift::query()->max('id') + 1;
-        try {
-            app(ShiftService::class)->create($this->event, $payload);
-            $this->fail('Expected invalid source');
-        } catch (ValidationException $exception) {
-            $this->assertArrayHasKey('copy', $exception->errors());
-        }
-        $staleEvent = $this->event->fresh();
+        $this->assertDatabaseCount('shifts', 1);
+        $this->assertDatabaseCount('shift_role_slots', 2);
+        $this->assertDatabaseCount('shift_assignments', 3);
+        $stale = $this->event->fresh();
         $this->event->lock();
         try {
-            app(ShiftService::class)->create($staleEvent, $this->payload());
+            app(ShiftService::class)->create($stale, $payload);
             $this->fail('Expected locked event');
         } catch (HttpException $exception) {
             $this->assertSame(403, $exception->getStatusCode());
         }
-        $this->assertSame($before, $this->snapshot());
-        $this->assertDatabaseCount('shifts', 1);
-        $this->assertDatabaseCount('shift_assignments', 3);
     }
 
-    public function test_invalid_breaks_are_rejected_without_saving_copied_people(): void
+    public function test_invalid_break_does_not_save_any_copied_people(): void
     {
-        $payload = $this->payload();
+        $payload = $this->snapshotPayload();
         $payload['breaks'][0]['starts_at'] = '2026-10-01T13:55';
         $this->postJson(route('team.shifts.store', $this->event), $payload)->assertUnprocessable()->assertJsonValidationErrors('breaks.0.starts_at');
         $this->assertDatabaseCount('shifts', 1);
         $this->assertDatabaseCount('shift_assignments', 3);
     }
 
-    private function assertCopyForbidden(): void
+    private function snapshotPayload(): array
     {
-        $this->get(route('team.shifts.create', ['copy' => $this->source->id]))->assertForbidden();
-        $this->postJson(route('team.shifts.copy-preview', $this->event), $this->payload())->assertForbidden();
-        $this->post(route('team.shifts.store', $this->event), $this->payload())->assertForbidden();
+        $response = $this->get(route('team.shifts.copy', $this->source))->assertOk();
+        $draft = $response->viewData('page')['props']['prefill'];
+        $slots = array_map(fn ($slot, $index) => ['role_id' => $slot['role_id'], 'needed' => $slot['needed'], 'client_key' => 'draft-'.($index + 1)], $draft['slots'], array_keys($draft['slots']));
+
+        return [
+            ...array_intersect_key($draft, array_flip(['name', 'color', 'location_id', 'starts_at', 'ends_at', 'breaks'])),
+            'slots' => $slots,
+            'assignment_additions' => array_map(fn ($person) => [
+                'team_engagement_id' => $person['team_engagement_id'],
+                ...($person['slot_index'] === null ? ['role_id' => $person['role_id']] : ['slot_key' => $slots[$person['slot_index']]['client_key']]),
+                'hours_mode' => $person['hours_mode'],
+                ...($person['hours_mode'] === 'custom' ? ['starts_at' => $person['starts_at'], 'ends_at' => $person['ends_at']] : []),
+            ], $draft['assignments']),
+        ];
     }
 
-    private function payload(): array
+    private function assertCopiedValues(Shift $shift): void
     {
-        return [
-            'copy' => $this->source->id, 'name' => 'Morning gate', 'color' => 'violet', 'location_id' => $this->source->location_id,
-            'starts_at' => '2026-10-01T10:00', 'ends_at' => '2026-10-01T14:00', 'slots' => $this->slots,
-            'breaks' => [['duration_minutes' => 15, 'starts_at' => '2026-10-01T11:00']],
-            'assignments' => array_map(fn ($member, $index) => [
-                'team_engagement_id' => $member->id, 'slot_index' => $index === 1 ? 1 : 0,
-                'hours_mode' => $index === 1 ? 'custom' : 'full_shift',
-                ...($index === 1 ? ['starts_at' => '2026-10-01T11:30', 'ends_at' => '2026-10-01T13:00'] : []),
-            ], $this->members, array_keys($this->members)),
-        ];
+        $this->assertSame('Morning gate', $shift->name);
+        $this->assertSame('violet', $shift->color);
+        $this->assertSame('2026-10-01T10:00', $shift->starts_at->format('Y-m-d\TH:i'));
+        $this->assertSame(3, $shift->assignments()->count());
+        $this->assertSame(2, $shift->roleSlots()->count());
+        $this->assertSame('2026-10-01T11:00', $shift->breaks()->sole()->starts_at->format('Y-m-d\TH:i'));
+        $this->assertSame('2026-10-01T11:30', $shift->assignments()->where('team_engagement_id', $this->members[1]->id)->sole()->starts_at->format('Y-m-d\TH:i'));
     }
 
     private function member(string $name, ?Event $event = null): TeamEngagement

@@ -475,6 +475,22 @@ const resizeKey = (event, assignment, edge) => {
                                 >
                             </span>
                         </div>
+                        <p
+                            v-if="
+                                row.assignment?.error ||
+                                row.assignment?.validation_errors?.length
+                            "
+                            class="mt-1 mb-0 text-xs text-danger"
+                            role="alert"
+                        >
+                            {{
+                                row.assignment.validation_errors?.length
+                                    ? row.assignment.validation_errors.join(
+                                          '; ',
+                                      )
+                                    : row.assignment.error
+                            }}
+                        </p>
                     </TableCell>
                     <TableCell class="p-0">
                         <div

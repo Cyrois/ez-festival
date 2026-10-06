@@ -8,13 +8,10 @@ use App\Http\Requests\Team\Concerns\ShiftRules;
 use App\Http\Requests\Team\Concerns\ShiftSlotRules;
 use App\Models\Shift;
 use App\Support\EventContext;
-use App\Support\ShiftCopyAssignments;
 use App\Support\ShiftReturnContext;
 use App\Support\ShiftRosterChanges;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator;
 
 class StoreShiftRequest extends FormRequest
@@ -30,15 +27,6 @@ class StoreShiftRequest extends FormRequest
         return [...$this->slotAfter(), ...$this->breakAfter(), function (Validator $validator): void {
             if ($validator->errors()->isNotEmpty()) {
                 return;
-            }
-            try {
-                ShiftCopyAssignments::resolve($this->route('event'), $this->validated());
-            } catch (ValidationException $exception) {
-                foreach ($exception->errors() as $key => $messages) {
-                    foreach ($messages as $message) {
-                        $validator->errors()->add($key, $message);
-                    }
-                }
             }
             $shift = new Shift(['event_id' => $this->route('event')->id]);
             foreach (ShiftRosterChanges::errors($shift, $this->all()) as $key => $message) {
@@ -69,14 +57,6 @@ class StoreShiftRequest extends FormRequest
     {
         return [
             ...$this->shiftRules($this->route('event')),
-            'copy' => ['required_with:assignments.*.team_engagement_id', 'nullable', 'integer', Rule::exists('shifts', 'id')->where('event_id', $this->route('event')->id)],
-            'assignments' => ['sometimes', 'array', 'list'],
-            'assignments.*' => ['required', 'array:team_engagement_id,slot_index,hours_mode,starts_at,ends_at'],
-            'assignments.*.team_engagement_id' => ['required', 'integer'],
-            'assignments.*.slot_index' => ['present', 'nullable', 'integer', 'min:0'],
-            'assignments.*.hours_mode' => ['required', Rule::in(['full_shift', 'custom'])],
-            'assignments.*.starts_at' => ['required_if:assignments.*.hours_mode,custom', 'prohibited_if:assignments.*.hours_mode,full_shift', 'date_format:Y-m-d\TH:i'],
-            'assignments.*.ends_at' => ['required_if:assignments.*.hours_mode,custom', 'prohibited_if:assignments.*.hours_mode,full_shift', 'date_format:Y-m-d\TH:i', 'after:assignments.*.starts_at'],
             ...$this->slotRules(),
             ...$this->breakRules(),
             ...$this->rosterChangeRules(),

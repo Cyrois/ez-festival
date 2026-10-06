@@ -20,7 +20,6 @@ class CreateShiftRequest extends FormRequest
         $event = $eventContext->requireCurrent($this->user());
 
         return [
-            'copy' => ['sometimes', 'integer', 'min:1'],
             'location_id' => ['sometimes', 'integer', Rule::exists('locations', 'id')->where('event_id', $event->id)],
             'starts_at' => ['required_with:ends_at', 'date_format:Y-m-d\TH:i'],
             'ends_at' => ['required_with:starts_at', 'date_format:Y-m-d\TH:i', 'after:starts_at'],

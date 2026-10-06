@@ -14,6 +14,18 @@ use Illuminate\Support\Collection;
 
 class ShiftAssignmentRepository
 {
+    public function copySource(Shift $shift): Shift
+    {
+        return $shift->load(['event', 'breaks', 'location:id,name', 'roleSlots.role:id,name', 'assignments.role:id,name', 'assignments.teamEngagement.person:id,name']);
+    }
+
+    public function copyOverlaps(Shift $shift): Collection
+    {
+        $draft = new Shift($shift->only('event_id', 'starts_at', 'ends_at'));
+
+        return ShiftAssignmentOverlaps::forMembers($draft, $shift->assignments->pluck('team_engagement_id')->all(), $shift->starts_at->copy()->subMinutes(30), $shift->ends_at->copy()->addMinutes(30));
+    }
+
     /** Other assignments within the proposed timeline, including its 30-minute padding. */
     public function nearbyAssignments(Shift $shift, int $memberId): Collection
     {
