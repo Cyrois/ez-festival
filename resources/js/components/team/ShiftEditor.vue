@@ -1,4 +1,10 @@
 <script setup>
+import {
+    personalBreakDraft,
+    personalBreakPayload,
+    massPersonalBreaks,
+    defaultSource,
+} from '../../lib/personalBreaks';
 import { ColorPicker } from '../ui/color-picker';
 import ShiftRoleSlots from './ShiftRoleSlots.vue';
 import ShiftTimelineRoster from './ShiftTimelineRoster.vue';
@@ -67,6 +73,7 @@ const initialShift = computed(
 
 const copied = props.copying ? copiedShiftDraft(props.prefill) : null;
 const assignmentErrors = ref({});
+const personalErrors = ref({});
 const form = useForm({
     color: initialShift.value.color ?? 'teal',
     name: initialShift.value.name ?? '',
@@ -78,6 +85,7 @@ const form = useForm({
     assignment_updates: [],
     assignment_removals: [],
     assignment_additions: copied?.assignment_additions ?? [],
+    break_operations: [],
     ...props.returnContext,
 });
 const backHref = computed(() => scheduleReturnHref(props.returnContext));
@@ -89,13 +97,21 @@ const copyHref = computed(
 const slotErrors = ref({});
 const breakErrors = ref({});
 const breakEditor = ref(null);
-const clearBreakError = (key, field) => {
-    if (breakErrors.value[key]) delete breakErrors.value[key][field];
-    form.clearErrors('breaks');
-};
-const clearBreakContainmentErrors = () => {
-    for (const errors of Object.values(breakErrors.value))
-        delete errors.starts_at;
+const breakRevision = ref(0);
+const massBreakError = computed(
+    () =>
+        Object.entries(form.errors).find(
+            ([key]) =>
+                key === 'break_operations' ||
+                key.startsWith('break_operations.'),
+        )?.[1] ?? '',
+);
+const clearMassBreakErrors = () => {
+    const keys = Object.keys(form.errors).filter(
+        (key) =>
+            key === 'break_operations' || key.startsWith('break_operations.'),
+    );
+    if (keys.length) form.clearErrors(...keys);
 };
 const clearSlotError = (key, field) => {
     if (slotErrors.value[key]) delete slotErrors.value[key][field];
@@ -133,6 +149,7 @@ const rosterShift = computed(() =>
                 form.starts_at && form.ends_at > form.starts_at
                     ? form.ends_at
                     : initialShift.value.ends_at,
+            breaks: form.breaks,
             name: form.name,
             color: form.color,
             location:
@@ -172,15 +189,9 @@ const timelineShift = computed(() => ({
 const detailsDirty = computed(
     () =>
         !creating.value &&
-        (['name', 'location_id', 'starts_at', 'ends_at'].some(
+        ['name', 'location_id', 'starts_at', 'ends_at'].some(
             (key) => form[key] !== initialShift.value[key],
-        ) ||
-            JSON.stringify(shiftBreakPayload(form.breaks)) !==
-                JSON.stringify(
-                    shiftBreakPayload(
-                        draftShiftBreaks(initialShift.value.breaks),
-                    ),
-                )),
+        ),
 );
 
 const assignmentCounts = computed(() =>
@@ -230,6 +241,22 @@ const removeAssignment = (assignment) => {
             (row) => row._key !== assignment.id,
         );
         delete draftPeople.value[assignment.id];
+        form.break_operations = form.break_operations
+            .filter(
+                (op) =>
+                    op.type !== 'person' || op.assignment_key !== assignment.id,
+            )
+            .map((op) =>
+                op.type === 'mass'
+                    ? {
+                          ...op,
+                          assignment_keys: op.assignment_keys.filter(
+                              (key) => key !== assignment.id,
+                          ),
+                      }
+                    : op,
+            )
+            .filter((op) => op.type !== 'mass' || op.assignment_keys.length);
     } else {
         form.assignment_updates = form.assignment_updates.filter(
             (row) => row.id !== assignment.id,
@@ -251,13 +278,22 @@ const stagePerson = (data) => {
         is_extra: false,
         team_engagement_id: candidate.id,
     };
-    form.assignment_additions.push({ ...payload, _key: id });
+    const personHours =
+        payload.hours_mode === 'full_shift'
+            ? { starts_at: form.starts_at, ends_at: form.ends_at }
+            : payload;
+    const breaks = [];
+    form.assignment_additions.push({ ...payload, breaks, _key: id });
+    recordPerson(id, personHours, breaks);
 };
-const stageHours = (assignment, data) => {
+const stageHours = (assignment, data, record = true) => {
     if (!rosterEnabled.value) return;
     previewRequests.get(assignment.id)?.abort();
     previewRequests.delete(assignment.id);
+    delete assignmentErrors.value[assignment.id];
+    delete personalErrors.value[assignment.id];
     const { overlaps, other_shifts, ...hours } = data;
+    hours.breaks ??= personalBreakDraft(assignment.breaks ?? []);
     if (assignment.id < 0) {
         const index = form.assignment_additions.findIndex(
             (row) => row._key === assignment.id,
@@ -270,6 +306,11 @@ const stageHours = (assignment, data) => {
             .filter((row) => row.id !== assignment.id)
             .concat({ id: assignment.id, ...hours });
     }
+    const resolved =
+        hours.hours_mode === 'full_shift'
+            ? { starts_at: form.starts_at, ends_at: form.ends_at }
+            : hours;
+    if (record) recordPerson(assignment.id, resolved, hours.breaks);
     if (overlaps)
         overlapPreviews.value[assignment.id] = {
             overlaps,
@@ -278,7 +319,11 @@ const stageHours = (assignment, data) => {
 };
 const resizeHours = async (assignment, hours) => {
     stageHours(assignment, { hours_mode: 'custom', ...hours });
-    await previewHours(assignment, { hours_mode: 'custom', ...hours });
+    await previewHours(assignment, {
+        hours_mode: 'custom',
+        starts_at: hours.starts_at,
+        ends_at: hours.ends_at,
+    });
 };
 const previewHours = async (assignment, hours) => {
     previewRequests.get(assignment.id)?.abort();
@@ -332,6 +377,74 @@ const previewHours = async (assignment, hours) => {
             };
     }
 };
+const recordPerson = (key, hours, breaks) => {
+    form.break_operations.push({
+        type: 'person',
+        assignment_key: key,
+        starts_at: hours.starts_at,
+        ends_at: hours.ends_at,
+        breaks: personalBreakPayload(breaks),
+    });
+};
+const bulkNotes = ref([]);
+const addMassBreak = (row) => {
+    if (!rosterEnabled.value) return;
+    const people = rosterShift.value.assignments;
+    const result = massPersonalBreaks(people, row);
+    if (result.conflict) {
+        showError(trans('team.scheduling.breaks.errors.mass_conflict'));
+        return;
+    }
+    if (result.people.length) {
+        form.break_operations.push({
+            type: 'mass',
+            assignment_keys: people.map((person) => person.id),
+            break: {
+                duration_minutes: Number(row.duration_minutes),
+                starts_at: row.starts_at,
+            },
+        });
+        for (const person of result.people)
+            stageHours(
+                person,
+                {
+                    hours_mode: 'custom',
+                    starts_at: person.starts_at,
+                    ends_at: person.ends_at,
+                    breaks: person.breaks,
+                },
+                false,
+            );
+    }
+    bulkNotes.value = result.skipped
+        ? [
+              trans('team.scheduling.breaks.skipped_outside', {
+                  count: result.skipped,
+              }),
+          ]
+        : [];
+};
+if (copied) {
+    for (const row of form.breaks)
+        form.break_operations.push({
+            type: 'default',
+            source: defaultSource(row),
+            break: {
+                duration_minutes: row.duration_minutes,
+                starts_at: row.starts_at,
+            },
+            apply: false,
+        });
+    for (const row of form.assignment_additions)
+        recordPerson(
+            row._key,
+            row.hours_mode === 'full_shift' ? form : row,
+            row.breaks,
+        );
+}
+const selectedBreakErrors = computed(
+    () => personalErrors.value[selectedAssignment.value?.id] ?? {},
+);
 let previousCopyStart = form.starts_at;
 watch(
     () => [form.starts_at, form.ends_at],
@@ -344,6 +457,26 @@ watch(
         )
             return;
         const moved = moveCopiedShift(form, previousCopyStart);
+        for (const row of moved.breaks) {
+            const before = form.breaks.find((old) => old._key === row._key);
+            if (row.starts_at !== before.starts_at) {
+                form.break_operations.push({
+                    type: 'default',
+                    source: defaultSource(row),
+                    break: {
+                        duration_minutes: row.duration_minutes,
+                        starts_at: row.starts_at,
+                    },
+                    apply: false,
+                });
+            }
+        }
+        for (const row of moved.assignment_additions)
+            recordPerson(
+                row._key,
+                row.hours_mode === 'full_shift' ? form : row,
+                row.breaks,
+            );
         form.assignment_additions = moved.assignment_additions;
         form.breaks = moved.breaks;
         previousCopyStart = form.starts_at;
@@ -402,28 +535,76 @@ const submit = (afterSave) => {
     const submitted = [...form.slots];
     const submittedBreaks = [...form.breaks];
     const submittedPeople = [...form.assignment_additions];
+    const submittedUpdates = [...form.assignment_updates];
     form.transform((data) => ({
         ...data,
         slots: shiftSlotPayload(data.slots, true),
-        breaks: shiftBreakPayload(data.breaks),
+        breaks: shiftBreakPayload(data.breaks).map((row, i) => ({
+            ...row,
+            ...(data.breaks[i].id == null
+                ? { client_key: data.breaks[i]._key }
+                : {}),
+        })),
+        assignment_updates: data.assignment_updates.map((row) => ({
+            ...row,
+            ...(row.breaks ? { breaks: personalBreakPayload(row.breaks) } : {}),
+        })),
         assignment_additions: data.assignment_additions.map(
-            ({ _key, ...row }) => row,
+            ({ _key, ...row }) => ({
+                ...row,
+                client_key: _key,
+                ...(row.breaks
+                    ? { breaks: personalBreakPayload(row.breaks) }
+                    : {}),
+            }),
         ),
     }));
     const options = {
         preserveScroll: true,
         onError: (errors) => {
             assignmentErrors.value = {};
+            personalErrors.value = {};
             for (const [path, message] of Object.entries(errors)) {
-                const match = /^assignment_additions\.(\d+)(?:\..*)?$/.exec(
-                    path,
-                );
-                const key = match && submittedPeople[Number(match[1])]?._key;
+                const match =
+                    /^(assignment_additions|assignment_updates)\.(\d+)(?:\..*)?$/.exec(
+                        path,
+                    );
+                const key =
+                    match &&
+                    (match[1] === 'assignment_additions'
+                        ? submittedPeople[Number(match[2])]?._key
+                        : submittedUpdates[Number(match[2])]?.id);
                 if (key) {
                     assignmentErrors.value[key] ??= [];
                     assignmentErrors.value[key].push(message);
+                    if (path.includes('.breaks.')) {
+                        const submittedRow =
+                            match[1] === 'assignment_additions'
+                                ? submittedPeople[Number(match[2])]
+                                : submittedUpdates[Number(match[2])];
+                        const breakPath = path.replace(
+                            `${match[1]}.${match[2]}.`,
+                            '',
+                        );
+                        const mapped = shiftBreakErrors(
+                            personalBreakDraft(submittedRow.breaks ?? []),
+                            { [breakPath]: message },
+                        );
+                        personalErrors.value[key] ??= {};
+                        for (const [breakKey, fields] of Object.entries(mapped))
+                            personalErrors.value[key][breakKey] = {
+                                ...(personalErrors.value[key][breakKey] ?? {}),
+                                ...fields,
+                            };
+                    }
                 }
             }
+            const invalidPerson = Object.keys(personalErrors.value)[0];
+            if (invalidPerson)
+                selectedAssignment.value =
+                    timelineShift.value.assignments.find(
+                        (row) => String(row.id) === invalidPerson,
+                    ) ?? null;
             slotErrors.value = shiftSlotErrors(submitted, errors);
             breakErrors.value = shiftBreakErrors(submittedBreaks, errors);
             if (
@@ -444,11 +625,16 @@ const submit = (afterSave) => {
                 form.slots = draftShiftSlots(initialShift.value.slots);
                 form.breaks = draftShiftBreaks(initialShift.value.breaks);
             }
+            form.break_operations = [];
             form.assignment_updates = [];
             form.assignment_removals = [];
             form.assignment_additions = [];
             draftPeople.value = {};
             overlapPreviews.value = {};
+            assignmentErrors.value = {};
+            personalErrors.value = {};
+            bulkNotes.value = [];
+            breakRevision.value++;
             form.defaults();
             slotErrors.value = {};
             breakErrors.value = {};
@@ -802,12 +988,14 @@ const destroy = () => {
                 <Card class="min-w-0">
                     <ShiftBreaks
                         ref="breakEditor"
-                        v-model="form.breaks"
+                        :key="breakRevision"
+                        :model-value="[]"
+                        mass
+                        :people="rosterShift.assignments"
                         :options="breakOptions"
                         :starts-at="form.starts_at"
                         :ends-at="form.ends_at"
-                        :errors="breakErrors"
-                        :collection-error="form.errors.breaks"
+                        :collection-error="massBreakError"
                         :editable="canWrite"
                         :busy="form.processing"
                         :disabled-reason="
@@ -817,9 +1005,18 @@ const destroy = () => {
                                     : 'team.scheduling.no_permission',
                             )
                         "
-                        @clear-error="clearBreakError"
-                        @clear-containment-errors="clearBreakContainmentErrors"
+                        @mass-add="addMassBreak"
+                        @clear-error="clearMassBreakErrors"
+                        @clear-containment-errors="clearMassBreakErrors"
                     />
+                    <p
+                        v-for="note in bulkNotes"
+                        :key="note"
+                        class="text-sm text-muted"
+                        role="status"
+                    >
+                        {{ note }}
+                    </p>
                 </Card>
             </div>
         </div>
@@ -898,6 +1095,8 @@ const destroy = () => {
             :key="selectedAssignment.id"
             :shift="timelineShift"
             :assignment="selectedAssignment"
+            :break-options="breakOptions"
+            :break-errors="selectedBreakErrors"
             :enabled="rosterEnabled"
             :event-id="event.id"
             @changed="stageHours(selectedAssignment, $event)"

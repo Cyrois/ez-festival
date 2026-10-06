@@ -10,6 +10,7 @@ use App\Models\TeamEngagement;
 use App\Repositories\ShiftAssignmentRepository;
 use App\Support\ShiftAssignmentHours;
 use App\Support\ShiftAssignmentOverlaps;
+use App\Support\ShiftPersonalBreaks;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -21,9 +22,9 @@ class ShiftAssignmentService
         return $member === null || $member->status !== 'hired' ? __('team.scheduling.assignments.errors.eligible') : null;
     }
 
-    public function create(Shift $shift, array $data): ShiftAssignment
+    public function create(Shift $shift, array $data, array $draftBreaks = []): ShiftAssignment
     {
-        return DB::transaction(function () use ($shift, $data): ShiftAssignment {
+        return DB::transaction(function () use ($shift, $data, $draftBreaks): ShiftAssignment {
             $event = Event::query()->lockForUpdate()->findOrFail($shift->event_id);
             $event->ensureWritable();
             $shift = $event->shifts()->lockForUpdate()->findOrFail($shift->id);
@@ -46,10 +47,15 @@ class ShiftAssignmentService
             [$start, $end] = ShiftAssignmentHours::resolve($shift, $data);
             try {
                 // A savepoint rolls back a PostgreSQL unique violation before it is handled.
-                return DB::transaction(fn () => $shift->assignments()->create([
+                $assignment = DB::transaction(fn () => $shift->assignments()->create([
                     'team_engagement_id' => $member->id, 'shift_role_slot_id' => $slot?->id,
                     'role_id' => $slot?->role_id ?? $role->id, 'starts_at' => $start, 'ends_at' => $end,
                 ]));
+                $assignment->setRelation('shift', $shift);
+                $breaks = $data['breaks'] ?? ShiftPersonalBreaks::snapshot($shift->breaks()->get(), $start, $end);
+                ShiftPersonalBreaks::sync($assignment, $breaks, $draftBreaks);
+
+                return $assignment;
             } catch (UniqueConstraintViolationException) {
                 $this->duplicate();
             }

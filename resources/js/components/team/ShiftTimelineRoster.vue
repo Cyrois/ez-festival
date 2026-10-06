@@ -30,6 +30,7 @@ import {
     SCHEDULE_CELL_WIDTH,
     SCHEDULE_SLOT_MINUTES,
 } from '../../lib/scheduleTimeline';
+import { wallMinutes } from '../../lib/shiftBreaks';
 import { trans } from 'laravel-vue-i18n';
 
 const props = defineProps({
@@ -42,6 +43,54 @@ const props = defineProps({
 const emit = defineEmits(['assign', 'edit', 'remove', 'resize']);
 const dragging = ref(null);
 const warningTooltipId = useId();
+const breakPattern =
+    'bg-page bg-[repeating-linear-gradient(135deg,transparent,transparent_4px,var(--color-line)_4px,var(--color-line)_8px)] text-muted';
+const hasBreaks = computed(() =>
+    props.shift.assignments.some((person) => person.breaks?.length),
+);
+const breakLabel = (row) =>
+    `${row.starts_at.slice(11, 16)} · ${row.duration_minutes === 60 ? trans('team.scheduling.breaks.hour') : trans('team.scheduling.breaks.minutes', { minutes: row.duration_minutes })}`;
+const breakIntervals = (person) =>
+    (person.breaks ?? []).flatMap((row) => {
+        const start = wallMinutes(row.starts_at);
+        if (
+            !Number.isFinite(start) ||
+            !Number.isFinite(Number(row.duration_minutes))
+        )
+            return [];
+        const range = {
+            starts_at: row.starts_at,
+            ends_at: new Date((start + Number(row.duration_minutes)) * 60000)
+                .toISOString()
+                .slice(0, 16),
+        };
+        const hit = timelineIntersection(range, person);
+        if (!hit) return [];
+        const origin = timelineMinute(person.starts_at);
+        const interval = timelineIntersection(
+            {
+                starts_at: new Date((origin + hit.start) * 60000)
+                    .toISOString()
+                    .slice(0, 16),
+                ends_at: new Date((origin + hit.end) * 60000)
+                    .toISOString()
+                    .slice(0, 16),
+            },
+            props.shift,
+        );
+        return interval
+            ? [
+                  {
+                      ...interval,
+                      atStart: hit.start === 0,
+                      atEnd:
+                          hit.end === timelineMinute(person.ends_at) - origin,
+                      title: `${breakLabel(row)} · ${trans('team.scheduling.roster.legend_break')}`,
+                  },
+              ]
+            : [];
+    });
+
 const canAssign = computed(() => props.assignEnabled ?? props.enabled);
 const grid = computed(() => shiftTimelineGrid(bounds.value));
 const totalTime = (assignment) => {
@@ -734,6 +783,38 @@ const resizeKey = (event, assignment, edge) => {
                                     data-overlap-hatch
                                 />
                                 <span
+                                    v-for="(interval, index) in breakIntervals(
+                                        row.assignment,
+                                    )"
+                                    :key="`break-${index}`"
+                                    class="pointer-events-none absolute top-3 left-[var(--bar-start)] flex h-7 w-[var(--bar-width)] items-center justify-center overflow-hidden border-y"
+                                    :class="[
+                                        breakPattern,
+                                        {
+                                            'rounded-l-lg border-l':
+                                                interval.atStart,
+                                            'rounded-r-lg border-r':
+                                                interval.atEnd,
+                                        },
+                                        tokens.classes
+                                            .split(' ')
+                                            .find((token) =>
+                                                token.startsWith('border-'),
+                                            ),
+                                    ]"
+                                    :style="geometry(interval)"
+                                    :title="interval.title"
+                                    data-person-break-hatch
+                                >
+                                    <Icon
+                                        :name="['fas', 'mug-saucer']"
+                                        class="shrink-0 text-xs"
+                                    />
+                                    <span class="sr-only">{{
+                                        interval.title
+                                    }}</span>
+                                </span>
+                                <span
                                     v-if="
                                         row.assignment.overlaps.length &&
                                         !otherShifts(row.assignment).length
@@ -875,7 +956,7 @@ const resizeKey = (event, assignment, edge) => {
             </TableBody>
         </Table>
         <div
-            v-if="rows.length"
+            v-if="rows.length || hasBreaks"
             class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted"
         >
             <span class="flex items-center gap-1.5"
@@ -897,6 +978,16 @@ const resizeKey = (event, assignment, edge) => {
                     class="h-2.5 w-4 rounded-sm bg-warning/20"
                     aria-hidden="true"
                 />{{ $t('team.scheduling.roster.legend_overlap') }}</span
+            >
+            <span
+                v-if="hasBreaks"
+                class="flex items-center gap-1.5"
+                data-break-legend
+                ><span
+                    class="h-2.5 w-4 rounded-sm"
+                    :class="breakPattern"
+                    aria-hidden="true"
+                />{{ $t('team.scheduling.roster.legend_break') }}</span
             >
         </div>
         <div

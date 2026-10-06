@@ -97,9 +97,12 @@ const iconButtonUrl = await compile(
 const cardTitleUrl = await compile(
     '../../resources/js/components/ui/card/CardTitle.vue',
 );
+const checkboxUrl = await compile('../../resources/js/components/ui/checkbox/Checkbox.vue');
 const componentUrl = await compile(
     '../../resources/js/components/team/ShiftBreaks.vue',
     [
+        [/from ['"].*?lib\/personalBreaks['"]/, `from '${new URL('../../resources/js/lib/personalBreaks.js', import.meta.url).href}'`],
+        [/import \{ Checkbox \} from ['"].*?['"];?/, `import Checkbox from '${checkboxUrl}';`],
         [
             /import \{ CardTitle \} from ['"].*?['"];?/,
             `import CardTitle from '${cardTitleUrl}';`,
@@ -473,4 +476,14 @@ test('invalid edited lengths, partial-end breaks and missing fields are found be
         )[row._key].duration_minutes,
         'team.scheduling.breaks.errors.duration',
     );
+});
+
+
+test('an invalid staged date renders safely during the read-only state after a refused Save', async () => {
+    const {app, editable} = mount([newShiftBreak(15, '2026-10-03', '')]);
+    try {
+        editable.value = false;
+        await tick();
+        assert.match(document.body.textContent, /Enter a valid break start time and day/);
+    } finally {app.unmount();}
 });

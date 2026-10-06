@@ -13,8 +13,9 @@ trait ShiftBreakRules
     {
         return [
             'breaks' => ['sometimes', 'array', 'list'],
-            'breaks.*' => ['required', 'array:id,duration_minutes,starts_at'],
+            'breaks.*' => ['required', 'array:id,client_key,duration_minutes,starts_at'],
             'breaks.*.id' => $this->route('shift') instanceof Shift ? ['nullable', 'integer', 'distinct'] : ['prohibited'],
+            'breaks.*.client_key' => ['sometimes', 'string', 'max:64', 'distinct', 'regex:/^draft-break-\d+$/'],
             'breaks.*.duration_minutes' => ['required', 'integer', Rule::in(ShiftBreaks::DURATIONS)],
             'breaks.*.starts_at' => ['required', 'date_format:Y-m-d\TH:i'],
         ];
@@ -36,7 +37,20 @@ trait ShiftBreakRules
 
     protected function breakMessages(): array
     {
+        $personal = [];
+        foreach (['assignment_updates', 'assignment_additions'] as $field) {
+            foreach (['required', 'date_format'] as $rule) {
+                $personal["$field.*.breaks.*.starts_at.$rule"] = __('team.scheduling.breaks.errors.start');
+            }
+            foreach (['required', 'integer', 'in'] as $rule) {
+                $personal["$field.*.breaks.*.duration_minutes.$rule"] = __('team.scheduling.breaks.errors.duration');
+            }
+            $personal["$field.*.breaks.*.id.integer"] = __('team.scheduling.breaks.errors.foreign');
+            $personal["$field.*.breaks.*.id.prohibited"] = __('team.scheduling.breaks.errors.foreign');
+        }
+
         return [
+            ...$personal,
             'breaks.array' => __('team.scheduling.breaks.errors.collection'),
             'breaks.list' => __('team.scheduling.breaks.errors.collection'),
             'breaks.*.array' => __('team.scheduling.breaks.errors.row'),

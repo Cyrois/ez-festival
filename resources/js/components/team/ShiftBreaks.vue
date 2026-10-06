@@ -1,4 +1,5 @@
 <script setup>
+import { overlappingBreak } from '../../lib/personalBreaks';
 import { CardTitle } from '../ui/card';
 import { computed, ref, useId, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
@@ -13,6 +14,7 @@ import {
     shiftBreakDays,
     updateShiftBreak,
     validateShiftBreaks,
+    wallMinutes,
 } from '../../lib/shiftBreaks';
 
 const props = defineProps({
@@ -23,11 +25,15 @@ const props = defineProps({
     errors: { type: Object, default: () => ({}) },
     collectionError: { type: String, default: '' },
     editable: { type: Boolean, default: true },
+    personal: { type: Boolean, default: false },
+    mass: { type: Boolean, default: false },
+    people: { type: Array, default: () => [] },
     busy: { type: Boolean, default: false },
     disabledReason: { type: String, default: '' },
 });
 const emit = defineEmits([
     'update:modelValue',
+    'mass-add',
     'clear-error',
     'clear-containment-errors',
 ]);
@@ -41,6 +47,7 @@ const createPendingBreak = () =>
     );
 const pending = ref(createPendingBreak());
 const attemptedAdd = ref(false);
+const massError = ref('');
 const formatDuration = (minutes) =>
     minutes === 60
         ? trans('team.scheduling.breaks.hour')
@@ -74,7 +81,14 @@ const error = (row, field) => {
         row._key === pending.value._key
             ? pendingErrors.value[field]
             : localErrors.value[row._key]?.[field];
-    return local ? trans(local) : (props.errors[row._key]?.[field] ?? '');
+    return local
+        ? trans(
+              props.personal &&
+                  local === 'team.scheduling.breaks.errors.containment'
+                  ? 'team.scheduling.breaks.errors.personal_containment'
+                  : local,
+          )
+        : (props.errors[row._key]?.[field] ?? '');
 };
 const showDay = (row) =>
     days.value.length > 1 ||
@@ -115,7 +129,15 @@ watch(
 );
 const update = (row, field, value) => {
     if (!props.editable || props.busy) return;
+    massError.value = '';
     const updated = updateShiftBreak(row, field, value);
+    if (
+        props.personal &&
+        ['_day', '_time', 'duration_minutes'].includes(field)
+    ) {
+        updated.shift_break_id = null;
+        delete updated.shift_break_key;
+    }
     if (row._key === pending.value._key) pending.value = updated;
     else
         emit(
@@ -135,7 +157,28 @@ const update = (row, field, value) => {
 const add = () => {
     if (!props.editable || props.busy) return;
     attemptedAdd.value = true;
-    if (Object.keys(pendingErrors.value).length) return;
+    if (!props.personal && Object.keys(pendingErrors.value).length) return;
+    if (props.mass) {
+        if (
+            props.people.some((person) =>
+                overlappingBreak(pending.value, person.breaks ?? []),
+            )
+        ) {
+            massError.value = trans(
+                'team.scheduling.breaks.errors.mass_conflict',
+            );
+            return;
+        }
+        if (!props.people.length) {
+            massError.value = trans('team.scheduling.breaks.errors.no_people');
+            return;
+        }
+        massError.value = '';
+        emit('mass-add', { ...pending.value });
+        pending.value = createPendingBreak();
+        attemptedAdd.value = false;
+        return;
+    }
     emit('update:modelValue', [...props.modelValue, { ...pending.value }]);
     pending.value = createPendingBreak();
     attemptedAdd.value = false;
@@ -148,8 +191,10 @@ const remove = (row) => {
     );
     emit('clear-containment-errors');
 };
-const formatStart = (row) =>
-    new Intl.DateTimeFormat('en-US', {
+const formatStart = (row) => {
+    if (!Number.isFinite(wallMinutes(row.starts_at)))
+        return trans('team.scheduling.breaks.errors.start');
+    return new Intl.DateTimeFormat('en-US', {
         ...(row._day !== props.startsAt.slice(0, 10) || days.value.length > 1
             ? { year: 'numeric', month: 'short', day: 'numeric' }
             : {}),
@@ -157,6 +202,7 @@ const formatStart = (row) =>
         minute: '2-digit',
         timeZone: 'UTC',
     }).format(new Date(`${row.starts_at}Z`));
+};
 defineExpose({ validate: () => Object.keys(localErrors.value).length === 0 });
 </script>
 
@@ -170,12 +216,20 @@ defineExpose({ validate: () => Object.keys(localErrors.value).length === 0 });
                 $t('team.scheduling.breaks.optional')
             }}</span>
         </div>
-        <p class="m-0 text-sm text-muted">
-            {{ $t('team.scheduling.breaks.description') }}
+        <p class="text-sm text-muted">
+            {{
+                $t(
+                    mass
+                        ? 'team.scheduling.breaks.mass_description'
+                        : personal
+                          ? 'team.scheduling.breaks.personal_description'
+                          : 'team.scheduling.breaks.description',
+                )
+            }}
         </p>
         <template v-if="editable">
             <div
-                v-for="row in [pending, ...modelValue]"
+                v-for="row in mass ? [pending] : [pending, ...modelValue]"
                 :key="row._key"
                 :data-break-row="row._key"
                 class="grid grid-cols-[minmax(0,8rem)_minmax(0,1fr)] items-start gap-3 rounded-lg border border-line p-3 @min-[32rem]:grid-cols-[8rem_11rem_minmax(0,1fr)]"
@@ -279,7 +333,9 @@ defineExpose({ validate: () => Object.keys(localErrors.value).length === 0 });
                 {{
                     $t(
                         days.length
-                            ? 'team.scheduling.breaks.save_hint'
+                            ? mass
+                                ? 'team.scheduling.breaks.mass_hint'
+                                : 'team.scheduling.breaks.save_hint'
                             : 'team.scheduling.breaks.errors.shift_times',
                     )
                 }}
@@ -318,17 +374,17 @@ defineExpose({ validate: () => Object.keys(localErrors.value).length === 0 });
             </ul>
         </template>
         <p
-            v-if="!modelValue.length"
+            v-if="!mass && !modelValue.length"
             class="m-0 text-sm text-muted"
         >
             {{ $t('team.scheduling.breaks.empty') }}
         </p>
         <p
-            v-if="collectionError"
+            v-if="massError || collectionError"
             class="m-0 text-sm text-danger"
             role="alert"
         >
-            {{ collectionError }}
+            {{ massError || collectionError }}
         </p>
     </section>
 </template>

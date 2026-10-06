@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['team_engagement_id', 'shift_role_slot_id', 'role_id', 'starts_at', 'ends_at'])]
 class ShiftAssignment extends Model
@@ -12,6 +13,11 @@ class ShiftAssignment extends Model
     protected function casts(): array
     {
         return ['starts_at' => 'datetime', 'ends_at' => 'datetime'];
+    }
+
+    public function breaks(): HasMany
+    {
+        return $this->hasMany(ShiftAssignmentBreak::class)->orderBy('sort_order')->orderBy('id');
     }
 
     public function shift(): BelongsTo

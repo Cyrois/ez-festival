@@ -1,3 +1,6 @@
+import { fittingBreak, movePersonalBreaks } from './personalBreaks.js';
+import { wallMinutes } from './shiftBreaks.js';
+
 export function assignmentPayload(slotId, memberId, mode, start, end) {
     return {
         shift_role_slot_id: slotId,
@@ -120,6 +123,9 @@ export function draftRoster(
                 ...row,
                 ...(update
                     ? {
+                          ...(Object.hasOwn(update, 'breaks')
+                              ? { breaks: update.breaks }
+                              : {}),
                           starts_at:
                               update.hours_mode === 'full_shift'
                                   ? shift.starts_at
@@ -175,6 +181,10 @@ export function translatedAssignment(shift, assignment, minute) {
     return {
         starts_at: new Date(start * 60000).toISOString().slice(0, 16),
         ends_at: new Date((start + length) * 60000).toISOString().slice(0, 16),
+        breaks: movePersonalBreaks(
+            assignment.breaks ?? [],
+            start - wallMinutes(assignment.starts_at),
+        ),
     };
 }
 
@@ -202,8 +212,18 @@ export function resizedAssignment(shift, assignment, edge, minute) {
     )
         return null;
     const stamp = new Date(value * 60000).toISOString().slice(0, 16);
-    return {
+    const hours = {
         starts_at: edge === 'start' ? stamp : assignment.starts_at,
         ends_at: edge === 'end' ? stamp : assignment.ends_at,
+    };
+    return {
+        ...hours,
+        ...(Object.hasOwn(assignment, 'breaks')
+            ? {
+                  breaks: assignment.breaks
+                      .filter((row) => fittingBreak(row, hours))
+                      .map((row) => ({ ...row })),
+              }
+            : {}),
     };
 }

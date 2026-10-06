@@ -7,7 +7,9 @@ use App\Models\Shift;
 use App\Repositories\ShiftAssignmentRepository;
 use App\Support\ShiftAssignmentHours;
 use App\Support\ShiftAssignmentOverlaps;
+use App\Support\ShiftBreakOperations;
 use App\Support\ShiftBreaks;
+use App\Support\ShiftPersonalBreaks;
 use App\Support\ShiftRosterChanges;
 use App\Support\ShiftSlotReferences;
 use Illuminate\Support\Collection;
@@ -44,11 +46,14 @@ class ShiftService
             if ($errors !== []) {
                 throw ValidationException::withMessages($errors);
             }
+            $this->validatePersonalBreaks(new Shift($data), $data, collect(), collect());
+            ShiftBreakOperations::replay(new Shift($data), $data, collect(), collect());
+            unset($data['break_operations']);
             unset($data['slots'], $data['breaks'], $data['assignment_additions'], $data['assignment_updates'], $data['assignment_removals']);
             $shift = $event->shifts()->create($data);
             $draftSlots = $this->syncSlots($shift, $slots);
-            $this->syncBreaks($shift, $breaks, collect());
-            $this->addAssignments($shift, $additions, $draftSlots);
+            $draftBreaks = $this->syncBreaks($shift, $breaks, collect());
+            $this->addAssignments($shift, $additions, $draftSlots, $draftBreaks);
 
             return $shift;
         });
@@ -67,13 +72,26 @@ class ShiftService
             if ($errors !== []) {
                 throw ValidationException::withMessages($errors);
             }
+            $assignments = $shift->assignments()->lockForUpdate()->with('breaks')->get()->keyBy('id');
+            $this->validatePersonalBreaks(new Shift([...$shift->getAttributes(), ...$data]), $data, $assignments, $existingBreaks);
+            ShiftBreakOperations::replay($shift, $data, $existingBreaks, $assignments);
+            unset($data['break_operations']);
+            $deletedSources = array_key_exists('breaks', $data) ? array_diff($existingBreaks->keys()->all(), array_column($data['breaks'], 'id')) : [];
+            foreach (['assignment_updates', 'assignment_additions'] as $field) {
+                foreach ($data[$field] ?? [] as $index => $row) {
+                    if (isset($row['breaks'])) {
+                        $data[$field][$index]['breaks'] = array_map(fn ($break) => isset($break['shift_break_id']) && in_array($break['shift_break_id'], $deletedSources) ? [...$break, 'shift_break_id' => null] : $break, $row['breaks']);
+                    }
+                }
+            }
+            $draftBreaks = [];
             $draftSlots = [];
             if (array_key_exists('slots', $data)) {
                 $draftSlots = $this->syncSlots($shift, $data['slots']);
                 unset($data['slots']);
             }
             if (array_key_exists('breaks', $data)) {
-                $this->syncBreaks($shift, $data['breaks'], $existingBreaks);
+                $draftBreaks = $this->syncBreaks($shift, $data['breaks'], $existingBreaks);
                 unset($data['breaks']);
             }
             $updates = $data['assignment_updates'] ?? [];
@@ -84,13 +102,40 @@ class ShiftService
             $shift->assignments()->whereIn('id', $removals)->delete();
             foreach ($updates as $row) {
                 [$start, $end] = ShiftAssignmentHours::resolve($shift, $row);
-                $shift->assignments()->whereKey($row['id'])->update(['starts_at' => $start, 'ends_at' => $end]);
+                $assignment = $assignments->get($row['id']);
+                $assignment->update(['starts_at' => $start, 'ends_at' => $end]);
+                if (array_key_exists('breaks', $row)) {
+                    $assignment->setRelation('shift', $shift);
+                    ShiftPersonalBreaks::sync($assignment, $row['breaks'], $draftBreaks);
+                }
             }
-            $this->addAssignments($shift, $additions, $draftSlots);
+            $this->addAssignments($shift, $additions, $draftSlots, $draftBreaks);
         });
     }
 
-    private function addAssignments(Shift $shift, array $additions, array $draftSlots): void
+    private function validatePersonalBreaks(Shift $proposed, array $data, Collection $assignments, Collection $sources): void
+    {
+        $draftKeys = array_values(array_filter(array_column($data['breaks'] ?? [], 'client_key')));
+        $errors = [];
+        foreach (['assignment_updates', 'assignment_additions'] as $field) {
+            foreach ($data[$field] ?? [] as $index => $row) {
+                [$start, $end] = ShiftAssignmentHours::resolve($proposed, $row);
+                $existing = $field === 'assignment_updates' ? $assignments->get($row['id'])?->breaks->keyBy('id') ?? collect() : collect();
+                $rows = $row['breaks'] ?? $existing->map(fn ($break) => [
+                    'id' => $break->id, 'duration_minutes' => $break->duration_minutes,
+                    'starts_at' => $break->starts_at->format('Y-m-d\TH:i'), 'shift_break_id' => $break->shift_break_id,
+                ])->values()->all();
+                foreach (ShiftPersonalBreaks::errors($rows, $start, $end, $existing, $sources, $draftKeys) as $key => $message) {
+                    $errors["$field.$index.$key"] = $message;
+                }
+            }
+        }
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+    }
+
+    private function addAssignments(Shift $shift, array $additions, array $draftSlots, array $draftBreaks): void
     {
         foreach ($additions as $index => $row) {
             try {
@@ -98,7 +143,7 @@ class ShiftService
                     $row['shift_role_slot_id'] = $draftSlots[$row['slot_key']] ?? null;
                     unset($row['slot_key']);
                 }
-                app(ShiftAssignmentService::class)->create($shift, $row);
+                app(ShiftAssignmentService::class)->create($shift, $row, $draftBreaks);
             } catch (ValidationException $exception) {
                 $errors = [];
                 foreach ($exception->errors() as $key => $messages) {
@@ -109,21 +154,28 @@ class ShiftService
         }
     }
 
-    private function syncBreaks(Shift $shift, array $breaks, Collection $existing): void
+    private function syncBreaks(Shift $shift, array $breaks, Collection $existing): array
     {
         $nextOrder = ($existing->max('sort_order') ?? -1) + 1;
         $kept = [];
+        $draftBreaks = [];
         foreach ($breaks as $data) {
             $break = isset($data['id']) ? $existing->get((int) $data['id']) : null;
-            unset($data['id']);
+            $clientKey = $data['client_key'] ?? null;
+            unset($data['id'], $data['client_key']);
             if ($break !== null) {
                 $break->update($data);
             } else {
                 $break = $shift->breaks()->create([...$data, 'sort_order' => $nextOrder++]);
             }
             $kept[] = $break->id;
+            if ($clientKey !== null) {
+                $draftBreaks[$clientKey] = $break->id;
+            }
         }
         $shift->breaks()->whereNotIn('id', $kept)->delete();
+
+        return $draftBreaks;
     }
 
     private function syncSlots(Shift $shift, array $slots): array

@@ -1,3 +1,4 @@
+import * as personalBreakHelpers from '../../resources/js/lib/personalBreaks.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -52,6 +53,8 @@ const box = (tag) => ({
 const writes = [];
 let form;
 const deps = {
+    ...personalBreakHelpers,
+    ...breakHelpers,
     cn,
     useUnsavedNavigation,
     ...timeline,
@@ -175,8 +178,9 @@ const deps = {
                 Object.fromEntries(keys.map((key) => [key, form[key]])),
             );
         };
-        form.clearErrors = () => {
-            form.errors = {};
+        form.clearErrors = (...keys) => {
+            if (!keys.length) form.errors = {};
+            else for (const key of keys) delete form.errors[key];
         };
         form.transform = (cb) => {
             transform = cb;
@@ -222,6 +226,8 @@ async function compile(name, folder = 'components/team') {
     ).default;
 }
 const Roster = await compile('ShiftTimelineRoster');
+deps.CustomDropdown = {props: ['modelValue', 'items'], setup: (p, {emit}) => () => h('select', {value: p.modelValue, onChange: (e) => emit('update:modelValue', e.target.value)}, p.items.map((row) => h('option', {value: row.value}, row.title)))};
+deps.ShiftBreaks = await compile('ShiftBreaks');
 const Hours = await compile('ShiftAssignmentHoursDialog');
 deps.UnsavedChangesDialog = await compile('UnsavedChangesDialog', 'components/ui/unsaved-changes-dialog');
 function mount(component, props) {
@@ -548,6 +554,7 @@ test('Edit hours updates previews without stale responses and stages hours only;
             hours_mode: 'custom',
             starts_at: '2026-10-01T22:00',
             ends_at: '2026-10-02T01:00',
+            breaks: [],
             overlaps: [{ shift_name: 'New overlap', overlap_minutes: 60 }],
             other_shifts: [],
         });
@@ -576,7 +583,7 @@ test('full-shift Edit hours omits timestamps; preview failure permits Save but i
         assert.equal(form.hours_mode, 'full_shift');
         document.querySelector('#save').click();
         assert.equal(writes.length, 0);
-        assert.deepEqual(changes[0], { hours_mode: 'full_shift', overlaps: [], other_shifts: [] });
+        assert.deepEqual(changes[0], { hours_mode: 'full_shift', breaks: [], overlaps: [], other_shifts: [] });
         form.hours_mode = 'custom';
         form.starts_at = '2026-10-01T22:00';
         await nextTick();
@@ -784,13 +791,13 @@ test('pointer resize previews locally, emits on release, supports keyboard steps
 test('moving an assignment preserves duration, snaps its start, clamps both boundaries and crosses midnight', () => {
     const person = shift.assignments[0];
     const move = (minute) => translatedAssignment(shift, person, timeline.timelineMinute(minute));
-    assert.deepEqual(move('2026-10-02T00:08'), { starts_at: '2026-10-02T00:15', ends_at: '2026-10-02T00:45' });
-    assert.deepEqual(move('2026-10-01T23:53'), { starts_at: '2026-10-02T00:00', ends_at: '2026-10-02T00:30' });
-    assert.deepEqual(move('2026-10-01T20:00'), { starts_at: shift.starts_at, ends_at: '2026-10-01T21:30' });
-    assert.deepEqual(move('2026-10-02T03:00'), { starts_at: '2026-10-02T01:30', ends_at: shift.ends_at });
-    assert.deepEqual(translatedAssignment(shift, shift, timeline.timelineMinute('2026-10-02T00:00')), { starts_at: shift.starts_at, ends_at: shift.ends_at });
+    assert.deepEqual(move('2026-10-02T00:08'), { starts_at: '2026-10-02T00:15', ends_at: '2026-10-02T00:45', breaks: [] });
+    assert.deepEqual(move('2026-10-01T23:53'), { starts_at: '2026-10-02T00:00', ends_at: '2026-10-02T00:30', breaks: [] });
+    assert.deepEqual(move('2026-10-01T20:00'), { starts_at: shift.starts_at, ends_at: '2026-10-01T21:30', breaks: [] });
+    assert.deepEqual(move('2026-10-02T03:00'), { starts_at: '2026-10-02T01:30', ends_at: shift.ends_at, breaks: [] });
+    assert.deepEqual(translatedAssignment(shift, shift, timeline.timelineMinute('2026-10-02T00:00')), { starts_at: shift.starts_at, ends_at: shift.ends_at, breaks: [] });
     const offGrid = { starts_at: '2026-10-01T23:32', ends_at: '2026-10-02T00:09' };
-    assert.deepEqual(translatedAssignment(shift, offGrid, timeline.timelineMinute('2026-10-02T01:57')), { starts_at: '2026-10-02T01:15', ends_at: '2026-10-02T01:52' });
+    assert.deepEqual(translatedAssignment(shift, offGrid, timeline.timelineMinute('2026-10-02T01:57')), { starts_at: '2026-10-02T01:15', ends_at: '2026-10-02T01:52', breaks: [] });
 });
 
 test('middle drag previews both times, commits only on release, supports keyboard movement and cancels without writes', async () => {
@@ -808,10 +815,10 @@ test('middle drag previews both times, commits only on release, supports keyboar
         assert.match(row.querySelector('[data-person-bar]').title, /23:45–2026-10-02 00:15/);
         assert.match(row.querySelector('[data-assignment-duration]').textContent, /minutes=30/);
         window.dispatchEvent(new dom.window.MouseEvent('pointerup', { clientX: 125 }));
-        assert.deepEqual(events[0].hours, { starts_at: '2026-10-01T23:45', ends_at: '2026-10-02T00:15' });
+        assert.deepEqual(events[0].hours, { starts_at: '2026-10-01T23:45', ends_at: '2026-10-02T00:15', breaks: [] });
         await nextTick();
         handle.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
-        assert.deepEqual(events[1].hours, { starts_at: '2026-10-01T23:15', ends_at: '2026-10-01T23:45' });
+        assert.deepEqual(events[1].hours, { starts_at: '2026-10-01T23:15', ends_at: '2026-10-01T23:45', breaks: [] });
         begin();
         window.dispatchEvent(new dom.window.MouseEvent('pointermove', { clientX: 125 }));
         window.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' }));
@@ -1155,4 +1162,148 @@ test('create page handles missing dates and retains the navigation warning until
         navigationRouter.visit = originalVisit;
         deps.Dialog = originalDialog;
     }
+});
+
+test('timeline shows only personal break blocks with shift borders across midnight, preserves them read-only and hides empty legend', async () => {
+    const source = {id: 91, duration_minutes: 60, starts_at: '2026-10-02T00:00'};
+    const props = reactive({shift: {...shift, breaks: [source], assignments: shift.assignments.map((row, i) => ({...row, breaks: i === 0 ? [{duration_minutes: 15, starts_at: row.starts_at}] : []}))}, enabled: false, canManage: false});
+    const app = mount(Roster, props);
+    try {
+        assert.equal(document.querySelector('[data-break-header]'), null);
+        assert.equal(document.querySelector('[data-break-marker]'), null);
+        const hatch = document.querySelector('[data-person-break-hatch]');
+        assert.ok(hatch.classList.contains('border-y'));
+        assert.ok(hatch.classList.contains('border-label-teal/20'));
+        props.shift.color = 'warning';
+        await nextTick();
+        assert.ok(hatch.classList.contains('border-warning/20'));
+        assert.equal(document.querySelector('[data-break-summary]'), null);
+        assert.ok(document.querySelector('[data-person-break-hatch] i'));
+        assert.equal(document.querySelectorAll('tbody tr').length, document.querySelectorAll('[data-roster-row]').length);
+        assert.equal(document.querySelectorAll('[data-person-break-hatch]').length, 1);
+        assert.ok(document.querySelector('[data-break-legend]'));
+        assert.equal(document.querySelectorAll('[role="slider"]').length, 0);
+        const initial = hatch.style.getPropertyValue('--bar-start');
+        props.shift.breaks = [{...source, starts_at: '2026-10-02T00:30', duration_minutes: 15}];
+        await nextTick();
+        assert.equal(hatch.style.getPropertyValue('--bar-start'), initial);
+        props.shift.assignments[0].breaks[0].starts_at = '2026-10-01T23:45';
+        await nextTick();
+        assert.notEqual(document.querySelector('[data-person-break-hatch]').style.getPropertyValue('--bar-start'), initial);
+        props.shift.breaks = [];
+        await nextTick();
+        assert.ok(document.querySelector('[data-break-legend]'));
+        props.shift.assignments = props.shift.assignments.map((row) => ({...row, breaks: []}));
+        await nextTick();
+        assert.equal(document.querySelector('[data-break-legend]'), null);
+    } finally {app.unmount();}
+});
+
+test('Edit hours stages invalid breaks without writing, clears manually edited provenance and Cancel leaves the person intact', async () => {
+    deps.ShiftBreaks = await compile('ShiftBreaks');
+    const saved = {id: 91, shift_break_id: 51, duration_minutes: 15, starts_at: '2026-10-02T00:00'};
+    const person = {...shift.assignments[0], breaks: [saved]};
+    const events = [];
+    writes.length = 0;
+    const app = mount(Hours, {shift, assignment: person, enabled: true, breakOptions: {durations: [15,30,45,60], default_duration: 15}, onChanged: (row) => events.push(row)});
+    try {
+        const time = document.querySelector('[data-break-row="saved-personal-break-91"] input[type="time"]');
+        time.value = '';
+        time.dispatchEvent(new window.Event('input', {bubbles: true}));
+        await nextTick();
+        assert.equal(document.querySelector('#save').disabled, false);
+        document.querySelector('#save').click();
+        assert.equal(events.length, 1);
+        assert.equal(events[0].breaks[0].starts_at, '');
+        assert.equal(events[0].breaks[0].shift_break_id, null);
+        assert.equal(saved.starts_at, '2026-10-02T00:00');
+        assert.equal(saved.shift_break_id, 51);
+        assert.equal(writes.length, 0);
+        document.querySelector('#cancel').click();
+        assert.equal(saved.starts_at, '2026-10-02T00:00');
+    } finally {app.unmount();}
+});
+
+test('mass add has only the pending panel, blocks every person on conflict and saves independent personal breaks', async () => {
+    deps.ShiftBreaks = await compile('ShiftBreaks');
+    deps.ShiftAssignmentHoursDialog = Hours;
+    deps.ShiftTimelineRoster = Roster;
+    const Page = await compile('ShiftEditor');
+    const source = {id: 91, duration_minutes: 15, starts_at: '2026-10-01T23:45', sort_order: 0};
+    const app = mount(Page, {shift: {...shift, breaks: [source], assignment_count: 2, assignments: shift.assignments.map((row, i) => ({...row, breaks: i ? [] : [{id: 92, shift_break_id: 91, duration_minutes: 15, starts_at: source.starts_at}]}))}, event:{id:2,is_locked:false},canManage:true,locations:[],roles:[],labelColors:[],breakOptions:{durations:[15,30,45,60],default_duration:15}});
+    writes.length = 0;
+    try {
+        assert.equal(document.querySelectorAll('[data-break-row]').length, 1);
+        assert.equal(document.querySelector('[data-break-row] input[type="checkbox"]'), null);
+        const time = document.querySelector('[data-break-row] input[type="time"]');
+        const add = () => Array.from(document.querySelectorAll('[data-break-row] button')).find((el) => el.textContent.includes('breaks.add')).click();
+        const change = async (value) => {time.value = value; time.dispatchEvent(new window.Event('input',{bubbles:true})); await nextTick();};
+        await change('23:45');
+        add();
+        await nextTick();
+        assert.match(document.body.textContent, /breaks.errors.mass_conflict/);
+        assert.equal(form.assignment_updates.length, 0);
+        assert.equal(form.break_operations.length, 0);
+        await change('23:30'); // Adjacent to the existing break is allowed.
+        add();
+        await nextTick();
+        assert.equal(form.assignment_updates.length, 2);
+        assert.equal(document.querySelectorAll('[data-break-row]').length, 1);
+        assert.equal(form.assignment_updates[0].breaks.length, 2);
+        assert.equal(form.assignment_updates[1].breaks.length, 1);
+        document.querySelector('#shift-details-form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true}));
+        assert.equal(writes.length, 1);
+        const data = writes[0].data;
+        assert.equal(data.assignment_updates[1].breaks[0].shift_break_id, null);
+        assert.deepEqual(data.break_operations, [{type: 'mass', assignment_keys: [8, 10], break: {duration_minutes: 15, starts_at: '2026-10-01T23:30'}}]);
+        assert.equal(data.breaks[0].starts_at, source.starts_at);
+        form.errors = {'break_operations.0': 'Someone already has a break overlapping this time. No breaks were added.', name: 'Keep this error'};
+        writes[0].options.onError({'break_operations.0': form.errors['break_operations.0']});
+        await nextTick();
+        assert.match(document.body.textContent, /Someone already has a break overlapping this time/);
+        // Editing the pending time clears the mass error without clearing other form errors.
+        document.querySelector('[data-break-row] input[type="time"]').value = '23:00';
+        document.querySelector('[data-break-row] input[type="time"]').dispatchEvent(new window.Event('input',{bubbles:true}));
+        await nextTick();
+        assert.equal(form.errors['break_operations.0'], undefined);
+        assert.equal(form.errors.name, 'Keep this error');
+    } finally {app.unmount();}
+});
+
+test('break stripes retain the assignment outline at either boundary', () => {
+    const app = mount(Roster, {shift: {...shift, assignments: [{...shift.assignments[1], breaks: [
+        {duration_minutes: 15, starts_at: shift.starts_at},
+        {duration_minutes: 15, starts_at: '2026-10-01T23:00'},
+        {duration_minutes: 15, starts_at: '2026-10-02T01:45'},
+    ]}]}});
+    try {
+        const stripes = document.querySelectorAll('[data-person-break-hatch]');
+        assert.equal(stripes.length, 3);
+        assert.equal(stripes[0].classList.contains('rounded-l-lg'), true);
+        assert.equal(stripes[0].classList.contains('border-l'), true);
+        assert.equal(stripes[1].classList.contains('rounded-l-lg'), false);
+        assert.equal(stripes[1].classList.contains('rounded-r-lg'), false);
+        assert.equal(stripes[2].classList.contains('rounded-r-lg'), true);
+        assert.equal(stripes[2].classList.contains('border-r'), true);
+    } finally {app.unmount();}
+});
+
+test('grid shrink stages excluded breaks as removals in the atomic Save payload', async () => {
+    deps.ShiftTimelineRoster = Roster;
+    const Page = await compile('ShiftEditor');
+    const source = {id: 91, duration_minutes: 15, starts_at: '2026-10-01T23:45'};
+    const app = mount(Page, {shift: {...shift, breaks: [source], assignments: shift.assignments.map((row, i) => ({...row, breaks: i ? [] : [{...source, id: 92, shift_break_id: 91}]}))}, event:{id:2,is_locked:false},canManage:true,locations:[],roles:[],labelColors:[],breakOptions:{durations:[15,30,45,60],default_duration:15}});
+    writes.length = 0;
+    try {
+        const handles = document.querySelector('[data-roster-row="person-8"]').querySelectorAll('[role="slider"]:not([data-move-handle])');
+        handles[1].dispatchEvent(new window.KeyboardEvent('keydown', {key:'ArrowLeft', bubbles:true}));
+        await nextTick();
+        assert.deepEqual(form.assignment_updates[0].breaks, []);
+        assert.equal(document.querySelector('[data-person-break-hatch]'), null);
+        assert.equal(writes.length, 0);
+        document.querySelector('#shift-details-form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true}));
+        assert.deepEqual(writes[0].data.assignment_updates[0].breaks, []);
+        assert.deepEqual(writes[0].data.break_operations.at(-1).breaks, []);
+        assert.equal(writes[0].data.breaks.length, 1);
+    } finally {app.unmount();}
 });
