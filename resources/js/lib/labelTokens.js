@@ -6,6 +6,7 @@ export const labelTokens = {
         classes: 'border-label-teal/20 bg-label-teal/10 text-label-teal',
         unfilledHover: 'hover:border-label-teal/70 hover:bg-label-teal/30',
         dot: 'bg-label-teal',
+        highlightRing: 'ring-label-teal/35',
         swatch: 'bg-label-teal',
     },
     soft_blue: {
@@ -15,6 +16,7 @@ export const labelTokens = {
         unfilledHover:
             'hover:border-label-soft-blue/70 hover:bg-label-soft-blue/30',
         dot: 'bg-label-soft-blue',
+        highlightRing: 'ring-label-soft-blue/35',
         swatch: 'bg-label-soft-blue',
     },
     success: {
@@ -22,6 +24,7 @@ export const labelTokens = {
         classes: 'border-success/20 bg-success/10 text-success',
         unfilledHover: 'hover:border-success/70 hover:bg-success/30',
         dot: 'bg-success',
+        highlightRing: 'ring-success/35',
         swatch: 'bg-success',
     },
     warning: {
@@ -29,6 +32,7 @@ export const labelTokens = {
         classes: 'border-warning/20 bg-warning/10 text-warning',
         unfilledHover: 'hover:border-warning/70 hover:bg-warning/30',
         dot: 'bg-warning',
+        highlightRing: 'ring-warning/35',
         swatch: 'bg-warning',
     },
     danger: {
@@ -36,6 +40,7 @@ export const labelTokens = {
         classes: 'border-danger/20 bg-danger/10 text-danger',
         unfilledHover: 'hover:border-danger/70 hover:bg-danger/30',
         dot: 'bg-danger',
+        highlightRing: 'ring-danger/35',
         swatch: 'bg-danger',
     },
     violet: {
@@ -43,6 +48,7 @@ export const labelTokens = {
         classes: 'border-label-violet/20 bg-label-violet/10 text-label-violet',
         unfilledHover: 'hover:border-label-violet/70 hover:bg-label-violet/30',
         dot: 'bg-label-violet',
+        highlightRing: 'ring-label-violet/35',
         swatch: 'bg-label-violet',
     },
     sky: {
@@ -50,6 +56,7 @@ export const labelTokens = {
         classes: 'border-label-sky/20 bg-label-sky/10 text-label-sky',
         unfilledHover: 'hover:border-label-sky/70 hover:bg-label-sky/30',
         dot: 'bg-label-sky',
+        highlightRing: 'ring-label-sky/35',
         swatch: 'bg-label-sky',
     },
     rose: {
@@ -57,6 +64,7 @@ export const labelTokens = {
         classes: 'border-label-rose/20 bg-label-rose/10 text-label-rose',
         unfilledHover: 'hover:border-label-rose/70 hover:bg-label-rose/30',
         dot: 'bg-label-rose',
+        highlightRing: 'ring-label-rose/35',
         swatch: 'bg-label-rose',
     },
     slate: {
@@ -64,6 +72,7 @@ export const labelTokens = {
         classes: 'border-label-slate/20 bg-label-slate/10 text-label-slate',
         unfilledHover: 'hover:border-label-slate/70 hover:bg-label-slate/30',
         dot: 'bg-label-slate',
+        highlightRing: 'ring-label-slate/35',
         swatch: 'bg-label-slate',
     },
     charcoal: {
@@ -71,6 +80,7 @@ export const labelTokens = {
         classes: 'border-charcoal/20 bg-charcoal/10 text-charcoal',
         unfilledHover: 'hover:border-charcoal/70 hover:bg-charcoal/30',
         dot: 'bg-charcoal',
+        highlightRing: 'ring-charcoal/35',
         swatch: 'bg-charcoal',
     },
 };

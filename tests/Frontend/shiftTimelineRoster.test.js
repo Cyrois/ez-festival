@@ -1307,3 +1307,102 @@ test('grid shrink stages excluded breaks as removals in the atomic Save payload'
         assert.equal(writes[0].data.breaks.length, 1);
     } finally {app.unmount();}
 });
+
+
+test('break dragging previews with 15-minute snapping and commits only the personal break on release', async () => {
+    const events = [];
+    const hoursEvents = [];
+    const person = {...shift.assignments[1], breaks: [
+        {id: 92, duration_minutes: 15, starts_at: '2026-10-01T23:45', shift_break_id: 91},
+        {id: 93, duration_minutes: 15, starts_at: '2026-10-02T01:00', shift_break_id: null},
+    ]};
+    const before = JSON.stringify(person);
+    const app = mount(Roster, {shift: {...shift, assignments: [person]}, enabled: true, canManage: true,
+        onMoveBreak: (event) => events.push(event), onResize: (event) => hoursEvents.push(event)});
+    try {
+        const handle = document.querySelector('[data-person-break-hatch]');
+        const canvas = handle.closest('[data-roster-canvas]');
+        canvas.getBoundingClientRect = () => ({width: 600}); // Six hours including timeline padding.
+        const begin = () => handle.dispatchEvent(new window.MouseEvent('pointerdown', {clientX: 100, button: 0, bubbles: true}));
+        const initial = handle.style.getPropertyValue('--bar-start');
+        begin();
+        window.dispatchEvent(new window.MouseEvent('pointermove', {clientX: 126}));
+        await nextTick();
+        assert.notEqual(handle.style.getPropertyValue('--bar-start'), initial);
+        assert.match(handle.getAttribute('aria-valuetext'), /00:00/);
+        assert.equal(events.length, 0);
+        window.dispatchEvent(new window.MouseEvent('pointerup', {clientX: 126}));
+        await nextTick();
+        assert.equal(events.length, 1);
+        assert.equal(events[0].breaks[0].starts_at, '2026-10-02T00:00');
+        assert.equal(events[0].breaks[0].id, 92);
+        assert.equal(events[0].breaks[0].duration_minutes, 15);
+        assert.equal(events[0].breaks[0].shift_break_id, null);
+        assert.deepEqual(events[0].breaks[1], person.breaks[1]);
+        assert.equal(hoursEvents.length, 0);
+        assert.equal(JSON.stringify(person), before);
+        // Escape and pointer cancellation restore the source state; a plain click has no effect.
+        for (const cancellation of ['Escape', 'pointercancel']) {
+            begin();
+            window.dispatchEvent(new window.MouseEvent('pointermove', {clientX: 126}));
+            window.dispatchEvent(cancellation === 'Escape'
+                ? new window.KeyboardEvent('keydown', {key: 'Escape'})
+                : new window.MouseEvent('pointercancel'));
+            window.dispatchEvent(new window.MouseEvent('pointerup', {clientX: 126}));
+            await nextTick();
+            assert.equal(handle.style.getPropertyValue('--bar-start'), initial);
+            assert.equal(events.length, 1);
+        }
+        begin();
+        window.dispatchEvent(new window.MouseEvent('pointerup', {clientX: 100}));
+        assert.equal(events.length, 1);
+        handle.dispatchEvent(new window.KeyboardEvent('keydown', {key: 'ArrowRight', bubbles: true}));
+        assert.equal(events.length, 2);
+        assert.equal(events[1].breaks[0].starts_at, '2026-10-02T00:00');
+        // The second break cannot move onto the first.
+        const second = document.querySelectorAll('[data-person-break-hatch]')[1];
+        second.dispatchEvent(new window.MouseEvent('pointerdown', {clientX: 100, button: 0, bubbles: true}));
+        window.dispatchEvent(new window.MouseEvent('pointerup', {clientX: -25}));
+        assert.equal(events.length, 2);
+    } finally {app.unmount();}
+});
+
+test('break move controls cannot stage changes when read-only or disabled', async () => {
+    for (const canManage of [true, false]) {
+        const events = [];
+        const person = {...shift.assignments[1], breaks: [{duration_minutes: 15, starts_at: '2026-10-01T23:45'}]};
+        const app = mount(Roster, {shift: {...shift, assignments: [person]}, enabled: false, canManage, onMoveBreak: (event) => events.push(event)});
+        try {
+            const hatch = document.querySelector('[data-person-break-hatch]');
+            assert.equal(hatch.tagName, canManage ? 'BUTTON' : 'SPAN');
+            if (canManage) assert.equal(hatch.disabled, true);
+            hatch.dispatchEvent(new window.MouseEvent('pointerdown', {clientX: 100, button: 0, bubbles: true}));
+            window.dispatchEvent(new window.MouseEvent('pointerup', {clientX: 126}));
+            hatch.dispatchEvent(new window.KeyboardEvent('keydown', {key: 'ArrowRight', bubbles: true}));
+            await nextTick();
+            assert.equal(events.length, 0);
+        } finally {app.unmount();}
+    }
+});
+
+test('moving a break stages its independent time in Save without changing person hours or shift defaults', async () => {
+    deps.ShiftTimelineRoster = Roster;
+    const Page = await compile('ShiftEditor');
+    const source = {id: 91, duration_minutes: 15, starts_at: '2026-10-01T23:45'};
+    const app = mount(Page, {shift: {...shift, breaks: [source], assignments: shift.assignments.map((row, i) => ({...row, breaks: i ? [] : [{...source, id: 92, shift_break_id: 91}]}))}, event:{id:2,is_locked:false},canManage:true,locations:[],roles:[],labelColors:[],breakOptions:{durations:[15,30,45,60],default_duration:15}});
+    writes.length = 0;
+    try {
+        document.querySelector('[data-person-break-hatch]').dispatchEvent(new window.KeyboardEvent('keydown', {key:'ArrowLeft', bubbles:true}));
+        await nextTick();
+        assert.equal(writes.length, 0);
+        assert.equal(form.assignment_updates[0].starts_at, shift.assignments[0].starts_at);
+        assert.equal(form.assignment_updates[0].ends_at, shift.assignments[0].ends_at);
+        assert.equal(form.assignment_updates[0].breaks[0].starts_at, '2026-10-01T23:30');
+        document.querySelector('#shift-details-form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true}));
+        const payload = writes[0].data;
+        assert.deepEqual(payload.assignment_updates[0].breaks, [{id: 92, duration_minutes: 15, starts_at: '2026-10-01T23:30', shift_break_id: null}]);
+        assert.deepEqual(payload.breaks, [{id: 91, duration_minutes: 15, starts_at: source.starts_at}]);
+        assert.equal(payload.break_operations.at(-1).type, 'person');
+        assert.equal(payload.break_operations.at(-1).assignment_key, 8);
+    } finally {app.unmount();}
+});
