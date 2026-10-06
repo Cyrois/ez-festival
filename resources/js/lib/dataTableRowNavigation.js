@@ -2,7 +2,7 @@ import { router } from '@inertiajs/vue3';
 
 const interactiveSelector = 'a, button, input, select, textarea';
 
-export const navigateDataTableRow = (row, rowData, href) => {
+export const activateDataTableRow = (row, rowData, action) => {
     row.classList.add('cursor-pointer');
     row.dataset.rowLink = '';
     row.addEventListener('click', (event) => {
@@ -13,7 +13,13 @@ export const navigateDataTableRow = (row, rowData, href) => {
             return;
         }
 
-        const destination = href(rowData);
+        action(rowData, event);
+    });
+};
+
+export const navigateDataTableRow = (row, rowData, href) => {
+    activateDataTableRow(row, rowData, (item, event) => {
+        const destination = href(item);
 
         if (event.metaKey || event.ctrlKey) {
             window.open(destination, '_blank');

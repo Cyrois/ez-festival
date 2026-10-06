@@ -1549,6 +1549,7 @@
     "meals.settings.event": "Meal setup for :event.",
     "meals.back": "Back to Meals",
     "meals.empty": "Claiming meals isn't available yet.",
+    "meals.types.search": "Search meal types",
     "meals.types.title": "Meal types",
     "meals.types.hint": "Add meal types and set their time windows. Windows cannot overlap.",
     "meals.types.name": "Name",
