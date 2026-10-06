@@ -1539,7 +1539,7 @@
     "team.scheduling.breaks.errors.stale_draft": "The break draft no longer matches this shift. Reload the page and try again.",
     "team.scheduling.roster.legend_break": "Break (not paid)",
     "team.scheduling.breaks.errors.personal_containment": "The break must start and end inside this person's hours.",
-    "nav.meals": "Meals",
+    "nav.meals": "Kitchen",
     "permissions.groups.meals": "Meals",
     "permissions.meals.view.label": "View meals",
     "permissions.meals.view.tooltip": "The Meals page, Meals settings and the meal report.",

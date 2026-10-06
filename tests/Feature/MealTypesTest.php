@@ -44,9 +44,9 @@ class MealTypesTest extends TestCase
 
     public function test_pages_and_table_expose_only_the_current_events_types(): void
     {
-        $this->get(route('meals.index'))->assertInertia(fn (Assert $page) => $page->component('Meals/Index'));
+        $this->get(route('meals.index'))->assertInertia(fn (Assert $page) => $page->component('Kitchen/Index'));
         $this->get(route('meals.settings'))->assertInertia(fn (Assert $page) => $page
-            ->component('Meals/Settings')->where('event.id', $this->event->id)->where('canEdit', true)
+            ->component('Kitchen/Settings')->where('event.id', $this->event->id)->where('canEdit', true)
             ->where('permissions', fn ($permissions) => $permissions['meals.view'] && $permissions['meals.edit']));
         $other = app(EventService::class)->create([
             'name' => 'Other', 'starts_on' => '2027-07-10', 'ends_on' => '2027-07-12', 'timezone' => 'UTC',
