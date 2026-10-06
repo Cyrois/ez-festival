@@ -12,6 +12,7 @@ class ShiftCopyResource extends JsonResource
     {
         $slots = $this->roleSlots->values();
         $indices = $slots->pluck('id')->flip();
+        $breakIndices = $this->breaks->values()->pluck('id')->flip();
 
         return [
             'name' => $this->name, 'color' => $this->color, 'location_id' => $this->location_id,
@@ -25,6 +26,10 @@ class ShiftCopyResource extends JsonResource
             ])->all(),
             'assignments' => $this->assignments->map(fn ($assignment) => [
                 'team_engagement_id' => $assignment->team_engagement_id,
+                'breaks' => $assignment->breaks->map(fn ($break) => [
+                    'duration_minutes' => $break->duration_minutes, 'starts_at' => $break->starts_at->format('Y-m-d\TH:i'),
+                    'source_break_index' => $break->shift_break_id === null ? null : $breakIndices->get($break->shift_break_id),
+                ])->all(),
                 'name' => $assignment->teamEngagement->person->name,
                 'role_id' => $assignment->role_id,
                 'role_name' => $assignment->role->name,

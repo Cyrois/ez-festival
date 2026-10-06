@@ -1,12 +1,21 @@
 import { newShiftSlot } from './shiftRoleSlots.js';
 import { newShiftBreak, wallMinutes } from './shiftBreaks.js';
 
+import { personalBreakDraft, movePersonalBreaks } from './personalBreaks.js';
+
 // Only snapshot values enter the new shift's draft; no source identifier survives.
 export function copiedShiftDraft(prefill) {
     const slots = (prefill.slots ?? []).map((slot) => ({
         ...newShiftSlot(),
         ...slot,
     }));
+    const breaks = (prefill.breaks ?? []).map((row) =>
+        newShiftBreak(
+            row.duration_minutes,
+            row.starts_at.slice(0, 10),
+            row.starts_at.slice(11, 16),
+        ),
+    );
     const people = {};
     const additions = (prefill.assignments ?? []).map((person, index) => {
         const key = -index - 1;
@@ -18,6 +27,19 @@ export function copiedShiftDraft(prefill) {
         };
         return {
             _key: key,
+            breaks: personalBreakDraft(
+                (person.breaks ?? []).map((row) => ({
+                    duration_minutes: row.duration_minutes,
+                    starts_at: row.starts_at,
+                    ...(row.source_break_index != null &&
+                    breaks[row.source_break_index]
+                        ? {
+                              shift_break_key:
+                                  breaks[row.source_break_index]._key,
+                          }
+                        : { shift_break_id: null }),
+                })),
+            ),
             team_engagement_id: person.team_engagement_id,
             ...(slot ? { slot_key: slot._key } : { role_id: person.role_id }),
             hours_mode: person.hours_mode,
@@ -28,13 +50,7 @@ export function copiedShiftDraft(prefill) {
     });
     return {
         slots,
-        breaks: (prefill.breaks ?? []).map((row) =>
-            newShiftBreak(
-                row.duration_minutes,
-                row.starts_at.slice(0, 10),
-                row.starts_at.slice(11, 16),
-            ),
-        ),
+        breaks,
         assignment_additions: additions,
         people,
     };
@@ -53,15 +69,16 @@ export function moveCopiedShift(draft, previousStart) {
             breaks: draft.breaks,
         };
     return {
-        assignment_additions: draft.assignment_additions.map((row) =>
-            row.hours_mode === 'full_shift'
-                ? row
-                : {
-                      ...row,
+        assignment_additions: draft.assignment_additions.map((row) => ({
+            ...row,
+            ...(row.hours_mode === 'custom'
+                ? {
                       starts_at: moved(row.starts_at, delta),
                       ends_at: moved(row.ends_at, delta),
-                  },
-        ),
+                  }
+                : {}),
+            breaks: movePersonalBreaks(row.breaks ?? [], delta),
+        })),
         breaks: draft.breaks.map((row) => {
             const starts_at = moved(row.starts_at, delta);
             return {

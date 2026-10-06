@@ -1,4 +1,6 @@
 <script setup>
+import ShiftBreaks from './ShiftBreaks.vue';
+import { personalBreakDraft } from '../../lib/personalBreaks';
 import { computed, ref, watch, onUnmounted } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
@@ -14,6 +16,11 @@ import {
 import ShiftOverlapWarnings from './ShiftOverlapWarnings.vue';
 
 const props = defineProps({
+    breakOptions: {
+        type: Object,
+        default: () => ({ durations: [], default_duration: null }),
+    },
+    breakErrors: { type: Object, default: () => ({}) },
     shift: { type: Object, required: true },
     assignment: { type: Object, required: true },
     enabled: { type: Boolean, default: false },
@@ -115,10 +122,12 @@ onUnmounted(() => {
     ++requestNumber;
     controller?.abort();
 });
+const personalBreaks = ref(personalBreakDraft(props.assignment.breaks ?? []));
 const save = () => {
     if (!props.enabled || !valid.value || form.processing) return;
     emit('changed', {
         ...hoursPayload(),
+        breaks: personalBreaks.value,
         overlaps: overlaps.value,
         other_shifts: otherShifts.value,
     });
@@ -132,6 +141,7 @@ const save = () => {
         role="dialog"
         focus-trap
         sectioned
+        class="max-w-2xl"
         :title="
             $t('team.scheduling.assignments.edit_hours', {
                 name: assignment.name,
@@ -144,83 +154,96 @@ const save = () => {
         @cancel="emit('close')"
         @confirm="save"
     >
-        <div class="space-y-4">
-            <p class="text-sm text-muted">
-                {{
-                    $t('team.scheduling.assignments.draft_hint', {
-                        action: $t(
-                            shift.id
-                                ? 'team.scheduling.actions.save'
-                                : 'team.scheduling.actions.create',
-                        ),
-                    })
-                }}
-            </p>
-            <Checkbox
-                v-model="fullShift"
-                :label="$t('team.scheduling.assignments.full_shift')"
-                :disabled="form.processing"
-            />
-            <p
-                v-if="fullShift"
-                class="m-0 text-sm text-muted"
-            >
-                {{ bounds.from }}–{{ bounds.to }}
-            </p>
-            <div
-                v-else
-                class="grid gap-3 sm:grid-cols-2"
-            >
-                <FormField
-                    :label="$t('team.scheduling.fields.start')"
-                    :error="form.errors.starts_at"
-                    required
+        <div class="space-y-6">
+            <div class="space-y-4">
+                <p class="text-sm text-muted">
+                    {{
+                        $t('team.scheduling.assignments.draft_hint', {
+                            action: $t(
+                                shift.id
+                                    ? 'team.scheduling.actions.save'
+                                    : 'team.scheduling.actions.create',
+                            ),
+                        })
+                    }}
+                </p>
+                <Checkbox
+                    v-model="fullShift"
+                    :label="$t('team.scheduling.assignments.full_shift')"
+                    :disabled="form.processing"
+                />
+                <p
+                    v-if="fullShift"
+                    class="text-sm text-muted"
                 >
-                    <template #default="{ id, invalid }"
-                        ><Input
-                            :id="id"
-                            v-model="form.starts_at"
-                            type="datetime-local"
-                            :min="shift.starts_at"
-                            :max="shift.ends_at"
-                            :invalid="invalid"
-                            :disabled="form.processing"
-                    /></template>
-                </FormField>
-                <FormField
-                    :label="$t('team.scheduling.fields.end')"
-                    :error="form.errors.ends_at"
-                    required
+                    {{ bounds.from }}–{{ bounds.to }}
+                </p>
+                <div
+                    v-else
+                    class="grid gap-3 sm:grid-cols-2"
                 >
-                    <template #default="{ id, invalid }"
-                        ><Input
-                            :id="id"
-                            v-model="form.ends_at"
-                            type="datetime-local"
-                            :min="shift.starts_at"
-                            :max="shift.ends_at"
-                            :invalid="invalid"
-                            :disabled="form.processing"
-                    /></template>
-                </FormField>
+                    <FormField
+                        :label="$t('team.scheduling.fields.start')"
+                        :error="form.errors.starts_at"
+                        required
+                    >
+                        <template #default="{ id, invalid }"
+                            ><Input
+                                :id="id"
+                                v-model="form.starts_at"
+                                type="datetime-local"
+                                :min="shift.starts_at"
+                                :max="shift.ends_at"
+                                :invalid="invalid"
+                                :disabled="form.processing"
+                        /></template>
+                    </FormField>
+                    <FormField
+                        :label="$t('team.scheduling.fields.end')"
+                        :error="form.errors.ends_at"
+                        required
+                    >
+                        <template #default="{ id, invalid }"
+                            ><Input
+                                :id="id"
+                                v-model="form.ends_at"
+                                type="datetime-local"
+                                :min="shift.starts_at"
+                                :max="shift.ends_at"
+                                :invalid="invalid"
+                                :disabled="form.processing"
+                        /></template>
+                    </FormField>
+                </div>
+                <p class="text-xs text-muted">
+                    {{ $t('team.scheduling.assignments.hours_hint', bounds) }}
+                </p>
+                <p
+                    v-if="!valid"
+                    class="m-0 text-sm text-danger"
+                    role="alert"
+                >
+                    {{ $t('team.scheduling.assignments.errors.hours', bounds) }}
+                </p>
+                <p
+                    v-if="fullShift && form.errors.ends_at"
+                    class="m-0 text-sm text-danger"
+                    role="alert"
+                >
+                    {{ form.errors.ends_at }}
+                </p>
             </div>
-            <p class="m-0 text-xs text-muted">
-                {{ $t('team.scheduling.assignments.hours_hint', bounds) }}
-            </p>
-            <p
-                v-if="!valid"
-                class="m-0 text-sm text-danger"
-                role="alert"
-            >
-                {{ $t('team.scheduling.assignments.errors.hours', bounds) }}
-            </p>
-            <p
-                v-if="fullShift && form.errors.ends_at"
-                class="m-0 text-sm text-danger"
-                role="alert"
-            >
-                {{ form.errors.ends_at }}
-            </p>
+            <div class="border-t border-line pt-6">
+                <ShiftBreaks
+                    v-model="personalBreaks"
+                    :options="breakOptions"
+                    :starts-at="fullShift ? shift.starts_at : form.starts_at"
+                    :ends-at="fullShift ? shift.ends_at : form.ends_at"
+                    :errors="breakErrors"
+                    :editable="enabled"
+                    personal
+                />
+            </div>
             <div aria-live="polite">
                 <p
                     v-if="checking"
