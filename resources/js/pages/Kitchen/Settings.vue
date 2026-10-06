@@ -1,7 +1,8 @@
 <script setup>
 import AppLayout from '../../layouts/AppLayout.vue';
+import MealsCard from '../../components/kitchen/MealsCard.vue';
 import { Button } from '../../components/ui/button';
-import { CardTitle } from '../../components/ui/card';
+import { Card, CardTitle } from '../../components/ui/card';
 import { DataTable } from '../../components/ui/data-table';
 import { Dialog } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/form-field';
@@ -17,6 +18,7 @@ import { trans } from 'laravel-vue-i18n';
 const props = defineProps({
     event: { type: Object, required: true },
     canEdit: { type: Boolean, required: true },
+    mealCount: { type: Number, required: true },
 });
 const breadcrumbs = computed(() => [
     { label: trans('app.name'), href: '/dashboard' },
@@ -32,6 +34,7 @@ const disabledReason = computed(() =>
           : '',
 );
 const table = ref(null);
+const mealsCard = ref(null);
 const search = ref('');
 let searchTimer;
 watch(search, (value) => {
@@ -102,6 +105,7 @@ const submit = () => {
             form.reset();
             await nextTick();
             table.value?.reload(editingId.value === null);
+            mealsCard.value?.reload();
         },
         onError: (errors) =>
             toastFormErrors(form, errors, { showError, showFormError }),
@@ -135,7 +139,7 @@ const submit = () => {
             >
                 {{ $t('events.read_only_locked') }}
             </p>
-            <section>
+            <Card>
                 <div
                     class="mb-4 flex flex-wrap items-start justify-between gap-4"
                 >
@@ -220,7 +224,13 @@ const submit = () => {
                         </span>
                     </template>
                 </DataTable>
-            </section>
+            </Card>
+            <MealsCard
+                ref="mealsCard"
+                :event="event"
+                :can-edit="canEdit"
+                :count="mealCount"
+            />
         </div>
         <Dialog
             :open="dialogOpen"

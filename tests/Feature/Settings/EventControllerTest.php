@@ -239,6 +239,10 @@ class EventControllerTest extends TestCase
 
         $personalBreak = $assignment->breaks()->create(['shift_break_id' => $break->id, 'duration_minutes' => 15, 'starts_at' => $break->starts_at, 'sort_order' => 0]);
         $mealType = $event->mealTypes()->where('name', 'Breakfast')->sole();
+        $meal = $event->meals()->create([
+            'meal_type_id' => $mealType->id, 'name' => 'Teardown breakfast',
+            'date' => $event->starts_on, 'starts_at' => '07:00:00', 'ends_at' => '10:00:00',
+        ]);
 
         $this->actingAs($user)
             ->delete(route('settings.events.destroy', $event))
@@ -247,6 +251,7 @@ class EventControllerTest extends TestCase
         $this->assertModelMissing($assignment);
         $this->assertModelMissing($personalBreak);
         $this->assertModelMissing($mealType);
+        $this->assertModelMissing($meal);
         $this->assertModelMissing($break);
         $this->assertModelMissing($slot);
         $this->assertModelExists($role);
