@@ -19,7 +19,8 @@ class AccountService
     public function update(User $user, array $data, Collection $customFields): void
     {
         DB::transaction(function () use ($customFields, $data, $user): void {
-            $user->update(Arr::except($data, 'custom_fields'));
+            app(ProfileService::class)->update($user->person, Arr::except($data, 'custom_fields'));
+            $user->refresh();
 
             $this->customFieldValueService->sync(
                 $user->customFieldValues(),

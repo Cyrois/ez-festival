@@ -4,7 +4,9 @@ namespace Tests\Feature\Settings;
 
 use App\Models\CustomField;
 use App\Models\Event;
+use App\Models\Person;
 use App\Models\User;
+use App\Services\PersonService;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -56,12 +58,44 @@ class AccountControllerTest extends TestCase
             'phone' => '+1 604 555 0142',
         ])->assertRedirect();
 
+        $this->assertDatabaseHas('people', [
+            'id' => $user->person_id,
+            'name' => 'Avery Festival',
+            'email' => 'avery@example.test',
+            'phone' => '+1 604 555 0142',
+        ]);
+
         $this->assertDatabaseHas('users', [
             'id' => $user->id,
             'name' => 'Avery Festival',
             'email' => 'avery@example.test',
             'phone' => '+1 604 555 0142',
         ]);
+    }
+
+    public function test_account_profile_collision_rolls_back_both_rows(): void
+    {
+        $user = $this->userWithCompletedSetup();
+        $person = Person::create(['name' => 'Other', 'email' => 'taken@example.test']);
+        $this->actingAs($user)->put(route('settings.account.update'), [
+            'name' => 'Must not persist', 'email' => ' TAKEN@example.test ', 'phone' => '555',
+        ])->assertSessionHasErrors('email');
+        $this->assertSame($user->email, $user->fresh()->email);
+        $this->assertSame($user->email, $user->person->fresh()->email);
+        $this->assertSame($user->name, $user->person->fresh()->name);
+        $this->assertSame('Other', $person->fresh()->name);
+    }
+
+    public function test_person_profile_updates_sync_the_login_mirror(): void
+    {
+        $user = $this->userWithCompletedSetup();
+        app(PersonService::class)->updateProfile($user->person, [
+            'name' => 'Canonical Name', 'email' => 'NORMALIZED@example.test', 'phone' => null,
+        ]);
+        $this->assertSame('Canonical Name', $user->fresh()->name);
+        $this->assertSame('normalized@example.test', $user->fresh()->email);
+        $this->assertNull($user->fresh()->phone);
+        $this->assertSame($user->fresh()->email, $user->person->fresh()->email);
     }
 
     public function test_account_email_must_be_unique(): void
