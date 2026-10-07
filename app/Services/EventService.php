@@ -113,6 +113,7 @@ class EventService
                 ->whereIn('pass_type_id', $passTypeIds())
                 ->delete();
 
+            DB::table('shift_meals')->whereIn('shift_id', $event->shifts()->select('id'))->delete();
             $event->meals()->delete();
             $event->shifts()->delete();
             $event->teamEngagements()->delete();

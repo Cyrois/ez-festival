@@ -13,6 +13,7 @@ use App\Support\LabelColors;
 use App\Support\ShiftBreaks;
 use App\Support\ShiftReturnContext;
 use App\Support\ShiftSlotReferences;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -30,6 +31,7 @@ class ShiftCopyController extends Controller
             'roles' => ShiftSlotReferences::options(),
             'labelColors' => LabelColors::ALL,
             'breakOptions' => ShiftBreaks::options(),
+            'canConfigureMeals' => Gate::allows('meals.edit'),
             'prefill' => (new ShiftCopyResource($service->copyDraft($shift)))->resolve($request),
             'returnContext' => ShiftReturnContext::from($request->validated()),
         ]);

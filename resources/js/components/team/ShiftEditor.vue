@@ -10,6 +10,13 @@ import ShiftRoleSlots from './ShiftRoleSlots.vue';
 import ShiftTimelineRoster from './ShiftTimelineRoster.vue';
 import ShiftAssignmentHoursDialog from './ShiftAssignmentHoursDialog.vue';
 import ShiftBreaks from './ShiftBreaks.vue';
+import ShiftMeals from './ShiftMeals.vue';
+import {
+    draftShiftMeals,
+    shiftMealPayload,
+    shiftMealErrors,
+    removeMealRecipient,
+} from '../../lib/shiftMeals';
 import {
     draftShiftBreaks,
     shiftBreakPayload,
@@ -51,6 +58,8 @@ const props = defineProps({
     roles: { type: Array, default: () => [] },
     canManage: { type: Boolean, default: false },
     breakOptions: { type: Object, required: true },
+    mealOptions: { type: Array, default: () => [] },
+    canConfigureMeals: { type: Boolean, default: false },
     returnContext: { type: Object, default: () => ({}) },
 });
 
@@ -82,6 +91,7 @@ const form = useForm({
     ends_at: initialShift.value.ends_at,
     slots: copied?.slots ?? draftShiftSlots(initialShift.value.slots),
     breaks: copied?.breaks ?? draftShiftBreaks(initialShift.value.breaks),
+    meals: props.copying ? [] : draftShiftMeals(initialShift.value.meals),
     assignment_updates: [],
     assignment_removals: [],
     assignment_additions: copied?.assignment_additions ?? [],
@@ -94,6 +104,13 @@ const copyHref = computed(
         `/team/shifts/${props.shift?.id}/copy?` +
         new URLSearchParams(props.returnContext).toString(),
 );
+const mealErrors = ref({});
+const clearMealErrors = () => {
+    mealErrors.value = {};
+    form.clearErrors(
+        ...Object.keys(form.errors).filter((key) => key.startsWith('meals')),
+    );
+};
 const slotErrors = ref({});
 const breakErrors = ref({});
 const breakEditor = ref(null);
@@ -180,6 +197,7 @@ const rosterShift = computed(() =>
 );
 const timelineShift = computed(() => ({
     ...rosterShift.value,
+    meals: form.meals,
     assignments: rosterShift.value.assignments.map((row) => ({
         ...row,
         ...(overlapPreviews.value[row.id] ?? {}),
@@ -233,6 +251,8 @@ const rosterEnabled = computed(
 );
 const removeAssignment = (assignment) => {
     if (!rosterEnabled.value) return;
+    form.meals = removeMealRecipient(form.meals, assignment.id);
+    clearMealErrors();
     previewRequests.get(assignment.id)?.abort();
     delete overlapPreviews.value[assignment.id];
     delete assignmentErrors.value[assignment.id];
@@ -288,6 +308,8 @@ const stagePerson = (data) => {
 };
 const stageHours = (assignment, data, record = true) => {
     if (!rosterEnabled.value) return;
+    form.meals = removeMealRecipient(form.meals, assignment.id);
+    clearMealErrors();
     previewRequests.get(assignment.id)?.abort();
     previewRequests.delete(assignment.id);
     delete assignmentErrors.value[assignment.id];
@@ -548,12 +570,14 @@ const submit = (afterSave) => {
         return;
     }
 
+    const submittedMeals = [...form.meals];
     const submitted = [...form.slots];
     const submittedBreaks = [...form.breaks];
     const submittedPeople = [...form.assignment_additions];
     const submittedUpdates = [...form.assignment_updates];
-    form.transform((data) => ({
+    form.transform(({ meals, ...data }) => ({
         ...data,
+        ...(!props.copying ? { meals: shiftMealPayload(meals) } : {}),
         slots: shiftSlotPayload(data.slots, true),
         breaks: shiftBreakPayload(data.breaks).map((row, i) => ({
             ...row,
@@ -621,11 +645,13 @@ const submit = (afterSave) => {
                     timelineShift.value.assignments.find(
                         (row) => String(row.id) === invalidPerson,
                     ) ?? null;
+            mealErrors.value = shiftMealErrors(submittedMeals, errors);
             slotErrors.value = shiftSlotErrors(submitted, errors);
             breakErrors.value = shiftBreakErrors(submittedBreaks, errors);
             if (
                 Object.keys(errors).some(
                     (key) =>
+                        key.startsWith('meals') ||
                         key.startsWith('slots') ||
                         key.startsWith('breaks') ||
                         key.startsWith('assignment_'),
@@ -638,6 +664,7 @@ const submit = (afterSave) => {
         },
         onSuccess: () => {
             if (!creating.value) {
+                form.meals = draftShiftMeals(initialShift.value.meals);
                 form.slots = draftShiftSlots(initialShift.value.slots);
                 form.breaks = draftShiftBreaks(initialShift.value.breaks);
             }
@@ -652,6 +679,7 @@ const submit = (afterSave) => {
             bulkNotes.value = [];
             breakRevision.value++;
             form.defaults();
+            mealErrors.value = {};
             slotErrors.value = {};
             breakErrors.value = {};
             if (typeof afterSave === 'function') afterSave();
@@ -1035,6 +1063,29 @@ const destroy = () => {
                         {{ note }}
                     </p>
                 </Card>
+                <Card class="min-w-0">
+                    <ShiftMeals
+                        v-model="form.meals"
+                        :options="mealOptions"
+                        :people="rosterShift.assignments"
+                        :starts-at="form.starts_at"
+                        :ends-at="form.ends_at"
+                        :errors="mealErrors"
+                        :collection-error="form.errors.meals || ''"
+                        :editable="canWrite"
+                        :busy="form.processing"
+                        :copying="copying"
+                        :can-configure="canConfigureMeals"
+                        :disabled-reason="
+                            $t(
+                                event.is_locked
+                                    ? 'team.scheduling.locked'
+                                    : 'team.scheduling.no_permission',
+                            )
+                        "
+                        @clear-error="clearMealErrors"
+                    />
+                </Card>
             </div>
         </div>
 
@@ -1042,7 +1093,7 @@ const destroy = () => {
             v-if="canWrite"
             class="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-ground py-4 lg:left-[var(--app-sidebar-width)]"
         >
-            <div class="container mx-auto px-4 md:px-6 xl:px-0">
+            <div class="container mx-auto px-4 md:px-6">
                 <div
                     class="mx-auto flex max-w-6xl items-center justify-between gap-3 xl:max-w-none"
                 >

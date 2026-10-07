@@ -24,7 +24,7 @@ class ShiftRepository
             ->with(['shifts' => fn ($query) => $query
                 ->where('event_id', $event->id)
                 ->where('starts_at', '<', $end)->where('ends_at', '>', $start)
-                ->withCount('assignments')->with('roleSlots')
+                ->withCount('assignments')->with(['roleSlots', 'meals.meal.mealType'])
                 ->orderBy('starts_at')->orderBy('id')])
             ->orderBy('name')->orderBy('id')
             ->paginate(25, ['*'], 'page', $page);
@@ -94,7 +94,7 @@ class ShiftRepository
         $query = Shift::query()
             ->whereBelongsTo($event)
             ->withCount('assignments')
-            ->with(['location:id,name', 'roleSlots.role:id,name']);
+            ->with(['location:id,name', 'roleSlots.role:id,name', 'meals.meal.mealType']);
         $total = (clone $query)->count();
 
         if ($search !== '') {

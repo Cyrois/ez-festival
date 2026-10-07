@@ -8,6 +8,7 @@ use App\Http\Requests\Team\DestroyShiftRequest;
 use App\Http\Requests\Team\ShowShiftRequest;
 use App\Http\Requests\Team\StoreShiftRequest;
 use App\Http\Requests\Team\UpdateShiftRequest;
+use App\Http\Resources\MealResource;
 use App\Http\Resources\ShiftResource;
 use App\Models\Event;
 use App\Models\Shift;
@@ -49,6 +50,8 @@ class ShiftController extends Controller
             'roles' => ShiftSlotReferences::options(),
             'labelColors' => LabelColors::ALL,
             'breakOptions' => ShiftBreaks::options(),
+            'mealOptions' => MealResource::collection($event->meals()->with('mealType')->orderBy('date')->orderBy('starts_at')->orderBy('name')->get())->resolve($request),
+            'canConfigureMeals' => Gate::allows('meals.edit'),
             'prefill' => $prefill,
             'returnContext' => ShiftReturnContext::from($data),
         ]);
@@ -71,6 +74,8 @@ class ShiftController extends Controller
             'roles' => Gate::allows('scheduling.edit') && ! $event->isLocked() ? ShiftSlotReferences::options() : [],
             'labelColors' => LabelColors::ALL,
             'breakOptions' => ShiftBreaks::options(),
+            'mealOptions' => MealResource::collection($event->meals()->with('mealType')->orderBy('date')->orderBy('starts_at')->orderBy('name')->get())->resolve($request),
+            'canConfigureMeals' => Gate::allows('meals.edit'),
             'returnContext' => ShiftReturnContext::from($request->validated()),
         ]);
     }

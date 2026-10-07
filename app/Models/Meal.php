@@ -6,6 +6,7 @@ use App\Models\Concerns\HasNormalizedName;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['meal_type_id', 'name', 'date', 'starts_at', 'ends_at'])]
 class Meal extends Model
@@ -15,6 +16,11 @@ class Meal extends Model
     protected function casts(): array
     {
         return ['date' => 'date'];
+    }
+
+    public function shiftMeals(): HasMany
+    {
+        return $this->hasMany(ShiftMeal::class);
     }
 
     public function event(): BelongsTo

@@ -1,3 +1,5 @@
+import * as mealHelpers from '../../resources/js/lib/shiftMeals.js';
+import * as mealDateHelpers from '../../resources/js/lib/mealDates.js';
 import * as personalBreakHelpers from '../../resources/js/lib/personalBreaks.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -61,6 +63,9 @@ globalThis.fetch = async (url, options) => {
     return previewResponse;
 };
 const deps = {
+    ...mealHelpers,
+    ...mealDateHelpers,
+    getActiveLanguage: () => "en",
     ...personalBreakHelpers,
     ...copy,
     ...slots,
@@ -283,7 +288,9 @@ async function compile(path) {
         )
     ).default;
 }
+deps.Tooltip = await compile('components/ui/tooltip/Tooltip');
 deps.ShiftTimelineRoster = await compile('components/team/ShiftTimelineRoster');
+deps.ShiftMeals = await compile('components/team/ShiftMeals');
 deps.ShiftEditor = await compile('components/team/ShiftEditor');
 const Create = await compile('pages/Team/CopyShift');
 const Shift = await compile('pages/Team/Shift');
@@ -520,4 +527,18 @@ test('templates URL opens Schedule initially and when navigating from List', asy
     await nextTick();
     assert.ok(document.querySelector('[data-panel="schedule"]'));
     app.unmount();
+});
+
+test('Copy shift omits meals from its draft and payload and only shows the warning card', async () => {
+    const props = baseProps();
+    props.copying = true;
+    props.prefill.meals = [{ meal_id: 12, assignment_ids: [90], meal: { name: 'Dinner', starts_at: '17:30' } }];
+    const app = mount(Create, props);
+    try {
+        assert.deepEqual(form.meals, []);
+        assert.match(document.body.textContent, /Meals can[’']t be copied/);
+        assert.doesNotMatch(document.body.textContent, /Choose who on this shift/);
+        submit();
+        assert.equal(Object.hasOwn(writes[0].data, 'meals'), false);
+    } finally { app.unmount(); }
 });

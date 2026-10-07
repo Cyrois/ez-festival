@@ -244,11 +244,16 @@ class EventControllerTest extends TestCase
             'date' => $event->starts_on, 'starts_at' => '07:00:00', 'ends_at' => '10:00:00',
         ]);
 
+        $shiftMeal = $shift->meals()->create(['meal_id' => $meal->id]);
+        $shiftMeal->assignments()->attach($assignment->id);
+
         $this->actingAs($user)
             ->delete(route('settings.events.destroy', $event))
             ->assertRedirect(route('settings.events.index'));
 
         $this->assertModelMissing($assignment);
+        $this->assertModelMissing($shiftMeal);
+        $this->assertDatabaseCount('shift_meal_people', 0);
         $this->assertModelMissing($personalBreak);
         $this->assertModelMissing($mealType);
         $this->assertModelMissing($meal);

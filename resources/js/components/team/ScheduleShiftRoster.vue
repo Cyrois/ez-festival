@@ -66,6 +66,20 @@ const personGeometry = (assignment) => {
                         shift.name || $t('team.scheduling.unnamed_shift')
                     }}</span
                 >
+                <span
+                    v-if="shift.meals?.length"
+                    class="mt-1 flex items-center gap-1 truncate text-xs text-muted"
+                    :title="
+                        shift.meals.map((meal) => meal.meal.name).join(', ')
+                    "
+                >
+                    <Icon
+                        :name="['fas', 'utensils']"
+                        size="sm"
+                    /><span class="truncate">{{
+                        shift.meals.map((meal) => meal.meal.name).join(', ')
+                    }}</span>
+                </span>
                 <span class="mt-1 text-xs text-muted">{{ hours(shift) }}</span>
                 <span class="mt-1 flex items-center gap-2 text-xs">
                     {{

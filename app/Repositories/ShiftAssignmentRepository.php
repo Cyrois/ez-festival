@@ -6,6 +6,7 @@ use App\Models\Event;
 use App\Models\Shift;
 use App\Models\ShiftAssignment;
 use App\Models\TeamEngagement;
+use App\Queries\MealEntitlementQuery;
 use App\Support\ShiftAssignmentHours;
 use App\Support\ShiftAssignmentOverlaps;
 use App\Support\SqlLike;
@@ -77,6 +78,7 @@ class ShiftAssignmentRepository
     public function loadRoster(Shift $shift): Shift
     {
         $shift->load(['breaks', 'location:id,name', 'roleSlots.role:id,name', 'assignments.breaks', 'assignments.role:id,name', 'assignments.teamEngagement:id,person_id', 'assignments.teamEngagement.person:id,name']);
+        app(MealEntitlementQuery::class)->loadForShifts(new \Illuminate\Database\Eloquent\Collection([$shift]), $shift->event);
         $shift->loadCount('assignments');
         $assignments = $shift->assignments;
         $others = ShiftAssignmentOverlaps::forMembers($shift, $assignments->pluck('team_engagement_id')->unique()->all(), $shift->starts_at->copy()->subMinutes(30), $shift->ends_at->copy()->addMinutes(30));
@@ -94,6 +96,7 @@ class ShiftAssignmentRepository
             'roleSlots.role:id,name', 'assignments.breaks', 'assignments.role:id,name',
             'assignments.teamEngagement:id,person_id', 'assignments.teamEngagement.person:id,name',
         ]);
+        app(MealEntitlementQuery::class)->loadForShifts($shifts, $event);
         $assignments = $shifts->flatMap(fn ($shift) => $shift->assignments);
         $others = ShiftAssignment::query()
             ->whereIn('team_engagement_id', $assignments->pluck('team_engagement_id')->unique())

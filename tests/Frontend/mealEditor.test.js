@@ -33,7 +33,19 @@ const title = await compile('../../resources/js/components/ui/card/CardTitle.vue
 const card = await compile('../../resources/js/components/ui/card/Card.vue', [
     [/import CardTitle from ['"].*?['"];?/, `import CardTitle from '${title}';`],
 ]);
+const dropdownTag = await compile('../../resources/js/components/ui/tag/Tag.vue', [
+    [/from ['"].*?lib\/labelTokens['"]/, `from '${new URL('../../resources/js/lib/labelTokens.js', import.meta.url).href}'`],
+    [/import \{ Icon \} from ['"].*?['"];?/, 'const Icon = { render: () => null };'],
+]);
+const dropdownCheckbox = await compile('../../resources/js/components/ui/checkbox/Checkbox.vue');
+const dropdownAvatar = await compile('../../resources/js/components/ui/avatar/Avatar.vue', [
+    [/from ['" ]class-variance-authority['"]/, `from '${pathToFileURL(require.resolve('class-variance-authority').replace('/dist/index.js', '/dist/index.mjs')).href}'`],
+    [/import \{ Icon \} from ['"].*?['"];?/, 'const Icon = { render: () => null };'],
+]);
 const dropdown = await compile('../../resources/js/components/ui/custom-dropdown/CustomDropdown.vue', [
+        [/import \{ Tag \} from ['"].*?['"];?/, `import Tag from '${dropdownTag}';`],
+        [/import \{ Checkbox \} from ['"].*?['"];?/, `import Checkbox from '${dropdownCheckbox}';`],
+        [/import \{ Avatar \} from ['"].*?['"];?/, `import Avatar from '${dropdownAvatar}';`],
     [/import \{ Input \} from ['"].*?['"];?/, `import Input from '${input}';`],
 ]);
 const button = await compile('../../resources/js/components/ui/button/Button.vue', [
@@ -112,7 +124,7 @@ test('Edit retains the saved window when its type changes, updates the hint and 
         assert.equal(form.starts_at, '17:30');
         assert.equal(form.ends_at, '19:30');
         assert.match(document.body.textContent, /Lunch’s window is 11:00–14:00/);
-        assert.match(document.body.textContent, /Changes apply on every shift/);
+        assert.match(document.body.textContent, /Changes apply to this meal/);
         assert.equal(document.querySelector('input[type="date"]').value, '2027-07-10');
         document.querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
         assert.deepEqual(submissions, [{ method: 'put', url: '/events/8/meals/15' }]);
@@ -132,4 +144,14 @@ test('calendar labels keep the event day and the next-day weekday across month, 
     assert.equal(mealDateLabel('2026-12-31', 'en'), 'Thu, Dec 31');
     assert.equal(mealNextDayLabel('2026-12-31', 'en'), 'Fri');
     assert.equal(mealNextDayLabel('2026-03-07', 'en'), 'Sun');
+});
+
+ test('assigned meal editor explains the restriction and refuses edits', () => {
+    const { app, submissions } = mount({ id: 15, name: 'Fri Dinner', meal_type_id: 7, date: '2027-07-10', starts_at: '17:30', ends_at: '19:30', assigned_to_shifts: true }, false);
+    try {
+        assert.match(document.body.textContent, /Remove it from all shifts first/);
+        assert.ok([...document.querySelectorAll('input, button[type="submit"]')].every((control) => control.disabled));
+        document.querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+        assert.deepEqual(submissions, []);
+    } finally { app.unmount(); }
 });

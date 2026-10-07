@@ -49,7 +49,7 @@ class MealService
     /** @return array<string, string> */
     public function validationErrors(Event $event, array $data, ?Meal $ignore = null): array
     {
-        $errors = [];
+        $errors = $ignore !== null ? $this->editErrors($ignore) : [];
         if ($event->meals()->when($ignore, fn ($query) => $query->whereKeyNot($ignore->id))
             ->where('name_key', Meal::normalizeName($data['name']))->exists()) {
             $errors['name'] = __('meals.errors.name_taken');
@@ -71,11 +71,27 @@ class MealService
     }
 
     /** @return array<string, string> */
+    public function editErrors(Meal $meal): array
+    {
+        return $meal->shiftMeals()->exists()
+            ? ['meal' => __('meals.errors.assigned_edit', ['name' => $meal->name])]
+            : [];
+    }
+
+    /** @return array<string, string> */
     public function deletionErrors(Meal $meal): array
     {
         // Meals 4 adds the real claims table. No placeholder schema is needed here.
         if (Schema::hasTable('meal_claims') && DB::table('meal_claims')->where('meal_id', $meal->id)->exists()) {
             return ['meal' => __('meals.errors.used', ['name' => $meal->name])];
+        }
+
+        $shifts = $meal->shiftMeals()->with('shift.location')->get()->pluck('shift')->unique('id');
+        if ($shifts->isNotEmpty()) {
+            return ['meal' => __('meals.errors.assigned_delete', [
+                'name' => $meal->name, 'count' => $shifts->count(),
+                'shifts' => $shifts->map(fn ($shift) => $shift->location->name.', '.$shift->starts_at->format('D Y-m-d H:i').'–'.$shift->ends_at->format('Y-m-d H:i'))->implode('; '),
+            ])];
         }
 
         return [];
