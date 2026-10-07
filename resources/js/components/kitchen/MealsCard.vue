@@ -57,7 +57,7 @@ const columns = computed(() => [
     {
         data: null,
         defaultContent: '',
-        title: trans('meals.actions'),
+        title: '',
         render: { display: '#actionsCell' },
     },
 ]);
@@ -69,7 +69,7 @@ const tableOptions = computed(() => ({
     pageLength: 25,
     layout: { topStart: null, topEnd: null },
     columnDefs: [{ targets: 4, className: 'text-right' }],
-    language: { emptyTable: trans('meals.empty') },
+    language: { emptyTable: trans('meals.list_empty') },
 }));
 const openDelete = (meal) => {
     if (!canWrite.value || form.processing) return;
@@ -153,7 +153,7 @@ defineExpose({ reload });
         </div>
         <EmptyState
             v-if="count === 0"
-            :title="$t('meals.empty')"
+            :title="$t('meals.list_empty')"
         />
         <DataTable
             v-else
