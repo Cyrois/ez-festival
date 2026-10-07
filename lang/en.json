@@ -1540,6 +1540,7 @@
     "team.scheduling.roster.legend_break": "Break (not paid)",
     "team.scheduling.breaks.errors.personal_containment": "The break must start and end inside this person's hours.",
     "nav.meals": "Kitchen",
+    "nav.meals.settings": "Meals",
     "permissions.groups.meals": "Kitchen",
     "permissions.meals.view.label": "View meals",
     "permissions.meals.view.tooltip": "The Kitchen page, Kitchen settings and the meal report.",
