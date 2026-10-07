@@ -20,8 +20,9 @@ class CheckInPeopleQuery
         string $status,
         string $type,
         int $perPage = 25,
+        array $emailDomains = [],
     ): LengthAwarePaginator {
-        $query = $this->baseQuery($eventId, $passId, $search, $status, $type)
+        $query = $this->baseQuery($eventId, $passId, $search, $status, $type, $emailDomains)
             ->orderByRaw('MIN(lower(p.name))');
 
         /** @var LengthAwarePaginator<int, object> $paginator */
@@ -41,7 +42,7 @@ class CheckInPeopleQuery
         ]);
     }
 
-    private function baseQuery(int $eventId, ?int $passId, string $search, string $status, string $type): Builder
+    private function baseQuery(int $eventId, ?int $passId, string $search, string $status, string $type, array $emailDomains): Builder
     {
         $passNames = match (DB::connection()->getDriverName()) {
             'pgsql' => "STRING_AGG(DISTINCT pt.name, ',' ORDER BY pt.name)",
@@ -71,11 +72,21 @@ class CheckInPeopleQuery
             ->when($type === 'artist', fn (Builder $query) => $query->whereNotNull('ae.id'))
             ->when($type === 'vendor', fn (Builder $query) => $query->whereNotNull('ve.id'))
             ->when($passId !== null, fn (Builder $query) => $query->where('pa.pass_type_id', $passId))
-            ->when($search !== '', function (Builder $query) use ($search, $passId): void {
+            ->when($search !== '', function (Builder $query) use ($search, $passId, $emailDomains): void {
                 $pattern = '%'.SqlLike::escape(mb_strtolower($search)).'%';
-                $query->where(function (Builder $query) use ($pattern, $passId): void {
+                $query->where(function (Builder $query) use ($pattern, $passId, $emailDomains): void {
                     $query->whereRaw("lower(p.name) like ? escape '!'", [$pattern])
-                        ->orWhereRaw("lower(p.email) like ? escape '!'", [$pattern])
+                        ->when($emailDomains !== [], fn (Builder $query) => $query->orWhere(function (Builder $emails) use ($pattern, $emailDomains): void {
+                            $emails->whereRaw("lower(p.email) like ? escape '!'", [$pattern])
+                                ->where(function (Builder $owners) use ($emailDomains): void {
+                                    if (in_array('artist', $emailDomains, true)) {
+                                        $owners->orWhereNotNull('ae.id');
+                                    }
+                                    if (in_array('vendor', $emailDomains, true)) {
+                                        $owners->orWhereNotNull('ve.id');
+                                    }
+                                });
+                        }))
                         ->orWhereRaw("lower(a.name) like ? escape '!'", [$pattern])
                         ->orWhereRaw("lower(v.name) like ? escape '!'", [$pattern])
                         ->orWhereExists(function (Builder $codes) use ($pattern, $passId): void {

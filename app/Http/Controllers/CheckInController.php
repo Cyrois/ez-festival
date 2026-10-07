@@ -29,8 +29,9 @@ class CheckInController extends Controller
         $passId = isset($filters['pass']) ? (int) $filters['pass'] : null;
         $search = trim($filters['search'] ?? '');
 
+        $emailDomains = array_values(array_filter(['artist', 'vendor'], fn (string $domain): bool => $request->user()->can($domain === 'artist' ? 'artists.personal_info' : 'vendors.personal_info', $event)));
         $people = in_array($type, ['all', 'artist', 'vendor'], true)
-            ? $this->people->paginate($event->id, $passId, $search, $status, $type)
+            ? $this->people->paginate($event->id, $passId, $search, $status, $type, emailDomains: $emailDomains)
             : $this->people->empty();
         $canEdit = [
             'artist' => $request->user()->can('artists.edit', $event),
