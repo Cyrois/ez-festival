@@ -447,9 +447,7 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                 </div>
 
                 <div
-                    v-if="
-                        viewMode === 'list' && engagements.meta?.last_page > 1
-                    "
+                    v-if="engagements.meta?.last_page > 1"
                     class="mt-4 flex flex-wrap items-center justify-between gap-3"
                 >
                     <p class="m-0 text-sm text-muted">

@@ -7,7 +7,6 @@ use App\Models\TeamEngagement;
 use App\Support\SqlLike;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
 
 class TeamEngagementRepository
 {
@@ -20,15 +19,6 @@ class TeamEngagementRepository
         return $this->listed($event, $search, $employmentTypes)
             ->paginate(25)
             ->withQueryString();
-    }
-
-    /**
-     * @param  list<string>  $employmentTypes
-     * @return Collection<int, TeamEngagement>
-     */
-    public function all(?Event $event, string $search, array $employmentTypes): Collection
-    {
-        return $this->listed($event, $search, $employmentTypes)->get();
     }
 
     /**
