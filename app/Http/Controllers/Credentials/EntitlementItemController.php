@@ -9,10 +9,8 @@ use App\Http\Requests\Credentials\EditEntitlementItemRequest;
 use App\Http\Requests\Credentials\StoreEntitlementItemRequest;
 use App\Http\Requests\Credentials\UpdateEntitlementItemRequest;
 use App\Http\Resources\EntitlementItemResource;
-use App\Http\Resources\IssuedEntitlementResource;
 use App\Models\EntitlementItem;
 use App\Models\Event;
-use App\Models\IssuedEntitlement;
 use App\Services\EntitlementItemService;
 use App\Support\EventContext;
 use App\Support\LabelColors;
@@ -158,13 +156,6 @@ class EntitlementItemController extends Controller
                 'issued' => $this->items->issuedCount($item),
             ],
             'locations' => $locations,
-            'issued_log' => IssuedEntitlementResource::collection(
-                IssuedEntitlement::query()
-                    ->where('entitlement_item_id', $item->id)
-                    ->with(['expectedEntitlement.passAssignment.passType', 'issuedBy'])
-                    ->latest('issued_at')
-                    ->get(),
-            )->resolve(),
             'pass_usage' => $this->items->passLineUsage($item),
             'locations_for_adjust' => $eventLocations
                 ->map(fn ($location): array => [
