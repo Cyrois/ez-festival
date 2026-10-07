@@ -222,6 +222,12 @@ class EntitlementItemService
 
     public function forgetList(int $eventId): void
     {
+        if (DB::transactionLevel() > 0) {
+            DB::afterCommit(fn () => Cache::forget($this->listKey($eventId)));
+
+            return;
+        }
+
         Cache::forget($this->listKey($eventId));
     }
 
