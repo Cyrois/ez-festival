@@ -17,6 +17,7 @@ class KitchenSettingsController extends Controller
         return Inertia::render('Kitchen/Settings', [
             'event' => ['id' => $event->id, 'name' => $event->name, 'is_locked' => $event->isLocked()],
             'canEdit' => $request->user()->can('meals.edit', $event),
+            'mealCount' => $event->meals()->count(),
         ]);
     }
 }

@@ -153,6 +153,14 @@ const navItems = computed(() =>
             href: '/meals',
             icon: ['fas', 'utensils'],
             enabled: true,
+            children: [
+                {
+                    key: 'meals.settings',
+                    href: '/meals/settings',
+                    icon: ['fas', 'list'],
+                    enabled: true,
+                },
+            ],
         },
     ]
         .map((item) => {
