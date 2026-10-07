@@ -48,11 +48,13 @@ const dotClass = computed(() =>
 
 <template>
     <span :class="classes">
-        <span
-            :class="dotClass"
-            aria-hidden="true"
-        />
-        <span>{{ name }}</span>
+        <slot name="leading">
+            <span
+                :class="dotClass"
+                aria-hidden="true"
+            />
+        </slot>
+        <span class="min-w-0 truncate">{{ name }}</span>
         <button
             v-if="removable"
             type="button"

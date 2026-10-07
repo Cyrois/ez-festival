@@ -102,6 +102,13 @@ const submit = () => {
             >
                 {{ $t('events.read_only_locked') }}
             </p>
+            <p
+                v-if="meal?.assigned_to_shifts"
+                class="mb-5 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-charcoal"
+                role="status"
+            >
+                {{ $t('meals.errors.assigned_edit', { name: meal.name }) }}
+            </p>
             <form
                 id="meal-form"
                 class="grid items-start gap-4 xl:grid-cols-2"
@@ -216,7 +223,7 @@ const submit = () => {
                         {{ typeHint }}
                     </p>
                     <p
-                        v-if="!creating"
+                        v-if="!creating && !meal.assigned_to_shifts"
                         class="mt-4 flex items-center gap-2 rounded-lg bg-page p-3 text-sm text-charcoal"
                     >
                         <Icon

@@ -1,3 +1,5 @@
+import * as mealHelpers from '../../resources/js/lib/shiftMeals.js';
+import * as mealDateHelpers from '../../resources/js/lib/mealDates.js';
 import * as personalBreakHelpers from '../../resources/js/lib/personalBreaks.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -53,6 +55,9 @@ const box = (tag) => ({
 const writes = [];
 let form;
 const deps = {
+    ...mealHelpers,
+    ...mealDateHelpers,
+    getActiveLanguage: () => "en",
     ...personalBreakHelpers,
     ...breakHelpers,
     cn,
@@ -225,9 +230,11 @@ async function compile(name, folder = 'components/team') {
         )
     ).default;
 }
+deps.Tooltip = await compile('Tooltip', 'components/ui/tooltip');
 const Roster = await compile('ShiftTimelineRoster');
 deps.CustomDropdown = {props: ['modelValue', 'items'], setup: (p, {emit}) => () => h('select', {value: p.modelValue, onChange: (e) => emit('update:modelValue', e.target.value)}, p.items.map((row) => h('option', {value: row.value}, row.title)))};
 deps.ShiftBreaks = await compile('ShiftBreaks');
+deps.ShiftMeals = await compile('ShiftMeals');
 const Hours = await compile('ShiftAssignmentHoursDialog');
 deps.UnsavedChangesDialog = await compile('UnsavedChangesDialog', 'components/ui/unsaved-changes-dialog');
 function mount(component, props) {
@@ -1405,4 +1412,56 @@ test('moving a break stages its independent time in Save without changing person
         assert.equal(payload.break_operations.at(-1).type, 'person');
         assert.equal(payload.break_operations.at(-1).assignment_key, 8);
     } finally {app.unmount();}
+});
+
+test('meal badges follow only the listed draft recipients and show counts and accessible meal names', async () => {
+    const props = reactive({ shift: { ...shift, meals: [
+        { id: 30, meal_id: 1, assignment_ids: [8], meal: {name: 'Dinner', starts_at: '17:30'} },
+        { id: 31, meal_id: 2, assignment_ids: [8], meal: {name: 'Late dinner', starts_at: '20:00'} },
+    ] }, enabled: false, canManage: false });
+    const app = mount(Roster, props);
+    try {
+        let badge = document.querySelector('[data-roster-row="person-8"] [aria-label^="team.scheduling.meals.badge_hint"]');
+        assert.ok(badge);
+        assert.match(badge.getAttribute('aria-label'), /Dinner · 17:30.*Late dinner · 20:00/);
+        assert.match(badge.textContent, /2/);
+        badge.focus();
+        await nextTick(); await nextTick();
+        const tooltip = document.querySelector('body > [role="tooltip"]');
+        assert.ok(tooltip);
+        assert.match(tooltip.textContent, /Dinner.*17:30.*Late dinner.*20:00/s);
+        assert.equal(badge.getAttribute('aria-describedby'), tooltip.id);
+        assert.equal(badge.querySelector('[role="tooltip"]'), null);
+        badge.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        await nextTick();
+        assert.equal(document.querySelector('body > [role="tooltip"]'), null);
+        assert.equal(document.querySelector('[data-roster-row="person-10"] [aria-label^="team.scheduling.meals.badge_hint"]'), null);
+        props.shift.meals = [{_key: 'draft-one', meal_id: 1, assignment_keys: [10], meal: {name: 'Dinner', starts_at: '17:30'}}];
+        await nextTick();
+        assert.equal(document.querySelector('[data-roster-row="person-8"] [aria-label^="team.scheduling.meals.badge_hint"]'), null);
+        badge = document.querySelector('[data-roster-row="person-10"] [aria-label^="team.scheduling.meals.badge_hint"]');
+        assert.ok(badge);
+        assert.equal(badge.querySelector('span.ml-1'), null);
+        assert.equal(document.querySelector('[data-meal-marker]'), null);
+    } finally { app.unmount(); }
+});
+
+test('meal rows use the atomic shift Save payload and recipient removal follows the draft roster', async () => {
+    deps.ShiftTimelineRoster = Roster;
+    const Page = await compile('ShiftEditor');
+    const app = mount(Page, { shift: {...shift, breaks: [], meals: [{id:30,meal_id:1,assignment_ids:[8,10],meal:{name:'Dinner',starts_at:'17:30',ends_at:'19:30',meal_type:{name:'Dinner'}}}]}, event:{id:2,is_locked:false},canManage:true,locations:[],roles:[],labelColors:[],breakOptions:{durations:[15,30,45,60],default_duration:15}});
+    writes.length = 0;
+    try {
+        const row = document.querySelector('[data-roster-row="person-8"]');
+        [...row.querySelectorAll('button')].find((button) => button.title.startsWith('team.scheduling.assignments.remove')).click();
+        await nextTick();
+        assert.deepEqual(form.meals[0].assignment_keys, [10]);
+        assert.equal(writes.length, 0);
+        document.querySelector('#shift-details-form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true}));
+        assert.deepEqual(writes[0].data.meals, [{meal_id:1,assignment_keys:[10]}]);
+        assert.deepEqual(writes[0].data.assignment_removals, [8]);
+        writes[0].options.onError({'meals.0.assignment_keys': 'Pick who gets this meal, or remove it.'});
+        await nextTick();
+        assert.match(document.body.textContent, /Pick who gets this meal/);
+    } finally { app.unmount(); }
 });

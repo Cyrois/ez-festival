@@ -17,6 +17,7 @@ class ShiftResource extends JsonResource
             'location' => $this->whenLoaded('location', fn () => $this->location->name),
             'starts_at' => $this->starts_at->format('Y-m-d\TH:i'),
             'ends_at' => $this->ends_at->format('Y-m-d\TH:i'),
+            'meals' => $this->whenLoaded('meals', fn () => ShiftMealResource::collection($this->meals)->resolve($request)),
             'breaks' => $this->whenLoaded('breaks', fn () => ShiftBreakResource::collection($this->breaks)->resolve($request)),
             'slots' => $this->whenLoaded('roleSlots', fn () => ShiftRoleSlotResource::collection($this->roleSlots)->resolve($request)),
             'total_needs' => $this->whenLoaded('roleSlots', fn () => $this->roleSlots->sum('needed')),

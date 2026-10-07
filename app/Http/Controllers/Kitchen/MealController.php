@@ -74,9 +74,9 @@ class MealController extends Controller
                 'ends_on' => $event->ends_on->format('Y-m-d'),
                 'timezone' => $event->timezone, 'is_locked' => $event->isLocked(),
             ],
-            'meal' => $meal ? (new MealResource($meal->load('mealType')))->resolve() : null,
+            'meal' => $meal ? (new MealResource($meal->load('mealType')->loadExists('shiftMeals')))->resolve() : null,
             'mealTypes' => MealTypeResource::collection($event->mealTypes()->orderBy('starts_at')->orderBy('id')->get())->resolve(),
-            'canWrite' => ! $event->isLocked(),
+            'canWrite' => ! $event->isLocked() && ($meal === null || ! $meal->shift_meals_exists),
         ]);
     }
 }

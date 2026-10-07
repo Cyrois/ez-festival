@@ -13,7 +13,7 @@ class MealRepository
         return [
             'draw' => (int) $filters['draw'],
             'total' => $total,
-            'meals' => $event->meals()->with('mealType')
+            'meals' => $event->meals()->with('mealType')->withExists('shiftMeals')
                 ->orderBy('date')->orderBy('starts_at')->orderBy('id')
                 ->offset((int) $filters['start'])->limit((int) $filters['length'])->get(),
         ];

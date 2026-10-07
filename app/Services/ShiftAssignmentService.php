@@ -11,6 +11,7 @@ use App\Repositories\ShiftAssignmentRepository;
 use App\Repositories\ShiftBreakRepository;
 use App\Support\ShiftAssignmentHours;
 use App\Support\ShiftAssignmentOverlaps;
+use App\Support\ShiftMeals;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -91,6 +92,10 @@ class ShiftAssignmentService
             $event = Event::query()->lockForUpdate()->findOrFail($shift->event_id);
             $event->ensureWritable();
             $shift = $event->shifts()->lockForUpdate()->findOrFail($shift->id);
+            $errors = ShiftMeals::removalErrors($shift, $assignment->id);
+            if ($errors !== []) {
+                throw ValidationException::withMessages($errors);
+            }
             $shift->assignments()->lockForUpdate()->findOrFail($assignment->id)->delete();
         });
     }

@@ -35,6 +35,11 @@ class Shift extends Model
             ->orderBy('sort_order')->orderBy('id');
     }
 
+    public function meals(): HasMany
+    {
+        return $this->hasMany(ShiftMeal::class)->orderBy('id');
+    }
+
     public function breaks(): HasMany
     {
         return $this->hasMany(ShiftBreak::class)->orderBy('sort_order')->orderBy('id');

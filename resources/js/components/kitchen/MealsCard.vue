@@ -191,16 +191,42 @@ defineExpose({ reload });
                     :tabindex="!canWrite ? 0 : undefined"
                     :aria-label="!canWrite ? disabledReason : undefined"
                 >
-                    <Button
-                        :href="`/meals/settings/meals/${rowData.id}/edit`"
-                        variant="outline-secondary"
-                        size="icon"
-                        :disabled="!canWrite || form.processing"
-                        :aria-label="
-                            $t('meals.edit_name', { name: rowData.name })
+                    <span
+                        :title="
+                            rowData.assigned_to_shifts
+                                ? $t('meals.errors.assigned_edit', {
+                                      name: rowData.name,
+                                  })
+                                : undefined
                         "
-                        ><Icon :name="['fas', 'pencil']"
-                    /></Button>
+                        :tabindex="
+                            canWrite && rowData.assigned_to_shifts
+                                ? 0
+                                : undefined
+                        "
+                        :aria-label="
+                            rowData.assigned_to_shifts
+                                ? $t('meals.errors.assigned_edit', {
+                                      name: rowData.name,
+                                  })
+                                : undefined
+                        "
+                    >
+                        <Button
+                            :href="`/meals/settings/meals/${rowData.id}/edit`"
+                            variant="outline-secondary"
+                            size="icon"
+                            :disabled="
+                                !canWrite ||
+                                form.processing ||
+                                rowData.assigned_to_shifts
+                            "
+                            :aria-label="
+                                $t('meals.edit_name', { name: rowData.name })
+                            "
+                            ><Icon :name="['fas', 'pencil']"
+                        /></Button>
+                    </span>
                     <Button
                         variant="outline-danger"
                         size="icon"
