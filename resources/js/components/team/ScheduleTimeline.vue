@@ -324,7 +324,7 @@ onUnmounted(() => {
                                             ' ',
                                         ),
                                         end: shift.ends_at.replace('T', ' '),
-                                        filled: shift.filled_count,
+                                        filled: shift.assignment_count,
                                         needed: shift.total_needs,
                                     })
                                 "
@@ -354,7 +354,7 @@ onUnmounted(() => {
                                 <span class="mt-0.5 whitespace-nowrap">
                                     {{
                                         $t('team.scheduling.grid.filled', {
-                                            filled: shift.filled_count,
+                                            filled: shift.assignment_count,
                                             needed: shift.total_needs,
                                         })
                                     }}

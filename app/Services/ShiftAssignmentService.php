@@ -30,13 +30,17 @@ class ShiftAssignmentService
             $event = Event::query()->lockForUpdate()->findOrFail($shift->event_id);
             $event->ensureWritable();
             $shift = $event->shifts()->lockForUpdate()->findOrFail($shift->id);
-            $detached = isset($data['role_id']) && ! isset($data['shift_role_slot_id']);
+            $extra = filter_var($data['extra'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            if ($extra && (isset($data['shift_role_slot_id']) || isset($data['role_id']) || isset($data['slot_key']))) {
+                throw ValidationException::withMessages(['extra' => __('team.scheduling.assignments.errors.unexpected')]);
+            }
+            $detached = ! $extra && isset($data['role_id']) && ! isset($data['shift_role_slot_id']);
             $role = $detached ? Role::query()->lockForUpdate()->find($data['role_id']) : null;
             if ($detached && $role === null) {
                 throw ValidationException::withMessages(['role_id' => __('validation.exists', ['attribute' => 'role'])]);
             }
-            $slot = $detached ? null : $shift->roleSlots()->lockForUpdate()->find($data['shift_role_slot_id'] ?? null);
-            if (! $detached && $slot === null) {
+            $slot = ($extra || $detached) ? null : $shift->roleSlots()->lockForUpdate()->find($data['shift_role_slot_id'] ?? null);
+            if (! $extra && ! $detached && $slot === null) {
                 throw ValidationException::withMessages(['shift_role_slot_id' => __('team.scheduling.slots.errors.foreign_slot')]);
             }
             $member = TeamEngagement::query()->where('event_id', $event->id)->lockForUpdate()->find($data['team_engagement_id']);
@@ -51,7 +55,7 @@ class ShiftAssignmentService
                 // A savepoint rolls back a PostgreSQL unique violation before it is handled.
                 $assignment = DB::transaction(fn () => $shift->assignments()->create([
                     'team_engagement_id' => $member->id, 'shift_role_slot_id' => $slot?->id,
-                    'role_id' => $slot?->role_id ?? $role->id, 'starts_at' => $start, 'ends_at' => $end,
+                    'role_id' => $slot?->role_id ?? $role?->id, 'starts_at' => $start, 'ends_at' => $end,
                 ]));
                 $assignment->setRelation('shift', $shift);
                 $breaks = $data['breaks'] ?? app(ShiftBreakService::class)->snapshot(app(ShiftBreakRepository::class)->defaults($shift), $start, $end);

@@ -640,51 +640,57 @@ test('overlap warnings render in a DataTable component without app-global transl
     }
 });
 
-test('header assignment chooses a Headcount position, permits a different Team role and clears a previous selection', async () => {
-    const app = await mount({
-        requirement: null,
-        shift: {
-            ...shift,
-            slots: [
-                { id: 4, role_name: 'Security', needed: 2, assigned_count: 1 },
-                { id: 5, role_name: 'Crew', needed: 1, assigned_count: 1 },
-            ],
-        },
-    });
+test('extra searches immediately without slots, role selection or filtering and submits a direct assignment', async () => {
+    const app = await mount({ requirement: null, shift: { ...shift, slots: [] } });
     try {
-        assert.equal(harness.requests.length, 0);
+        assert.equal(harness.requests.length, 1);
+        const query = harness.requests[0].searchParams;
+        assert.equal(query.get('extra'), '1');
+        assert.equal(query.has('shift_role_slot_id'), false);
+        assert.equal(query.has('role_id'), false);
+        assert.equal(query.has('role_filter'), false);
+        assert.equal(document.querySelector('select'), null);
+        assert.equal(document.querySelector('[data-filter]'), null);
         assert.equal(document.querySelector('#assign').disabled, true);
-        const select = document.querySelector('select');
-        select.value = '4';
-        select.dispatchEvent(new dom.window.Event('change'));
-        await settle();
-        assert.equal(
-            harness.requests[0].searchParams.get('shift_role_slot_id'),
-            '4',
-        );
+        assert.ok(document.body.textContent.includes('Morning crew · 10:00–14:00'));
         await choose('Alpha');
         document.querySelector('#assign').click();
-        assert.equal(harness.writes.length, 1);
         assert.deepEqual(harness.writes[0].data, {
-            shift_role_slot_id: 4,
+            extra: true,
             team_engagement_id: 8,
             hours_mode: 'full_shift',
         });
-        select.value = '5';
-        select.dispatchEvent(new dom.window.Event('change'));
+    } finally { app.unmount(); }
+});
+
+test('new shift extra stages custom hours without inventing a headcount row or writing', async () => {
+    const drafts = [];
+    const app = await mount({
+        requirement: null,
+        shift: { ...shift, id: undefined, slots: [] },
+        deferred: true,
+        pendingMemberIds: [9],
+        onAssigned: draft => drafts.push(draft),
+    });
+    try {
+        assert.equal(harness.requests[0].pathname, '/team/events/2/shifts/assignment-candidates');
+        assert.equal(harness.requests[0].searchParams.get('shift_starts_at'), shift.starts_at);
+        assert.equal(document.querySelector('input[aria-label="Beta"]').disabled, true);
+        harness.form.hours_mode = 'custom';
+        harness.form.starts_at = '2026-10-01T11:00';
+        harness.form.ends_at = '2026-10-01T12:00';
+        await new Promise(resolve => setTimeout(resolve, 300));
         await settle();
-        assert.equal(
-            harness.requests.at(-1).searchParams.get('shift_role_slot_id'),
-            '5',
-        );
-        assert.equal(document.querySelector('#assign').disabled, true);
-        assert.equal(
-            document.querySelector('input[type=radio]').checked,
-            false,
-        );
-    } finally {
-        app.unmount();
-    }
+        await choose('Alpha');
+        document.querySelector('#assign').click();
+        assert.equal(harness.writes.length, 0);
+        assert.equal(drafts[0].extra, true);
+        assert.equal(drafts[0].slot, null);
+        assert.equal(drafts[0].starts_at, '2026-10-01T11:00');
+        assert.equal('slot_key' in drafts[0], false);
+        assert.equal('role_id' in drafts[0], false);
+        assert.equal(harness.closed, true);
+    } finally { app.unmount(); }
 });
 
 test('popup opens on Has this role with subtitle, hidden single-page pager, full-shift text and disabled footer hint', async () => {

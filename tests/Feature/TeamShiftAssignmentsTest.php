@@ -952,6 +952,167 @@ class TeamShiftAssignmentsTest extends TestCase
         $this->post(route('team.shifts.store', $this->event), $this->createPayload())->assertForbidden();
     }
 
+    public function test_extra_candidates_and_assignments_work_without_any_roles_or_slots(): void
+    {
+        $this->shift->roleSlots()->delete();
+        $this->role->delete();
+        $member = $this->member('Role-free person');
+        $before = $member->fresh()->toArray();
+        $query = ['extra' => true, 'hours_mode' => 'full_shift'];
+        $this->getJson(route('team.shifts.assignment-candidates', $this->shift).'?'.http_build_query($query))
+            ->assertOk()->assertJsonPath('data.0.id', $member->id)->assertJsonPath('data.0.suggested', false);
+        $this->post($this->storeUrl(), $this->extraPayload($member))->assertSessionHasNoErrors()
+            ->assertSessionHas('success', 'Role-free person assigned to shift.');
+        $assignment = $this->shift->assignments()->sole();
+        $this->assertNull($assignment->role_id);
+        $this->assertNull($assignment->shift_role_slot_id);
+        $this->assertSame($before, $member->fresh()->toArray());
+        $this->assertDatabaseCount('roles', 0);
+        $this->get(route('team.shifts.show', $this->shift))->assertInertia(fn (Assert $page) => $page
+            ->where('shift.assignment_count', 1)->where('shift.total_needs', 0)->where('shift.slots', [])
+            ->where('shift.assignments.0.role_name', null)->where('shift.assignments.0.is_extra', true));
+        $this->getJson(route('team.scheduling.shifts'))->assertJsonPath('data.0.assignment_count', 1)
+            ->assertJsonPath('data.0.total_needs', 0);
+    }
+
+    public function test_extra_save_and_removal_change_assigned_count_without_consuming_role_vacancies(): void
+    {
+        $this->shift->roleSlots()->whereKey($this->slotId)->update(['needed' => 3]);
+        $this->assign($this->member('First'));
+        $second = $this->member('Second');
+        $member = $this->member('Extra', $this->role);
+        $this->put($this->updateUrl(), $this->shiftPayload(['assignment_additions' => [$this->payload($second), $this->extraPayload($member)]]))
+            ->assertSessionHasNoErrors();
+        $this->get(route('team.shifts.show', $this->shift))->assertInertia(fn (Assert $page) => $page
+            ->where('shift.assignment_count', 3)->where('shift.total_needs', 3)->where('shift.slots.0.open_count', 1));
+        $assignment = $this->shift->assignments()->where('team_engagement_id', $member->id)->sole();
+        $this->assertNull($assignment->role_id);
+        $this->put($this->updateUrl(), $this->shiftPayload(['assignment_removals' => [$assignment->id]]))
+            ->assertSessionHasNoErrors();
+        $this->getJson(route('team.scheduling.shifts'))->assertJsonPath('data.0.assignment_count', 2)
+            ->assertJsonPath('data.0.total_needs', 3)->assertJsonPath('data.0.slots.0.open_count', 1);
+    }
+
+    public function test_extra_candidate_order_and_pagination_have_no_role_preference(): void
+    {
+        $alpha = $this->member('Alpha');
+        $zeta = $this->member('Zeta', $this->role);
+        $overlap = $this->member('A overlapping');
+        $already = $this->member('A assigned');
+        $other = $this->shift($this->event, 'Other shift');
+        app(ShiftAssignmentService::class)->create($other, $this->extraPayload($overlap));
+        app(ShiftAssignmentService::class)->create($this->shift, $this->extraPayload($already));
+        $this->member('Foreign', event: $this->event('Foreign event'));
+        $this->member('Declined', status: 'declined');
+        $url = route('team.shifts.assignment-candidates', $this->shift).'?'.http_build_query(['extra' => true, 'hours_mode' => 'full_shift', 'per_page' => 2]);
+        $this->getJson($url)->assertJsonPath('meta.total', 4)->assertJsonPath('data.0.id', $alpha->id)
+            ->assertJsonPath('data.1.id', $zeta->id)->assertJsonPath('data.1.suggested', false);
+        $this->getJson($url.'&page=2')->assertJsonPath('data.0.id', $overlap->id)
+            ->assertJsonCount(1, 'data.0.overlaps')->assertJsonPath('data.1.id', $already->id)->assertJsonPath('data.1.on_shift', true);
+        $this->getJson($url.'&role_filter=has_role')->assertUnprocessable();
+        $this->post($this->storeUrl(), $this->extraPayload($overlap))->assertSessionHasNoErrors();
+    }
+
+    public function test_create_and_copy_preserve_role_free_extra_hours_and_personal_breaks(): void
+    {
+        $member = $this->member('New extra');
+        $addition = [...$this->extraPayload($member), 'hours_mode' => 'custom',
+            'starts_at' => '2026-10-01T11:00', 'ends_at' => '2026-10-01T13:00',
+            'breaks' => [['duration_minutes' => 15, 'starts_at' => '2026-10-01T12:00']]];
+        $this->post(route('team.shifts.store', $this->event), $this->createPayload(['slots' => [], 'assignment_additions' => [$addition]]))
+            ->assertSessionHasNoErrors();
+        $created = $this->event->shifts()->where('name', 'New shift')->sole();
+        $this->assertSame(0, $created->roleSlots()->count());
+        $assignment = $created->assignments()->sole();
+        $this->assertNull($assignment->role_id);
+        $this->assertSame(15, $assignment->breaks()->sole()->duration_minutes);
+        $this->get(route('team.shifts.copy', $created))->assertInertia(fn (Assert $page) => $page
+            ->where('prefill.assignments.0.role_name', null)->where('prefill.assignments.0.slot_index', null)
+            ->where('prefill.assignments.0.breaks.0.duration_minutes', 15));
+        $this->post(route('team.shifts.store', $this->event), $this->createPayload(['name' => 'Copied extra', 'slots' => [], 'assignment_additions' => [$addition]]))
+            ->assertSessionHasNoErrors();
+        $copy = $this->event->shifts()->where('name', 'Copied extra')->sole()->assignments()->sole();
+        $this->assertNotSame($assignment->id, $copy->id);
+        $this->assertNull($copy->role_id);
+        $this->assertSame('11:00', $copy->starts_at->format('H:i'));
+        $this->assertSame(15, $copy->breaks()->sole()->duration_minutes);
+    }
+
+    public function test_extra_validation_and_duplicate_conflicts_roll_back_the_whole_save(): void
+    {
+        $member = $this->member('Extra');
+        $foreign = $this->member('Foreign', event: $this->event('Other'));
+        $declined = $this->member('Declined', status: 'declined');
+        foreach ([
+            [...$this->extraPayload($foreign)],
+            [...$this->extraPayload($declined)],
+            [...$this->extraPayload($member), 'extra' => false],
+            [...$this->extraPayload($member), 'role_id' => $this->role->id],
+            [...$this->extraPayload($member), 'shift_role_slot_id' => $this->slotId],
+            [...$this->extraPayload($member), 'slot_key' => 'draft-1'],
+            [...$this->extraPayload($member), 'hours_mode' => 'custom', 'starts_at' => '2026-10-01T09:00', 'ends_at' => '2026-10-01T12:00'],
+        ] as $addition) {
+            $this->put($this->updateUrl(), $this->shiftPayload(['name' => 'Must roll back', 'assignment_additions' => [$addition]]))
+                ->assertSessionHasErrors();
+            $this->assertSame('Show run', $this->shift->fresh()->name);
+            $this->assertSame(0, $this->shift->assignments()->count());
+        }
+        app(ShiftAssignmentService::class)->create($this->shift, $this->extraPayload($member));
+        $this->put($this->updateUrl(), $this->shiftPayload(['name' => 'Duplicate rollback', 'assignment_additions' => [$this->extraPayload($member)]]))
+            ->assertSessionHasErrors('assignment_additions.0.team_engagement_id');
+        $this->post($this->storeUrl(), $this->extraPayload($member))->assertSessionHasErrors('team_engagement_id');
+        $this->assertSame('Show run', $this->shift->fresh()->name);
+        $this->assertSame(1, $this->shift->assignments()->count());
+        $this->assertServiceValidation(fn () => app(ShiftAssignmentService::class)->create($this->shift, [...$this->extraPayload($member), 'role_id' => $this->role->id]), 'extra');
+    }
+
+    public function test_extra_assignments_only_require_the_existing_scheduling_edit_permission(): void
+    {
+        $this->grantRoleAccess($this->user, ['scheduling.edit']);
+        $member = $this->member('Extra person');
+        $url = route('team.shifts.assignment-candidates', $this->shift).'?extra=1&hours_mode=full_shift';
+
+        $this->getJson($url)->assertOk();
+        $this->post($this->storeUrl(), $this->extraPayload($member))
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success', 'Extra person assigned to shift.');
+        $assignment = $this->shift->assignments()->sole();
+        $this->assertNull($assignment->role_id);
+        $this->assertNull($assignment->shift_role_slot_id);
+    }
+
+    public function test_extras_keep_permission_lock_and_deletion_guards(): void
+    {
+        $member = $this->member('Extra');
+        $assignment = app(ShiftAssignmentService::class)->create($this->shift, $this->extraPayload($member));
+        $url = route('team.shifts.assignment-candidates', $this->shift).'?extra=1&hours_mode=full_shift';
+        $this->grantRoleAccess($this->user, ['scheduling.view']);
+        $this->getJson($url)->assertForbidden();
+        $this->put($this->updateUrl(), $this->shiftPayload(['assignment_additions' => [$this->extraPayload($this->member('New'))]]))->assertForbidden();
+        $this->grantAdminAccess($this->user);
+        $this->assertServiceValidation(fn () => $member->delete(), 'team_engagement_id');
+        $this->event->lock();
+        $this->getJson($url)->assertForbidden();
+        $this->post($this->storeUrl(), $this->extraPayload($this->member('Locked')))->assertForbidden();
+        try {
+            app(ShiftAssignmentService::class)->create($this->shift, $this->extraPayload($this->member('Service locked')));
+            $this->fail('Service must refuse a locked extra.');
+        } catch (HttpException $exception) {
+            $this->assertSame(403, $exception->getStatusCode());
+        }
+        $this->event->unlock();
+        $assignment->breaks()->create(['duration_minutes' => 15, 'starts_at' => '2026-10-01T12:00', 'sort_order' => 0]);
+        app(EventService::class)->delete($this->event);
+        $this->assertModelMissing($assignment);
+        $this->assertModelMissing($member);
+        $this->assertDatabaseCount('shift_assignment_breaks', 0);
+    }
+
+    private function extraPayload(TeamEngagement $member): array
+    {
+        return ['extra' => true, 'team_engagement_id' => $member->id, 'hours_mode' => 'full_shift'];
+    }
+
     private function createPayload(array $overrides = []): array
     {
         return $this->shiftPayload([

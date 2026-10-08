@@ -404,7 +404,7 @@ const resizeKey = (event, assignment, edge) => {
                 <p class="mt-1 mb-0 text-sm text-muted">
                     {{
                         $t('team.scheduling.grid.filled', {
-                            filled: shift.filled_count,
+                            filled: shift.assignment_count,
                             needed: shift.total_needs,
                         })
                     }}
@@ -624,15 +624,19 @@ const resizeKey = (event, assignment, edge) => {
                                     </Tooltip>
                                 </div>
                                 <p
+                                    v-if="
+                                        row.assignment?.role_name ||
+                                        row.slot?.role_name
+                                    "
                                     class="mt-1 mb-0 truncate text-xs text-muted"
                                     :title="
                                         row.assignment?.role_name ??
-                                        row.slot.role_name
+                                        row.slot?.role_name
                                     "
                                 >
                                     {{
                                         row.assignment?.role_name ??
-                                        row.slot.role_name
+                                        row.slot?.role_name
                                     }}
                                 </p>
                             </div>
@@ -1098,7 +1102,7 @@ const resizeKey = (event, assignment, edge) => {
                             >
                                 <span class="min-w-0 truncate">{{
                                     $t('team.scheduling.roster.open_role', {
-                                        role: row.slot.role_name,
+                                        role: row.slot?.role_name,
                                     })
                                 }}</span>
                                 <span
@@ -1163,7 +1167,7 @@ const resizeKey = (event, assignment, edge) => {
                                 :label="
                                     $t(
                                         'team.scheduling.assignments.assign_role',
-                                        { role: row.slot.role_name },
+                                        { role: row.slot?.role_name },
                                     )
                                 "
                                 :disabled="!canAssign"

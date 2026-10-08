@@ -17,7 +17,8 @@ trait ShiftAssignmentRules
         $shift = $this->route('shift');
 
         return [
-            'shift_role_slot_id' => ['required', 'integer', Rule::exists('shift_role_slots', 'id')->where('shift_id', $shift->id)],
+            'extra' => ['sometimes', 'boolean', 'accepted', 'prohibits:shift_role_slot_id'],
+            'shift_role_slot_id' => ['required_without:extra', 'prohibits:extra', 'integer', Rule::exists('shift_role_slots', 'id')->where('shift_id', $shift->id)],
             ...$this->hoursRules(),
         ];
     }

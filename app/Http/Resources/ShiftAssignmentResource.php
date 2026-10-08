@@ -11,7 +11,7 @@ class ShiftAssignmentResource extends JsonResource
     {
         return [
             'id' => $this->id, 'name' => $this->teamEngagement->person->name,
-            'role_id' => $this->role_id, 'role_name' => $this->role->name,
+            'role_id' => $this->role_id, 'role_name' => $this->role?->name,
             'shift_role_slot_id' => $this->shift_role_slot_id,
             'starts_at' => $this->starts_at->format('Y-m-d\TH:i'),
             'ends_at' => $this->ends_at->format('Y-m-d\TH:i'),

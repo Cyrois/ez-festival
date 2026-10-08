@@ -84,7 +84,7 @@ const personGeometry = (assignment) => {
                 <span class="mt-1 flex items-center gap-2 text-xs">
                     {{
                         $t('team.scheduling.grid.filled', {
-                            filled: shift.filled_count,
+                            filled: shift.assignment_count,
                             needed: shift.total_needs,
                         })
                     }}
@@ -187,13 +187,15 @@ const personGeometry = (assignment) => {
                             class="m-0 mt-1 truncate text-xs text-muted"
                             :title="row.assignment.role_name"
                         >
-                            {{ row.assignment.role_name }} ·
                             {{
-                                fullShift(row.assignment)
+                                (row.assignment.role_name
+                                    ? `${row.assignment.role_name} · `
+                                    : '') +
+                                (fullShift(row.assignment)
                                     ? $t(
                                           'team.scheduling.assignments.full_shift',
                                       )
-                                    : hours(row.assignment)
+                                    : hours(row.assignment))
                             }}
                         </p>
                     </div>

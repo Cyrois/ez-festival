@@ -53,7 +53,7 @@ class ShiftAssignmentController extends Controller
         return (($data['return_to_schedule'] ?? false)
             ? redirect()->route('team.scheduling', ShiftReturnContext::schedulingParameters($data, $shift->starts_at->format('Y-m-d')))
             : redirect()->route('team.shifts.show', ['shift' => $shift, ...ShiftReturnContext::from($data)]))
-            ->with('success', __('team.scheduling.assignments.toast.created', ['name' => $assignment->teamEngagement->person->name, 'role' => $assignment->role->name]))
+            ->with('success', __($assignment->role_id === null ? 'team.scheduling.assignments.toast.extra_created' : 'team.scheduling.assignments.toast.created', ['name' => $assignment->teamEngagement->person->name, 'role' => $assignment->role?->name]))
             ->with('success_title', __('toast.saved_title'));
     }
 

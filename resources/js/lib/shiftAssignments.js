@@ -3,7 +3,7 @@ import { wallMinutes } from './shiftBreaks.js';
 
 export function assignmentPayload(slotId, memberId, mode, start, end) {
     return {
-        shift_role_slot_id: slotId,
+        ...(slotId == null ? { extra: true } : { shift_role_slot_id: slotId }),
         team_engagement_id: memberId,
         hours_mode: mode,
         ...(mode === 'custom' ? { starts_at: start, ends_at: end } : {}),

@@ -290,12 +290,12 @@ const stagePerson = (data) => {
     const { candidate, slot, ...payload } = data;
     draftPeople.value[id] = {
         name: candidate.name,
-        role_id: slot.role_id,
-        role_name: slot.role_name,
-        shift_role_slot_id: slot.id,
+        role_id: slot?.role_id ?? null,
+        role_name: slot?.role_name ?? null,
+        shift_role_slot_id: slot?.id ?? null,
         overlaps: candidate.overlaps,
         other_shifts: candidate.other_shifts ?? [],
-        is_extra: false,
+        is_extra: !slot,
         team_engagement_id: candidate.id,
     };
     const personHours =
@@ -988,29 +988,17 @@ const destroy = () => {
                     @move-break="stageBreaks($event.assignment, $event.breaks)"
                 >
                     <template #footer-actions>
-                        <span
-                            :title="
-                                assignmentReason ||
-                                (!timelineShift.slots.length
-                                    ? $t(
-                                          'team.scheduling.assignments.no_requirements',
-                                      )
-                                    : '')
-                            "
-                        >
+                        <span :title="assignmentReason">
                             <Button
                                 size="sm"
                                 variant="ghost"
-                                :disabled="
-                                    !assignmentsEnabled ||
-                                    !timelineShift.slots.length
-                                "
+                                :disabled="!assignmentsEnabled"
                                 @click="headerAssignOpen = true"
                             >
                                 <Icon :name="['fas', 'plus']" />
                                 {{
                                     $t(
-                                        'team.scheduling.assignments.override_assign',
+                                        'team.scheduling.assignments.assign_extra',
                                     )
                                 }}
                             </Button>
