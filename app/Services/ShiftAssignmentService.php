@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Event;
+use App\Models\MealAssignment;
 use App\Models\Role;
 use App\Models\Shift;
 use App\Models\ShiftAssignment;
@@ -96,6 +97,7 @@ class ShiftAssignmentService
             if ($errors !== []) {
                 throw ValidationException::withMessages($errors);
             }
+            MealAssignment::query()->where('shift_assignment_id', $assignment->id)->update(['is_active' => false]);
             $shift->assignments()->lockForUpdate()->findOrFail($assignment->id)->delete();
         });
     }

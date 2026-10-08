@@ -112,6 +112,9 @@ test('Add copies the selected type window and replaces typed times on the next t
         assert.equal(form.starts_at, '11:00');
         assert.equal(form.ends_at, '14:00');
         assert.match(document.body.textContent, /Filled in from Lunch/);
+        await enter('input[type="date"]', '2027-06-30');
+        assert.equal(form.date, '2027-06-30');
+        assert.equal(document.querySelector('input[type="date"]').validity.rangeUnderflow, false);
         document.querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
         assert.deepEqual(submissions, [{ method: 'post', url: '/events/8/meals' }]);
     } finally { app.unmount(); }
@@ -126,6 +129,9 @@ test('Edit retains the saved window when its type changes, updates the hint and 
         assert.match(document.body.textContent, /Lunch’s window is 11:00–14:00/);
         assert.match(document.body.textContent, /Changes apply to this meal/);
         assert.equal(document.querySelector('input[type="date"]').value, '2027-07-10');
+        await enter('input[type="date"]', '2027-10-07');
+        assert.equal(form.date, '2027-10-07');
+        assert.equal(document.querySelector('input[type="date"]').validity.rangeOverflow, false);
         document.querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
         assert.deepEqual(submissions, [{ method: 'put', url: '/events/8/meals/15' }]);
     } finally { app.unmount(); }

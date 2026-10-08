@@ -12,8 +12,10 @@ class KitchenController extends Controller
 {
     public function index(Request $request, EventContext $context): Response
     {
-        $context->requireCurrent($request->user());
+        $event = $context->requireCurrent($request->user());
 
-        return Inertia::render('Kitchen/Index');
+        return Inertia::render('Kitchen/Index', [
+            'event' => ['id' => $event->id, 'timezone' => $event->timezone, 'is_locked' => $event->isLocked()],
+        ]);
     }
 }

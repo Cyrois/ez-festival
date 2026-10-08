@@ -25,6 +25,7 @@ final class Permissions
         'forms.edit' => ['forms.view'],
         'meals.view' => [],
         'meals.edit' => ['meals.view'],
+        'meals.claim' => ['meals.view'],
         'patrons.view' => [],
         'patrons.personal_info' => ['patrons.view'],
     ];

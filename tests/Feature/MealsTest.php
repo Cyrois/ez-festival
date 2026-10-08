@@ -4,16 +4,15 @@ namespace Tests\Feature;
 
 use App\Models\Event;
 use App\Models\Meal;
+use App\Models\MealAssignment;
 use App\Models\User;
 use App\Services\EventService;
 use App\Services\MealService;
 use App\Services\MealTypeService;
 use App\Support\OrganizationContext;
 use Illuminate\Database\QueryException;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Testing\TestResponse;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -115,6 +114,29 @@ class MealsTest extends TestCase
         $this->table()->assertJsonPath('data.0.date', '2027-07-12')->assertJsonPath('data.0.ends_at', '00:30');
     }
 
+    #[DataProvider('datesOutsideEvent')]
+    public function test_meals_can_be_created_and_updated_outside_event_dates(string $date): void
+    {
+        $this->post(route('meals.store', $this->event), $this->data(['date' => $date]))
+            ->assertRedirect(route('meals.settings'))->assertSessionHasNoErrors();
+        $created = $this->event->meals()->sole();
+        $this->assertSame($date, $created->date->toDateString());
+        $this->table()->assertJsonPath('data.0.date', $date);
+
+        $existing = $this->meal(['name' => 'Existing meal']);
+        $this->put(route('meals.update', [$this->event, $existing]), $this->data(['name' => $existing->name, 'date' => $date]))
+            ->assertRedirect(route('meals.settings'))->assertSessionHasNoErrors();
+        $this->assertSame($date, $existing->fresh()->date->toDateString());
+    }
+
+    public static function datesOutsideEvent(): array
+    {
+        return [
+            'before event' => ['2027-06-30'],
+            'after event' => ['2027-10-07'],
+        ];
+    }
+
     public function test_type_changes_do_not_rewrite_meals_and_resource_reads_the_current_type(): void
     {
         $meal = $this->meal();
@@ -147,8 +169,6 @@ class MealsTest extends TestCase
             'unknown type' => [['meal_type_id' => 999999999], 'meal_type_id'],
             'empty date' => [['date' => ''], 'date'],
             'bad date' => [['date' => '2027-02-30'], 'date'],
-            'before event' => [['date' => '2027-07-09'], 'date'],
-            'after event' => [['date' => '2027-07-13'], 'date'],
             'missing start' => [['starts_at' => ''], 'starts_at'],
             'missing end' => [['ends_at' => ''], 'ends_at'],
             'bad time' => [['starts_at' => '24:00'], 'starts_at'],
@@ -161,8 +181,8 @@ class MealsTest extends TestCase
     {
         $this->meal();
         $this->post(route('meals.store', $this->event), $this->data([
-            'name' => 'fri dinner', 'date' => '2027-07-13', 'ends_at' => '17:30',
-        ]))->assertSessionHasErrors(['name', 'date', 'ends_at']);
+            'name' => 'fri dinner', 'meal_type_id' => 999999999, 'ends_at' => '17:30',
+        ]))->assertSessionHasErrors(['name', 'meal_type_id', 'ends_at']);
     }
 
     public function test_foreign_type_records_and_noncurrent_event_writes_are_refused(): void
@@ -220,37 +240,36 @@ class MealsTest extends TestCase
     public function test_used_meal_delete_is_refused_by_the_form_request_and_service_before_the_fk(): void
     {
         $meal = $this->meal();
-        Schema::create('meal_claims', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('meal_id')->constrained('meals')->restrictOnDelete();
-        });
+        $member = $this->event->teamEngagements()->firstOrFail();
+        MealAssignment::create([
+            'event_id' => $this->event->id, 'meal_id' => $meal->id, 'team_engagement_id' => $member->id,
+            'meal_type_id' => $meal->meal_type_id, 'source_shift_id' => 999999, 'meal_name' => $meal->name,
+            'meal_date' => $meal->date, 'starts_at' => $meal->starts_at, 'ends_at' => $meal->ends_at,
+            'shift_location_name' => 'Gate', 'shift_starts_at' => '2027-07-10 12:00', 'shift_ends_at' => '2027-07-10 22:00',
+            'claimed_by' => $this->user->id, 'claimed_at' => now(),
+        ]);
+        $this->delete(route('meals.destroy', [$this->event, $meal]))->assertSessionHasErrors([
+            'meal' => __('meals.errors.used', ['name' => $meal->name]),
+        ]);
         try {
-            DB::table('meal_claims')->insert(['meal_id' => $meal->id]);
-            $this->delete(route('meals.destroy', [$this->event, $meal]))->assertSessionHasErrors([
-                'meal' => __('meals.errors.used', ['name' => $meal->name]),
-            ]);
-            try {
-                app(MealService::class)->destroy($this->event, $meal);
-                $this->fail('Expected a used-meal validation error.');
-            } catch (ValidationException $error) {
-                $this->assertArrayHasKey('meal', $error->errors());
-            }
-            $this->assertModelExists($meal);
-            $this->assertDatabaseCount('meal_claims', 1);
-            DB::table('meal_claims')->delete();
-            $this->delete(route('meals.destroy', [$this->event, $meal]))->assertSessionHasNoErrors();
-            $this->assertModelMissing($meal);
-        } finally {
-            Schema::dropIfExists('meal_claims');
+            app(MealService::class)->destroy($this->event, $meal);
+            $this->fail('Expected a used-meal validation error.');
+        } catch (ValidationException $error) {
+            $this->assertArrayHasKey('meal', $error->errors());
         }
+        $this->assertModelExists($meal);
+        $this->assertSame(1, MealAssignment::query()->whereNotNull('claimed_at')->count());
+        DB::table('meal_assignments')->delete();
+        $this->delete(route('meals.destroy', [$this->event, $meal]))->assertSessionHasNoErrors();
+        $this->assertModelMissing($meal);
     }
 
-    public function test_service_rechecks_stale_names_dates_types_and_locks(): void
+    public function test_service_rechecks_stale_names_types_and_locks(): void
     {
         $service = app(MealService::class);
         $meal = $this->meal();
         $foreign = $this->event('Other')->mealTypes()->firstOrFail();
-        foreach ([['name' => 'FRI DINNER'], ['date' => '2027-07-13'], ['meal_type_id' => $foreign->id], ['ends_at' => '17:30']] as $changes) {
+        foreach ([['name' => 'FRI DINNER'], ['meal_type_id' => $foreign->id], ['ends_at' => '17:30']] as $changes) {
             try {
                 $service->create($this->event, $this->data(['name' => 'New', ...$changes]));
                 $this->fail('Expected service validation.');

@@ -6,6 +6,10 @@ final class RoutePermissions
 {
     public const ABILITIES = [
         'meals.index' => 'meals.view',
+        'meals.people.index' => 'meals.view',
+        'meals.people.show' => 'meals.view',
+        'meals.claims.store' => 'meals.claim',
+        'meals.claims.destroy' => 'meals.claim',
         'meals.settings' => 'meals.view',
         'meals.data' => 'meals.view',
         'meals.create' => 'meals.edit',
