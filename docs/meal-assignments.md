@@ -10,8 +10,8 @@ Kitchen reads assignments directly, filters and paginates on the server, and use
 
 ## Migration and deployment
 
-Run `php artisan migrate` with the matching application build. `2026_10_07_000003_unify_meal_assignments` copies existing shift grants and durable claims into assignments, then removes `shift_meal_people` and `meal_claims`. Existing claim times, operators, warning confirmations, and removed-source snapshots are preserved. Earlier shipped migrations are unchanged.
+Run `php artisan migrate` with the matching application build. `2026_10_07_000003_unify_meal_assignments` creates person-owned assignments from existing shift grants, then removes `shift_meal_people`. Fresh installations create the same assignment schema.
 
 The JSON claim payload now uses `assignment_id`. Unclaim uses `assignment_id` and `claim_token`. Deploy frontend and backend together and refresh old browser tabs.
 
-Rollback recreates the legacy grant/claim schema only while all assignments have shift origins. It refuses to discard direct assignments; after direct assignments exist, use a forward migration instead of rolling back. As with the previous schema, unclaimed retired Scheduling grants have no entitlement in the legacy model.
+Rollback restores shift grants while all assignments have shift origins. Direct person assignments require a forward migration instead of rollback. Rolling back drops assignment snapshots and claim information.

@@ -15,10 +15,8 @@ class MealTypeMigrationTest extends TestCase
         $migration = require database_path('migrations/2026_10_05_000003_create_meal_types_table.php');
         $meals = require database_path('migrations/2026_10_06_000001_create_meals_table.php');
         $shiftMeals = require database_path('migrations/2026_10_07_000001_create_shift_meals_tables.php');
-        $claims = require database_path('migrations/2026_10_07_000002_create_meal_claims_table.php');
         $assignments = require database_path('migrations/2026_10_07_000003_unify_meal_assignments.php');
         $assignments->down();
-        $claims->down();
         $shiftMeals->down();
         $meals->down();
         $migration->down();
@@ -31,7 +29,6 @@ class MealTypeMigrationTest extends TestCase
         $migration->up();
         $meals->up();
         $shiftMeals->up();
-        $claims->up();
         $assignments->up();
         $this->assertDatabaseCount('meal_types', 0);
         $this->assertFalse($events[0]->fresh()->isLocked());

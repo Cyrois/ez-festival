@@ -4,7 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
 
 return new class extends Migration
 {
@@ -37,12 +36,6 @@ return new class extends Migration
             $table->unique(['team_engagement_id', 'source_shift_id', 'meal_id'], 'ma_source_unique');
             $table->index(['event_id', 'team_engagement_id', 'meal_date', 'meal_type_id'], 'ma_person_day_idx');
         });
-        // Migrate durable used snapshots first, including grants removed from Scheduling.
-        foreach (DB::table('meal_claims')->orderBy('id')->cursor() as $claim) {
-            $data = (array) $claim;
-            unset($data['id']);
-            DB::table('meal_assignments')->insert([...$data, 'is_active' => false, 'claim_token' => (string) Str::uuid()]);
-        }
         $grants = DB::table('shift_meal_people as grants')
             ->join('shift_meals', 'shift_meals.id', '=', 'grants.shift_meal_id')
             ->join('shift_assignments', 'shift_assignments.id', '=', 'grants.shift_assignment_id')
@@ -54,17 +47,8 @@ return new class extends Migration
                 'locations.name as shift_location_name', 'shifts.starts_at as shift_starts_at', 'shifts.ends_at as shift_ends_at')
             ->orderBy('grants.shift_meal_id')->orderBy('grants.shift_assignment_id');
         foreach ($grants->cursor() as $grant) {
-            $identity = ['team_engagement_id' => $grant->team_engagement_id, 'source_shift_id' => $grant->source_shift_id, 'meal_id' => $grant->meal_id];
-            $existing = DB::table('meal_assignments')->where($identity)->first();
-            if ($existing !== null) {
-                DB::table('meal_assignments')->where('id', $existing->id)->update([
-                    'is_active' => true, 'shift_meal_id' => $grant->shift_meal_id, 'shift_assignment_id' => $grant->shift_assignment_id,
-                ]);
-            } else {
-                DB::table('meal_assignments')->insert([...(array) $grant, 'is_active' => true]);
-            }
+            DB::table('meal_assignments')->insert([...(array) $grant, 'is_active' => true]);
         }
-        Schema::drop('meal_claims');
         Schema::drop('shift_meal_people');
     }
 
@@ -74,8 +58,6 @@ return new class extends Migration
         if (DB::table('meal_assignments')->whereNull('source_shift_id')->exists()) {
             throw new RuntimeException('Direct meal assignments cannot be rolled back. Apply a forward migration instead.');
         }
-        $claims = require database_path('migrations/2026_10_07_000002_create_meal_claims_table.php');
-        $claims->up();
         Schema::create('shift_meal_people', function (Blueprint $table): void {
             $table->foreignId('shift_meal_id');
             $table->foreignId('shift_assignment_id');
@@ -85,11 +67,6 @@ return new class extends Migration
             $table->index('shift_assignment_id', 'smp_assignment_idx');
         });
         foreach (DB::table('meal_assignments')->orderBy('id')->cursor() as $assignment) {
-            if ($assignment->claimed_at !== null) {
-                $data = (array) $assignment;
-                unset($data['id'], $data['shift_assignment_id'], $data['is_active'], $data['claim_token']);
-                DB::table('meal_claims')->insert($data);
-            }
             if ($assignment->is_active && $assignment->shift_meal_id !== null && $assignment->shift_assignment_id !== null) {
                 DB::table('shift_meal_people')->insert(['shift_meal_id' => $assignment->shift_meal_id, 'shift_assignment_id' => $assignment->shift_assignment_id]);
             }
