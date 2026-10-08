@@ -15,6 +15,55 @@ use Illuminate\Support\Collection;
 
 class ShiftAssignmentRepository
 {
+    /** @return array{total: int, filtered: int, rows: Collection<int, ShiftAssignment>} */
+    public function memberDataTable(
+        Event $event,
+        TeamEngagement $engagement,
+        string $search,
+        int $orderColumn,
+        string $orderDirection,
+        int $start,
+        int $length,
+    ): array {
+        $query = $engagement->shiftAssignments()
+            ->join('shifts', 'shifts.id', '=', 'shift_assignments.shift_id')
+            ->join('locations', 'locations.id', '=', 'shifts.location_id')
+            ->leftJoin('roles', 'roles.id', '=', 'shift_assignments.role_id')
+            ->where('shifts.event_id', $event->id)
+            ->select([
+                'shift_assignments.id', 'shift_assignments.starts_at', 'shift_assignments.ends_at',
+                'locations.name as location_name', 'roles.name as role_name',
+            ]);
+        $total = (clone $query)->count();
+
+        if ($search !== '') {
+            $pattern = '%'.SqlLike::escape(mb_strtolower($search)).'%';
+            $query->where(function ($query) use ($pattern): void {
+                $query->whereRaw("LOWER(locations.name) LIKE ? ESCAPE '!'", [$pattern])
+                    ->orWhereRaw("LOWER(roles.name) LIKE ? ESCAPE '!'", [$pattern])
+                    ->orWhereRaw("CAST(shift_assignments.starts_at AS TEXT) LIKE ? ESCAPE '!'", [$pattern])
+                    ->orWhereRaw("CAST(shift_assignments.ends_at AS TEXT) LIKE ? ESCAPE '!'", [$pattern]);
+            });
+        }
+
+        $filtered = (clone $query)->count();
+        $direction = $orderDirection === 'desc' ? 'desc' : 'asc';
+        match ($orderColumn) {
+            1 => $query->orderByRaw("LOWER(locations.name) {$direction}"),
+            3 => $query->orderByRaw("LOWER(COALESCE(roles.name, '')) {$direction}"),
+            default => $query->orderBy('shift_assignments.starts_at', $direction),
+        };
+        if ($orderColumn === 1 || $orderColumn === 3) {
+            $query->orderBy('shift_assignments.starts_at');
+        }
+
+        return [
+            'total' => $total,
+            'filtered' => $filtered,
+            'rows' => $query->orderBy('shift_assignments.id')->skip($start)->take($length)->get(),
+        ];
+    }
+
     public function copySource(Shift $shift): Shift
     {
         return $shift->load(['event', 'breaks', 'location:id,name', 'roleSlots.role:id,name', 'assignments.breaks', 'assignments.role:id,name', 'assignments.teamEngagement.person:id,name']);
