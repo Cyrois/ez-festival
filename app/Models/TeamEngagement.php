@@ -15,6 +15,9 @@ class TeamEngagement extends Model
     protected static function booted(): void
     {
         static::deleting(function (TeamEngagement $engagement): void {
+            if (MealClaim::query()->where('team_engagement_id', $engagement->id)->exists()) {
+                throw ValidationException::withMessages(['team_engagement_id' => __('meals.claim.errors.delete_member')]);
+            }
             if ($engagement->shiftAssignments()->exists()) {
                 throw ValidationException::withMessages([
                     'team_engagement_id' => __('team.scheduling.assignments.errors.delete_member'),

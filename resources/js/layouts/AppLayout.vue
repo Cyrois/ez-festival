@@ -33,6 +33,10 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    fullWidthContent: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 const page = usePage();
@@ -628,7 +632,10 @@ const railClass = computed(() => {
             </header>
 
             <main class="flex-1 px-4 py-6 md:px-6 md:py-8">
-                <div class="container mx-auto">
+                <div
+                    class="container mx-auto"
+                    :class="fullWidthContent ? 'max-w-none' : ''"
+                >
                     <slot />
                 </div>
             </main>

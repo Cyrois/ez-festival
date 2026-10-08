@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Event;
 use App\Models\Meal;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class MealService
@@ -57,12 +56,6 @@ class MealService
         if (! $event->mealTypes()->whereKey($data['meal_type_id'])->exists()) {
             $errors['meal_type_id'] = __('meals.errors.type');
         }
-        if ($data['date'] < $event->starts_on->format('Y-m-d') || $data['date'] > $event->ends_on->format('Y-m-d')) {
-            $errors['date'] = __('meals.errors.date', [
-                'start' => $event->starts_on->translatedFormat('M j, Y'),
-                'end' => $event->ends_on->translatedFormat('M j, Y'),
-            ]);
-        }
         if ($data['starts_at'] === $data['ends_at']) {
             $errors['ends_at'] = __('meals.errors.equal_times');
         }
@@ -81,8 +74,7 @@ class MealService
     /** @return array<string, string> */
     public function deletionErrors(Meal $meal): array
     {
-        // Meals 4 adds the real claims table. No placeholder schema is needed here.
-        if (Schema::hasTable('meal_claims') && DB::table('meal_claims')->where('meal_id', $meal->id)->exists()) {
+        if (DB::table('meal_claims')->where('meal_id', $meal->id)->exists()) {
             return ['meal' => __('meals.errors.used', ['name' => $meal->name])];
         }
 

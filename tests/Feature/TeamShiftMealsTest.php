@@ -11,13 +11,13 @@ use App\Models\TeamEngagement;
 use App\Models\User;
 use App\Queries\MealEntitlementQuery;
 use App\Services\EventService;
+use App\Services\MealClaimService;
 use App\Services\MealService;
 use App\Services\ShiftAssignmentService;
 use App\Services\ShiftService;
 use App\Support\OrganizationContext;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -222,22 +222,13 @@ class TeamShiftMealsTest extends TestCase
         $second = $this->assign();
         $row = $this->shift->meals()->create(['meal_id' => $this->meal->id]);
         $row->assignments()->attach([$first->id, $second->id]);
-        Schema::create('meal_claims', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('meal_id')->constrained()->restrictOnDelete();
-            $table->foreignId('team_engagement_id')->constrained();
-            $table->foreignId('shift_meal_id')->nullable()->constrained()->nullOnDelete();
-        });
-        try {
-            DB::table('meal_claims')->insert(['meal_id' => $this->meal->id, 'team_engagement_id' => $first->team_engagement_id, 'shift_meal_id' => $row->id]);
-            $this->save(['assignment_removals' => [$first->id], 'meals' => [['meal_id' => $this->meal->id, 'assignment_keys' => [$second->id]]]])->assertSessionHasNoErrors();
-            $this->assertDatabaseHas('meal_claims', ['team_engagement_id' => $first->team_engagement_id, 'shift_meal_id' => $row->id]);
-            $this->save(['meals' => []])->assertSessionHasNoErrors();
-            $this->assertDatabaseHas('meal_claims', ['meal_id' => $this->meal->id, 'shift_meal_id' => null]);
-            $this->assertSame(0, app(MealEntitlementQuery::class)->forEvent($this->event)->count());
-        } finally {
-            Schema::dropIfExists('meal_claims');
-        }
+        $this->travelTo(Carbon::parse('2026-10-01 12:00', $this->event->timezone));
+        app(MealClaimService::class)->claim($this->event, $first->teamEngagement, $this->user, $this->meal->id, $this->shift->id);
+        $this->save(['assignment_removals' => [$first->id], 'meals' => [['meal_id' => $this->meal->id, 'assignment_keys' => [$second->id]]]])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('meal_claims', ['team_engagement_id' => $first->team_engagement_id, 'shift_meal_id' => $row->id]);
+        $this->save(['meals' => []])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('meal_claims', ['meal_id' => $this->meal->id, 'shift_meal_id' => null]);
+        $this->assertSame(0, app(MealEntitlementQuery::class)->forEvent($this->event)->count());
     }
 
     public function test_copy_permissions_locked_events_and_stale_service_validation(): void

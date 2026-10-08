@@ -220,9 +220,11 @@ class MealTypesTest extends TestCase
         $this->assertEqualsCanonicalizing(['meals.edit', 'meals.view'], $role->permissions);
         foreach (['settings.roles.create', 'settings.roles.edit'] as $routeName) {
             $this->get(route($routeName, $routeName === 'settings.roles.edit' ? $role : []))
-                ->assertInertia(fn (Assert $page) => $page->has('permissionGroups.meals', 2)
+                ->assertInertia(fn (Assert $page) => $page->has('permissionGroups.meals', 3)
                     ->where('permissionGroups.meals.0.label', 'View meals')
-                    ->where('permissionGroups.meals.1.includes', ['meals.view']));
+                    ->where('permissionGroups.meals.1.includes', ['meals.view'])
+                    ->where('permissionGroups.meals.2.key', 'meals.claim')
+                    ->where('permissionGroups.meals.2.includes', ['meals.view']));
         }
     }
 

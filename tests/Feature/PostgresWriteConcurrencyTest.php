@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\ArtistEngagement;
 use App\Models\Event;
 use App\Models\Person;
+use App\Models\Role;
 use App\Models\TeamEngagement;
 use App\Models\User;
 use App\Services\EngagementPersonService;
@@ -12,12 +13,14 @@ use App\Services\EntitlementConsumeService;
 use App\Services\EntitlementItemService;
 use App\Services\EventService;
 use App\Services\GlobalTeamService;
+use App\Services\MealClaimService;
 use App\Services\MealTypeService;
 use App\Services\PassAssignmentService;
 use App\Services\PassTypeService;
 use App\Services\TeamEngagementService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -164,6 +167,111 @@ class PostgresWriteConcurrencyTest extends TestCase
         );
         $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
         $this->assertSame(1, $event->mealTypes()->count());
+    }
+
+    public function test_simultaneous_claims_of_one_meal_record_only_one_claim(): void
+    {
+        [$event, $user, $member, $meal, $shift] = $this->mealContext();
+        $claim = function () use ($event, $user, $member, $meal, $shift): void {
+            $result = app(MealClaimService::class)->claim($event, $member, $user, $meal->id, $shift->id);
+            if ($result['status'] !== 'claimed') {
+                throw ValidationException::withMessages(['meal_id' => $result['status']]);
+            }
+        };
+        $results = $this->concurrently($claim, $claim);
+        $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+        $this->assertSame('events', $results[1]['first_lock']);
+        $this->assertDatabaseCount('meal_claims', 1);
+    }
+
+    public function test_claim_on_another_shift_observes_the_first_claim_and_requires_warning(): void
+    {
+        [$event, $user, $member, $meal, $shift] = $this->mealContext();
+        $other = $event->shifts()->create(['name' => 'Second shift', 'location_id' => $shift->location_id,
+            'starts_at' => $shift->starts_at, 'ends_at' => $shift->ends_at]);
+        $assignment = $other->assignments()->create(['team_engagement_id' => $member->id,
+            'role_id' => $shift->assignments()->sole()->role_id, 'starts_at' => $other->starts_at, 'ends_at' => $other->ends_at]);
+        $other->meals()->create(['meal_id' => $meal->id])->assignments()->attach($assignment->id);
+        $results = $this->concurrently(
+            fn () => app(MealClaimService::class)->claim($event, $member, $user, $meal->id, $shift->id),
+            function () use ($event, $member, $user, $meal, $other): void {
+                $result = app(MealClaimService::class)->claim($event, $member, $user, $meal->id, $other->id);
+                if ($result['status'] !== 'warning_required') {
+                    throw new \RuntimeException('Expected same-type warning.');
+                }
+                throw ValidationException::withMessages(['meal_id' => $result['status']]);
+            },
+        );
+        $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+        $this->assertDatabaseCount('meal_claims', 1);
+    }
+
+    public function test_claim_observes_an_event_locked_after_models_were_loaded(): void
+    {
+        [$event, $user, $member, $meal, $shift] = $this->mealContext();
+        $results = $this->concurrently(
+            fn () => app(EventService::class)->lock($event),
+            fn () => app(MealClaimService::class)->claim($event, $member, $user, $meal->id, $shift->id),
+        );
+        $this->assertSame(['committed', 'http_403'], array_column($results, 'status'), json_encode($results));
+        $this->assertDatabaseCount('meal_claims', 0);
+    }
+
+    public function test_simultaneous_unclaims_correct_a_meal_only_once(): void
+    {
+        [$event, $user, $member, $meal, $shift] = $this->mealContext();
+        $claimId = app(MealClaimService::class)->claim($event, $member, $user, $meal->id, $shift->id)['claim_id'];
+        $unclaim = function () use ($event, $user, $member, $claimId): void {
+            $result = app(MealClaimService::class)->unclaim($event, $member, $user, $claimId);
+            if ($result['status'] !== 'unclaimed') {
+                throw ValidationException::withMessages(['claim_id' => $result['status']]);
+            }
+        };
+        $results = $this->concurrently($unclaim, $unclaim);
+        $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+        $this->assertSame('events', $results[1]['first_lock']);
+        $this->assertDatabaseCount('meal_claims', 0);
+    }
+
+    public function test_claim_waits_for_an_in_progress_unclaim_and_consumes_the_restored_grant(): void
+    {
+        [$event, $user, $member, $meal, $shift] = $this->mealContext();
+        $claimId = app(MealClaimService::class)->claim($event, $member, $user, $meal->id, $shift->id)['claim_id'];
+        $results = $this->concurrently(
+            fn () => app(MealClaimService::class)->unclaim($event, $member, $user, $claimId),
+            function () use ($event, $user, $member, $meal, $shift): void {
+                $result = app(MealClaimService::class)->claim($event, $member, $user, $meal->id, $shift->id);
+                if ($result['status'] !== 'claimed') {
+                    throw new \RuntimeException('Expected the restored grant to be available.');
+                }
+            },
+        );
+        $this->assertSame(['committed', 'committed'], array_column($results, 'status'), json_encode($results));
+        $this->assertSame('events', $results[1]['first_lock']);
+        $this->assertDatabaseCount('meal_claims', 1);
+        $this->assertDatabaseMissing('meal_claims', ['id' => $claimId]);
+        $this->assertSame('already_unclaimed', app(MealClaimService::class)->unclaim($event, $member, $user, $claimId)['status']);
+        $this->assertDatabaseCount('meal_claims', 1);
+    }
+
+    private function mealContext(): array
+    {
+        $event = app(EventService::class)->create(['name' => 'Meal race', 'starts_on' => '2026-10-01', 'ends_on' => '2026-10-03', 'timezone' => 'UTC']);
+        $user = User::factory()->create();
+        $this->grantAdminAccess($user);
+        $person = Person::create(['name' => 'Meal recipient', 'email' => 'meal@example.test']);
+        $member = $event->teamEngagements()->create(['person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+        $location = $event->locations()->create(['name' => 'Kitchen']);
+        $shift = $event->shifts()->create(['location_id' => $location->id, 'name' => 'Lunch shift', 'starts_at' => '2026-10-01 09:00', 'ends_at' => '2026-10-01 18:00']);
+        $role = Role::create(['name' => 'Meal crew']);
+        $assignment = $shift->assignments()->create(['team_engagement_id' => $member->id, 'role_id' => $role->id,
+            'starts_at' => $shift->starts_at, 'ends_at' => $shift->ends_at]);
+        $meal = $event->meals()->create(['name' => 'Lunch', 'meal_type_id' => $event->mealTypes()->where('name', 'Lunch')->sole()->id,
+            'date' => '2026-10-01', 'starts_at' => '12:00:00', 'ends_at' => '14:00:00']);
+        $shift->meals()->create(['meal_id' => $meal->id])->assignments()->attach($assignment->id);
+        $this->travelTo(Carbon::parse('2026-10-01 12:00', 'UTC'));
+
+        return [$event, $user, $member, $meal, $shift];
     }
 
     /** Run real service transactions on committed fixtures and independent connections. */

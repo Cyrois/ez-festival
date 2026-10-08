@@ -8,10 +8,9 @@ import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { toastFormErrors } from '../../lib/fieldError';
-import { mealDateLabel } from '../../lib/mealDates';
 import { useForm } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
-import { getActiveLanguage, trans } from 'laravel-vue-i18n';
+import { trans } from 'laravel-vue-i18n';
 
 const props = defineProps({
     event: { type: Object, required: true },
@@ -59,19 +58,6 @@ const typeHint = computed(() =>
               end: type.value.ends_at,
           })
         : '',
-);
-const eventDates = computed(() =>
-    trans('meals.event_dates', {
-        event: props.event.name,
-        start: mealDateLabel(props.event.starts_on, getActiveLanguage(), {
-            weekday: undefined,
-            year: 'numeric',
-        }),
-        end: mealDateLabel(props.event.ends_on, getActiveLanguage(), {
-            weekday: undefined,
-            year: 'numeric',
-        }),
-    }),
 );
 const { showError, showFormError } = useFlashToast();
 const submit = () => {
@@ -161,15 +147,13 @@ const submit = () => {
                                 v-slot="{ id, invalid }"
                                 :label="$t('meals.date')"
                                 :error="form.errors.date"
-                                :hint="eventDates"
+                                :hint="$t('meals.date_hint')"
                                 required
                             >
                                 <Input
                                     :id="id"
                                     v-model="form.date"
                                     type="date"
-                                    :min="event.starts_on"
-                                    :max="event.ends_on"
                                     :invalid="invalid"
                                     :disabled="!canWrite || form.processing"
                                     required
