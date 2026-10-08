@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Event;
+use App\Models\MealAssignment;
 use App\Models\Role;
 use App\Models\Shift;
 use App\Models\ShiftAssignment;
@@ -11,6 +12,7 @@ use App\Repositories\ShiftAssignmentRepository;
 use App\Repositories\ShiftBreakRepository;
 use App\Support\ShiftAssignmentHours;
 use App\Support\ShiftAssignmentOverlaps;
+use App\Support\ShiftMeals;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -28,17 +30,17 @@ class ShiftAssignmentService
             $event = Event::query()->lockForUpdate()->findOrFail($shift->event_id);
             $event->ensureWritable();
             $shift = $event->shifts()->lockForUpdate()->findOrFail($shift->id);
-            $override = filter_var($data['override'] ?? false, FILTER_VALIDATE_BOOLEAN);
-            if ($override && (isset($data['shift_role_slot_id']) || isset($data['role_id']) || isset($data['slot_key']))) {
-                throw ValidationException::withMessages(['override' => __('team.scheduling.assignments.errors.unexpected')]);
+            $extra = filter_var($data['extra'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            if ($extra && (isset($data['shift_role_slot_id']) || isset($data['role_id']) || isset($data['slot_key']))) {
+                throw ValidationException::withMessages(['extra' => __('team.scheduling.assignments.errors.unexpected')]);
             }
-            $detached = ! $override && isset($data['role_id']) && ! isset($data['shift_role_slot_id']);
+            $detached = ! $extra && isset($data['role_id']) && ! isset($data['shift_role_slot_id']);
             $role = $detached ? Role::query()->lockForUpdate()->find($data['role_id']) : null;
             if ($detached && $role === null) {
                 throw ValidationException::withMessages(['role_id' => __('validation.exists', ['attribute' => 'role'])]);
             }
-            $slot = ($override || $detached) ? null : $shift->roleSlots()->lockForUpdate()->find($data['shift_role_slot_id'] ?? null);
-            if (! $override && ! $detached && $slot === null) {
+            $slot = ($extra || $detached) ? null : $shift->roleSlots()->lockForUpdate()->find($data['shift_role_slot_id'] ?? null);
+            if (! $extra && ! $detached && $slot === null) {
                 throw ValidationException::withMessages(['shift_role_slot_id' => __('team.scheduling.slots.errors.foreign_slot')]);
             }
             $member = TeamEngagement::query()->where('event_id', $event->id)->lockForUpdate()->find($data['team_engagement_id']);
@@ -95,6 +97,11 @@ class ShiftAssignmentService
             $event = Event::query()->lockForUpdate()->findOrFail($shift->event_id);
             $event->ensureWritable();
             $shift = $event->shifts()->lockForUpdate()->findOrFail($shift->id);
+            $errors = ShiftMeals::removalErrors($shift, $assignment->id);
+            if ($errors !== []) {
+                throw ValidationException::withMessages($errors);
+            }
+            MealAssignment::query()->where('shift_assignment_id', $assignment->id)->update(['is_active' => false]);
             $shift->assignments()->lockForUpdate()->findOrFail($assignment->id)->delete();
         });
     }

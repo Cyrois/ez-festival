@@ -6,6 +6,7 @@ use App\Models\Event;
 use App\Models\Shift;
 use App\Models\ShiftAssignment;
 use App\Models\TeamEngagement;
+use App\Queries\MealEntitlementQuery;
 use App\Support\ShiftAssignmentHours;
 use App\Support\ShiftAssignmentOverlaps;
 use App\Support\SqlLike;
@@ -36,7 +37,7 @@ class ShiftAssignmentRepository
 
     public function candidates(Shift $shift, array $data): LengthAwarePaginator
     {
-        $override = filter_var($data['override'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $extra = filter_var($data['extra'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $roleId = isset($data['shift_role_slot_id'])
             ? $shift->roleSlots()->findOrFail($data['shift_role_slot_id'])->role_id
             : ($data['role_id'] ?? null);
@@ -58,16 +59,16 @@ class ShiftAssignmentRepository
             ->with(['role:id,name', 'group:id,name'])
             ->withExists(['shiftAssignments as on_shift' => fn ($query) => $query->where('shift_id', $shift->id)])
             ->whereRaw("LOWER(people.name) LIKE ? ESCAPE '!'", [$pattern])
-            ->when(! $override && ($data['role_filter'] ?? 'everyone') === 'has_role', fn ($query) => $query->where('team_engagements.role_id', $roleId))
+            ->when(! $extra && ($data['role_filter'] ?? 'everyone') === 'has_role', fn ($query) => $query->where('team_engagements.role_id', $roleId))
             ->when(isset($data['selected_id']), fn ($query) => $query->where('team_engagements.id', $data['selected_id']))
             ->orderBy('availability_order')
-            ->when(! $override, fn ($query) => $query->orderByRaw('CASE WHEN team_engagements.role_id = ? THEN 0 ELSE 1 END', [$roleId]))
+            ->when(! $extra, fn ($query) => $query->orderByRaw('CASE WHEN team_engagements.role_id = ? THEN 0 ELSE 1 END', [$roleId]))
             ->orderByRaw('LOWER(people.name)')->orderBy('team_engagements.id')
             ->paginate((int) ($data['per_page'] ?? 25), ['*'], 'page', (int) ($data['page'] ?? 1))->withQueryString();
         $others = ShiftAssignmentOverlaps::forMembers($shift, $candidates->getCollection()->modelKeys(), $shift->starts_at->copy()->subMinutes(30), $shift->ends_at->copy()->addMinutes(30));
         $timezone = $shift->event->timezone;
         foreach ($candidates as $candidate) {
-            $candidate->setAttribute('suggested', ! $override && (int) $candidate->role_id === (int) $roleId);
+            $candidate->setAttribute('suggested', ! $extra && (int) $candidate->role_id === (int) $roleId);
             $candidate->setAttribute('other_shifts', ShiftAssignmentOverlaps::shifts($others->get($candidate->id, collect())));
             $candidate->setAttribute('overlaps', ShiftAssignmentOverlaps::warnings($others->get($candidate->id, collect()), $start, $end, $timezone));
         }
@@ -78,6 +79,7 @@ class ShiftAssignmentRepository
     public function loadRoster(Shift $shift): Shift
     {
         $shift->load(['breaks', 'location:id,name', 'roleSlots.role:id,name', 'assignments.breaks', 'assignments.role:id,name', 'assignments.teamEngagement:id,person_id', 'assignments.teamEngagement.person:id,name']);
+        app(MealEntitlementQuery::class)->loadForShifts(new \Illuminate\Database\Eloquent\Collection([$shift]), $shift->event);
         $shift->loadCount('assignments');
         $assignments = $shift->assignments;
         $others = ShiftAssignmentOverlaps::forMembers($shift, $assignments->pluck('team_engagement_id')->unique()->all(), $shift->starts_at->copy()->subMinutes(30), $shift->ends_at->copy()->addMinutes(30));
@@ -95,6 +97,7 @@ class ShiftAssignmentRepository
             'roleSlots.role:id,name', 'assignments.breaks', 'assignments.role:id,name',
             'assignments.teamEngagement:id,person_id', 'assignments.teamEngagement.person:id,name',
         ]);
+        app(MealEntitlementQuery::class)->loadForShifts($shifts, $event);
         $assignments = $shifts->flatMap(fn ($shift) => $shift->assignments);
         $others = ShiftAssignment::query()
             ->whereIn('team_engagement_id', $assignments->pluck('team_engagement_id')->unique())

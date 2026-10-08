@@ -3,9 +3,11 @@
 namespace App\Http\Requests\Team;
 
 use App\Support\EventContext;
+use App\Support\ShiftMeals;
 use App\Support\ShiftReturnContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Validator;
 
 class DestroyShiftAssignmentRequest extends FormRequest
 {
@@ -25,5 +27,14 @@ class DestroyShiftAssignmentRequest extends FormRequest
     public function rules(): array
     {
         return ShiftReturnContext::rules();
+    }
+
+    public function after(): array
+    {
+        return [function (Validator $validator): void {
+            foreach (ShiftMeals::removalErrors($this->route('shift'), $this->route('assignment')->id) as $field => $message) {
+                $validator->errors()->add($field, $message);
+            }
+        }];
     }
 }

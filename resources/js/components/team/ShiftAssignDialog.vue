@@ -34,11 +34,11 @@ const emit = defineEmits(['close', 'assigned']);
 const table = ref(null);
 const overlapTooltipId = useId();
 const targetSlot = computed(() => props.requirement);
-const override = computed(() => !props.requirement);
+const extra = computed(() => !props.requirement);
 
 const selected = ref(null);
 const search = ref('');
-const roleFilter = ref(override.value ? 'everyone' : 'has_role');
+const roleFilter = ref(extra.value ? 'everyone' : 'has_role');
 const roleOptions = computed(() => [
     { value: 'everyone', label: trans('team.scheduling.assignments.everyone') },
     { value: 'has_role', label: trans('team.scheduling.assignments.has_role') },
@@ -192,7 +192,7 @@ const ajax = async (data, callback) => {
         form.ends_at,
     );
     delete query.team_engagement_id;
-    if (override.value) query.override = '1';
+    if (extra.value) query.extra = '1';
     if (typeof targetSlot.value?.id === 'string') {
         delete query.shift_role_slot_id;
         query.role_id = targetSlot.value.role_id;
@@ -200,7 +200,7 @@ const ajax = async (data, callback) => {
     query.search = search.value.trim();
     query.page = Math.floor(data.start / data.length) + 1;
     query.per_page = data.length;
-    if (!override.value) query.role_filter = roleFilter.value;
+    if (!extra.value) query.role_filter = roleFilter.value;
     if (!props.shift.id) {
         query.shift_starts_at = props.shift.starts_at;
         query.shift_ends_at = props.shift.ends_at;
@@ -388,7 +388,7 @@ const assign = () => {
                           role: targetSlot.role_name,
                           times: shiftTimes,
                       })
-                    : $t('team.scheduling.assignments.override_subtitle', {
+                    : $t('team.scheduling.assignments.extra_subtitle', {
                           name: shift.name,
                           times: shiftTimes,
                       })
@@ -429,7 +429,7 @@ const assign = () => {
             </p>
             <p
                 v-for="field in [
-                    'override',
+                    'extra',
                     'shift_role_slot_id',
                     'team_engagement_id',
                 ]"
@@ -447,7 +447,7 @@ const assign = () => {
             >
                 {{ candidateError }}
             </p>
-            <template v-if="targetSlot || override">
+            <template v-if="targetSlot || extra">
                 <div class="flex flex-col gap-3 sm:flex-row">
                     <div class="relative min-w-0 flex-1">
                         <Icon
@@ -468,7 +468,7 @@ const assign = () => {
                         />
                     </div>
                     <SegmentedControl
-                        v-if="!override"
+                        v-if="!extra"
                         v-model="roleFilter"
                         :options="roleOptions"
                         :aria-label="
@@ -479,7 +479,7 @@ const assign = () => {
                     />
                 </div>
                 <p
-                    v-if="!override"
+                    v-if="!extra"
                     class="text-xs text-muted"
                 >
                     {{
@@ -493,7 +493,7 @@ const assign = () => {
                 </p>
                 <div class="[&_.dt-layout-table>div]:overflow-visible!">
                     <DataTable
-                        :key="targetSlot?.id ?? 'override'"
+                        :key="targetSlot?.id ?? 'extra'"
                         ref="table"
                         :ajax="ajax"
                         :columns="columns"

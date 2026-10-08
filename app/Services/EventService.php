@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Event;
 use App\Repositories\PassTypeRepository;
+use App\Support\MealTypeDefaults;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -34,7 +35,12 @@ class EventService
     /** @param array<string, mixed> $data */
     public function create(array $data): Event
     {
-        $event = Event::query()->create($data);
+        $event = DB::transaction(function () use ($data): Event {
+            $event = Event::query()->create($data);
+            DB::table('meal_types')->insert(MealTypeDefaults::rows($event->id));
+
+            return $event;
+        });
         $this->forgetList();
 
         return $event;
@@ -107,6 +113,9 @@ class EventService
                 ->whereIn('pass_type_id', $passTypeIds())
                 ->delete();
 
+            DB::table('meal_assignments')->where('event_id', $event->id)->delete();
+            DB::table('shift_meals')->whereIn('shift_id', $event->shifts()->select('id'))->delete();
+            $event->meals()->delete();
             $event->shifts()->delete();
             $event->teamEngagements()->delete();
             $event->delete();

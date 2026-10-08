@@ -19,11 +19,11 @@ class IndexShiftAssignmentCandidatesRequest extends FormRequest
     {
         return [...$this->hoursRules(),
             ...$this->proposedShiftRules(),
-            'override' => ['sometimes', 'boolean', 'accepted', 'prohibits:shift_role_slot_id,role_id,role_filter'],
+            'extra' => ['sometimes', 'boolean', 'accepted', 'prohibits:shift_role_slot_id,role_id,role_filter'],
             'shift_role_slot_id' => $this->route('shift')
-                ? ['required_without_all:role_id,override', 'prohibits:role_id,override', 'integer', Rule::exists('shift_role_slots', 'id')->where('shift_id', $this->route('shift')->id)]
+                ? ['required_without_all:role_id,extra', 'prohibits:role_id,extra', 'integer', Rule::exists('shift_role_slots', 'id')->where('shift_id', $this->route('shift')->id)]
                 : ['prohibited'],
-            'role_id' => ['required_without_all:shift_role_slot_id,override', 'prohibits:shift_role_slot_id,override', 'integer', Rule::exists('roles', 'id')->where('active', true)],
+            'role_id' => ['required_without_all:shift_role_slot_id,extra', 'prohibits:shift_role_slot_id,extra', 'integer', Rule::exists('roles', 'id')->where('active', true)],
             'search' => ['sometimes', 'nullable', 'string', 'max:255'],
             'page' => ['sometimes', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:25'],

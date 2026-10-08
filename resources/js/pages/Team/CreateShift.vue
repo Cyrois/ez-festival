@@ -9,6 +9,8 @@ const props = defineProps({
     roles: { type: Array, default: () => [] },
     canManage: { type: Boolean, default: false },
     breakOptions: { type: Object, required: true },
+    mealOptions: { type: Array, default: () => [] },
+    canConfigureMeals: { type: Boolean, default: false },
     returnContext: { type: Object, default: () => ({}) },
 });
 </script>

@@ -13,6 +13,8 @@ class FreshDatabaseMigrationTest extends TestCase
 
     public function test_the_baseline_can_seed_roll_back_and_rebuild(): void
     {
+        $this->assertTrue(Schema::hasTable('meal_assignments'));
+
         // Migrations create schema only; suggested and demo data belong to seeders.
         foreach (['users', 'people', 'organizations', 'artist_types', 'vendor_types', 'roles'] as $table) {
             $this->assertDatabaseCount($table, 0);
@@ -27,7 +29,7 @@ class FreshDatabaseMigrationTest extends TestCase
         $this->artisan('db:seed')->assertSuccessful();
         $this->artisan('migrate:reset', ['--force' => true])->assertSuccessful();
 
-        foreach (['users', 'people', 'events', 'roles', 'pass_assignments', 'shift_assignments'] as $table) {
+        foreach (['users', 'people', 'events', 'roles', 'pass_assignments', 'shift_assignments', 'meal_assignments'] as $table) {
             $this->assertFalse(Schema::hasTable($table));
         }
         $this->assertDatabaseCount('migrations', 0);
@@ -38,9 +40,11 @@ class FreshDatabaseMigrationTest extends TestCase
         $this->artisan('migrate', ['--seed' => true, '--force' => true])->assertSuccessful();
         $this->artisan('db:seed')->assertSuccessful();
 
+        $this->assertTrue(Schema::hasTable('meal_assignments'));
         $this->assertDatabaseCount('organizations', 1);
         $this->assertDatabaseCount('users', 1);
         $this->assertDatabaseCount('events', 1);
+        $this->assertDatabaseCount('meal_types', 4);
         $this->assertDatabaseCount('vendor_types', 3);
         $this->assertDatabaseCount('pass_assignments', 6);
         $this->assertDatabaseCount('expected_entitlements', 14);

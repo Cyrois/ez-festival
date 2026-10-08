@@ -606,7 +606,7 @@ test('a failed grid request does not show the empty state and can retry', async 
     }
 });
 
-test('schedule summaries count overrides as assigned without changing required headcount or role occupancy', async () => {
+test('schedule summaries count extras as assigned without changing required headcount or role occupancy', async () => {
     const app = createApp({
         setup: () => () => h(Timeline, {
             rows: [{ id: 19, name: 'Gate', shifts: [{ ...shifts[0], assignment_count: 3, filled_count: 2, total_needs: 3 }] }],

@@ -33,6 +33,10 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    fullWidthContent: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 const page = usePage();
@@ -148,6 +152,27 @@ const navItems = computed(() =>
                 },
             ],
         },
+        {
+            key: 'meals',
+            href: '/meals',
+            icon: ['fas', 'utensils'],
+            enabled: true,
+            children: [
+                {
+                    key: 'meals.index',
+                    href: '/meals',
+                    icon: ['fas', 'utensils'],
+                    enabled: true,
+                    exact: true,
+                },
+                {
+                    key: 'meals.settings',
+                    href: '/meals/settings',
+                    icon: ['fas', 'list'],
+                    enabled: true,
+                },
+            ],
+        },
     ]
         .map((item) => {
             if (item.key !== 'team') return item;
@@ -169,6 +194,7 @@ const navItems = computed(() =>
                 vendors: 'vendors.view',
                 check_in: 'checkin.view',
                 patrons: 'patrons.view',
+                meals: 'meals.view',
             }[item.key];
             return item.key === 'credentials'
                 ? user.value?.is_admin
@@ -215,6 +241,9 @@ const isActive = (href) => {
         currentPath.value === href || currentPath.value.startsWith(`${href}/`)
     );
 };
+
+const isChildActive = (child) =>
+    child.exact ? currentPath.value === child.href : isActive(child.href);
 
 const openNav = () => {
     navOpen.value = true;
@@ -389,7 +418,7 @@ const railClass = computed(() => {
                                 :key="child.key"
                                 :href="child.enabled ? child.href : undefined"
                                 :enabled="child.enabled"
-                                :active="isActive(child.href)"
+                                :active="isChildActive(child)"
                                 :icon="sidebarCompact ? child.icon : null"
                                 :icon-desktop-only="sidebarCompact"
                                 :icon-only="sidebarCompact"
@@ -405,7 +434,7 @@ const railClass = computed(() => {
                                         : undefined
                                 "
                                 :aria-current="
-                                    child.enabled && isActive(child.href)
+                                    child.enabled && isChildActive(child)
                                         ? 'page'
                                         : undefined
                                 "
@@ -613,7 +642,10 @@ const railClass = computed(() => {
             </header>
 
             <main class="flex-1 px-4 py-6 md:px-6 md:py-8">
-                <div class="container mx-auto">
+                <div
+                    class="container mx-auto"
+                    :class="fullWidthContent ? 'max-w-none' : ''"
+                >
                     <slot />
                 </div>
             </main>

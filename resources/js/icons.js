@@ -4,6 +4,7 @@ import {
     faArrowLeft,
     faArrowPointer,
     faBars,
+    faBarcode,
     faCalendarDays,
     faCheck,
     faCircle,
@@ -51,6 +52,7 @@ import {
     faTriangleExclamation,
     faUser,
     faUsers,
+    faUtensils,
     faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 
@@ -63,6 +65,7 @@ export const kitIcons = [
     faArrowLeft,
     faArrowPointer,
     faBars,
+    faBarcode,
     faCalendarDays,
     faCheck,
     faCircle,
@@ -110,6 +113,7 @@ export const kitIcons = [
     faTriangleExclamation,
     faUser,
     faUsers,
+    faUtensils,
     faXmark,
 ];
 

@@ -44,7 +44,7 @@ export function copiedShiftDraft(prefill) {
             ...(slot
                 ? { slot_key: slot._key }
                 : person.role_id == null
-                  ? { override: true }
+                  ? { extra: true }
                   : { role_id: person.role_id }),
             hours_mode: person.hours_mode,
             ...(person.hours_mode === 'custom'

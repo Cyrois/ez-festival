@@ -76,9 +76,21 @@ const inputUrl = await compile(
 const fieldUrl = await compile(
     '../../resources/js/components/ui/form-field/FormField.vue',
 );
+const dropdownTag = await compile('../../resources/js/components/ui/tag/Tag.vue', [
+    [/from ['"].*?lib\/labelTokens['"]/, `from '${new URL('../../resources/js/lib/labelTokens.js', import.meta.url).href}'`],
+    [/import \{ Icon \} from ['"].*?['"];?/, 'const Icon = { render: () => null };'],
+]);
+const dropdownCheckbox = await compile('../../resources/js/components/ui/checkbox/Checkbox.vue');
+const dropdownAvatar = await compile('../../resources/js/components/ui/avatar/Avatar.vue', [
+    [/from ['" ]class-variance-authority['"]/, `from '${pathToFileURL(require.resolve('class-variance-authority').replace('/dist/index.js', '/dist/index.mjs')).href}'`],
+    [/import \{ Icon \} from ['"].*?['"];?/, 'const Icon = { render: () => null };'],
+]);
 const dropdownUrl = await compile(
     '../../resources/js/components/ui/custom-dropdown/CustomDropdown.vue',
     [
+        [/import \{ Tag \} from ['"].*?['"];?/, `import Tag from '${dropdownTag}';`],
+        [/import \{ Checkbox \} from ['"].*?['"];?/, `import Checkbox from '${dropdownCheckbox}';`],
+        [/import \{ Avatar \} from ['"].*?['"];?/, `import Avatar from '${dropdownAvatar}';`],
         [
             /import \{ Input \} from ['"].*?['"];?/,
             `import Input from '${inputUrl}';`,

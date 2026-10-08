@@ -65,18 +65,18 @@ class ShiftOverrideMigrationTest extends TestCase
                 $this->assertModelExists($break);
             }
         }
-        $override = app(ShiftAssignmentService::class)->create($shift, ['override' => true, 'team_engagement_id' => $nextMember->id, 'hours_mode' => 'full_shift']);
-        $this->assertGreaterThan($lastId, $override->id);
-        $this->assertNull($override->role_id);
+        $extra = app(ShiftAssignmentService::class)->create($shift, ['extra' => true, 'team_engagement_id' => $nextMember->id, 'hours_mode' => 'full_shift']);
+        $this->assertGreaterThan($lastId, $extra->id);
+        $this->assertNull($extra->role_id);
         try {
             $migration->down();
             $this->fail('Rollback must not discard overrides or invent roles.');
         } catch (RuntimeException $exception) {
             $this->assertStringContainsString('role-free shift overrides', $exception->getMessage());
-            $this->assertModelExists($override);
+            $this->assertModelExists($extra);
             $this->assertModelExists($break);
         }
-        $override->delete();
+        $extra->delete();
         $migration->down();
         $this->assertModelExists($break);
         $migration->up();

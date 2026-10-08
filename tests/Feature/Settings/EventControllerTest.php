@@ -5,14 +5,17 @@ namespace Tests\Feature\Settings;
 use App\Models\Event;
 use App\Models\ExpectedEntitlement;
 use App\Models\IssuedEntitlement;
+use App\Models\MealAssignment;
 use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\MealAssignmentService;
 use App\Support\OrganizationContext;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -56,6 +59,7 @@ class EventControllerTest extends TestCase
         $event = Event::query()->sole();
         $this->assertSame('2027-07-10', $event->starts_on->toDateString());
         $this->assertSame('2027-07-12', $event->ends_on->toDateString());
+        $this->assertSame(['Breakfast', 'Lunch', 'Dinner', 'Midnight'], $event->mealTypes()->orderBy('sort_order')->pluck('name')->all());
     }
 
     public function test_event_index_repeat_load_uses_the_cached_list(): void
@@ -237,13 +241,33 @@ class EventControllerTest extends TestCase
         ]);
 
         $personalBreak = $assignment->breaks()->create(['shift_break_id' => $break->id, 'duration_minutes' => 15, 'starts_at' => $break->starts_at, 'sort_order' => 0]);
+        $mealType = $event->mealTypes()->where('name', 'Breakfast')->sole();
+        $meal = $event->meals()->create([
+            'meal_type_id' => $mealType->id, 'name' => 'Teardown breakfast',
+            'date' => $event->starts_on, 'starts_at' => '07:00:00', 'ends_at' => '10:00:00',
+        ]);
+
+        $shiftMeal = $shift->meals()->create(['meal_id' => $meal->id]);
+        app(MealAssignmentService::class)->syncShiftMeal($shiftMeal, [$assignment->id]);
+        $claim = MealAssignment::query()->where('shift_meal_id', $shiftMeal->id)->sole();
+        $claim->update(['claimed_by' => $user->id, 'claimed_at' => now(), 'claim_token' => (string) Str::uuid()]);
+        $directAssignment = MealAssignment::create([
+            ...app(MealAssignmentService::class)->mealAttributes($meal),
+            'event_id' => $event->id, 'team_engagement_id' => $engagement->id, 'is_active' => true,
+        ]);
 
         $this->actingAs($user)
             ->delete(route('settings.events.destroy', $event))
             ->assertRedirect(route('settings.events.index'));
 
         $this->assertModelMissing($assignment);
+        $this->assertModelMissing($shiftMeal);
+        $this->assertModelMissing($claim);
+        $this->assertModelMissing($directAssignment);
+        $this->assertSame(0, MealAssignment::query()->where('is_active', true)->whereNotNull('shift_assignment_id')->count());
         $this->assertModelMissing($personalBreak);
+        $this->assertModelMissing($mealType);
+        $this->assertModelMissing($meal);
         $this->assertModelMissing($break);
         $this->assertModelMissing($slot);
         $this->assertModelExists($role);

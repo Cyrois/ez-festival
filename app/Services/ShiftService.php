@@ -3,11 +3,13 @@
 namespace App\Services;
 
 use App\Models\Event;
+use App\Models\MealAssignment;
 use App\Models\Shift;
 use App\Repositories\ShiftAssignmentRepository;
 use App\Support\ShiftAssignmentHours;
 use App\Support\ShiftAssignmentOverlaps;
 use App\Support\ShiftBreaks;
+use App\Support\ShiftMeals;
 use App\Support\ShiftRosterChanges;
 use App\Support\ShiftSlotReferences;
 use Illuminate\Support\Collection;
@@ -37,21 +39,23 @@ class ShiftService
             $event = Event::query()->lockForUpdate()->findOrFail($event->id);
             $event->ensureWritable();
 
+            $meals = $data['meals'] ?? [];
             $slots = $data['slots'] ?? [];
             $breaks = $data['breaks'] ?? [];
             $additions = $data['assignment_additions'] ?? [];
-            $errors = [...ShiftBreaks::errors($data, collect()), ...ShiftRosterChanges::errors(new Shift(['event_id' => $event->id]), $data)];
+            $errors = [...ShiftBreaks::errors($data, collect()), ...ShiftRosterChanges::errors(new Shift(['event_id' => $event->id]), $data), ...ShiftMeals::errors(new Shift(['event_id' => $event->id]), $data)];
             if ($errors !== []) {
                 throw ValidationException::withMessages($errors);
             }
             $this->validatePersonalBreaks(new Shift($data), $data, collect(), collect());
             app(ShiftBreakService::class)->replay($data, collect(), collect());
             unset($data['break_operations']);
-            unset($data['slots'], $data['breaks'], $data['assignment_additions'], $data['assignment_updates'], $data['assignment_removals']);
+            unset($data['meals'], $data['slots'], $data['breaks'], $data['assignment_additions'], $data['assignment_updates'], $data['assignment_removals']);
             $shift = $event->shifts()->create($data);
             $draftSlots = $this->syncSlots($shift, $slots);
             $draftBreaks = $this->syncBreaks($shift, $breaks, collect());
-            $this->addAssignments($shift, $additions, $draftSlots, $draftBreaks);
+            $draftPeople = $this->addAssignments($shift, $additions, $draftSlots, $draftBreaks);
+            $this->syncMeals($shift, $meals, $draftPeople);
 
             return $shift;
         });
@@ -66,7 +70,7 @@ class ShiftService
 
             $shift = $event->shifts()->lockForUpdate()->findOrFail($shift->id);
             $existingBreaks = $shift->breaks()->lockForUpdate()->get()->keyBy('id');
-            $errors = [...ShiftRosterChanges::errors($shift, $data, lock: true), ...ShiftAssignmentHours::containmentErrors($shift, $data), ...ShiftBreaks::errors($data, $existingBreaks)];
+            $errors = [...ShiftRosterChanges::errors($shift, $data, lock: true), ...ShiftAssignmentHours::containmentErrors($shift, $data), ...ShiftBreaks::errors($data, $existingBreaks), ...ShiftMeals::errors($shift, $data)];
             if ($errors !== []) {
                 throw ValidationException::withMessages($errors);
             }
@@ -95,8 +99,10 @@ class ShiftService
             $updates = $data['assignment_updates'] ?? [];
             $removals = $data['assignment_removals'] ?? [];
             $additions = $data['assignment_additions'] ?? [];
-            unset($data['assignment_updates'], $data['assignment_removals'], $data['assignment_additions']);
+            $meals = $data['meals'] ?? null;
+            unset($data['meals'], $data['assignment_updates'], $data['assignment_removals'], $data['assignment_additions']);
             $shift->update($data);
+            MealAssignment::query()->whereIn('shift_assignment_id', $removals)->update(['is_active' => false]);
             $shift->assignments()->whereIn('id', $removals)->delete();
             foreach ($updates as $row) {
                 [$start, $end] = ShiftAssignmentHours::resolve($shift, $row);
@@ -107,7 +113,12 @@ class ShiftService
                     app(ShiftBreakService::class)->sync($assignment, $row['breaks'], $draftBreaks);
                 }
             }
-            $this->addAssignments($shift, $additions, $draftSlots, $draftBreaks);
+            $draftPeople = $this->addAssignments($shift, $additions, $draftSlots, $draftBreaks);
+            if ($meals !== null) {
+                $this->syncMeals($shift, $meals, $draftPeople);
+            }
+            MealAssignment::query()->where('source_shift_id', $shift->id)->where('is_active', true)->whereNull('claimed_at')
+                ->update(['shift_location_name' => $shift->location->name, 'shift_starts_at' => $shift->starts_at, 'shift_ends_at' => $shift->ends_at]);
         });
     }
 
@@ -133,15 +144,19 @@ class ShiftService
         }
     }
 
-    private function addAssignments(Shift $shift, array $additions, array $draftSlots, array $draftBreaks): void
+    private function addAssignments(Shift $shift, array $additions, array $draftSlots, array $draftBreaks): array
     {
+        $draftPeople = [];
         foreach ($additions as $index => $row) {
             try {
                 if (isset($row['slot_key'])) {
                     $row['shift_role_slot_id'] = $draftSlots[$row['slot_key']] ?? null;
                     unset($row['slot_key']);
                 }
-                app(ShiftAssignmentService::class)->create($shift, $row, $draftBreaks);
+                $assignment = app(ShiftAssignmentService::class)->create($shift, $row, $draftBreaks);
+                if (isset($row['client_key'])) {
+                    $draftPeople[$row['client_key']] = $assignment->id;
+                }
             } catch (ValidationException $exception) {
                 $errors = [];
                 foreach ($exception->errors() as $key => $messages) {
@@ -150,6 +165,21 @@ class ShiftService
                 throw ValidationException::withMessages($errors);
             }
         }
+
+        return $draftPeople;
+    }
+
+    private function syncMeals(Shift $shift, array $rows, array $draftPeople): void
+    {
+        $existing = $shift->meals()->lockForUpdate()->get()->keyBy('meal_id');
+        $kept = [];
+        foreach ($rows as $row) {
+            $meal = $existing->get($row['meal_id']) ?? $shift->meals()->create(['meal_id' => $row['meal_id']]);
+            app(MealAssignmentService::class)->syncShiftMeal($meal, array_map(fn ($key) => $key < 0 ? $draftPeople[$key] : $key, $row['assignment_keys']));
+            $kept[] = $meal->id;
+        }
+        MealAssignment::query()->where('source_shift_id', $shift->id)->whereNotIn('shift_meal_id', $kept)->update(['is_active' => false]);
+        $shift->meals()->whereNotIn('id', $kept)->delete();
     }
 
     private function syncBreaks(Shift $shift, array $breaks, Collection $existing): array
@@ -218,6 +248,7 @@ class ShiftService
             if ($shift->assignments()->count() !== $confirmationCount) {
                 throw ValidationException::withMessages(['assignment_count' => __('team.scheduling.assignments.errors.stale_delete')]);
             }
+            MealAssignment::query()->where('source_shift_id', $shift->id)->update(['is_active' => false]);
             $shift->delete();
         });
     }

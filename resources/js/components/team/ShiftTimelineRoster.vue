@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, useId } from 'vue';
 import { CardTitle } from '../ui/card';
 import { Avatar } from '../ui/avatar';
 import { Badge } from '../ui/badge';
+import { Tooltip } from '../ui/tooltip';
 import { Icon } from '../ui/icon';
 import { IconButton } from '../ui/icon-button';
 import {
@@ -31,6 +32,7 @@ import {
     SCHEDULE_SLOT_MINUTES,
 } from '../../lib/scheduleTimeline';
 import { wallMinutes } from '../../lib/shiftBreaks';
+import { mealsForAssignment } from '../../lib/shiftMeals';
 import { translatedPersonalBreak } from '../../lib/personalBreaks';
 import { trans } from 'laravel-vue-i18n';
 
@@ -554,6 +556,72 @@ const resizeKey = (event, assignment, edge) => {
                                             )
                                         }}</Badge
                                     >
+                                    <Tooltip
+                                        v-if="
+                                            row.assignment &&
+                                            mealsForAssignment(
+                                                shift.meals ?? [],
+                                                row.assignment.id,
+                                            ).length
+                                        "
+                                        :label="
+                                            $t(
+                                                'team.scheduling.meals.badge_hint',
+                                            ) +
+                                            ' ' +
+                                            mealsForAssignment(
+                                                shift.meals ?? [],
+                                                row.assignment.id,
+                                            )
+                                                .map(
+                                                    (meal) =>
+                                                        `${meal.meal.name} · ${meal.meal.starts_at}`,
+                                                )
+                                                .join(', ')
+                                        "
+                                    >
+                                        <Badge
+                                            pill
+                                            class="text-muted"
+                                        >
+                                            <Icon
+                                                :name="['fas', 'utensils']"
+                                                size="sm"
+                                            />
+                                            <span
+                                                v-if="
+                                                    mealsForAssignment(
+                                                        shift.meals ?? [],
+                                                        row.assignment.id,
+                                                    ).length > 1
+                                                "
+                                                class="ml-1"
+                                                >{{
+                                                    mealsForAssignment(
+                                                        shift.meals ?? [],
+                                                        row.assignment.id,
+                                                    ).length
+                                                }}</span
+                                            >
+                                        </Badge>
+                                        <template #content>
+                                            {{
+                                                $t(
+                                                    'team.scheduling.meals.badge_hint',
+                                                )
+                                            }}
+                                            <span
+                                                v-for="meal in mealsForAssignment(
+                                                    shift.meals ?? [],
+                                                    row.assignment.id,
+                                                )"
+                                                :key="meal._key ?? meal.id"
+                                                class="mt-1 block"
+                                                >{{ meal.meal.name }} ·
+                                                {{ meal.meal.starts_at }}</span
+                                            >
+                                        </template>
+                                    </Tooltip>
                                 </div>
                                 <p
                                     v-if="

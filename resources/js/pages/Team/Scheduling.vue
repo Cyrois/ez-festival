@@ -129,7 +129,7 @@ const tableOptions = computed(() => ({
     serverSide: true,
     columnDefs: [
         { targets: [2, 3], className: 'text-left' },
-        { targets: 6, className: 'text-right' },
+        { targets: 7, className: 'text-right' },
     ],
     createdRow: (row, shift) =>
         navigateDataTableRow(row, shift, (item) =>
@@ -387,6 +387,11 @@ const formatDateTime = (value) =>
                                 }}</span>
                             </div>
                         </template>
+                        <template #mealsCell="{ rowData }">{{
+                            (rowData.meals ?? [])
+                                .map((row) => row.meal.name)
+                                .join(', ') || $t('data_table.empty_value')
+                        }}</template>
                         <template #needsCell="{ rowData }">
                             {{
                                 $t('team.scheduling.slots.filled', {

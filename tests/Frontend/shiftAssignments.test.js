@@ -640,12 +640,12 @@ test('overlap warnings render in a DataTable component without app-global transl
     }
 });
 
-test('override searches immediately without slots, role selection or filtering and submits a direct assignment', async () => {
+test('extra searches immediately without slots, role selection or filtering and submits a direct assignment', async () => {
     const app = await mount({ requirement: null, shift: { ...shift, slots: [] } });
     try {
         assert.equal(harness.requests.length, 1);
         const query = harness.requests[0].searchParams;
-        assert.equal(query.get('override'), '1');
+        assert.equal(query.get('extra'), '1');
         assert.equal(query.has('shift_role_slot_id'), false);
         assert.equal(query.has('role_id'), false);
         assert.equal(query.has('role_filter'), false);
@@ -656,14 +656,14 @@ test('override searches immediately without slots, role selection or filtering a
         await choose('Alpha');
         document.querySelector('#assign').click();
         assert.deepEqual(harness.writes[0].data, {
-            override: true,
+            extra: true,
             team_engagement_id: 8,
             hours_mode: 'full_shift',
         });
     } finally { app.unmount(); }
 });
 
-test('new shift override stages custom hours without inventing a headcount row or writing', async () => {
+test('new shift extra stages custom hours without inventing a headcount row or writing', async () => {
     const drafts = [];
     const app = await mount({
         requirement: null,
@@ -684,7 +684,7 @@ test('new shift override stages custom hours without inventing a headcount row o
         await choose('Alpha');
         document.querySelector('#assign').click();
         assert.equal(harness.writes.length, 0);
-        assert.equal(drafts[0].override, true);
+        assert.equal(drafts[0].extra, true);
         assert.equal(drafts[0].slot, null);
         assert.equal(drafts[0].starts_at, '2026-10-01T11:00');
         assert.equal('slot_key' in drafts[0], false);
