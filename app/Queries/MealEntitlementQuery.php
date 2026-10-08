@@ -14,17 +14,23 @@ class MealEntitlementQuery
     /** Person-owned grants, with claim state stored on the same row. */
     public function forPerson(Event $event, int $memberId): Builder
     {
+        return MealClaimDay::scope($this->forPersonAcrossEvent($event, $memberId), $event);
+    }
+
+    /** The same visible assignments across every meal day, without Kitchen's today filter. */
+    public function forPersonAcrossEvent(Event $event, int $memberId): Builder
+    {
         $rows = DB::table('meal_assignments as grants')->join('meal_types', 'meal_types.id', '=', 'grants.meal_type_id')
             ->where('grants.event_id', $event->id)->where('grants.team_engagement_id', $memberId)
             ->where(fn (Builder $visible) => $visible->whereNotNull('grants.claimed_at')
                 ->orWhere(fn (Builder $active) => $this->active($active)))
-            ->select('grants.id as assignment_id', 'grants.shift_meal_id', 'grants.source_shift_id', 'grants.meal_id',
+            ->select('grants.id as assignment_id', 'grants.shift_meal_id', 'grants.shift_assignment_id', 'grants.is_active', 'grants.source_shift_id', 'grants.meal_id',
                 'grants.meal_name', DB::raw('DATE(grants.meal_date) as meal_date'), 'grants.meal_type_id', 'meal_types.name as type_name',
                 'grants.starts_at', 'grants.ends_at', 'grants.shift_location_name', 'grants.shift_starts_at', 'grants.shift_ends_at',
                 'grants.claimed_at', 'grants.claim_token')
             ->selectRaw('CASE WHEN grants.claimed_at IS NULL THEN 0 ELSE 1 END as used');
 
-        return MealClaimDay::scope(DB::query()->fromSub($rows, 'person_meals'), $event);
+        return DB::query()->fromSub($rows, 'person_meals');
     }
 
     /** Null source is a direct assignment; Scheduling removals retire only that source grant. */
