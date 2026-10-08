@@ -1675,7 +1675,7 @@
     "permissions.meals.override.tooltip": "Give and immediately claim a meal without a shift grant. Includes View meals.",
     "permissions.meals.undo_claim.label": "Remove meal overrides",
     "permissions.meals.undo_claim.tooltip": "Remove an unclaimed override grant. Claimed meals must be unclaimed first. Includes View meals.",
-    "meals.override.action": "Override",
+    "meals.override.action": "Give meal",
     "meals.override.title": "Override for :name",
     "meals.override.pick": "Which meal? An override gives and immediately claims a meal. It is counted as Used, with its Override origin tracked separately.",
     "meals.override.option": ":meal · :type · :start–:end",
