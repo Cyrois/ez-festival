@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\ArtistEngagement;
 use App\Models\Event;
+use App\Models\MealAssignment;
 use App\Models\Person;
 use App\Models\Role;
 use App\Models\TeamEngagement;
@@ -13,6 +14,7 @@ use App\Services\EntitlementConsumeService;
 use App\Services\EntitlementItemService;
 use App\Services\EventService;
 use App\Services\GlobalTeamService;
+use App\Services\MealAssignmentService;
 use App\Services\MealClaimService;
 use App\Services\MealTypeService;
 use App\Services\PassAssignmentService;
@@ -173,7 +175,7 @@ class PostgresWriteConcurrencyTest extends TestCase
     {
         [$event, $user, $member, $meal, $shift] = $this->mealContext();
         $claim = function () use ($event, $user, $member, $meal, $shift): void {
-            $result = app(MealClaimService::class)->claim($event, $member, $user, $meal->id, $shift->id);
+            $result = app(MealClaimService::class)->claim($event, $member, $user, MealAssignment::query()->where('team_engagement_id', $member->id)->where('source_shift_id', $shift->id)->where('meal_id', $meal->id)->sole()->id);
             if ($result['status'] !== 'claimed') {
                 throw ValidationException::withMessages(['meal_id' => $result['status']]);
             }
@@ -181,7 +183,7 @@ class PostgresWriteConcurrencyTest extends TestCase
         $results = $this->concurrently($claim, $claim);
         $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
         $this->assertSame('events', $results[1]['first_lock']);
-        $this->assertDatabaseCount('meal_claims', 1);
+        $this->assertSame(1, MealAssignment::query()->whereNotNull('claimed_at')->count());
     }
 
     public function test_claim_on_another_shift_observes_the_first_claim_and_requires_warning(): void
@@ -191,11 +193,11 @@ class PostgresWriteConcurrencyTest extends TestCase
             'starts_at' => $shift->starts_at, 'ends_at' => $shift->ends_at]);
         $assignment = $other->assignments()->create(['team_engagement_id' => $member->id,
             'role_id' => $shift->assignments()->sole()->role_id, 'starts_at' => $other->starts_at, 'ends_at' => $other->ends_at]);
-        $other->meals()->create(['meal_id' => $meal->id])->assignments()->attach($assignment->id);
+        app(MealAssignmentService::class)->syncShiftMeal($other->meals()->create(['meal_id' => $meal->id]), [$assignment->id]);
         $results = $this->concurrently(
-            fn () => app(MealClaimService::class)->claim($event, $member, $user, $meal->id, $shift->id),
+            fn () => app(MealClaimService::class)->claim($event, $member, $user, MealAssignment::query()->where('team_engagement_id', $member->id)->where('source_shift_id', $shift->id)->where('meal_id', $meal->id)->sole()->id),
             function () use ($event, $member, $user, $meal, $other): void {
-                $result = app(MealClaimService::class)->claim($event, $member, $user, $meal->id, $other->id);
+                $result = app(MealClaimService::class)->claim($event, $member, $user, MealAssignment::query()->where('team_engagement_id', $member->id)->where('source_shift_id', $other->id)->where('meal_id', $meal->id)->sole()->id);
                 if ($result['status'] !== 'warning_required') {
                     throw new \RuntimeException('Expected same-type warning.');
                 }
@@ -203,7 +205,7 @@ class PostgresWriteConcurrencyTest extends TestCase
             },
         );
         $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
-        $this->assertDatabaseCount('meal_claims', 1);
+        $this->assertSame(1, MealAssignment::query()->whereNotNull('claimed_at')->count());
     }
 
     public function test_claim_observes_an_event_locked_after_models_were_loaded(): void
@@ -211,18 +213,19 @@ class PostgresWriteConcurrencyTest extends TestCase
         [$event, $user, $member, $meal, $shift] = $this->mealContext();
         $results = $this->concurrently(
             fn () => app(EventService::class)->lock($event),
-            fn () => app(MealClaimService::class)->claim($event, $member, $user, $meal->id, $shift->id),
+            fn () => app(MealClaimService::class)->claim($event, $member, $user, MealAssignment::query()->where('team_engagement_id', $member->id)->where('source_shift_id', $shift->id)->where('meal_id', $meal->id)->sole()->id),
         );
         $this->assertSame(['committed', 'http_403'], array_column($results, 'status'), json_encode($results));
-        $this->assertDatabaseCount('meal_claims', 0);
+        $this->assertSame(0, MealAssignment::query()->whereNotNull('claimed_at')->count());
     }
 
     public function test_simultaneous_unclaims_correct_a_meal_only_once(): void
     {
         [$event, $user, $member, $meal, $shift] = $this->mealContext();
-        $claimId = app(MealClaimService::class)->claim($event, $member, $user, $meal->id, $shift->id)['claim_id'];
-        $unclaim = function () use ($event, $user, $member, $claimId): void {
-            $result = app(MealClaimService::class)->unclaim($event, $member, $user, $claimId);
+        $claimId = app(MealClaimService::class)->claim($event, $member, $user, MealAssignment::query()->where('team_engagement_id', $member->id)->where('source_shift_id', $shift->id)->where('meal_id', $meal->id)->sole()->id)['assignment_id'];
+        $claimToken = MealAssignment::findOrFail($claimId)->claim_token;
+        $unclaim = function () use ($event, $user, $member, $claimId, $claimToken): void {
+            $result = app(MealClaimService::class)->unclaim($event, $member, $user, $claimId, $claimToken);
             if ($result['status'] !== 'unclaimed') {
                 throw ValidationException::withMessages(['claim_id' => $result['status']]);
             }
@@ -230,17 +233,18 @@ class PostgresWriteConcurrencyTest extends TestCase
         $results = $this->concurrently($unclaim, $unclaim);
         $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
         $this->assertSame('events', $results[1]['first_lock']);
-        $this->assertDatabaseCount('meal_claims', 0);
+        $this->assertSame(0, MealAssignment::query()->whereNotNull('claimed_at')->count());
     }
 
     public function test_claim_waits_for_an_in_progress_unclaim_and_consumes_the_restored_grant(): void
     {
         [$event, $user, $member, $meal, $shift] = $this->mealContext();
-        $claimId = app(MealClaimService::class)->claim($event, $member, $user, $meal->id, $shift->id)['claim_id'];
+        $claimId = app(MealClaimService::class)->claim($event, $member, $user, MealAssignment::query()->where('team_engagement_id', $member->id)->where('source_shift_id', $shift->id)->where('meal_id', $meal->id)->sole()->id)['assignment_id'];
+        $claimToken = MealAssignment::findOrFail($claimId)->claim_token;
         $results = $this->concurrently(
-            fn () => app(MealClaimService::class)->unclaim($event, $member, $user, $claimId),
+            fn () => app(MealClaimService::class)->unclaim($event, $member, $user, $claimId, $claimToken),
             function () use ($event, $user, $member, $meal, $shift): void {
-                $result = app(MealClaimService::class)->claim($event, $member, $user, $meal->id, $shift->id);
+                $result = app(MealClaimService::class)->claim($event, $member, $user, MealAssignment::query()->where('team_engagement_id', $member->id)->where('source_shift_id', $shift->id)->where('meal_id', $meal->id)->sole()->id);
                 if ($result['status'] !== 'claimed') {
                     throw new \RuntimeException('Expected the restored grant to be available.');
                 }
@@ -248,10 +252,10 @@ class PostgresWriteConcurrencyTest extends TestCase
         );
         $this->assertSame(['committed', 'committed'], array_column($results, 'status'), json_encode($results));
         $this->assertSame('events', $results[1]['first_lock']);
-        $this->assertDatabaseCount('meal_claims', 1);
-        $this->assertDatabaseMissing('meal_claims', ['id' => $claimId]);
-        $this->assertSame('already_unclaimed', app(MealClaimService::class)->unclaim($event, $member, $user, $claimId)['status']);
-        $this->assertDatabaseCount('meal_claims', 1);
+        $this->assertSame(1, MealAssignment::query()->whereNotNull('claimed_at')->count());
+        $this->assertNotSame($claimToken, MealAssignment::findOrFail($claimId)->claim_token);
+        $this->assertSame('already_unclaimed', app(MealClaimService::class)->unclaim($event, $member, $user, $claimId, $claimToken)['status']);
+        $this->assertSame(1, MealAssignment::query()->whereNotNull('claimed_at')->count());
     }
 
     private function mealContext(): array
@@ -268,7 +272,7 @@ class PostgresWriteConcurrencyTest extends TestCase
             'starts_at' => $shift->starts_at, 'ends_at' => $shift->ends_at]);
         $meal = $event->meals()->create(['name' => 'Lunch', 'meal_type_id' => $event->mealTypes()->where('name', 'Lunch')->sole()->id,
             'date' => '2026-10-01', 'starts_at' => '12:00:00', 'ends_at' => '14:00:00']);
-        $shift->meals()->create(['meal_id' => $meal->id])->assignments()->attach($assignment->id);
+        app(MealAssignmentService::class)->syncShiftMeal($shift->meals()->create(['meal_id' => $meal->id]), [$assignment->id]);
         $this->travelTo(Carbon::parse('2026-10-01 12:00', 'UTC'));
 
         return [$event, $user, $member, $meal, $shift];

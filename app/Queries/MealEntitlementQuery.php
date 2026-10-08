@@ -11,28 +11,28 @@ use Illuminate\Support\Facades\DB;
 
 class MealEntitlementQuery
 {
-    /** Current unused grants plus durable used rows, including sources removed from Scheduling. */
+    /** Person-owned grants, with claim state stored on the same row. */
     public function forPerson(Event $event, int $memberId): Builder
     {
-        $unused = $this->forEvent($event)->where('team_engagements.id', $memberId)
-            ->join('meal_types', 'meal_types.id', '=', 'meals.meal_type_id')
-            ->join('locations', 'locations.id', '=', 'shifts.location_id')
-            ->whereNotExists(fn (Builder $claims) => $claims->selectRaw('1')->from('meal_claims')
-                ->whereColumn('meal_claims.team_engagement_id', 'team_engagements.id')
-                ->whereColumn('meal_claims.source_shift_id', 'shifts.id')->whereColumn('meal_claims.meal_id', 'meals.id'))
-            ->select('shift_meals.id as shift_meal_id', 'shifts.id as source_shift_id', 'meals.id as meal_id',
-                'meals.name as meal_name', DB::raw('DATE(meals.date) as meal_date'), 'meals.meal_type_id', 'meal_types.name as type_name',
-                'meals.starts_at', 'meals.ends_at', 'locations.name as shift_location_name',
-                'shifts.starts_at as shift_starts_at', 'shifts.ends_at as shift_ends_at')
-            ->selectRaw('NULL as claim_id, NULL as claimed_at, 0 as used');
-        $used = DB::table('meal_claims')->join('meal_types', 'meal_types.id', '=', 'meal_claims.meal_type_id')
-            ->where('meal_claims.event_id', $event->id)->where('team_engagement_id', $memberId)
-            ->select('shift_meal_id', 'source_shift_id', 'meal_id', 'meal_name', DB::raw('DATE(meal_claims.meal_date) as meal_date'),
-                'meal_type_id', 'meal_types.name as type_name', 'meal_claims.starts_at', 'meal_claims.ends_at',
-                'shift_location_name', 'shift_starts_at', 'shift_ends_at', 'meal_claims.id as claim_id', 'claimed_at')
-            ->selectRaw('1 as used');
+        $rows = DB::table('meal_assignments as grants')->join('meal_types', 'meal_types.id', '=', 'grants.meal_type_id')
+            ->where('grants.event_id', $event->id)->where('grants.team_engagement_id', $memberId)
+            ->where(fn (Builder $visible) => $visible->whereNotNull('grants.claimed_at')
+                ->orWhere(fn (Builder $active) => $this->active($active)))
+            ->select('grants.id as assignment_id', 'grants.shift_meal_id', 'grants.source_shift_id', 'grants.meal_id',
+                'grants.meal_name', DB::raw('DATE(grants.meal_date) as meal_date'), 'grants.meal_type_id', 'meal_types.name as type_name',
+                'grants.starts_at', 'grants.ends_at', 'grants.shift_location_name', 'grants.shift_starts_at', 'grants.shift_ends_at',
+                'grants.claimed_at', 'grants.claim_token')
+            ->selectRaw('CASE WHEN grants.claimed_at IS NULL THEN 0 ELSE 1 END as used');
 
-        return MealClaimDay::scope(DB::query()->fromSub($unused->unionAll($used), 'person_meals'), $event);
+        return MealClaimDay::scope(DB::query()->fromSub($rows, 'person_meals'), $event);
+    }
+
+    /** Null source is a direct assignment; Scheduling removals retire only that source grant. */
+    private function active(Builder $query): Builder
+    {
+        return $query->where('grants.is_active', true)->where(fn (Builder $source) => $source
+            ->whereNull('grants.source_shift_id')->orWhere(fn (Builder $linked) => $linked
+            ->whereNotNull('grants.shift_meal_id')->whereNotNull('grants.shift_assignment_id')));
     }
 
     public function personCounts(Event $event, int $memberId): Collection
@@ -45,19 +45,16 @@ class MealEntitlementQuery
     /** One row per shift meal and listed person; deliberately never deduplicated by meal. */
     public function forEvent(Event $event): Builder
     {
-        return DB::table('shift_meal_people as grants')
-            ->join('shift_meals', 'shift_meals.id', '=', 'grants.shift_meal_id')
-            ->join('shifts', 'shifts.id', '=', 'shift_meals.shift_id')
-            ->join('meals', 'meals.id', '=', 'shift_meals.meal_id')
-            ->join('shift_assignments', function ($join): void {
-                $join->on('shift_assignments.id', '=', 'grants.shift_assignment_id')
-                    ->on('shift_assignments.shift_id', '=', 'shifts.id');
-            })
-            ->join('team_engagements', 'team_engagements.id', '=', 'shift_assignments.team_engagement_id')
-            ->where('shifts.event_id', $event->id)->where('meals.event_id', $event->id)
+        return $this->active(DB::table('meal_assignments as grants'))
+            ->leftJoin('shift_meals', 'shift_meals.id', '=', 'grants.shift_meal_id')
+            ->leftJoin('shifts', 'shifts.id', '=', 'grants.source_shift_id')
+            ->join('meals', 'meals.id', '=', 'grants.meal_id')
+            ->leftJoin('shift_assignments', 'shift_assignments.id', '=', 'grants.shift_assignment_id')
+            ->join('team_engagements', 'team_engagements.id', '=', 'grants.team_engagement_id')
+            ->where('grants.event_id', $event->id)->where('meals.event_id', $event->id)
             ->where('team_engagements.event_id', $event->id)
-            ->select('shift_meals.id as shift_meal_id', 'shift_meals.meal_id', 'shifts.id as shift_id',
-                'shift_assignments.id as assignment_id', 'team_engagements.id as team_engagement_id', 'team_engagements.person_id');
+            ->select('grants.shift_meal_id', 'grants.meal_id', 'grants.source_shift_id as shift_id',
+                'grants.shift_assignment_id as assignment_id', 'grants.team_engagement_id', 'team_engagements.person_id');
     }
 
     /** Load all meal rows and their valid recipients in batches for the roster. */
@@ -77,7 +74,7 @@ class MealEntitlementQuery
 
     public function projected(Event $event): Collection
     {
-        return $this->forEvent($event)->select('shift_meals.meal_id')->selectRaw('COUNT(*) as quantity')
-            ->groupBy('shift_meals.meal_id')->pluck('quantity', 'meal_id');
+        return $this->forEvent($event)->select('grants.meal_id')->selectRaw('COUNT(*) as quantity')
+            ->groupBy('grants.meal_id')->pluck('quantity', 'meal_id');
     }
 }

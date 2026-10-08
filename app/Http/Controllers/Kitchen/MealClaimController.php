@@ -16,7 +16,7 @@ class MealClaimController extends Controller
     public function destroy(UnclaimMealRequest $request, Event $event, TeamEngagement $member, MealClaimService $claims): JsonResponse
     {
         $data = $request->validated();
-        $result = $claims->unclaim($event, $member, $request->user(), (int) $data['claim_id']);
+        $result = $claims->unclaim($event, $member, $request->user(), (int) $data['assignment_id'], $data['claim_token']);
 
         return (new MealClaimResultResource($result))->response()->setStatusCode($result['status'] === 'unclaimed' ? 200 : 409);
     }
@@ -24,7 +24,7 @@ class MealClaimController extends Controller
     public function store(ClaimMealRequest $request, Event $event, TeamEngagement $member, MealClaimService $claims): JsonResponse
     {
         $data = $request->validated();
-        $result = $claims->claim($event, $member, $request->user(), (int) $data['meal_id'], (int) $data['source_shift_id'], (bool) ($data['confirm_warning'] ?? false));
+        $result = $claims->claim($event, $member, $request->user(), (int) $data['assignment_id'], (bool) ($data['confirm_warning'] ?? false));
 
         return (new MealClaimResultResource($result))->response()->setStatusCode($result['status'] === 'claimed' ? 201 : 409);
     }

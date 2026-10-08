@@ -144,7 +144,8 @@
         @apply border-b border-line text-sm text-charcoal;
     }
 
-    table.dataTable tbody tr:last-child td {
+    /* Outrank DataTables' dt-empty-footer rule so the wrapper owns the bottom edge. */
+    div.dt-container table.dataTable tbody tr:last-child > * {
         @apply border-b-0;
     }
 

@@ -35,7 +35,7 @@ class KitchenPersonController extends Controller
         return new KitchenPersonResource([
             'draw' => (int) $data['draw'], 'total' => $rows->count(),
             'rows' => $rows->orderBy('meal_date')->orderBy('starts_at')->orderBy('shift_location_name')
-                ->orderBy('shift_starts_at')->orderBy('source_shift_id')->orderBy('meal_id')
+                ->orderBy('shift_starts_at')->orderBy('source_shift_id')->orderBy('meal_id')->orderBy('assignment_id')
                 ->offset((int) $data['start'])->limit((int) $data['length'])->get(),
             'counts' => $meals->personCounts($event, $member->id), 'timezone' => $event->timezone,
             'person' => ['id' => $member->id, 'name' => $member->person->name,

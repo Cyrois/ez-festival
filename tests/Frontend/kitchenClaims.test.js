@@ -60,7 +60,7 @@ const page = await compile('../../resources/js/pages/Kitchen/Index.vue', [
 const { default: Kitchen } = await import(page);
 const tick = async () => { await new Promise((resolve) => setTimeout(resolve, 20)); await nextTick(); };
 const person = { id: 3, name: 'Ava Lee', type: 'Volunteer', codes: ['WB-123'] };
-const row = (shift = 10) => ({ meal_id: 4, source_shift_id: shift, name: 'Fri Lunch', date: '2026-10-01', type: 'Lunch', starts_at: '12:00', ends_at: '14:00', shift_location: 'Gate', shift_start: '2026-10-01T09:00', shift_end: '2026-10-01T16:00', used: false, claim_id: null, used_at: null });
+const row = (shift = 10) => ({ assignment_id: shift, meal_id: 4, source_shift_id: shift, name: 'Fri Lunch', date: '2026-10-01', type: 'Lunch', starts_at: '12:00', ends_at: '14:00', shift_location: 'Gate', shift_start: '2026-10-01T09:00', shift_end: '2026-10-01T16:00', used: false, claim_token: null, used_at: null });
 const mount = ({ canClaim = true, rows = [row(), row(11)], matched = false, reply = null, unclaimReply = null } = {}) => {
     const requests = [], successes = [], errors = [];
     globalThis.kitchenToasts = { showSuccess: (message) => successes.push(message), showError: (message) => errors.push(message), showFormError: (message) => errors.push(message) };
@@ -69,13 +69,13 @@ const mount = ({ canClaim = true, rows = [row(), row(11)], matched = false, repl
         if (options.method === 'DELETE') {
             const body = JSON.parse(options.body);
             const result = unclaimReply ? unclaimReply(body, rows) : { status: 200, data: { status: 'unclaimed', message: 'Unclaimed' } };
-            if (result.status === 200) Object.assign(rows.find((meal) => meal.claim_id === body.claim_id), { used: false, used_at: null, claim_id: null });
+            if (result.status === 200) Object.assign(rows.find((meal) => meal.assignment_id === body.assignment_id), { used: false, used_at: null, claim_token: null });
             return { ok: result.status < 400, status: result.status, json: async () => result.data };
         }
         if (options.method === 'POST') {
             const body = JSON.parse(options.body);
-            const result = reply ? reply(body, rows) : { status: 201, data: { status: 'claimed', message: 'Claimed', claim_id: 51 } };
-            if (result.status === 201) Object.assign(rows.find((meal) => meal.source_shift_id === body.source_shift_id), { used: true, used_at: '13:05', claim_id: 51 });
+            const result = reply ? reply(body, rows) : { status: 201, data: { status: 'claimed', message: 'Claimed', assignment_id: 10, claim_token: '00000000-0000-4000-8000-000000000051' } };
+            if (result.status === 201) Object.assign(rows.find((meal) => meal.assignment_id === body.assignment_id), { used: true, used_at: '13:05', claim_token: result.data.claim_token });
             return { ok: result.status < 400, status: result.status, json: async () => result.data };
         }
         if (url.startsWith('/meals/people?')) return { ok: true, json: async () => ({ people: [person], total: 1, page: 1, last_page: 1, matched_id: matched ? person.id : null }) };
@@ -138,12 +138,12 @@ test('one name result waits for selection; Claim uses Ajax and retains search wh
         assert.deepEqual(state.successes, ['Claimed']);
         const request = state.requests.find((request) => request.method === 'POST');
         assert.equal(request.headers['X-XSRF-TOKEN'], 'test-csrf');
-        assert.deepEqual(JSON.parse(request.body), { meal_id: 4, source_shift_id: 10, confirm_warning: false });
+        assert.deepEqual(JSON.parse(request.body), { assignment_id: 10, confirm_warning: false });
     } finally { state.app.unmount(); }
 });
 
 test('exact barcode auto-opens; same-type warning is titleless, Cancel does nothing, Claim anyway sends explicit confirmation', async () => {
-    const state = mount({ matched: true, reply: (body) => body.confirm_warning ? { status: 201, data: { status: 'claimed', message: 'Claimed', claim_id: 51 } } : { status: 409, data: { status: 'warning_required', message: 'Already had Lunch. Claim another Lunch?' } } });
+    const state = mount({ matched: true, reply: (body) => body.confirm_warning ? { status: 201, data: { status: 'claimed', message: 'Claimed', assignment_id: 10, claim_token: '00000000-0000-4000-8000-000000000051' } } : { status: 409, data: { status: 'warning_required', message: 'Already had Lunch. Claim another Lunch?' } } });
     try {
         await enter('WB-123'); await tick();
         assert.ok(document.querySelector('table'));
@@ -162,7 +162,7 @@ test('exact barcode auto-opens; same-type warning is titleless, Cancel does noth
 
 test('conflict renders a red alert and refreshes stale rows without reporting success', async () => {
     const state = mount({ matched: true, reply: (_, rows) => {
-        Object.assign(rows[0], { used: true, used_at: '12:31', claim_id: 99 });
+        Object.assign(rows[0], { used: true, used_at: '12:31', claim_token: '00000000-0000-4000-8000-000000000099' });
         return { status: 409, data: { status: 'already_used', message: 'This meal was already used at 12:31.' } };
     } });
     try {
@@ -195,7 +195,7 @@ test('View-only displays disabled Claim controls and no-meal result has no count
 });
 
 test('Unclaim on the right restores status and counts without clearing the selected person or search', async () => {
-    const used = { ...row(), used: true, used_at: '13:05', claim_id: 51 };
+    const used = { ...row(), used: true, used_at: '13:05', assignment_id: 10, claim_token: '00000000-0000-4000-8000-000000000051' };
     const state = mount({ rows: [used, row(11)], matched: true });
     try {
         await enter('WB-123'); await tick();
@@ -210,13 +210,13 @@ test('Unclaim on the right restores status and counts without clearing the selec
         const request = state.requests.find((request) => request.method === 'DELETE');
         assert.equal(request.url, '/events/7/meals/people/3/claims');
         assert.equal(request.headers['X-XSRF-TOKEN'], 'test-csrf');
-        assert.deepEqual(JSON.parse(request.body), { claim_id: 51 });
+        assert.deepEqual(JSON.parse(request.body), { assignment_id: 10, claim_token: '00000000-0000-4000-8000-000000000051' });
         assert.deepEqual(state.successes, ['Unclaimed']);
     } finally { state.app.unmount(); }
 });
 
 test('view-only Unclaim stays disabled and a stale correction refreshes without showing success', async () => {
-    const used = () => ({ ...row(), used: true, used_at: '13:05', claim_id: 51 });
+    const used = () => ({ ...row(), used: true, used_at: '13:05', assignment_id: 10, claim_token: '00000000-0000-4000-8000-000000000051' });
     let state = mount({ rows: [used()], canClaim: false, matched: true });
     try {
         await enter('WB-123'); await tick();
@@ -224,7 +224,7 @@ test('view-only Unclaim stays disabled and a stale correction refreshes without 
         assert.equal(state.requests.filter((request) => request.method === 'DELETE').length, 0);
     } finally { state.app.unmount(); }
     state = mount({ rows: [used()], matched: true, unclaimReply: (_, rows) => {
-        Object.assign(rows[0], { used: false, used_at: null, claim_id: null });
+        Object.assign(rows[0], { used: false, used_at: null, claim_token: null });
         return { status: 409, data: { status: 'already_unclaimed', message: 'Already unclaimed.' } };
     } });
     try {
@@ -234,5 +234,19 @@ test('view-only Unclaim stays disabled and a stale correction refreshes without 
         assert.ok(buttonNamed('Claim'));
         assert.match(document.body.textContent, /1 today, 1 left/);
         assert.deepEqual(state.successes, []);
+    } finally { state.app.unmount(); }
+});
+
+test('a direct person assignment renders without shift metadata and supports Claim and Unclaim', async () => {
+    const state = mount({ rows: [{ ...row(), source_shift_id: null, shift_location: null, shift_start: null, shift_end: null }], matched: true });
+    try {
+        await enter('WB-123'); await tick();
+        assert.match(document.querySelector('table').textContent, /Direct assignment/);
+        buttonNamed('Claim').click(); await tick(); await tick();
+        assert.match(document.body.textContent, /1 today, 0 left/);
+        buttonNamed('Unclaim').click(); await tick(); await tick();
+        assert.match(document.body.textContent, /1 today, 1 left/);
+        assert.ok(buttonNamed('Claim'));
+        assert.deepEqual(state.errors, []);
     } finally { state.app.unmount(); }
 });

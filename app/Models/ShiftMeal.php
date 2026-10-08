@@ -22,6 +22,6 @@ class ShiftMeal extends Model
 
     public function assignments(): BelongsToMany
     {
-        return $this->belongsToMany(ShiftAssignment::class, 'shift_meal_people');
+        return $this->belongsToMany(ShiftAssignment::class, 'meal_assignments')->wherePivot('is_active', true);
     }
 }

@@ -19,9 +19,10 @@ class UnclaimMealRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'claim_id' => ['required', 'integer', Rule::exists('meal_claims', 'id')
+            'assignment_id' => ['required', 'integer', Rule::exists('meal_assignments', 'id')
                 ->where('event_id', $this->route('event')->id)
                 ->where('team_engagement_id', $this->route('member')->id)],
+            'claim_token' => ['required', 'uuid'],
         ];
     }
 }

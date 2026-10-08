@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Event;
 use App\Models\Meal;
-use App\Models\MealClaim;
+use App\Models\MealAssignment;
 use App\Models\User;
 use App\Services\EventService;
 use App\Services\MealService;
@@ -241,7 +241,7 @@ class MealsTest extends TestCase
     {
         $meal = $this->meal();
         $member = $this->event->teamEngagements()->firstOrFail();
-        MealClaim::create([
+        MealAssignment::create([
             'event_id' => $this->event->id, 'meal_id' => $meal->id, 'team_engagement_id' => $member->id,
             'meal_type_id' => $meal->meal_type_id, 'source_shift_id' => 999999, 'meal_name' => $meal->name,
             'meal_date' => $meal->date, 'starts_at' => $meal->starts_at, 'ends_at' => $meal->ends_at,
@@ -258,8 +258,8 @@ class MealsTest extends TestCase
             $this->assertArrayHasKey('meal', $error->errors());
         }
         $this->assertModelExists($meal);
-        $this->assertDatabaseCount('meal_claims', 1);
-        DB::table('meal_claims')->delete();
+        $this->assertSame(1, MealAssignment::query()->whereNotNull('claimed_at')->count());
+        DB::table('meal_assignments')->delete();
         $this->delete(route('meals.destroy', [$this->event, $meal]))->assertSessionHasNoErrors();
         $this->assertModelMissing($meal);
     }

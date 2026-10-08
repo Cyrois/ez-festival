@@ -5,15 +5,17 @@ namespace Tests\Feature\Settings;
 use App\Models\Event;
 use App\Models\ExpectedEntitlement;
 use App\Models\IssuedEntitlement;
-use App\Models\MealClaim;
+use App\Models\MealAssignment;
 use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\MealAssignmentService;
 use App\Support\OrganizationContext;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -246,13 +248,12 @@ class EventControllerTest extends TestCase
         ]);
 
         $shiftMeal = $shift->meals()->create(['meal_id' => $meal->id]);
-        $shiftMeal->assignments()->attach($assignment->id);
-        $claim = MealClaim::create([
-            'event_id' => $event->id, 'meal_id' => $meal->id, 'team_engagement_id' => $engagement->id,
-            'meal_type_id' => $mealType->id, 'source_shift_id' => $shift->id, 'shift_meal_id' => $shiftMeal->id,
-            'meal_name' => $meal->name, 'meal_date' => $meal->date, 'starts_at' => $meal->starts_at, 'ends_at' => $meal->ends_at,
-            'shift_location_name' => $location->name, 'shift_starts_at' => $shift->starts_at, 'shift_ends_at' => $shift->ends_at,
-            'claimed_by' => $user->id, 'claimed_at' => now(),
+        app(MealAssignmentService::class)->syncShiftMeal($shiftMeal, [$assignment->id]);
+        $claim = MealAssignment::query()->where('shift_meal_id', $shiftMeal->id)->sole();
+        $claim->update(['claimed_by' => $user->id, 'claimed_at' => now(), 'claim_token' => (string) Str::uuid()]);
+        $directAssignment = MealAssignment::create([
+            ...app(MealAssignmentService::class)->mealAttributes($meal),
+            'event_id' => $event->id, 'team_engagement_id' => $engagement->id, 'is_active' => true,
         ]);
 
         $this->actingAs($user)
@@ -262,7 +263,8 @@ class EventControllerTest extends TestCase
         $this->assertModelMissing($assignment);
         $this->assertModelMissing($shiftMeal);
         $this->assertModelMissing($claim);
-        $this->assertDatabaseCount('shift_meal_people', 0);
+        $this->assertModelMissing($directAssignment);
+        $this->assertSame(0, MealAssignment::query()->where('is_active', true)->whereNotNull('shift_assignment_id')->count());
         $this->assertModelMissing($personalBreak);
         $this->assertModelMissing($mealType);
         $this->assertModelMissing($meal);

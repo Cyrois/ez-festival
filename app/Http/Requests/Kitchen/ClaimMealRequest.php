@@ -19,8 +19,9 @@ class ClaimMealRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'meal_id' => ['required', 'integer', Rule::exists('meals', 'id')->where('event_id', $this->route('event')->id)],
-            'source_shift_id' => ['required', 'integer', 'min:1'],
+            'assignment_id' => ['required', 'integer', Rule::exists('meal_assignments', 'id')
+                ->where('event_id', $this->route('event')->id)
+                ->where('team_engagement_id', $this->route('member')->id)],
             'confirm_warning' => ['sometimes', 'boolean'],
         ];
     }

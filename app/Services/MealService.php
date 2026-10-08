@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Event;
 use App\Models\Meal;
+use App\Models\MealAssignment;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -28,6 +29,8 @@ class MealService
             $meal = $event->meals()->lockForUpdate()->findOrFail($meal->id);
             $this->ensureValid($event, $data, $meal);
             $meal->update($this->attributes($data));
+            MealAssignment::query()->where('meal_id', $meal->id)->whereNull('claimed_at')
+                ->update(app(MealAssignmentService::class)->mealAttributes($meal));
         }, 3);
     }
 
@@ -41,6 +44,7 @@ class MealService
             if ($errors !== []) {
                 throw ValidationException::withMessages($errors);
             }
+            DB::table('meal_assignments')->where('meal_id', $meal->id)->delete();
             $meal->delete();
         }, 3);
     }
@@ -74,7 +78,7 @@ class MealService
     /** @return array<string, string> */
     public function deletionErrors(Meal $meal): array
     {
-        if (DB::table('meal_claims')->where('meal_id', $meal->id)->exists()) {
+        if (DB::table('meal_assignments')->where('meal_id', $meal->id)->whereNotNull('claimed_at')->exists()) {
             return ['meal' => __('meals.errors.used', ['name' => $meal->name])];
         }
 

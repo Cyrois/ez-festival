@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Event;
+use App\Models\MealAssignment;
 use App\Models\Shift;
 use App\Repositories\ShiftAssignmentRepository;
 use App\Support\ShiftAssignmentHours;
@@ -101,6 +102,7 @@ class ShiftService
             $meals = $data['meals'] ?? null;
             unset($data['meals'], $data['assignment_updates'], $data['assignment_removals'], $data['assignment_additions']);
             $shift->update($data);
+            MealAssignment::query()->whereIn('shift_assignment_id', $removals)->update(['is_active' => false]);
             $shift->assignments()->whereIn('id', $removals)->delete();
             foreach ($updates as $row) {
                 [$start, $end] = ShiftAssignmentHours::resolve($shift, $row);
@@ -115,6 +117,8 @@ class ShiftService
             if ($meals !== null) {
                 $this->syncMeals($shift, $meals, $draftPeople);
             }
+            MealAssignment::query()->where('source_shift_id', $shift->id)->where('is_active', true)->whereNull('claimed_at')
+                ->update(['shift_location_name' => $shift->location->name, 'shift_starts_at' => $shift->starts_at, 'shift_ends_at' => $shift->ends_at]);
         });
     }
 
@@ -171,9 +175,10 @@ class ShiftService
         $kept = [];
         foreach ($rows as $row) {
             $meal = $existing->get($row['meal_id']) ?? $shift->meals()->create(['meal_id' => $row['meal_id']]);
-            $meal->assignments()->sync(array_map(fn ($key) => $key < 0 ? $draftPeople[$key] : $key, $row['assignment_keys']));
+            app(MealAssignmentService::class)->syncShiftMeal($meal, array_map(fn ($key) => $key < 0 ? $draftPeople[$key] : $key, $row['assignment_keys']));
             $kept[] = $meal->id;
         }
+        MealAssignment::query()->where('source_shift_id', $shift->id)->whereNotIn('shift_meal_id', $kept)->update(['is_active' => false]);
         $shift->meals()->whereNotIn('id', $kept)->delete();
     }
 
@@ -243,6 +248,7 @@ class ShiftService
             if ($shift->assignments()->count() !== $confirmationCount) {
                 throw ValidationException::withMessages(['assignment_count' => __('team.scheduling.assignments.errors.stale_delete')]);
             }
+            MealAssignment::query()->where('source_shift_id', $shift->id)->update(['is_active' => false]);
             $shift->delete();
         });
     }

@@ -15,7 +15,7 @@ class TeamEngagement extends Model
     protected static function booted(): void
     {
         static::deleting(function (TeamEngagement $engagement): void {
-            if (MealClaim::query()->where('team_engagement_id', $engagement->id)->exists()) {
+            if (MealAssignment::query()->where('team_engagement_id', $engagement->id)->whereNotNull('claimed_at')->exists()) {
                 throw ValidationException::withMessages(['team_engagement_id' => __('meals.claim.errors.delete_member')]);
             }
             if ($engagement->shiftAssignments()->exists()) {
@@ -23,6 +23,7 @@ class TeamEngagement extends Model
                     'team_engagement_id' => __('team.scheduling.assignments.errors.delete_member'),
                 ]);
             }
+            MealAssignment::query()->where('team_engagement_id', $engagement->id)->delete();
         });
     }
 
@@ -38,6 +39,11 @@ class TeamEngagement extends Model
     public function shiftAssignments(): HasMany
     {
         return $this->hasMany(ShiftAssignment::class);
+    }
+
+    public function mealAssignments(): HasMany
+    {
+        return $this->hasMany(MealAssignment::class);
     }
 
     protected function casts(): array

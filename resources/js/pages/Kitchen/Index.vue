@@ -32,7 +32,7 @@ const tableContainer = ref(null);
 const busy = ref(false);
 const warning = ref(null);
 const alert = ref('');
-const highlightedClaim = ref(null);
+const highlightedAssignment = ref(null);
 let searchTimer;
 let highlightTimer;
 let refreshTimer;
@@ -62,7 +62,7 @@ const choose = (person) => {
     panel.value = null;
     alert.value = '';
     warning.value = null;
-    highlightedClaim.value = null;
+    highlightedAssignment.value = null;
 };
 const lookup = async (page = 1, version = ++lookupVersion) => {
     if (disposed || version !== lookupVersion) return;
@@ -197,12 +197,12 @@ const tableOptions = computed(() => ({
     createdRow: (row, meal) =>
         row.classList.toggle(
             'bg-success/10',
-            meal.claim_id !== null && meal.claim_id === highlightedClaim.value,
+            meal.assignment_id === highlightedAssignment.value,
         ),
     language: { emptyTable: trans('meals.claim.no_meals') },
 }));
 const clearHighlight = () => {
-    highlightedClaim.value = null;
+    highlightedAssignment.value = null;
     tableContainer.value
         ?.querySelectorAll('tr')
         .forEach((row) => row.classList.remove('bg-success/10'));
@@ -223,8 +223,7 @@ const claim = async (meal, confirmed = false) => {
                     'X-XSRF-TOKEN': xsrfToken(),
                 },
                 body: JSON.stringify({
-                    meal_id: meal.meal_id,
-                    source_shift_id: meal.source_shift_id,
+                    assignment_id: meal.assignment_id,
                     confirm_warning: confirmed,
                 }),
             },
@@ -237,7 +236,7 @@ const claim = async (meal, confirmed = false) => {
         }
         warning.value = null;
         if (response.ok) {
-            highlightedClaim.value = result.claim_id;
+            highlightedAssignment.value = result.assignment_id;
             showSuccess(result.message);
             window.clearTimeout(highlightTimer);
             highlightTimer = window.setTimeout(clearHighlight, 3000);
@@ -267,7 +266,10 @@ const unclaim = async (meal) => {
                     'Content-Type': 'application/json',
                     'X-XSRF-TOKEN': xsrfToken(),
                 },
-                body: JSON.stringify({ claim_id: meal.claim_id }),
+                body: JSON.stringify({
+                    assignment_id: meal.assignment_id,
+                    claim_token: meal.claim_token,
+                }),
             },
         );
         const result = await response.json();
@@ -397,7 +399,7 @@ onUnmounted(() => {
                             v-for="person in people.people"
                             :key="person.id"
                             variant="ghost"
-                            class="h-auto w-full justify-start gap-3 rounded-none border-b border-line p-3 text-left last:border-b-0"
+                            class="flex h-auto w-full justify-start gap-3 rounded-none border-x-0 border-t-0 border-b border-line p-3 text-left last:border-b-0"
                             :class="
                                 selected?.id === person.id
                                     ? 'bg-primary-soft'
@@ -583,15 +585,23 @@ onUnmounted(() => {
                                 }}</Badge></template
                             >
                             <template #shiftCell="{ rowData }"
-                                ><span class="whitespace-nowrap"
+                                ><span
+                                    v-if="rowData.source_shift_id !== null"
+                                    class="whitespace-nowrap"
                                     >{{ rowData.shift_location }},
                                     {{
                                         dateLabel(
-                                            rowData.shift_start.slice(0, 10),
+                                            rowData.shift_start?.slice(0, 10),
                                         )
                                     }}
-                                    {{ rowData.shift_start.slice(11) }}–{{
-                                        rowData.shift_end.slice(11)
+                                    {{ rowData.shift_start?.slice(11) }}–{{
+                                        rowData.shift_end?.slice(11)
+                                    }}</span
+                                ><span
+                                    v-else
+                                    class="text-muted"
+                                    >{{
+                                        $t('meals.claim.direct_assignment')
                                     }}</span
                                 ></template
                             >

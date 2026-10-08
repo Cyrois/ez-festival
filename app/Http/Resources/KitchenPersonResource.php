@@ -23,13 +23,14 @@ class KitchenPersonResource extends JsonResource
                 'total' => (int) $count->total, 'left' => (int) $count->remaining,
             ]),
             'data' => $this->resource['rows']->map(fn ($row) => [
-                'meal_id' => (int) $row->meal_id, 'source_shift_id' => (int) $row->source_shift_id,
+                'assignment_id' => (int) $row->assignment_id, 'meal_id' => (int) $row->meal_id,
+                'source_shift_id' => $row->source_shift_id === null ? null : (int) $row->source_shift_id,
                 'name' => $row->meal_name, 'date' => $row->meal_date, 'type' => $row->type_name,
                 'starts_at' => substr($row->starts_at, 0, 5), 'ends_at' => substr($row->ends_at, 0, 5),
                 'shift_location' => $row->shift_location_name,
-                'shift_start' => Carbon::parse($row->shift_starts_at, 'UTC')->timezone($timezone)->format('Y-m-d\TH:i'),
-                'shift_end' => Carbon::parse($row->shift_ends_at, 'UTC')->timezone($timezone)->format('Y-m-d\TH:i'),
-                'used' => (bool) $row->used, 'claim_id' => $row->claim_id === null ? null : (int) $row->claim_id,
+                'shift_start' => $row->shift_starts_at === null ? null : Carbon::parse($row->shift_starts_at, 'UTC')->timezone($timezone)->format('Y-m-d\TH:i'),
+                'shift_end' => $row->shift_ends_at === null ? null : Carbon::parse($row->shift_ends_at, 'UTC')->timezone($timezone)->format('Y-m-d\TH:i'),
+                'used' => (bool) $row->used, 'claim_token' => $row->claim_token,
                 'used_at' => $row->claimed_at === null ? null : Carbon::parse($row->claimed_at, 'UTC')->timezone($timezone)->format('H:i'),
             ]),
         ];

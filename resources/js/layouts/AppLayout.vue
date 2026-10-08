@@ -159,6 +159,13 @@ const navItems = computed(() =>
             enabled: true,
             children: [
                 {
+                    key: 'meals.index',
+                    href: '/meals',
+                    icon: ['fas', 'utensils'],
+                    enabled: true,
+                    exact: true,
+                },
+                {
                     key: 'meals.settings',
                     href: '/meals/settings',
                     icon: ['fas', 'list'],
@@ -234,6 +241,9 @@ const isActive = (href) => {
         currentPath.value === href || currentPath.value.startsWith(`${href}/`)
     );
 };
+
+const isChildActive = (child) =>
+    child.exact ? currentPath.value === child.href : isActive(child.href);
 
 const openNav = () => {
     navOpen.value = true;
@@ -408,7 +418,7 @@ const railClass = computed(() => {
                                 :key="child.key"
                                 :href="child.enabled ? child.href : undefined"
                                 :enabled="child.enabled"
-                                :active="isActive(child.href)"
+                                :active="isChildActive(child)"
                                 :icon="sidebarCompact ? child.icon : null"
                                 :icon-desktop-only="sidebarCompact"
                                 :icon-only="sidebarCompact"
@@ -424,7 +434,7 @@ const railClass = computed(() => {
                                         : undefined
                                 "
                                 :aria-current="
-                                    child.enabled && isActive(child.href)
+                                    child.enabled && isChildActive(child)
                                         ? 'page'
                                         : undefined
                                 "

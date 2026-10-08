@@ -4,18 +4,21 @@ namespace Tests\Feature;
 
 use App\Models\Event;
 use App\Models\Meal;
-use App\Models\MealClaim;
+use App\Models\MealAssignment;
 use App\Models\Person;
 use App\Models\Role;
 use App\Models\Shift;
 use App\Models\TeamEngagement;
 use App\Models\User;
 use App\Services\EventService;
+use App\Services\MealAssignmentService;
 use App\Services\MealClaimService;
 use App\Services\MealService;
 use App\Support\OrganizationContext;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -60,14 +63,14 @@ class MealClaimsTest extends TestCase
             ->assertJsonPath('counts.0.left', 1)->assertJsonPath('data.0.used', false);
 
         $this->claim()->assertCreated()->assertJsonPath('status', 'claimed');
-        $claim = MealClaim::query()->sole();
+        $claim = MealAssignment::query()->sole();
         $this->assertSame($this->user->id, $claim->claimed_by);
         $this->assertTrue($claim->claimed_at->equalTo(now()));
         $this->assertNull($claim->warning_overridden_by);
         $this->detail()->assertJsonPath('data.0.used', true)->assertJsonPath('data.0.used_at', '22:00')
             ->assertJsonPath('counts.0.total', 1)->assertJsonPath('counts.0.left', 0);
         $this->claim(['confirm_warning' => true])->assertConflict()->assertJsonPath('status', 'already_used');
-        $this->assertDatabaseCount('meal_claims', 1);
+        $this->assertSame(1, MealAssignment::query()->whereNotNull('claimed_at')->count());
     }
 
     public function test_separate_shift_grants_require_warning_and_record_confirmation_only_when_needed(): void
@@ -77,9 +80,9 @@ class MealClaimsTest extends TestCase
         $this->claim()->assertCreated();
         $this->claim(['source_shift_id' => $second->id])->assertConflict()->assertJsonPath('status', 'warning_required')
             ->assertJsonPath('message', __('meals.claim.warning', ['name' => 'Jane Smith', 'type' => 'Lunch', 'day' => 'today', 'time' => '22:00']));
-        $this->assertDatabaseCount('meal_claims', 1);
+        $this->assertSame(1, MealAssignment::query()->whereNotNull('claimed_at')->count());
         $this->claim(['source_shift_id' => $second->id, 'confirm_warning' => true])->assertCreated();
-        $confirmed = MealClaim::query()->where('source_shift_id', $second->id)->sole();
+        $confirmed = MealAssignment::query()->where('source_shift_id', $second->id)->sole();
         $this->assertSame($this->user->id, $confirmed->warning_overridden_by);
         $this->assertTrue($confirmed->warning_overridden_at->equalTo(now()));
         $this->detail()->assertJsonPath('recordsTotal', 2)->assertJsonPath('counts.0.left', 0);
@@ -99,7 +102,7 @@ class MealClaimsTest extends TestCase
         $other = $this->shift('Different shift');
         $this->grant($other, $this->meal);
         $this->detail()->assertJsonPath('recordsTotal', 2)->assertJsonPath('counts.0.total', 2)->assertJsonPath('counts.0.left', 1);
-        $this->assertDatabaseCount('meal_claims', 1);
+        $this->assertSame(1, MealAssignment::query()->whereNotNull('claimed_at')->count());
     }
 
     public function test_removed_unused_grant_is_rejected_and_used_snapshot_survives_deleted_shift_and_meal_edits(): void
@@ -144,27 +147,31 @@ class MealClaimsTest extends TestCase
         $this->claim(['source_shift_id' => $second->id])->assertConflict()->assertJsonPath('status', 'warning_required');
         // A Friday claim does not warn for Saturday's meal of the same type.
         $this->claim(['meal_id' => $tomorrow->id])->assertCreated();
-        $this->assertNull(MealClaim::query()->where('meal_id', $tomorrow->id)->sole()->warning_overridden_at);
+        $this->assertNull(MealAssignment::query()->where('meal_id', $tomorrow->id)->sole()->warning_overridden_at);
         $this->claim(['source_shift_id' => $second->id, 'confirm_warning' => true])->assertCreated();
         $this->travelTo(Carbon::parse('2026-10-02 00:30:01', $this->event->timezone));
         $this->detail()->assertJsonPath('recordsTotal', 1)->assertJsonCount(1, 'counts');
-        $this->claim()->assertUnprocessable()->assertJsonValidationErrors('meal_id');
+        $this->claim()->assertUnprocessable()->assertJsonValidationErrors('assignment_id');
     }
 
     public function test_form_requests_refuse_foreign_ids_unknown_ids_and_invalid_payloads(): void
     {
         $foreign = app(EventService::class)->create(['name' => 'Other', 'starts_on' => '2026-10-01', 'ends_on' => '2026-10-03', 'timezone' => 'UTC']);
+        $foreignMember = $foreign->teamEngagements()->create(['person_id' => $this->member->person_id, 'status' => 'hired', 'employment_type' => 'volunteer']);
         $foreignMeal = $foreign->meals()->create(['name' => 'Other meal', 'meal_type_id' => $foreign->mealTypes()->firstOrFail()->id,
             'date' => '2026-10-01', 'starts_at' => '12:00', 'ends_at' => '13:00']);
-        foreach ([['meal_id' => $foreignMeal->id], ['meal_id' => 999999999], ['source_shift_id' => 0], ['confirm_warning' => 'yes']] as $changes) {
+        $foreignAssignment = app(MealAssignmentService::class)->assign($foreign, $foreignMember, $foreignMeal);
+        $otherPerson = $this->member('Other recipient');
+        $otherAssignment = app(MealAssignmentService::class)->assign($this->event, $otherPerson, $this->meal);
+        foreach ([['assignment_id' => $foreignAssignment->id], ['assignment_id' => $otherAssignment->id],
+            ['assignment_id' => 999999999], ['assignment_id' => 0], ['confirm_warning' => 'yes']] as $changes) {
             $this->claim($changes)->assertUnprocessable()->assertJsonValidationErrors(array_key_first($changes));
         }
         $this->postJson(route('meals.claims.store', [$this->event, $this->member]), [])->assertUnprocessable()
-            ->assertJsonValidationErrors(['meal_id', 'source_shift_id']);
-        $this->claim(['source_shift_id' => 999999999])->assertConflict()->assertJsonPath('status', 'unavailable');
+            ->assertJsonValidationErrors('assignment_id');
         $this->getJson(route('meals.people.show', [$this->member]))->assertUnprocessable()->assertJsonValidationErrors(['draw', 'start', 'length']);
         $this->getJson(route('meals.people.index', ['page' => 0]))->assertUnprocessable()->assertJsonValidationErrors('page');
-        $this->assertDatabaseCount('meal_claims', 0);
+        $this->assertSame(0, MealAssignment::query()->whereNotNull('claimed_at')->count());
     }
 
     public function test_permission_revocation_and_locked_event_are_rechecked_by_service(): void
@@ -184,7 +191,7 @@ class MealClaimsTest extends TestCase
         $this->detail()->assertOk()->assertJsonPath('is_locked', true)->assertJsonPath('can_claim', false);
         $this->claim()->assertForbidden();
         $this->assertServiceForbidden();
-        $this->assertDatabaseCount('meal_claims', 0);
+        $this->assertSame(0, MealAssignment::query()->whereNotNull('claimed_at')->count());
     }
 
     public function test_no_meal_person_has_empty_counts_and_members_must_be_hired_in_current_event(): void
@@ -251,46 +258,46 @@ class MealClaimsTest extends TestCase
     {
         $second = $this->shift('Second grant');
         $this->grant($second, $this->meal);
-        $firstId = $this->claim()->json('claim_id');
-        $secondId = $this->claim(['source_shift_id' => $second->id, 'confirm_warning' => true])->json('claim_id');
+        $firstId = $this->claim()->json('assignment_id');
+        $secondId = $this->claim(['source_shift_id' => $second->id, 'confirm_warning' => true])->json('assignment_id');
         $this->detail()->assertJsonPath('counts.0.left', 0);
         $this->unclaim($firstId)->assertOk()->assertJsonPath('status', 'unclaimed');
-        $this->assertDatabaseMissing('meal_claims', ['id' => $firstId]);
-        $this->assertDatabaseHas('meal_claims', ['id' => $secondId]);
+        $this->assertDatabaseHas('meal_assignments', ['id' => $firstId, 'claimed_at' => null]);
+        $this->assertDatabaseHas('meal_assignments', ['id' => $secondId]);
         $this->detail()->assertJsonPath('counts.0.total', 2)->assertJsonPath('counts.0.left', 1);
         $this->claim()->assertConflict()->assertJsonPath('status', 'warning_required');
         $this->claim(['confirm_warning' => true])->assertCreated();
         $this->detail()->assertJsonPath('counts.0.left', 0);
-        $this->assertDatabaseCount('meal_claims', 2);
+        $this->assertSame(2, MealAssignment::query()->whereNotNull('claimed_at')->count());
     }
 
     public function test_unclaim_rejects_invalid_foreign_person_and_foreign_event_claims(): void
     {
-        $claimId = $this->claim()->json('claim_id');
+        $claimId = $this->claim()->json('assignment_id');
         $this->deleteJson(route('meals.claims.destroy', [$this->event, $this->member]), [])
-            ->assertUnprocessable()->assertJsonValidationErrors('claim_id');
+            ->assertUnprocessable()->assertJsonValidationErrors('assignment_id');
         foreach (['bad', 999999999] as $invalid) {
-            $this->deleteJson(route('meals.claims.destroy', [$this->event, $this->member]), ['claim_id' => $invalid])
-                ->assertUnprocessable()->assertJsonValidationErrors('claim_id');
+            $this->deleteJson(route('meals.claims.destroy', [$this->event, $this->member]), ['assignment_id' => $invalid])
+                ->assertUnprocessable()->assertJsonValidationErrors('assignment_id');
         }
         $otherMember = $this->member('Other person');
-        $this->unclaim($claimId, $otherMember)->assertUnprocessable()->assertJsonValidationErrors('claim_id');
+        $this->unclaim($claimId, $otherMember)->assertUnprocessable()->assertJsonValidationErrors('assignment_id');
         $foreign = app(EventService::class)->create(['name' => 'Other', 'starts_on' => '2026-10-01', 'ends_on' => '2026-10-03', 'timezone' => 'UTC']);
         $otherMember->update(['event_id' => $foreign->id]);
         $this->unclaim($claimId, $otherMember)->assertNotFound();
-        $this->deleteJson(route('meals.claims.destroy', [$foreign, $this->member]), ['claim_id' => $claimId])->assertNotFound();
-        MealClaim::findOrFail($claimId)->update(['event_id' => $foreign->id]);
-        $this->unclaim($claimId)->assertUnprocessable()->assertJsonValidationErrors('claim_id');
-        $this->assertDatabaseCount('meal_claims', 1);
+        $this->deleteJson(route('meals.claims.destroy', [$foreign, $this->member]), ['assignment_id' => $claimId])->assertNotFound();
+        MealAssignment::findOrFail($claimId)->update(['event_id' => $foreign->id]);
+        $this->unclaim($claimId)->assertUnprocessable()->assertJsonValidationErrors('assignment_id');
+        $this->assertSame(1, MealAssignment::query()->whereNotNull('claimed_at')->count());
     }
 
     public function test_unclaim_obeys_permissions_locks_hired_status_and_day_rules(): void
     {
-        $claimId = $this->claim()->json('claim_id');
+        $claimId = $this->claim()->json('assignment_id');
         $this->grantRoleAccess($this->user, ['meals.view']);
         $this->unclaim($claimId)->assertForbidden();
         try {
-            app(MealClaimService::class)->unclaim($this->event, $this->member, $this->user, $claimId);
+            app(MealClaimService::class)->unclaim($this->event, $this->member, $this->user, $claimId, (string) MealAssignment::findOrFail($claimId)->claim_token);
             $this->fail('Service must recheck permission.');
         } catch (HttpException $exception) {
             $this->assertSame(403, $exception->getStatusCode());
@@ -300,7 +307,7 @@ class MealClaimsTest extends TestCase
         Event::findOrFail($this->event->id)->lock();
         $this->unclaim($claimId)->assertForbidden();
         try {
-            app(MealClaimService::class)->unclaim($this->event, $this->member, $this->user, $claimId);
+            app(MealClaimService::class)->unclaim($this->event, $this->member, $this->user, $claimId, (string) MealAssignment::findOrFail($claimId)->claim_token);
             $this->fail('Service must recheck the lock.');
         } catch (HttpException $exception) {
             $this->assertSame(403, $exception->getStatusCode());
@@ -310,34 +317,85 @@ class MealClaimsTest extends TestCase
         $this->unclaim($claimId)->assertNotFound();
         $this->member->update(['status' => 'hired']);
         $this->travelTo(Carbon::parse('2026-10-02 12:00', $this->event->timezone));
-        $this->unclaim($claimId)->assertUnprocessable()->assertJsonValidationErrors('meal_id');
-        $this->assertDatabaseCount('meal_claims', 1);
+        $this->unclaim($claimId)->assertUnprocessable()->assertJsonValidationErrors('assignment_id');
+        $this->assertSame(1, MealAssignment::query()->whereNotNull('claimed_at')->count());
     }
 
     public function test_unclaim_does_not_recreate_removed_grants_and_handles_a_stale_correction(): void
     {
-        $claimId = $this->claim()->json('claim_id');
-        $this->shift->meals()->sole()->assignments()->detach();
+        $claimId = $this->claim()->json('assignment_id');
+        app(MealAssignmentService::class)->syncShiftMeal($this->shift->meals()->sole(), []);
         $this->unclaim($claimId)->assertOk();
         $this->detail()->assertJsonPath('recordsTotal', 0)->assertJsonPath('counts', []);
-        $this->unclaim($claimId)->assertUnprocessable()->assertJsonValidationErrors('claim_id');
-        $result = app(MealClaimService::class)->unclaim($this->event, $this->member, $this->user, $claimId);
+        $this->unclaim($claimId)->assertConflict()->assertJsonPath('status', 'already_unclaimed');
+        $result = app(MealClaimService::class)->unclaim($this->event, $this->member, $this->user, $claimId, (string) MealAssignment::findOrFail($claimId)->claim_token);
         $this->assertSame('already_unclaimed', $result['status']);
         $this->claim()->assertConflict()->assertJsonPath('status', 'unavailable');
         $this->grant($this->shift, $this->meal);
         $this->claim()->assertCreated();
-        $this->assertDatabaseCount('meal_claims', 1);
+        $this->assertSame(1, MealAssignment::query()->whereNotNull('claimed_at')->count());
+    }
+
+    public function test_direct_assignment_is_claimable_without_a_shift_and_unclaim_keeps_the_same_assignment(): void
+    {
+        $member = $this->member('Direct recipient');
+        $assignment = app(MealAssignmentService::class)->assign($this->event, $member, $this->meal);
+        $this->detail($member)->assertJsonPath('recordsTotal', 1)->assertJsonPath('data.0.assignment_id', $assignment->id)
+            ->assertJsonPath('data.0.source_shift_id', null)->assertJsonPath('data.0.shift_start', null)
+            ->assertJsonPath('counts.0.left', 1);
+        $result = $this->postJson(route('meals.claims.store', [$this->event, $member]), ['assignment_id' => $assignment->id])
+            ->assertCreated()->assertJsonPath('assignment_id', $assignment->id);
+        $oldToken = $result->json('claim_token');
+        $this->detail($member)->assertJsonPath('data.0.used', true)->assertJsonPath('counts.0.left', 0);
+        $this->deleteJson(route('meals.claims.destroy', [$this->event, $member]), ['assignment_id' => $assignment->id, 'claim_token' => $oldToken])
+            ->assertOk();
+        $this->assertDatabaseHas('meal_assignments', ['id' => $assignment->id, 'claimed_at' => null, 'claimed_by' => null, 'claim_token' => null]);
+        $this->postJson(route('meals.claims.store', [$this->event, $member]), ['assignment_id' => $assignment->id])->assertCreated();
+        $this->deleteJson(route('meals.claims.destroy', [$this->event, $member]), ['assignment_id' => $assignment->id, 'claim_token' => $oldToken])
+            ->assertConflict()->assertJsonPath('status', 'already_unclaimed');
+        $this->assertNotNull($assignment->fresh()->claimed_at);
+        $this->assertNotSame($oldToken, $assignment->fresh()->claim_token);
+        $this->deleteJson(route('meals.claims.destroy', [$this->event, $member]), ['assignment_id' => $assignment->id, 'claim_token' => 'invalid'])
+            ->assertUnprocessable()->assertJsonValidationErrors('claim_token');
+    }
+
+    public function test_direct_assignments_are_event_scoped_respect_locks_and_participate_in_counts_and_warnings(): void
+    {
+        $service = app(MealAssignmentService::class);
+        $direct = $service->assign($this->event, $this->member, $this->meal);
+        $this->claim()->assertCreated();
+        $this->claim(['assignment_id' => $direct->id])->assertConflict()->assertJsonPath('status', 'warning_required');
+        $this->claim(['assignment_id' => $direct->id, 'confirm_warning' => true])->assertCreated();
+        $this->detail()->assertJsonPath('counts.0.total', 2)->assertJsonPath('counts.0.left', 0);
+        $foreign = app(EventService::class)->create(['name' => 'Other', 'starts_on' => '2026-10-01', 'ends_on' => '2026-10-03', 'timezone' => 'UTC']);
+        foreach ([fn () => $service->assign($foreign, $this->member, $this->meal),
+            fn () => $service->assign($this->event, $this->member, $foreign->meals()->create(['name' => 'Other', 'meal_type_id' => $foreign->mealTypes()->firstOrFail()->id,
+                'date' => '2026-10-01', 'starts_at' => '12:00', 'ends_at' => '14:00']))] as $operation) {
+            try {
+                $operation();
+                $this->fail('A direct assignment must stay in its event.');
+            } catch (ModelNotFoundException) {
+                $this->assertTrue(true);
+            }
+        }
+        $this->event->lock();
+        try {
+            $service->assign($this->event, $this->member, $this->meal);
+            $this->fail('Locked events must reject direct assignments.');
+        } catch (HttpException $exception) {
+            $this->assertSame(403, $exception->getStatusCode());
+        }
     }
 
     private function unclaim(int $claimId, ?TeamEngagement $member = null): TestResponse
     {
-        return $this->deleteJson(route('meals.claims.destroy', [$this->event, $member ?? $this->member]), ['claim_id' => $claimId]);
+        return $this->deleteJson(route('meals.claims.destroy', [$this->event, $member ?? $this->member]), ['assignment_id' => $claimId, 'claim_token' => MealAssignment::find($claimId)?->claim_token ?? (string) Str::uuid()]);
     }
 
     private function assertServiceForbidden(): void
     {
         try {
-            app(MealClaimService::class)->claim($this->event, $this->member, $this->user, $this->meal->id, $this->shift->id);
+            app(MealClaimService::class)->claim($this->event, $this->member, $this->user, MealAssignment::query()->where('team_engagement_id', $this->member->id)->where('source_shift_id', $this->shift->id)->where('meal_id', $this->meal->id)->sole()->id);
             $this->fail('Expected stale service authorization to fail.');
         } catch (HttpException $exception) {
             $this->assertSame(403, $exception->getStatusCode());
@@ -365,7 +423,7 @@ class MealClaimsTest extends TestCase
         $assignment = $shift->assignments()->firstOrCreate(['team_engagement_id' => $this->member->id],
             ['role_id' => $role->id, 'starts_at' => $shift->starts_at, 'ends_at' => $shift->ends_at]);
         $row = $shift->meals()->firstOrCreate(['meal_id' => $meal->id]);
-        $row->assignments()->syncWithoutDetaching([$assignment->id]);
+        app(MealAssignmentService::class)->syncShiftMeal($row, [...$row->assignments()->pluck('shift_assignments.id')->all(), $assignment->id]);
     }
 
     private function code(TeamEngagement $member, string $code): void
@@ -389,7 +447,11 @@ class MealClaimsTest extends TestCase
 
     private function claim(array $changes = []): TestResponse
     {
+        $assignmentId = $changes['assignment_id'] ?? MealAssignment::query()->where('team_engagement_id', $this->member->id)
+            ->where('meal_id', $changes['meal_id'] ?? $this->meal->id)
+            ->where('source_shift_id', $changes['source_shift_id'] ?? $this->shift->id)->sole()->id;
+
         return $this->postJson(route('meals.claims.store', [$this->event, $this->member]),
-            ['meal_id' => $this->meal->id, 'source_shift_id' => $this->shift->id, ...$changes]);
+            ['assignment_id' => $assignmentId, 'confirm_warning' => $changes['confirm_warning'] ?? false]);
     }
 }
