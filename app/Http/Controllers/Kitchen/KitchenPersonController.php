@@ -11,6 +11,7 @@ use App\Models\TeamEngagement;
 use App\Queries\KitchenPeopleQuery;
 use App\Queries\MealEntitlementQuery;
 use App\Support\EventContext;
+use Illuminate\Support\Carbon;
 
 class KitchenPersonController extends Controller
 {
@@ -30,18 +31,22 @@ class KitchenPersonController extends Controller
         $event = $context->requireCurrent($request->user());
         abort_unless((int) $member->event_id === (int) $event->id && $member->status === 'hired', 404);
         $data = $request->validated();
-        $rows = $meals->forPerson($event, $member->id);
+        $searchDate = isset($data['date']) ? Carbon::parse($data['date'], $event->timezone) : now($event->timezone);
+        $rows = $meals->forPerson($event, $member->id, $searchDate);
 
         return new KitchenPersonResource([
+            'event' => $event,
             'draw' => (int) $data['draw'], 'total' => $rows->count(),
-            'rows' => $rows->orderBy('meal_date')->orderBy('starts_at')->orderBy('shift_location_name')
-                ->orderBy('shift_starts_at')->orderBy('source_shift_id')->orderBy('meal_id')->orderBy('assignment_id')
+            'rows' => $rows->orderBy('meal_date')->orderBy('starts_at')->orderBy('meal_id')->orderBy('is_override')->orderBy('shift_location_name')
+                ->orderBy('shift_starts_at')->orderBy('source_shift_id')->orderBy('assignment_id')
                 ->offset((int) $data['start'])->limit((int) $data['length'])->get(),
-            'counts' => $meals->personCounts($event, $member->id), 'timezone' => $event->timezone,
+            'counts' => $meals->personCounts($event, $member->id, $searchDate), 'timezone' => $event->timezone,
             'person' => ['id' => $member->id, 'name' => $member->person->name,
                 'type' => __('team.advancement.employment_type.'.$member->employment_type),
                 'status' => __('team.advancement.status.'.$member->status)],
             'can_claim' => ! $event->isLocked() && $request->user()->can('meals.claim', $event), 'is_locked' => $event->isLocked(),
+            'can_override' => ! $event->isLocked() && $request->user()->can('meals.override', $event),
+            'can_remove_override' => ! $event->isLocked() && $request->user()->can('meals.undo_claim', $event),
         ]);
     }
 }

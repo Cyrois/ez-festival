@@ -26,6 +26,8 @@ final class Permissions
         'meals.view' => [],
         'meals.edit' => ['meals.view'],
         'meals.claim' => ['meals.view'],
+        'meals.override' => ['meals.view'],
+        'meals.undo_claim' => ['meals.view'],
         'patrons.view' => [],
         'patrons.personal_info' => ['patrons.view'],
     ];

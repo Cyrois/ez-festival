@@ -256,6 +256,13 @@ class EventControllerTest extends TestCase
             'event_id' => $event->id, 'team_engagement_id' => $engagement->id, 'is_active' => true,
         ]);
 
+        $override = MealAssignment::create([
+            ...app(MealAssignmentService::class)->mealAttributes($meal),
+            'event_id' => $event->id, 'team_engagement_id' => $engagement->id, 'is_override' => true,
+            'override_given_by' => $user->id, 'override_given_at' => now(),
+            'claimed_by' => $user->id, 'claimed_at' => now(), 'claim_token' => (string) Str::uuid(),
+        ]);
+
         $this->actingAs($user)
             ->delete(route('settings.events.destroy', $event))
             ->assertRedirect(route('settings.events.index'));
@@ -264,6 +271,7 @@ class EventControllerTest extends TestCase
         $this->assertModelMissing($shiftMeal);
         $this->assertModelMissing($claim);
         $this->assertModelMissing($directAssignment);
+        $this->assertModelMissing($override);
         $this->assertSame(0, MealAssignment::query()->where('is_active', true)->whereNotNull('shift_assignment_id')->count());
         $this->assertModelMissing($personalBreak);
         $this->assertModelMissing($mealType);
