@@ -277,8 +277,8 @@ test('Override is independent of Claim permission; picker disables unused types 
         overrideOptions: [overrideOption(), overrideOption({ id: 5, name: 'Fri Dinner', type: 'Dinner', available: false })] });
     try {
         await enter('WB-123'); await tick();
-        assert.equal([...document.querySelectorAll('button')].filter((button) => button.textContent.trim() === 'Override').length, 1);
-        buttonNamed('Override').click(); await tick();
+        assert.equal([...document.querySelectorAll('button')].filter((button) => button.textContent.trim() === 'Give meal').length, 1);
+        buttonNamed('Give meal').click(); await tick();
         assert.match(document.querySelector('[role="alertdialog"]').textContent, /Override for Ava Lee/);
         assert.equal(document.querySelectorAll('input[type="radio"][disabled]').length, 1);
         assert.match(document.body.textContent, /still has an unused Dinner/);
@@ -296,7 +296,7 @@ for (const extra of [false, true]) {
         const state = mount({ canOverride: true, rows: [], matched: true, overrideOptions: [overrideOption({ extra })] });
         try {
             await enter('WB-123'); await tick();
-            buttonNamed('Override').click(); await tick(); await selectOverrideMeal();
+            buttonNamed('Give meal').click(); await tick(); await selectOverrideMeal();
             buttonNamed('Continue').click(); await tick();
             assert.match(document.querySelector('[role="alertdialog"]').textContent, extra ? /an extra Lunch/ : /a Lunch/);
             assert.match(document.body.textContent, /claimed immediately/);
@@ -321,12 +321,12 @@ test('Override requires its own permission and resets the picker when the lookup
     let state = mount({ matched: true });
     try {
         await enter('WB-123'); await tick();
-        assert.ok(buttonNamed('Override').disabled);
-        assert.match(buttonNamed('Override').parentElement.getAttribute('label'), /You need Override meals/);
+        assert.ok(buttonNamed('Give meal').disabled);
+        assert.match(buttonNamed('Give meal').parentElement.getAttribute('label'), /You need Override meals/);
     } finally { state.app.unmount(); }
     state = mount({ canOverride: true, rows: [], matched: true, overrideOptions: [overrideOption()] });
     try {
-        await enter('WB-123'); await tick(); buttonNamed('Override').click(); await tick();
+        await enter('WB-123'); await tick(); buttonNamed('Give meal').click(); await tick();
         await enter('Other name'); await tick();
         assert.equal(document.querySelector('[role="alertdialog"]'), null);
         assert.equal(state.requests.filter((request) => request.method === 'POST').length, 0);
@@ -370,7 +370,7 @@ test('unused overrides show disabled removal without its permission and stale Gi
         rows.push(row()); return { status: 409, data: { status: 'unused_meal', message: 'Use Claim on the unused Lunch.' } };
     } });
     try {
-        await enter('WB-123'); await tick(); buttonNamed('Override').click(); await tick(); await selectOverrideMeal();
+        await enter('WB-123'); await tick(); buttonNamed('Give meal').click(); await tick(); await selectOverrideMeal();
         buttonNamed('Continue').click(); await tick(); buttonNamed('Give override').click(); await tick(); await tick();
         assert.match(document.querySelector('[role="alert"]').textContent, /Use Claim/);
         assert.match(document.body.textContent, /1 today, 1 left/);
