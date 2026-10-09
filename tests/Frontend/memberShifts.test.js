@@ -12,6 +12,9 @@ const dom = new JSDOM('<div id="app"></div>', { url: 'http://localhost' });
 for (const key of ['window', 'document', 'Element', 'HTMLElement', 'SVGElement', 'Node', 'Option', 'DocumentFragment', 'getComputedStyle']) globalThis[key] = dom.window[key];
 Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true });
 const { createApp, h, nextTick } = await import('vue');
+window.performance.getEntriesByType = () => [];
+const { router } = await import('@inertiajs/vue3');
+globalThis.memberShiftNavigate = (await import('../../resources/js/lib/dataTableRowNavigation.js')).navigateDataTableRow;
 const require = createRequire(import.meta.url);
 const translations = JSON.parse(readFileSync(new URL('../../lang/en.json', import.meta.url), 'utf8'));
 const translate = (key, values = {}) => Object.entries(values).reduce((text, [name, value]) => text.replaceAll(`:${name}`, value), translations[key] ?? key);
@@ -42,9 +45,10 @@ const card = compile('../../resources/js/components/team/TeamMemberShiftsCard.vu
     [/import \{ useFlashToast \} from ['"].*?['"];?/, 'const useFlashToast = () => ({ showError: () => globalThis.memberShiftErrors.push("error") });'],
     [/import \{ scheduleDateLabel \} from ['"].*?['"];?/, 'const scheduleDateLabel = globalThis.memberShiftDateLabel;'],
     [/import \{ memberShiftTimeLabel \} from ['"].*?['"];?/, 'const memberShiftTimeLabel = globalThis.memberShiftTimeLabel;'],
+    [/import \{ navigateDataTableRow \} from ['"].*?['"];?/, 'const navigateDataTableRow = globalThis.memberShiftNavigate;'],
 ]);
 const { default: ShiftsCard } = await import(card);
-const row = (overrides = {}) => ({ id: 12, day: '2026-10-03', location: 'Gate', starts_at: '2026-10-03T00:30', ends_at: '2026-10-03T02:00', role_name: 'Crew', ...overrides });
+const row = (overrides = {}) => ({ id: 12, shift_id: 47, day: '2026-10-03', location: 'Gate', starts_at: '2026-10-03T00:30', ends_at: '2026-10-03T02:00', role_name: 'Crew', ...overrides });
 const tick = async () => { await new Promise((resolve) => setTimeout(resolve, 20)); await nextTick(); };
 const mount = async (rows = [row()], respond) => {
     const requests = [];
@@ -80,6 +84,29 @@ test('renders four read-only columns, Saturday own hours, and escaped names', as
         assert.equal(document.querySelector('.dt-paging-button.first'), null);
         assert.equal(document.querySelector('.dt-paging-button.last'), null);
     } finally { app.unmount(); }
+});
+
+test('clickable rows use shared navigation to the shift rather than the assignment', async () => {
+    const visits = [];
+    const tabs = [];
+    const originalGet = router.get;
+    const originalOpen = window.open;
+    router.get = (url) => visits.push(url);
+    window.open = (...args) => tabs.push(args);
+    const { app } = await mount();
+    try {
+        const tableRow = document.querySelector('tbody tr');
+        assert.ok(tableRow.classList.contains('cursor-pointer'));
+        assert.ok(tableRow.hasAttribute('data-row-link'));
+        tableRow.querySelector('td').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+        assert.deepEqual(visits, ['/team/shifts/47']);
+        tableRow.dispatchEvent(new window.MouseEvent('click', { bubbles: true, ctrlKey: true }));
+        assert.deepEqual(tabs, [['/team/shifts/47', '_blank']]);
+    } finally {
+        app.unmount();
+        router.get = originalGet;
+        window.open = originalOpen;
+    }
 });
 
 test('empty assignments use the localized in-table empty state', async () => {

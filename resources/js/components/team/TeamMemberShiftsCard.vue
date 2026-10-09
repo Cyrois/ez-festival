@@ -6,6 +6,7 @@ import { DataTable } from '../ui/data-table';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { scheduleDateLabel } from '../../lib/scheduleTimeline';
 import { memberShiftTimeLabel } from '../../lib/memberShifts';
+import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
 
 const props = defineProps({ memberId: { type: Number, required: true } });
 const { showError } = useFlashToast();
@@ -85,6 +86,12 @@ const options = computed(() => ({
     },
     order: [[0, 'asc']],
     columnDefs: [{ targets: '_all', className: 'dt-left' }],
+    createdRow: (row, assignment) =>
+        navigateDataTableRow(
+            row,
+            assignment,
+            (item) => `/team/shifts/${item.shift_id}`,
+        ),
     language: { emptyTable: trans('team.member.shifts.empty') },
 }));
 </script>

@@ -11,6 +11,7 @@ class MemberShiftResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'shift_id' => $this->shift_id,
             'day' => $this->starts_at->format('Y-m-d'),
             'location' => $this->location_name,
             'starts_at' => $this->starts_at->format('Y-m-d\TH:i'),

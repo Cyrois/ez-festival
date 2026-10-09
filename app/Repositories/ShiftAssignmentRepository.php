@@ -31,7 +31,7 @@ class ShiftAssignmentRepository
             ->leftJoin('roles', 'roles.id', '=', 'shift_assignments.role_id')
             ->where('shifts.event_id', $event->id)
             ->select([
-                'shift_assignments.id', 'shift_assignments.starts_at', 'shift_assignments.ends_at',
+                'shift_assignments.id', 'shift_assignments.shift_id', 'shift_assignments.starts_at', 'shift_assignments.ends_at',
                 'locations.name as location_name', 'roles.name as role_name',
             ]);
         $total = (clone $query)->count();

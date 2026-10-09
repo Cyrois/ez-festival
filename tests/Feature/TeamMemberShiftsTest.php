@@ -62,7 +62,7 @@ class TeamMemberShiftsTest extends TestCase
         $this->getJson($this->url())->assertOk()->assertExactJson([
             'draw' => 0, 'recordsTotal' => 1, 'recordsFiltered' => 1,
             'data' => [[
-                'id' => $assignment->id, 'day' => '2026-10-03', 'location' => 'Gate',
+                'id' => $assignment->id, 'shift_id' => $shift->id, 'day' => '2026-10-03', 'location' => 'Gate',
                 'starts_at' => '2026-10-03T00:30', 'ends_at' => '2026-10-03T02:00', 'role_name' => 'Gate crew',
             ]],
         ]);
