@@ -4,11 +4,14 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Gate;
 
 class ShiftResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $canViewTeam = $this->relationLoaded('assignments') && Gate::allows('team.view');
+
         return [
             'id' => $this->id,
             'name' => $this->name,
@@ -24,7 +27,10 @@ class ShiftResource extends JsonResource
             'filled_count' => $this->whenLoaded('roleSlots', fn () => $this->roleSlots->sum(fn ($slot) => min((int) $slot->assigned_count, $slot->needed))),
             'assignment_count' => (int) ($this->assignments_count ?? 0),
             'extra_count' => $this->whenLoaded('roleSlots', fn () => max((int) ($this->assignments_count ?? 0) - $this->roleSlots->sum(fn ($slot) => min((int) $slot->assigned_count, $slot->needed)), 0)),
-            'assignments' => $this->whenLoaded('assignments', fn () => ShiftAssignmentResource::collection($this->assignments)->resolve($request)),
+            'assignments' => $this->whenLoaded('assignments', fn () => $this->assignments->map(fn ($assignment) => [
+                ...(new ShiftAssignmentResource($assignment))->resolve($request),
+                'member_url' => $canViewTeam ? route('team.members.show', $assignment->team_engagement_id) : null,
+            ])->all()),
         ];
     }
 }
