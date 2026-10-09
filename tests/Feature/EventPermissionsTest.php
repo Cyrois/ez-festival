@@ -81,7 +81,7 @@ class EventPermissionsTest extends TestCase
             ->missing('permissions.role')
             ->missing('permissions.events'));
         $this->get(route('artists.index'))->assertOk();
-        foreach (['artists.create', 'vendors.advancing', 'check-in.index', 'team.advancement', 'patrons.index', 'credentials.passes', 'credentials.entitlements', 'credentials.products', 'settings.events.index', 'settings.roles', 'settings.roles.create', 'setup.event'] as $route) {
+        foreach (['artists.create', 'vendors.advancing', 'check-in.index', 'team.advancement', 'patrons.index', 'reports.index', 'reports.meals.export', 'credentials.passes', 'credentials.entitlements', 'credentials.products', 'settings.events.index', 'settings.roles', 'settings.roles.create', 'setup.event'] as $route) {
             $this->get(route($route))->assertForbidden();
         }
         $this->get(route('settings.account'))->assertOk();
