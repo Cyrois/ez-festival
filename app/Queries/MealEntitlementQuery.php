@@ -4,6 +4,7 @@ namespace App\Queries;
 
 use App\Models\Event;
 use App\Support\MealClaimDay;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
@@ -12,9 +13,24 @@ use Illuminate\Support\Facades\DB;
 class MealEntitlementQuery
 {
     /** Person-owned grants, with claim state stored on the same row. */
-    public function forPerson(Event $event, int $memberId): Builder
+    public function forPerson(Event $event, int $memberId, ?CarbonInterface $searchDate = null): Builder
     {
-        return MealClaimDay::scope($this->forPersonAcrossEvent($event, $memberId), $event);
+        $query = $this->forPersonAcrossEvent($event, $memberId);
+
+        if ($searchDate === null) {
+            return MealClaimDay::scope($query, $event);
+        }
+
+        $day = $searchDate->toDateString();
+        // Count distinct meals, retaining every grant for each selected meal.
+        $previous = (clone $query)->select('meal_id')->where('meal_date', '<', $day)->groupBy('meal_id')
+            ->orderByRaw('MAX(meal_date) DESC')->orderByRaw('MAX(starts_at) DESC')->orderByDesc('meal_id')->limit(5);
+        $next = (clone $query)->select('meal_id')->where('meal_date', '>', $day)->groupBy('meal_id')
+            ->orderByRaw('MIN(meal_date) ASC')->orderByRaw('MIN(starts_at) ASC')->orderBy('meal_id')->limit(4);
+
+        return $query->where(fn (Builder $visible) => $visible->where('meal_date', $day)
+            ->orWhere(fn (Builder $before) => $before->where('meal_date', '<', $day)->whereIn('meal_id', $previous))
+            ->orWhere(fn (Builder $after) => $after->where('meal_date', '>', $day)->whereIn('meal_id', $next)));
     }
 
     /** The same visible assignments across every meal day, without Kitchen's today filter. */
@@ -28,6 +44,7 @@ class MealEntitlementQuery
                 'grants.meal_name', DB::raw('DATE(grants.meal_date) as meal_date'), 'grants.meal_type_id', 'meal_types.name as type_name',
                 'grants.starts_at', 'grants.ends_at', 'grants.shift_location_name', 'grants.shift_starts_at', 'grants.shift_ends_at',
                 'grants.claimed_at', 'grants.claim_token')
+            ->addSelect('grants.is_override', 'grants.override_given_at')
             ->selectRaw('CASE WHEN grants.claimed_at IS NULL THEN 0 ELSE 1 END as used');
 
         return DB::query()->fromSub($rows, 'person_meals');
@@ -41,10 +58,10 @@ class MealEntitlementQuery
             ->whereNotNull('grants.shift_meal_id')->whereNotNull('grants.shift_assignment_id')));
     }
 
-    public function personCounts(Event $event, int $memberId): Collection
+    public function personCounts(Event $event, int $memberId, ?CarbonInterface $searchDate = null): Collection
     {
-        return $this->forPerson($event, $memberId)->select('meal_date', 'meal_type_id', 'type_name')
-            ->selectRaw('COUNT(*) as total, SUM(CASE WHEN used = 0 THEN 1 ELSE 0 END) as remaining')
+        return $this->forPerson($event, $memberId, $searchDate)->select('meal_date', 'meal_type_id', 'type_name')
+            ->selectRaw('COUNT(*) as total, SUM(CASE WHEN used = 0 THEN 1 ELSE 0 END) as remaining, SUM(CASE WHEN is_override AND used = 1 THEN 1 ELSE 0 END) as overrides, SUM(CASE WHEN is_override THEN 0 ELSE 1 END) as normal_total')
             ->groupBy('meal_date', 'meal_type_id', 'type_name')->orderBy('meal_date')->orderBy('meal_type_id')->get();
     }
 
@@ -52,6 +69,7 @@ class MealEntitlementQuery
     public function forEvent(Event $event): Builder
     {
         return $this->active(DB::table('meal_assignments as grants'))
+            ->where('grants.is_override', false)
             ->leftJoin('shift_meals', 'shift_meals.id', '=', 'grants.shift_meal_id')
             ->leftJoin('shifts', 'shifts.id', '=', 'grants.source_shift_id')
             ->join('meals', 'meals.id', '=', 'grants.meal_id')
@@ -82,5 +100,23 @@ class MealEntitlementQuery
     {
         return $this->forEvent($event)->select('grants.meal_id')->selectRaw('COUNT(*) as quantity')
             ->groupBy('grants.meal_id')->pluck('quantity', 'meal_id');
+    }
+
+    /** All eligible-day meals, with availability based on the full grant set rather than a table page. */
+    public function overrideOptions(Event $event, int $memberId): Collection
+    {
+        $counts = $this->personCounts($event, $memberId)->keyBy(fn ($count) => $count->meal_date.':'.$count->meal_type_id);
+        $meals = DB::table('meals')->join('meal_types', 'meal_types.id', '=', 'meals.meal_type_id')
+            ->where('meals.event_id', $event->id)
+            ->select('meals.id', 'meals.name', DB::raw('DATE(meals.date) as meal_date'), 'meals.meal_type_id', 'meal_types.name as type_name', 'meals.starts_at', 'meals.ends_at');
+
+        return MealClaimDay::scope(DB::query()->fromSub($meals, 'options'), $event)
+            ->orderBy('meal_date')->orderBy('starts_at')->orderBy('id')->get()->map(function ($meal) use ($counts) {
+                $count = $counts->get($meal->meal_date.':'.$meal->meal_type_id);
+                $meal->available = (int) ($count?->remaining ?? 0) === 0;
+                $meal->extra = (int) ($count?->normal_total ?? 0) > 0;
+
+                return $meal;
+            });
     }
 }

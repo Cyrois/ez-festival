@@ -150,8 +150,75 @@ class MealClaimsTest extends TestCase
         $this->assertNull(MealAssignment::query()->where('meal_id', $tomorrow->id)->sole()->warning_overridden_at);
         $this->claim(['source_shift_id' => $second->id, 'confirm_warning' => true])->assertCreated();
         $this->travelTo(Carbon::parse('2026-10-02 00:30:01', $this->event->timezone));
-        $this->detail()->assertJsonPath('recordsTotal', 1)->assertJsonCount(1, 'counts');
+        $this->detail()->assertJsonPath('recordsTotal', 3)->assertJsonCount(2, 'counts')->assertJsonPath('data.0.eligible_today', false);
         $this->claim()->assertUnprocessable()->assertJsonValidationErrors('assignment_id');
+    }
+
+    public function test_lookup_limits_previous_and_next_meals_instead_of_days_and_keeps_all_grants(): void
+    {
+        $meals = [];
+        foreach ([-6, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5] as $offset) {
+            $meal = $this->meal->replicate();
+            $meal->name = 'Lunch '.$offset;
+            $meal->name_key = 'lunch '.$offset;
+            // Sparse dates prove the lookup is bounded by meals rather than days.
+            $meal->date = Carbon::parse('2026-10-01')->addDays($offset * 7)->toDateString();
+            $meal->save();
+            $meals[$offset] = $meal;
+            app(MealAssignmentService::class)->assign($this->event, $this->member, $meal);
+        }
+        // A second grant for the nearest previous meal must not displace another meal.
+        app(MealAssignmentService::class)->assign($this->event, $this->member, $meals[-1]);
+        $response = $this->detail()->assertOk()->assertJsonPath('recordsTotal', 11)->assertJsonCount(10, 'counts');
+        $expected = array_map(fn ($offset) => $meals[$offset]->id, [-5, -4, -3, -2, -1, -1]);
+        $expected[] = $this->meal->id;
+        foreach ([1, 2, 3, 4] as $offset) {
+            $expected[] = $meals[$offset]->id;
+        }
+        $this->assertSame($expected, array_column($response->json('data'), 'meal_id'));
+        $this->assertSame([false, false, false, false, false, false, true, false, false, false, false], array_column($response->json('data'), 'eligible_today'));
+        foreach ([0, 10] as $index) {
+            $this->claim(['assignment_id' => $response->json("data.$index.assignment_id")])->assertUnprocessable()
+                ->assertJsonValidationErrors('assignment_id');
+        }
+        $this->getJson(route('meals.people.show', [$this->member, 'draw' => 2, 'start' => 2, 'length' => 2]))
+            ->assertJsonPath('recordsTotal', 11)->assertJsonCount(2, 'data')->assertJsonCount(10, 'counts');
+        // A searched date without its own meal still has five previous and four next meals.
+        $this->getJson(route('meals.people.show', [$this->member, 'draw' => 1, 'start' => 0, 'length' => 25, 'date' => '2026-10-02']))
+            ->assertOk()->assertJsonPath('recordsTotal', 10)->assertJsonPath('data.0.meal_id', $meals[-4]->id)
+            ->assertJsonPath('data.9.meal_id', $meals[4]->id);
+        $this->getJson(route('meals.people.show', [$this->member, 'draw' => 1, 'start' => 0, 'length' => 25, 'date' => 'invalid']))
+            ->assertUnprocessable()->assertJsonValidationErrors('date');
+    }
+
+    public function test_nearby_meal_limits_apply_within_a_single_day_and_keep_all_searched_day_meals(): void
+    {
+        $previous = [];
+        $next = [];
+        foreach (['2026-09-30', '2026-10-02'] as $date) {
+            for ($hour = 8; $hour < 14; $hour++) {
+                $meal = $this->meal->replicate();
+                $meal->name = $date.' '.$hour;
+                $meal->name_key = $meal->name;
+                $meal->date = $date;
+                $meal->starts_at = sprintf('%02d:00:00', $hour);
+                $meal->save();
+                app(MealAssignmentService::class)->assign($this->event, $this->member, $meal);
+                if ($date === '2026-09-30') {
+                    $previous[] = $meal->id;
+                } else {
+                    $next[] = $meal->id;
+                }
+            }
+        }
+        $today = $this->meal->replicate();
+        $today->name = 'Today dinner';
+        $today->name_key = 'today dinner';
+        $today->starts_at = '18:00:00';
+        $today->save();
+        app(MealAssignmentService::class)->assign($this->event, $this->member, $today);
+        $response = $this->detail()->assertOk()->assertJsonPath('recordsTotal', 11);
+        $this->assertSame([...array_slice($previous, 1), $this->meal->id, $today->id, ...array_slice($next, 0, 4)], array_column($response->json('data'), 'meal_id'));
     }
 
     public function test_form_requests_refuse_foreign_ids_unknown_ids_and_invalid_payloads(): void
