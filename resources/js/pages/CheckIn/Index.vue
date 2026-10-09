@@ -10,6 +10,7 @@ import { Button } from '../../components/ui/button';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
 import { Select } from '../../components/ui/select';
+import { Tooltip } from '../../components/ui/tooltip';
 import { DataTable } from '../../components/ui/data-table';
 import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
 import { checkInQuery } from './filters';
@@ -232,12 +233,36 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer));
                             size="sm"
                         />
                         <div>
-                            <Link
-                                :href="checkInHref(rowData)"
-                                class="block font-bold text-charcoal no-underline hover:text-primary"
-                            >
-                                {{ rowData.name }}
-                            </Link>
+                            <div class="flex items-center gap-2">
+                                <Link
+                                    :href="checkInHref(rowData)"
+                                    class="block font-bold text-charcoal no-underline hover:text-primary"
+                                >
+                                    {{ rowData.name }}
+                                </Link>
+                                <span
+                                    v-if="
+                                        rowData.type === 'team' &&
+                                        !rowData.has_pass
+                                    "
+                                    class="inline-flex"
+                                    @click.stop
+                                >
+                                    <Tooltip :label="$t('check_in.no_pass')">
+                                        <Icon
+                                            :name="[
+                                                'fas',
+                                                'triangle-exclamation',
+                                            ]"
+                                            class="text-warning"
+                                            size="sm"
+                                        />
+                                        <template #content>{{
+                                            $t('check_in.no_pass')
+                                        }}</template>
+                                    </Tooltip>
+                                </span>
+                            </div>
                             <span class="block text-xs text-muted">
                                 <HiddenPersonalInfo
                                     v-if="rowData.personal_info_hidden"

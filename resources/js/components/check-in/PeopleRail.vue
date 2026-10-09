@@ -19,9 +19,6 @@ const status = (person) => {
 
 <template>
     <aside class="space-y-2">
-        <p class="m-0 text-xs font-bold tracking-wide text-muted uppercase">
-            {{ $t('artists.check_in.people') }}
-        </p>
         <button
             v-for="person in people"
             :key="person.id"

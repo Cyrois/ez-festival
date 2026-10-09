@@ -11,6 +11,7 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\TemporaryPasswordController;
 use App\Http\Controllers\CheckInController;
 use App\Http\Controllers\CheckInDataTableController;
+use App\Http\Controllers\CheckInEntitlementDataTableController;
 use App\Http\Controllers\Credentials\EntitlementItemController;
 use App\Http\Controllers\Credentials\PassTypeController;
 use App\Http\Controllers\Credentials\ProductsController;
@@ -61,6 +62,7 @@ use App\Http\Controllers\Team\ShiftAssignmentController;
 use App\Http\Controllers\Team\ShiftController as TeamShiftController;
 use App\Http\Controllers\Team\ShiftCopyController;
 use App\Http\Controllers\Team\ShiftDataTableController as TeamShiftDataTableController;
+use App\Http\Controllers\TeamCheckInController;
 use App\Http\Controllers\UiKitController;
 use App\Http\Controllers\VendorCheckInController;
 use App\Http\Controllers\VendorController;
@@ -138,10 +140,12 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             ->middleware('event.writable')->name('meals.types.update');
         Route::get('dashboard', DashboardController::class)->name('dashboard');
 
+        Route::get('check-in/entitlements', [CheckInEntitlementDataTableController::class, 'index'])->name('check-in.entitlements');
         Route::get('check-in/data', [CheckInDataTableController::class, 'index'])->name('check-in.data');
         Route::get('check-in', [CheckInController::class, 'index'])->name('check-in.index');
         Route::get('check-in/artists/{engagement}', [ArtistCheckInController::class, 'show'])->name('check-in.show');
         Route::get('check-in/vendors/{engagement}', [VendorCheckInController::class, 'show'])->name('check-in.vendors.show');
+        Route::get('check-in/teams/{engagement}', [TeamCheckInController::class, 'show'])->name('check-in.teams.show');
         Route::post('check-in/expected-entitlements/{expectedEntitlement}/issues', [CheckInController::class, 'store'])
             ->middleware('event.writable')->name('check-in.issues.store');
 

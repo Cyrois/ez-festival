@@ -34,24 +34,27 @@ const dataTable = compile('../../resources/js/components/ui/data-table/DataTable
     [/import \{[^}]*\} from ['"]laravel-vue-i18n['"];?/, 'const currentLocale = "en", getActiveLanguage = () => "en", isLoaded = () => true, loadLanguageAsync = async () => {}; const trans = globalThis.checkInTranslate;'],
     [/import \{ cn \} from ['"].*?['"];?/, 'const cn = (...values) => values.filter(Boolean).join(" ");'],
 ]);
+const tooltip = compile('../../resources/js/components/ui/tooltip/Tooltip.vue', []);
 const page = compile('../../resources/js/pages/CheckIn/Index.vue', [
     [/import HiddenPersonalInfo from ['"].*?['"];?/, 'const HiddenPersonalInfo = globalThis.checkInBox("span");'],
     [/import \{ Link, router \} from ['"].*?['"];?/, 'const Link = "a", router = globalThis.checkInRouter;'],
     [/import \{ trans \} from ['"].*?['"];?/, 'const trans = globalThis.checkInTranslate;'],
     [/import AppLayout from ['"].*?['"];?/, 'const AppLayout = globalThis.checkInBox("main");'],
     ...['Avatar','Badge','Button','Icon','Input','Select'].map((name) => [new RegExp(`import \\{ ${name} \\} from ['"].*?['"];?`), `const ${name} = globalThis.checkInBox("${name === 'Icon' ? 'i' : 'span'}");`]),
+    [/import \{ Tooltip \} from ['"].*?['"];?/, `import Tooltip from '${tooltip}';`],
     [/import \{ DataTable \} from ['"].*?['"];?/, `import DataTable from '${dataTable}';`],
     [/import \{ navigateDataTableRow \} from ['"].*?['"];?/, 'const navigateDataTableRow = globalThis.checkInNavigate;'],
     [/import \{ checkInQuery \} from ['"].*?['"];?/, 'const checkInQuery = globalThis.checkInQuery;'],
 ]);
 const { default: CheckIn } = await import(page);
 
-test('check-in rows and chevrons open the same person without an Edit passes action', async () => {
+for (const [type, hasPass] of [['artist', true], ['team', false], ['team', true]]) {
+test(`${type} rows navigate without Edit passes; has pass: ${hasPass}`, async () => {
     const requests = [], visits = [], opened = [];
     const originalXhr = globalThis.XMLHttpRequest;
     const originalGet = router.get;
     const originalOpen = window.open;
-    const person = { person_id: 17, engagement_id: 8, name: 'Maya Chen', subtitle: 'maya@example.com', type: 'artist', context: 'River Hollow', pass_name: 'Artist pass', check_in_status: 'not_started', can_edit: true };
+    const person = { person_id: 17, engagement_id: 8, name: 'Maya Chen', subtitle: 'maya@example.com', type, has_pass: hasPass, context: 'River Hollow', pass_name: 'Artist pass', check_in_status: 'not_started', can_edit: true };
     globalThis.XMLHttpRequest = class {
         open(method, url) { this.url = new URL(url, 'http://localhost'); }
         setRequestHeader() {}
@@ -68,7 +71,7 @@ test('check-in rows and chevrons open the same person without an Edit passes act
     };
     router.get = (href) => visits.push(href);
     window.open = (href) => opened.push(href);
-    const app = createApp(CheckIn, { passes: [], filters: { type: 'artist', status: 'not_started', search: ' Maya ' }, event: { id: 1 } });
+    const app = createApp(CheckIn, { passes: [], filters: { type, status: 'not_started', search: ' Maya ' }, event: { id: 1 } });
     app.config.globalProperties.$t = translate;
     try {
         app.mount('#app');
@@ -77,21 +80,30 @@ test('check-in rows and chevrons open the same person without an Edit passes act
         assert.equal(requests[0].url, '/check-in/data');
         assert.equal(requests[0].data.length, '25');
         assert.equal(requests[0].data.search, 'Maya');
-        assert.equal(requests[0].data.type, 'artist');
+        assert.equal(requests[0].data.type, type);
         assert.equal(requests[0].data.pass, '');
         const row = document.querySelector('tbody tr[data-row-link]');
         assert.ok(row);
         const chevron = row.lastElementChild.querySelector('a');
-        assert.equal(chevron.getAttribute('href'), '/check-in/artists/8?person=17');
+        assert.equal(chevron.getAttribute('href'), `/check-in/${type}s/8?person=17`);
         assert.equal(chevron.getAttribute('aria-label'), translate('check_in.actions.check_in'));
         assert.ok(chevron.querySelector('i'));
+        const warning = row.querySelector(`[aria-label="${translate('check_in.no_pass')}"]`);
+        assert.equal(Boolean(warning), type === 'team' && !hasPass);
+        if (warning) {
+            warning.dispatchEvent(new window.MouseEvent('mouseenter'));
+            await nextTick();
+            assert.equal(document.querySelector('[role="tooltip"]').textContent.trim(), translate('check_in.no_pass'));
+            warning.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+            assert.deepEqual(visits, []);
+        }
         assert.equal(document.querySelector('th:last-child').textContent.trim(), '');
         row.children[1].dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
-        assert.deepEqual(visits, ['/check-in/artists/8?person=17']);
+        assert.deepEqual(visits, [`/check-in/${type}s/8?person=17`]);
         assert.equal(row.querySelector('a[href$="#passes"]'), null);
         assert.ok(!row.textContent.includes(translate('check_in.actions.edit_passes')));
         row.children[1].dispatchEvent(new window.MouseEvent('click', { bubbles: true, ctrlKey: true }));
-        assert.deepEqual(opened, ['/check-in/artists/8?person=17']);
+        assert.deepEqual(opened, [`/check-in/${type}s/8?person=17`]);
     } finally {
         app.unmount();
         globalThis.XMLHttpRequest = originalXhr;
@@ -99,3 +111,5 @@ test('check-in rows and chevrons open the same person without an Edit passes act
         window.open = originalOpen;
     }
 });
+
+}

@@ -16,7 +16,8 @@ const props = defineProps({
     tone: {
         type: String,
         default: 'default',
-        validator: (value) => ['default', 'edit', 'delete'].includes(value),
+        validator: (value) =>
+            ['default', 'primary', 'edit', 'delete'].includes(value),
     },
     disabled: {
         type: Boolean,
@@ -42,6 +43,10 @@ const props = defineProps({
 });
 
 const variant = computed(() => {
+    if (props.tone === 'primary') {
+        return 'outline-primary';
+    }
+
     if (props.tone === 'edit') {
         return 'outline-secondary';
     }

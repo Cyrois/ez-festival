@@ -52,7 +52,7 @@ const card = compile('../../resources/js/components/team/TeamMemberShiftsCard.vu
 const { default: ShiftsCard } = await import(card);
 const row = (overrides = {}) => ({ id: 12, shift_id: 47, day: '2026-10-03', location: 'Gate', starts_at: '2026-10-03T00:30', ends_at: '2026-10-03T02:00', role_name: 'Crew', ...overrides });
 const tick = async () => { await new Promise((resolve) => setTimeout(resolve, 20)); await nextTick(); };
-const mount = async (rows = [row()], respond) => {
+const mount = async (rows = [row()], respond, upcoming = false) => {
     const requests = [];
     globalThis.memberShiftErrors = [];
     globalThis.fetch = async (url, options) => {
@@ -61,7 +61,7 @@ const mount = async (rows = [row()], respond) => {
         const draw = Number(new URL(url, 'http://localhost').searchParams.get('draw'));
         return { ok: true, json: async () => ({ draw, recordsTotal: rows.length, recordsFiltered: rows.length, data: rows }) };
     };
-    const app = createApp(ShiftsCard, { memberId: 7 });
+    const app = createApp(ShiftsCard, { memberId: 7, ...(upcoming ? { checkInShifts: rows } : {}) });
     app.config.globalProperties.$t = translate;
     app.mount(document.getElementById('app'));
     await tick();
@@ -164,4 +164,24 @@ test('overnight formatting and the start day stay unchanged in different browser
         if (original === undefined) delete process.env.TZ;
         else process.env.TZ = original;
     }
+});
+
+
+test('check-in shifts renders server-limited rows without fetching, paging, search or sorting', async () => {
+    const {app, requests} = await mount([row({location:'Next gate'})], undefined, true);
+    try {
+        assert.equal(requests.length, 0);
+        assert.match(document.body.textContent, /Shifts/);
+        assert.match(document.querySelector('tbody').textContent, /Next gate/);
+        assert.equal(document.querySelector('.dt-search'), null);
+        assert.equal(document.querySelector('.dt-paging'), null);
+        assert.equal(document.querySelector('.dt-info'), null);
+        assert.equal(document.querySelector('th').classList.contains('dt-orderable-asc'), false);
+        assert.equal(document.querySelector('tbody a'), null);
+        assert.equal(document.querySelectorAll('th').length, 4);
+        assert.equal(document.querySelector('tbody tr').hasAttribute('data-row-link'), false);
+    } finally {app.unmount();}
+    const empty = await mount([], undefined, true);
+    try { assert.match(document.querySelector('tbody').textContent, /No assigned shifts/); }
+    finally {empty.app.unmount();}
 });

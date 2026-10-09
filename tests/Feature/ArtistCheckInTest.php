@@ -107,7 +107,7 @@ class ArtistCheckInTest extends TestCase
                 ->assertOk()
                 ->assertInertia(fn (Assert $page) => $page
                     ->component('CheckIn/Index')
-                    ->has('people.data', 0)
+                    ->has('people.data', $type === 'team' ? 1 : 0)
                     ->has('people.meta')
                     ->where('filters.type', $type));
         }
@@ -180,8 +180,7 @@ class ArtistCheckInTest extends TestCase
             ->has('engagement.people', 2)
             ->where('engagement.people.0.name', $maya->name)
             ->where('engagement.people.0.expected', 1)
-            ->where('engagement.people.0.entitlements.0.status', 'pending')
-            ->where('engagement.people.0.entitlements.0.locations.0.name', 'Main stage')
+            ->missing('engagement.people.0.entitlements')
             ->where('engagement.people.0.pass_labels.0.name', 'Wristband')
             ->where('engagement.people.1.name', $riley->name)
             ->where('engagement.people.1.expected', 0));
@@ -205,7 +204,11 @@ class ArtistCheckInTest extends TestCase
                 ->where('engagement.name', 'Cedar Craft Co')
                 ->where('engagement.type', 'vendor')
                 ->where('selectedPersonId', $person->id)
-                ->where('engagement.people.0.entitlements.0.locations.0.name', 'Vendor gate'));
+                ->where('engagement.people.0.expected', 1));
+        $this->getJson(route('check-in.entitlements', [
+            'draw' => 1, 'start' => 0, 'length' => 25, 'type' => 'vendor',
+            'engagement_id' => $engagement->id, 'person_id' => $person->id,
+        ]))->assertOk()->assertJsonPath('data.0.locations.0.name', 'Vendor gate');
 
         $this->post(route('check-in.issues.store', $expected), [
             'location_id' => $location->id,

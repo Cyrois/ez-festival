@@ -1,10 +1,11 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
-import { watch } from 'vue';
+import { computed, watch } from 'vue';
+import { trans } from 'laravel-vue-i18n';
 import { Dialog } from '../ui/dialog';
 import { FormField } from '../ui/form-field';
 import { Input } from '../ui/input';
-import { Select } from '../ui/select';
+import { CustomDropdown } from '../ui/custom-dropdown';
 import { useFlashToast } from '../../composables/useFlashToast';
 
 const props = defineProps({
@@ -16,6 +17,16 @@ const props = defineProps({
 const emit = defineEmits(['update:open']);
 const form = useForm({ location_id: '', code: '' });
 const { showFormError } = useFlashToast();
+const locationItems = computed(() => [
+    { value: '', title: trans('artists.check_in.choose_location') },
+    ...(props.entitlement?.locations ?? []).map((location) => ({
+        value: location.id,
+        title: trans('artists.check_in.location_stock', {
+            location: location.name,
+            count: location.in_stock,
+        }),
+    })),
+]);
 
 watch(
     () => [props.open, props.entitlement?.id],
@@ -54,23 +65,13 @@ const submit = () => {
                 required
             >
                 <template #default="{ id, invalid }">
-                    <Select
+                    <CustomDropdown
                         :id="id"
                         v-model="form.location_id"
+                        :items="locationItems"
                         :invalid="invalid"
-                    >
-                        <option value="">
-                            {{ $t('artists.check_in.choose_location') }}
-                        </option>
-                        <option
-                            v-for="location in entitlement?.locations ?? []"
-                            :key="location.id"
-                            :value="location.id"
-                        >
-                            {{ location.name }} — {{ location.in_stock }}
-                            {{ $t('artists.check_in.in_stock') }}
-                        </option>
-                    </Select>
+                        :disabled="form.processing"
+                    />
                 </template>
             </FormField>
             <FormField
