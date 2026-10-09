@@ -769,6 +769,15 @@ const destroy = () => {
             </header>
 
             <p
+                v-if="copying"
+                class="mb-4 flex items-center gap-2 rounded-lg border border-warning/20 bg-warning/10 p-3 text-sm text-charcoal"
+                role="status"
+            >
+                <Icon :name="['fas', 'circle-exclamation']" />
+                {{ $t('team.scheduling.copy.times_warning') }}
+            </p>
+
+            <p
                 v-if="event.is_locked"
                 class="mb-4 flex items-center gap-2 rounded-lg border border-warning/20 bg-warning/10 p-3 text-sm text-charcoal"
                 role="status"
@@ -910,7 +919,12 @@ const destroy = () => {
                                         v-model="form.starts_at"
                                         type="datetime-local"
                                         :max="form.ends_at || undefined"
-                                        :invalid="invalid"
+                                        :invalid="
+                                            invalid ||
+                                            (copying &&
+                                                form.starts_at ===
+                                                    initialShift.starts_at)
+                                        "
                                         :disabled="!canWrite || form.processing"
                                     />
                                 </template>
@@ -926,7 +940,12 @@ const destroy = () => {
                                         v-model="form.ends_at"
                                         type="datetime-local"
                                         :min="form.starts_at || undefined"
-                                        :invalid="invalid"
+                                        :invalid="
+                                            invalid ||
+                                            (copying &&
+                                                form.ends_at ===
+                                                    initialShift.ends_at)
+                                        "
                                         :disabled="!canWrite || form.processing"
                                     />
                                 </template>

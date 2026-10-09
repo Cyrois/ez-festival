@@ -1516,6 +1516,7 @@
     "team.scheduling.actions.copy": "Copy",
     "team.scheduling.copy.title": "Copy shift",
     "team.scheduling.copy.unsaved": "These people will be added when you create the shift. You can change their hours or remove them before saving.",
+    "team.scheduling.copy.times_warning": "Update the shift start and end times to prevent overlapping shifts.",
     "team.scheduling.unsaved_changes": "Unsaved changes — click Save",
     "ui.unsaved_changes.title": "Unsaved changes",
     "ui.unsaved_changes.description": "You have unsaved changes. Continue without saving, or save your changes before leaving this page.",
