@@ -5,6 +5,8 @@ namespace App\Support;
 final class RoutePermissions
 {
     public const ABILITIES = [
+        'reports.index' => 'meals.view',
+        'reports.meals.export' => 'meals.view',
         'meals.index' => 'meals.view',
         'meals.people.index' => 'meals.view',
         'meals.people.show' => 'meals.view',

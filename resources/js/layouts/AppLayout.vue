@@ -166,6 +166,12 @@ const navItems = computed(() =>
                     exact: true,
                 },
                 {
+                    key: 'meals.report',
+                    href: '/reports',
+                    icon: ['fas', 'chart-column'],
+                    enabled: true,
+                },
+                {
                     key: 'meals.settings',
                     href: '/meals/settings',
                     icon: ['fas', 'list'],
