@@ -61,7 +61,7 @@ class MealEntitlementQuery
     public function personCounts(Event $event, int $memberId, ?CarbonInterface $searchDate = null): Collection
     {
         return $this->forPerson($event, $memberId, $searchDate)->select('meal_date', 'meal_type_id', 'type_name')
-            ->selectRaw('COUNT(*) as total, SUM(CASE WHEN used = 0 THEN 1 ELSE 0 END) as remaining, SUM(CASE WHEN is_override AND used = 1 THEN 1 ELSE 0 END) as overrides, SUM(CASE WHEN is_override THEN 0 ELSE 1 END) as normal_total')
+            ->selectRaw('COUNT(*) as total, SUM(CASE WHEN used = 0 THEN 1 ELSE 0 END) as remaining, SUM(CASE WHEN is_override AND used = 1 THEN 1 ELSE 0 END) as overrides')
             ->groupBy('meal_date', 'meal_type_id', 'type_name')->orderBy('meal_date')->orderBy('meal_type_id')->get();
     }
 
@@ -114,7 +114,6 @@ class MealEntitlementQuery
             ->orderBy('meal_date')->orderBy('starts_at')->orderBy('id')->get()->map(function ($meal) use ($counts) {
                 $count = $counts->get($meal->meal_date.':'.$meal->meal_type_id);
                 $meal->available = (int) ($count?->remaining ?? 0) === 0;
-                $meal->extra = (int) ($count?->normal_total ?? 0) > 0;
 
                 return $meal;
             });

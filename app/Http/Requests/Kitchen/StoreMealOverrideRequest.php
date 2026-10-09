@@ -10,7 +10,6 @@ class StoreMealOverrideRequest extends IndexMealOverridesRequest
     {
         return [
             'meal_id' => ['required', 'integer', Rule::exists('meals', 'id')->where('event_id', $this->route('event')->id)],
-            'confirmed' => ['required', 'accepted'],
             'claim' => ['sometimes', 'boolean'],
         ];
     }

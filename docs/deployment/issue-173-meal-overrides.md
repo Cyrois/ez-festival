@@ -24,6 +24,10 @@ operator/time, and allows it to be claimed again. Claimed overrides also protect
 meal and Team member deletion through the existing history guards. Removing an
 unused override deletes its grant; no removal audit is added.
 
+The create request sends `meal_id` and optional `claim` (default true); the
+single picker has no separate confirmation field. Removal retains its
+`confirmed` field because the Remove override dialog still requires confirmation.
+
 All writes recheck permissions, hired status and event writability under the
 event lock. Locked events remain read-only, including for admins. The day rule
 matches Claim: the event's current date plus yesterday's overnight meals until

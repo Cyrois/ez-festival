@@ -266,7 +266,7 @@ test('a direct person assignment renders without shift metadata and supports Cla
     } finally { state.app.unmount(); }
 });
 
-const overrideOption = (changes = {}) => ({ id: 4, name: 'Fri Lunch', date: '2026-10-01', type: 'Lunch', starts_at: '12:00', ends_at: '14:00', available: true, extra: false, ...changes });
+const overrideOption = (changes = {}) => ({ id: 4, name: 'Fri Lunch', date: '2026-10-01', type: 'Lunch', starts_at: '12:00', ends_at: '14:00', available: true, ...changes });
 const selectOverrideMeal = async () => {
     const radio = document.querySelector('input[type="radio"]:not([disabled])');
     radio.checked = true; radio.dispatchEvent(new window.Event('change', { bubbles: true })); await tick();
@@ -294,29 +294,27 @@ test('Override is independent of Claim permission; picker disables unused types 
     } finally { state.app.unmount(); }
 });
 
-for (const extra of [false, true]) {
-    test(`Override ${extra ? 'extra' : 'walk-up'} confirmation gives and claims in one request and refreshes Used and origin`, async () => {
-        const state = mount({ canOverride: true, rows: [], matched: true, overrideOptions: [overrideOption({ extra })] });
-        try {
-            await enter('WB-123'); await tick();
-            buttonNamed('Give meal').click(); await tick(); await selectOverrideMeal();
-            assert.equal(document.querySelectorAll('[role="alertdialog"]').length, 1);
-            buttonNamed('Give and claim').click(); buttonNamed('Give and claim').click(); await tick(); await tick();
-            const requests = state.requests.filter((request) => request.method === 'POST');
-            assert.equal(requests.length, 1);
-            assert.deepEqual(JSON.parse(requests[0].body), { meal_id: 4, confirmed: true, claim: true });
-            assert.equal(requests[0].headers['X-XSRF-TOKEN'], 'test-csrf');
-            assert.match(document.querySelector('table').textContent, /Used 13:10/);
-            assert.match(document.querySelector('table').textContent, /Override 13:10/);
-            assert.match(document.querySelector('table').textContent, /No shift \(override\)/);
-            assert.match(document.body.textContent, /1 today, 0 left, 1 override/);
-            assert.equal(buttonNamed('Remove override'), undefined);
-            assert.ok(buttonNamed('Unclaim'));
-            assert.equal(document.querySelector('input').value, 'WB-123');
-            assert.deepEqual(state.successes, ['Override given and claimed']);
-        } finally { state.app.unmount(); }
-    });
-}
+test('Give and claim uses one picker request and refreshes Used and origin', async () => {
+    const state = mount({ canOverride: true, rows: [], matched: true, overrideOptions: [overrideOption()] });
+    try {
+        await enter('WB-123'); await tick();
+        buttonNamed('Give meal').click(); await tick(); await selectOverrideMeal();
+        assert.equal(document.querySelectorAll('[role="alertdialog"]').length, 1);
+        buttonNamed('Give and claim').click(); buttonNamed('Give and claim').click(); await tick(); await tick();
+        const requests = state.requests.filter((request) => request.method === 'POST');
+        assert.equal(requests.length, 1);
+        assert.deepEqual(JSON.parse(requests[0].body), { meal_id: 4, claim: true });
+        assert.equal(requests[0].headers['X-XSRF-TOKEN'], 'test-csrf');
+        assert.match(document.querySelector('table').textContent, /Used 13:10/);
+        assert.match(document.querySelector('table').textContent, /Override 13:10/);
+        assert.match(document.querySelector('table').textContent, /No shift \(override\)/);
+        assert.match(document.body.textContent, /1 today, 0 left, 1 override/);
+        assert.equal(buttonNamed('Remove override'), undefined);
+        assert.ok(buttonNamed('Unclaim'));
+        assert.equal(document.querySelector('input').value, 'WB-123');
+        assert.deepEqual(state.successes, ['Override given and claimed']);
+    } finally { state.app.unmount(); }
+});
 
 test('Override requires its own permission and resets the picker when the lookup changes', async () => {
     let state = mount({ matched: true });
@@ -413,7 +411,7 @@ test('Give creates an unused override directly from the picker', async () => {
         buttonNamed('Give').click(); await tick(); await tick();
         const requests = state.requests.filter((request) => request.method === 'POST');
         assert.equal(requests.length, 1);
-        assert.deepEqual(JSON.parse(requests[0].body), { meal_id: 4, confirmed: true, claim: false });
+        assert.deepEqual(JSON.parse(requests[0].body), { meal_id: 4, claim: false });
         assert.equal(document.querySelector('[role="alertdialog"]'), null);
         assert.match(document.querySelector('table').textContent, /Not used/);
         assert.ok(buttonNamed('Claim'));

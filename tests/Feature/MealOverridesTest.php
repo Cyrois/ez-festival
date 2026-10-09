@@ -76,7 +76,7 @@ class MealOverridesTest extends TestCase
     {
         $this->grantRoleAccess($this->user, ['meals.override']);
         $id = $this->postJson(route('meals.overrides.store', [$this->event, $this->member]), [
-            'meal_id' => $this->meal->id, 'confirmed' => true, 'claim' => false,
+            'meal_id' => $this->meal->id, 'claim' => false,
         ])->assertCreated()->assertJsonPath('status', 'overridden')->json('assignment_id');
         $assignment = MealAssignment::findOrFail($id);
         $this->assertTrue($assignment->is_override);
@@ -89,7 +89,7 @@ class MealOverridesTest extends TestCase
         $this->detail()->assertJsonPath('data.0.used', false)->assertJsonPath('counts.0.left', 1)->assertJsonPath('counts.0.overrides', 0);
         $this->give()->assertConflict()->assertJsonPath('status', 'unused_meal');
         $this->postJson(route('meals.overrides.store', [$this->event, $this->member]), [
-            'meal_id' => $this->meal->id, 'confirmed' => true, 'claim' => 'invalid',
+            'meal_id' => $this->meal->id, 'claim' => 'invalid',
         ])->assertUnprocessable()->assertJsonValidationErrors('claim');
         $this->grantRoleAccess($this->user, ['meals.claim']);
         $this->postJson(route('meals.claims.store', [$this->event, $this->member]), ['assignment_id' => $id])->assertCreated();
@@ -117,7 +117,7 @@ class MealOverridesTest extends TestCase
         $normal = app(MealAssignmentService::class)->assign($this->event, $this->member, $this->meal);
         $this->assertFalse($normal->fresh()->is_override);
         app(MealClaimService::class)->claim($this->event, $this->member, $this->user, $normal->id);
-        $this->mealOptions()->assertJsonPath('data.0.available', true)->assertJsonPath('data.0.extra', true);
+        $this->mealOptions()->assertJsonPath('data.0.available', true)->assertJsonMissingPath('data.0.extra');
         $this->give()->assertCreated();
         $this->give()->assertCreated();
         $this->detail()->assertJsonPath('counts.0.total', 3)->assertJsonPath('counts.0.left', 0)
@@ -199,10 +199,10 @@ class MealOverridesTest extends TestCase
     {
         $foreign = app(EventService::class)->create(['name' => 'Other', 'starts_on' => '2026-10-01', 'ends_on' => '2026-10-03', 'timezone' => 'UTC']);
         $foreignMeal = $foreign->meals()->create(['name' => 'Other lunch', 'meal_type_id' => $foreign->mealTypes()->firstOrFail()->id, 'date' => '2026-10-01', 'starts_at' => '12:00', 'ends_at' => '14:00']);
-        foreach ([[], ['meal_id' => 'bad', 'confirmed' => true], ['meal_id' => $foreignMeal->id, 'confirmed' => true], ['meal_id' => $this->meal->id, 'confirmed' => false]] as $payload) {
+        foreach ([[], ['meal_id' => 'bad'], ['meal_id' => $foreignMeal->id], ['meal_id' => $this->meal->id, 'claim' => 'invalid']] as $payload) {
             $this->postJson(route('meals.overrides.store', [$this->event, $this->member]), $payload)->assertUnprocessable();
         }
-        $this->postJson(route('meals.overrides.store', [$foreign, $this->member]), ['meal_id' => $foreignMeal->id, 'confirmed' => true])->assertNotFound();
+        $this->postJson(route('meals.overrides.store', [$foreign, $this->member]), ['meal_id' => $foreignMeal->id])->assertNotFound();
         $other = $this->member();
         $id = $this->give()->json('assignment_id');
         $this->deleteJson(route('meals.overrides.destroy', [$this->event, $other]), ['assignment_id' => $id, 'confirmed' => true])->assertUnprocessable()->assertJsonValidationErrors('assignment_id');
@@ -294,7 +294,7 @@ class MealOverridesTest extends TestCase
 
     private function give(): TestResponse
     {
-        return $this->postJson(route('meals.overrides.store', [$this->event, $this->member]), ['meal_id' => $this->meal->id, 'confirmed' => true]);
+        return $this->postJson(route('meals.overrides.store', [$this->event, $this->member]), ['meal_id' => $this->meal->id]);
     }
 
     private function remove(int $id, bool $confirmed = true): TestResponse

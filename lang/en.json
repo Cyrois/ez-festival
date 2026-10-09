@@ -402,7 +402,6 @@
     "team.member.shifts.day": "Day",
     "team.member.shifts.time": "Time",
     "team.member.shifts.empty": "No assigned shifts yet.",
-    "team.member.shifts.open_scheduling": "Open in Scheduling",
     "team.member.shifts.time_range": ":start – :end",
     "team.member.shifts.overnight_time_range": ":start – :day :end",
     "team.member.sections.contracts.title": "Contracts",

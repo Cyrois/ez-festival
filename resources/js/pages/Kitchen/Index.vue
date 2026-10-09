@@ -402,7 +402,6 @@ const saveOverride = async (claim = true) => {
                           }
                         : {
                               meal_id: overrideMeal.value.id,
-                              confirmed: true,
                               claim,
                           },
                 ),
