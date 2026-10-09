@@ -33,7 +33,7 @@ const update = (flag, enabled) => {
 
 <template>
     <SettingsLayout :title="$t('settings.feature_flags.title')">
-        <div class="mx-auto w-full max-w-3xl px-4 py-7 sm:px-6 lg:px-8">
+        <div class="container mx-auto py-7">
             <div class="mb-6">
                 <h1 class="m-0 text-2xl font-bold text-charcoal">
                     {{ $t('settings.feature_flags.title') }}

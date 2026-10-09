@@ -177,11 +177,10 @@ const formatWhen = (value) =>
     <AppLayout
         :title="item.name"
         :breadcrumbs="breadcrumbs"
-        back-href="/credentials/entitlements"
-        :back-label="$t('credentials.entitlements.view.back')"
+        compact-mobile-header
     >
         <div
-            class="container mx-auto max-w-6xl"
+            class="container mx-auto"
             :class="is_read_only ? '' : 'pb-24'"
         >
             <div class="mb-5">
@@ -472,9 +471,9 @@ const formatWhen = (value) =>
                 v-if="!is_read_only"
                 class="fixed right-0 bottom-0 left-0 z-30 border-t border-line bg-ground/95 py-3 backdrop-blur lg:left-[var(--app-sidebar-width)]"
             >
-                <div class="container mx-auto px-4 md:px-6">
+                <div class="content-body container mx-auto">
                     <div
-                        class="mx-auto flex max-w-6xl items-center justify-between gap-2"
+                        class="mx-auto flex items-center justify-between gap-2"
                     >
                         <Button
                             href="/credentials/entitlements"

@@ -74,6 +74,7 @@ test('whole report renders more than ten rows without summary rows or paging, an
         assert.equal(document.querySelectorAll('tbody tr').length, 12);
         assert.equal(document.querySelector('.dt-paging, input, select'), null);
         assert.deepEqual([...document.querySelectorAll('thead th')].map((cell) => cell.textContent), ['Meal', 'Date', 'Meal type', 'Projected', 'Used', 'Remaining', 'Extras', 'Total']);
+        assert.deepEqual([...document.querySelector('tbody tr').cells].map((cell) => cell.dataset.label), ['Meal', 'Date', 'Meal type', 'Projected', 'Used', 'Remaining', 'Extras', 'Total']);
         assert.match(document.querySelector('tbody').textContent, /Fri, Oct 2/);
         assert.equal([...document.querySelectorAll('tbody tr')].filter((row) => row.cells[1].textContent.includes('Fri, Oct 2')).length, 12);
         assert.match(document.querySelector('tbody').textContent, /Meal 12/);
@@ -81,6 +82,51 @@ test('whole report renders more than ten rows without summary rows or paging, an
         assert.equal(document.querySelector('h1').textContent.trim(), 'Meals Report');
         assert.equal(document.querySelector('a').getAttribute('href'), '/reports/meals/export');
         assert.equal(document.querySelector('a').getAttribute('aria-disabled'), null);
+    } finally { app.unmount(); }
+});
+
+test('shared mobile labels follow hidden columns and paging without replacing slots or caller callbacks', async () => {
+    const { default: SharedDataTable } = await import(dataTable);
+    let table, draws = 0, clicks = 0;
+    const app = createApp({
+        setup: () => () => h(SharedDataTable, {
+            data: [{ name: 'Ava', hidden: 'One', count: 3 }, { name: 'Zoe', hidden: 'Two', count: 7 }],
+            columns: [
+                { data: 'name', title: '<span>Name</span>' },
+                { data: 'hidden', title: 'Hidden', visible: false },
+                { data: 'count', title: 'Count' },
+                { data: null, title: '', orderable: false, render: { display: '#action' } },
+            ],
+            options: {
+                pageLength: 1,
+                createdRow: (row) => { row.dataset.link = 'kept'; },
+                drawCallback: function () { table = this.api(); draws++; },
+            },
+        }, {
+            action: () => h('button', { onClick: () => clicks++ }, 'Action'),
+        }),
+    });
+    app.mount(document.getElementById('app'));
+    try {
+        await tick();
+        const labels = () => [...document.querySelector('tbody tr').cells].map((cell) => cell.dataset.label);
+        assert.deepEqual(labels(), ['Name', 'Count', '']);
+        assert.equal(document.querySelector('tbody tr').dataset.link, 'kept');
+        document.querySelector('tbody button').click();
+        assert.equal(clicks, 1);
+        table.page('next').draw('page');
+        await tick();
+        assert.match(document.querySelector('tbody').textContent, /Zoe/);
+        assert.deepEqual(labels(), ['Name', 'Count', '']);
+        table.column(1).visible(true);
+        assert.deepEqual(labels(), ['Name', 'Hidden', 'Count', '']);
+        table.search('Ava').draw();
+        await tick();
+        assert.match(document.querySelector('tbody').textContent, /Ava/);
+        assert.equal(draws, 3);
+        table.search('no match').draw();
+        await tick();
+        assert.equal(document.querySelector('td.dt-empty').hasAttribute('data-label'), false);
     } finally { app.unmount(); }
 });
 

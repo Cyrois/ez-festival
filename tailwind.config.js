@@ -1,9 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 /**
  * Artist Tree design tokens.
- * Tailwind 4 also loads these via @theme in resources/css/app.css so utilities
+ * Tailwind 4 also loads these via @theme in resources/css/tailwind.css so utilities
  * (bg-brand, bg-primary, text-secondary, …) are generated reliably with
- * @tailwindcss/vite. Keep both in sync when changing tokens.
+ * @tailwindcss/postcss. Keep both in sync when changing tokens.
  *
  * brand → alias of primary (do not break existing bg-brand classes).
  * accent → alias of secondary (legacy name).

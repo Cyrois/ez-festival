@@ -44,10 +44,9 @@ const submit = () => {
     <AppLayout
         :title="$t('team.member.add')"
         :breadcrumbs="breadcrumbs"
-        back-href="/team/advancement"
-        :back-label="$t('team.member.back')"
+        compact-mobile-header
     >
-        <div class="container mx-auto max-w-3xl">
+        <div class="container mx-auto">
             <header class="mb-6">
                 <h1 class="m-0 text-2xl font-bold tracking-tight">
                     {{ $t('team.member.add') }}

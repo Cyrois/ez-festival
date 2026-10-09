@@ -165,10 +165,9 @@ const submit = () => {
     <AppLayout
         :title="engagement.name"
         :breadcrumbs="breadcrumbs"
-        back-href="/team/advancement"
-        :back-label="$t('team.member.back')"
+        compact-mobile-header
     >
-        <div class="container mx-auto max-w-6xl pb-24">
+        <div class="container mx-auto pb-24">
             <header class="mb-5 flex items-center gap-3.5">
                 <Avatar
                     :name="engagement.name"
@@ -390,10 +389,8 @@ const submit = () => {
                 v-if="canWrite || canAddNotes || canChangeRole"
                 class="fixed right-0 bottom-0 left-0 z-30 border-t border-line bg-ground/95 py-3 backdrop-blur lg:left-[var(--app-sidebar-width)]"
             >
-                <div class="container mx-auto px-4 md:px-6">
-                    <div
-                        class="mx-auto flex max-w-6xl items-center justify-between"
-                    >
+                <div class="content-body container mx-auto">
+                    <div class="mx-auto flex items-center justify-between">
                         <Button
                             href="/team/advancement"
                             variant="cancel"

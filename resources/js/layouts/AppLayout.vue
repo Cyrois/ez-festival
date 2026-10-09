@@ -21,19 +21,11 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
-    backHref: {
-        type: String,
-        default: '',
-    },
-    backLabel: {
-        type: String,
-        default: '',
-    },
-    settingsNav: {
+    compactMobileHeader: {
         type: Boolean,
         default: false,
     },
-    fullWidthContent: {
+    settingsNav: {
         type: Boolean,
         default: false,
     },
@@ -550,21 +542,9 @@ const railClass = computed(() => {
                         size="sm"
                     />
                 </button>
-                <Link
-                    v-if="backHref"
-                    :href="backHref"
-                    class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] text-charcoal no-underline hover:bg-page"
-                    :aria-label="backLabel || $t('nav.back')"
-                    :title="backLabel || $t('nav.back')"
-                >
-                    <Icon
-                        :name="['fas', 'arrow-left']"
-                        size="sm"
-                    />
-                </Link>
                 <div
                     class="flex min-w-0 flex-1 items-center justify-between gap-3 lg:hidden"
-                    :class="backHref ? 'hidden' : ''"
+                    :class="compactMobileHeader ? 'hidden' : ''"
                 >
                     <span class="truncate text-[15px] font-bold">
                         {{ $t('app.name') }}
@@ -579,9 +559,6 @@ const railClass = computed(() => {
                 <nav
                     data-unsaved-navigation
                     class="hidden min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm text-muted lg:flex"
-                    :class="
-                        backHref ? 'ml-5 border-l border-line pl-5 lg:flex' : ''
-                    "
                     :aria-label="$t('nav.breadcrumbs')"
                 >
                     <template
@@ -612,9 +589,9 @@ const railClass = computed(() => {
                     </template>
                 </nav>
                 <nav
-                    v-if="backHref"
+                    v-if="compactMobileHeader"
                     data-unsaved-navigation
-                    class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden border-l border-line pl-3 text-sm text-muted lg:hidden"
+                    class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm text-muted lg:hidden"
                     :aria-label="$t('nav.breadcrumbs')"
                 >
                     <template
@@ -647,11 +624,8 @@ const railClass = computed(() => {
                 <UserAccountControls :user="user" />
             </header>
 
-            <main class="flex-1 px-4 py-6 md:px-6 md:py-8">
-                <div
-                    class="container mx-auto"
-                    :class="fullWidthContent ? 'max-w-none' : ''"
-                >
+            <main class="content-body flex-1 py-6 md:py-8">
+                <div class="container mx-auto">
                     <slot />
                 </div>
             </main>

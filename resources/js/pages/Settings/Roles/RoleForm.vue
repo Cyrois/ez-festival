@@ -85,10 +85,9 @@ const submit = () => {
     <SettingsLayout
         :title="title"
         :breadcrumbs="breadcrumbs"
-        back-href="/settings/roles"
-        :back-label="$t('permissions.back_roles')"
+        compact-mobile-header
     >
-        <div class="container mx-auto max-w-6xl pb-24">
+        <div class="container mx-auto pb-24">
             <div class="flex items-center justify-between gap-4">
                 <h1 class="text-2xl font-bold text-charcoal">{{ title }}</h1>
             </div>
@@ -222,10 +221,8 @@ const submit = () => {
         <div
             class="fixed right-0 bottom-0 left-0 z-30 border-t border-line bg-ground lg:left-[var(--app-sidebar-width)]"
         >
-            <div class="container mx-auto px-4 md:px-6">
-                <div
-                    class="mx-auto flex max-w-6xl items-center justify-between py-4"
-                >
+            <div class="content-body container mx-auto">
+                <div class="mx-auto flex items-center justify-between py-4">
                     <Button
                         variant="outline"
                         @click="router.visit('/settings/roles')"

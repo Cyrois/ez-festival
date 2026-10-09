@@ -380,6 +380,51 @@ class ArtistCheckInTest extends TestCase
     }
 
     /** @return array{User, Event} */
+    public function test_data_table_filters_and_pages_current_event_holders(): void
+    {
+        [$user, $event] = $this->context();
+        [, $alex] = $this->heldEntitlement($event, 'First artist', 'Alex Kim');
+        [, $maya] = $this->heldEntitlement($event, 'Second artist', 'Maya Chen');
+        $this->heldVendorEntitlement($event, 'Vendor', 'Priya Nair');
+        $this->heldEntitlement($this->event('Other event'), 'Foreign artist', 'Aaron Foreign');
+        $parameters = ['draw' => 3, 'start' => 1, 'length' => 1, 'type' => 'artist'];
+
+        $this->actingAs($user)->getJson(route('check-in.data', $parameters))
+            ->assertOk()->assertJsonPath('draw', 3)
+            ->assertJsonPath('recordsTotal', 3)->assertJsonPath('recordsFiltered', 2)
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.person_id', $maya->id)
+            ->assertJsonPath('data.0.can_edit', true);
+
+        $this->getJson(route('check-in.data', [...$parameters, 'start' => 0, 'search' => 'Alex']))
+            ->assertOk()->assertJsonPath('recordsFiltered', 1)
+            ->assertJsonPath('data.0.person_id', $alex->id);
+        $this->getJson(route('check-in.data', [...$parameters, 'type' => 'team']))
+            ->assertOk()->assertJsonPath('recordsFiltered', 0)->assertJsonCount(0, 'data');
+    }
+
+    public function test_data_table_validates_paging_and_foreign_event_passes(): void
+    {
+        [$user, $event] = $this->context();
+        [, , $foreign] = $this->heldEntitlement($this->event('Other'), 'Foreign');
+        $this->actingAs($user)->getJson(route('check-in.data', [
+            'draw' => -1, 'start' => -1, 'length' => 101,
+            'pass' => $foreign->passAssignment->pass_type_id,
+        ]))->assertUnprocessable()->assertJsonValidationErrors(['draw', 'start', 'length', 'pass']);
+    }
+
+    public function test_data_table_is_readable_when_locked_and_requires_check_in_permission(): void
+    {
+        [$user, $event] = $this->context();
+        $this->heldEntitlement($event, 'Artist');
+        $event->update(['locked' => true]);
+        $parameters = ['draw' => 1, 'start' => 0, 'length' => 25];
+        $this->actingAs($user)->getJson(route('check-in.data', $parameters))
+            ->assertOk()->assertJsonCount(1, 'data');
+        $this->grantRoleAccess($user);
+        Gate::define('checkin.view', fn (): bool => false);
+        $this->getJson(route('check-in.data', $parameters))->assertForbidden();
+    }
+
     private function context(): array
     {
         $user = User::factory()->create();

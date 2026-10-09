@@ -66,11 +66,19 @@ Boost replaces these bootstrap instructions with guidelines tailored to the appl
 - Before a PR: `npm run format` then `npm run lint`.
 - Check without writing: `npm run format:check`.
 
+### SCSS / Tailwind build
+
+- Global custom styles live in `resources/scss/`, loaded through `resources/scss/app.scss`; compose partials with Sass `@use` and use shallow nesting.
+- Vite compiles Sass first, then `@tailwindcss/postcss` resolves Tailwind directives such as `@apply`, `@utility`, and `@variant`. Do not also enable `@tailwindcss/vite` or run Tailwind's own CSS through Sass.
+- `resources/css/tailwind.css` is the CSS-only bootstrap for Tailwind/vendor imports, source scanning, configuration, and theme tokens. `_bootstrap.scss` preserves its plain CSS import for PostCSS.
+- SCSS is for the existing shared gutter utility and third-party integration styling (such as DataTables). Keep Tailwind utilities in Vue templates, retain shared UI components, and do not add scoped styles or page-specific styling systems.
+- Continue using theme variables / Tailwind `@apply`; do not duplicate the palette in Sass variables. Preserve cascade layers and selector specificity when nesting.
+
 ## Artist Tree frontend rules
 
 - Do not hardcode user-facing strings in Vue components. Put copy in `lang/*.json` and use `laravel-vue-i18n` (`$t` / `t()`).
 - Style with Tailwind utility classes only. No scoped CSS, no large inline style blocks for layout/branding.
-- Define design tokens in `tailwind.config.js` and mirror them in `@theme` in `resources/css/app.css`. Prefer `primary` / `secondary` for new work; `brand` / `accent` remain aliases of those same hex values so existing `bg-brand` / `text-accent` classes keep working. Also: `text-charcoal`, `bg-page`, `bg-ground`, `text-muted`, `border-line`, `text-danger`, `text-success`, `text-warning`, radius `0.5rem` (`rounded-lg` / `--radius`). Do not sprinkle raw hex in class strings.
+- Define design tokens in `tailwind.config.js` and mirror them in `@theme` in `resources/css/tailwind.css`. Prefer `primary` / `secondary` for new work; `brand` / `accent` remain aliases of those same hex values so existing `bg-brand` / `text-accent` classes keep working. Also: `text-charcoal`, `bg-page`, `bg-ground`, `text-muted`, `border-line`, `text-danger`, `text-success`, `text-warning`, radius `0.5rem` (`rounded-lg` / `--radius`). Do not sprinkle raw hex in class strings.
 - Compose screens from `resources/js/components/ui` (Button, Input, Textarea, Select, Checkbox, Radio, Switch, Badge, Label, Tag, FormField, Toast, Icon, Avatar, Tabs, SegmentedControl, Card, EmptyState, Table, …). Do not one-off restyle controls per page. Extend the kit in a PR when something is missing.
 - For new or changed product dropdown controls, use `CustomDropdown` from `resources/js/components/ui/custom-dropdown`; do not use the native `Select` component for dropdowns.
 - Page body layout: center page content with Tailwind’s `container mx-auto` wrapper. If a page needs a narrower `max-w-*` body, retain `mx-auto` so it stays centered; do not leave constrained page bodies left-aligned. `AppLayout` already supplies the standard responsive page padding.
@@ -140,6 +148,7 @@ These are recurring Codex mistakes on this repo. Treat them as hard stops — do
 
 ### Lists, authorization, performance
 
+- **Clickable table standard (Calvin, 2026-10-09):** Lists that open a row's detail/view page use the shared `DataTable`, `navigateDataTableRow` from `resources/js/lib/dataTableRowNavigation.js`, and a final narrow, right-aligned, unlabeled chevron column (`Icon` with `chevron-right`). The chevron is a real link with a translated accessible label; it opens the same destination as the row and supports keyboard navigation. For dialog actions use `activateDataTableRow` and a labeled chevron button instead. Keep secondary links/actions independent; row navigation must ignore interactive controls and selected text. Do not add a repeated primary View/Edit/Check in button to every navigable row. Keep existing permission/lock gates and server-side filtering/pagination rules.
 - Production index/list pages with tabular data must render with the shared `DataTable` component (`resources/js/components/ui/data-table`). Do not hand-build sortable tables, search wiring, or pagination controls when `DataTable` covers the list. Use its `serverSide` mode when the query is server-paginated.
 - Production index/list pages: **filter and paginate on the server** by default. Do not hydrate unbounded tables into memory and filter in PHP or the browser.
 - **Exception (Calvin, extended 2026-09-30): Vendors, Artists, Entitlements, Passes, and Settings → Events only.** These lists stay small enough to load their full scoped set and search/sort/filter/paginate client-side with the shared `DataTable` component (`resources/js/components/ui/data-table`), provided:
