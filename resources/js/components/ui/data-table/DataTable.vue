@@ -41,7 +41,7 @@ const props = defineProps({
 const dataTable = ref(null);
 const ready = ref(isLoaded(getActiveLanguage()));
 const classes = computed(() =>
-    cn('w-full border-collapse text-left text-sm', props.class),
+    cn('dt-stacked w-full border-collapse text-left text-sm', props.class),
 );
 // DataTables reads options only when it mounts. Locale changes remount the
 // table below; callers should not expect other option changes to be reactive.
@@ -49,6 +49,38 @@ const options = computed(() => ({
     autoWidth: false,
     processing: props.ajax !== undefined || props.options.serverSide === true,
     ...props.options,
+    layout: {
+        bottomEnd: { paging: { firstLast: false } },
+        ...props.options.layout,
+    },
+    drawCallback: function (...args) {
+        const table = this.api();
+        const labels = table
+            .columns()
+            .header()
+            .toArray()
+            .map((header) =>
+                (
+                    header.querySelector('.dt-column-title') || header
+                ).textContent.trim(),
+            );
+
+        // Use the actual column index, including hidden columns. Leave cell
+        // contents intact so Vue slots and their interactive controls still work.
+        table.cells({ page: 'current' }).every(function () {
+            this.node().dataset.label = labels[this.index().column];
+            this.node().setAttribute('role', 'cell');
+        });
+        table
+            .rows({ page: 'current' })
+            .nodes()
+            .toArray()
+            .forEach((row) => {
+                row.setAttribute('role', 'row');
+            });
+
+        props.options.drawCallback?.apply(this, args);
+    },
     language: {
         emptyTable: trans('data_table.empty'),
         info: trans('data_table.info'),
@@ -121,6 +153,7 @@ defineExpose({
         :data="data"
         :options="options"
         :class="classes"
+        role="table"
     >
         <template
             v-for="(_, slotName) in $slots"

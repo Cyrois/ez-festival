@@ -647,7 +647,7 @@ const railClass = computed(() => {
                 <UserAccountControls :user="user" />
             </header>
 
-            <main class="flex-1 px-4 py-6 md:px-6 md:py-8">
+            <main class="content-body flex-1 py-6 md:py-8">
                 <div
                     class="container mx-auto"
                     :class="fullWidthContent ? 'max-w-none' : ''"

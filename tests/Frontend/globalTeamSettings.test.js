@@ -190,7 +190,7 @@ test('Global Team uses the shared server-side DataTable with person links', () =
 
 test('Global Team forms and save panels match the full-width list container', () => {
     const teamActionLayout =
-        /container mx-auto px-4 md:px-6[\s\S]*flex items-center justify-between/;
+        /container mx-auto content-body[\s\S]*flex items-center justify-between/;
 
     assert.match(addPage, /container mx-auto pb-24/);
     assert.match(personPage, /container mx-auto pb-24/);

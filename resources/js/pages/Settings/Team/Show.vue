@@ -548,7 +548,7 @@ const copyPassword = async () => {
             <div
                 class="fixed right-0 bottom-0 left-0 z-30 border-t border-line bg-ground/95 py-3 backdrop-blur lg:left-[var(--app-sidebar-width)]"
             >
-                <div class="container mx-auto px-4 md:px-6">
+                <div class="container mx-auto content-body">
                     <div class="flex items-center justify-between">
                         <Button
                             href="/settings/team"

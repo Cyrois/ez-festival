@@ -222,7 +222,7 @@ const submit = () => {
         <div
             class="fixed right-0 bottom-0 left-0 z-30 border-t border-line bg-ground lg:left-[var(--app-sidebar-width)]"
         >
-            <div class="container mx-auto px-4 md:px-6">
+            <div class="container mx-auto content-body">
                 <div
                     class="mx-auto flex max-w-6xl items-center justify-between py-4"
                 >

@@ -62,7 +62,8 @@ const tableOptions = (day) => ({
         topStart: null,
         topEnd: null,
         bottomStart: null,
-        bottomEnd: day.rows.length > 10 ? 'paging' : null,
+        bottomEnd:
+            day.rows.length > 10 ? { paging: { firstLast: false } } : null,
     },
 });
 </script>

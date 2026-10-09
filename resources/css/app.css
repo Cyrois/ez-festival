@@ -50,6 +50,18 @@
     --color-warning: #ca8a04;
 }
 
+/* Shared page gutters; nested containers must also fill narrow screens. */
+@utility content-body {
+    @apply px-[1em] md:px-[1.5em] lg:px-[2em];
+
+    @variant max-lg {
+        &.container,
+        & .container {
+            @apply max-w-none;
+        }
+    }
+}
+
 @layer components {
     /*
      * Accepted exception to the Tailwind-only rule (AGENTS.md): DataTables
@@ -159,6 +171,59 @@
 }
 
 @layer utilities {
+    /* Stacked records on mobile, with the existing sortable headers retained. */
+    @media (width < 48rem) {
+        div.dt-container div.dt-layout-table > div:has(table.dt-stacked) {
+            @apply overflow-hidden;
+        }
+
+        div.dt-container table.dt-stacked,
+        div.dt-container table.dt-stacked tbody {
+            @apply block w-full min-w-0;
+        }
+
+        div.dt-container table.dt-stacked colgroup {
+            @apply hidden;
+        }
+
+        div.dt-container table.dt-stacked thead,
+        div.dt-container table.dt-stacked thead tr {
+            @apply flex flex-wrap;
+        }
+
+        div.dt-container table.dt-stacked thead th.dt-orderable-none {
+            @apply sr-only;
+        }
+
+        div.dt-container table.dt-stacked tbody tr {
+            @apply block h-auto border-b border-line py-2;
+        }
+
+        div.dt-container table.dt-stacked tbody tr:last-child {
+            @apply border-b-0;
+        }
+
+        div.dt-container table.dt-stacked tbody tr > td {
+            @apply block min-w-0 border-0 px-4 py-2 text-left [overflow-wrap:anywhere] whitespace-normal;
+        }
+
+        div.dt-container
+            table.dt-stacked
+            tbody
+            td[data-label]:not([data-label=''])::before {
+            @apply mb-1 block text-xs font-bold tracking-wide text-muted uppercase no-underline;
+            content: attr(data-label);
+        }
+
+        div.dt-container table.dt-stacked tbody td > div {
+            @apply max-w-full min-w-0;
+        }
+
+        div.dt-container table.dt-stacked tbody td .whitespace-nowrap {
+            @apply whitespace-normal;
+        }
+    }
+
     /*
      * Keep the leading record label consistent even when a slotted cell has
      * its own text and font utility classes.
