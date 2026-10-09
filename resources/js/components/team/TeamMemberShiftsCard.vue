@@ -1,6 +1,5 @@
 <script setup>
 import { computed, onUnmounted } from 'vue';
-import { Link } from '@inertiajs/vue3';
 import { getActiveLanguage, trans } from 'laravel-vue-i18n';
 import { Card, CardTitle } from '../ui/card';
 import { DataTable } from '../ui/data-table';
@@ -95,17 +94,9 @@ const options = computed(() => ({
         id="shifts"
         class="mt-4"
     >
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <CardTitle>
-                {{ $t('team.member.sections.shifts.title') }}
-            </CardTitle>
-            <Link
-                href="/team/scheduling?tab=schedule"
-                class="text-sm font-semibold text-secondary no-underline hover:underline"
-            >
-                {{ $t('team.member.shifts.open_scheduling') }}
-            </Link>
-        </div>
+        <CardTitle>
+            {{ $t('team.member.sections.shifts.title') }}
+        </CardTitle>
         <p class="mt-1 mb-4 text-xs text-muted">
             {{ $t('team.member.sections.shifts.description') }}
         </p>
