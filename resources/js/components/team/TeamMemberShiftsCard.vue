@@ -81,7 +81,9 @@ const options = computed(() => ({
     serverSide: true,
     pageLength: 25,
     lengthChange: false,
-    paging: { firstLast: false },
+    layout: {
+        bottomEnd: { paging: { firstLast: false } },
+    },
     order: [[0, 'asc']],
     columnDefs: [{ targets: '_all', className: 'dt-left' }],
     language: { emptyTable: trans('team.member.shifts.empty') },

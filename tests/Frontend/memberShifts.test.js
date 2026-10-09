@@ -79,6 +79,8 @@ test('renders four read-only columns, Saturday own hours, escaped names, and the
         assert.equal(params.get('order[0][column]'), '0');
         assert.match(requests[0].url, /^\/team\/members\/7\/shifts\?/);
         assert.deepEqual(globalThis.memberShiftErrors, []);
+        assert.equal(document.querySelector('.dt-paging-button.first'), null);
+        assert.equal(document.querySelector('.dt-paging-button.last'), null);
     } finally { app.unmount(); }
 });
 
