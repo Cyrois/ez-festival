@@ -42,6 +42,7 @@ const props = defineProps({
     assignEnabled: { type: Boolean, default: undefined },
     canManage: { type: Boolean, default: false },
     disabledReason: { type: String, default: '' },
+    showOverlaps: { type: Boolean, default: true },
 });
 const emit = defineEmits(['assign', 'edit', 'remove', 'resize', 'move-break']);
 const dragging = ref(null);
@@ -137,11 +138,13 @@ onUnmounted(() => {
 const rows = computed(() =>
     scheduleRosterRows({
         ...props.shift,
-        assignments: props.shift.assignments.map((row) =>
-            dragging.value?.assignment.id === row.id
-                ? { ...row, ...dragging.value.hours }
-                : row,
-        ),
+        assignments: props.shift.assignments.map((row) => ({
+            ...row,
+            ...(dragging.value?.assignment.id === row.id
+                ? dragging.value.hours
+                : {}),
+            ...(!props.showOverlaps ? { overlaps: [], other_shifts: [] } : {}),
+        })),
     }),
 );
 const timelinePadding = 30;
@@ -1216,7 +1219,9 @@ const resizeKey = (event, assignment, edge) => {
                     aria-hidden="true"
                 />{{ $t('team.scheduling.roster.legend_open') }}</span
             >
-            <span class="flex items-center gap-1.5"
+            <span
+                v-if="showOverlaps"
+                class="flex items-center gap-1.5"
                 ><span
                     class="h-2.5 w-4 rounded-sm bg-warning/20"
                     aria-hidden="true"

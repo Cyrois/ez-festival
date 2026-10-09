@@ -631,6 +631,42 @@ test('full-shift Edit hours omits timestamps; preview failure permits Save but i
     }
 });
 
+test('Edit hours with overlaps disabled keeps validation and staged hours without warnings or preview requests', async () => {
+    const requests = [];
+    globalThis.fetch = async (url) => { requests.push(url); return {ok: false}; };
+    const changes = [];
+    const app = mount(Hours, {
+        shift, assignment: shift.assignments[0], enabled: true, showOverlaps: false,
+        onChanged: change => changes.push(change),
+    });
+    try {
+        form.starts_at = '2026-10-01T22:00';
+        form.ends_at = '2026-10-02T01:00';
+        await nextTick();
+        await settle();
+        assert.equal(requests.length, 0);
+        assert.doesNotMatch(document.body.textContent, /Other|Overlap|preview_loading|preview_failed|preview_retry/);
+        document.querySelector('#save').click();
+        assert.deepEqual(changes[0], { hours_mode: 'custom', starts_at: form.starts_at, ends_at: form.ends_at, breaks: [], overlaps: [], other_shifts: [] });
+        form.ends_at = '2026-10-03T01:00';
+        await nextTick();
+        assert.equal(document.querySelector('#save').disabled, true);
+    } finally { app.unmount(); }
+});
+
+test('timeline suppresses supplied overlaps and nearby shifts when overlap display is disabled', async () => {
+    const app = mount(Roster, {
+        shift: {...shift, assignments: shift.assignments.map(row => ({...row, other_shifts: [{ shift_name: 'Nearby', starts_at: shift.starts_at, ends_at: shift.ends_at }]}))},
+        showOverlaps: false,
+    });
+    try {
+        assert.equal(document.querySelector('[data-overlap-hatch]'), null);
+        assert.doesNotMatch(document.body.textContent, /legend_overlap|roster.overlap|Nearby/);
+        assert.ok(document.querySelector('[data-person-bar]'));
+        for (const row of document.querySelectorAll('[data-roster-row]')) assert.equal(row.classList.contains('bg-warning/10'), false);
+    } finally { app.unmount(); }
+});
+
 test('shift page stages removal without a popup or DELETE and writes roster changes only on page Save', async () => {
     const deletions = [];
     writes.length = 0;

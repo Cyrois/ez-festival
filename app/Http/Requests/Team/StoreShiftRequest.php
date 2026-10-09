@@ -63,6 +63,7 @@ class StoreShiftRequest extends FormRequest
             ...$this->breakRules(), ...$this->mealRules(),
             ...$this->rosterChangeRules(),
             ...ShiftReturnContext::rules(),
+            'open_created_shift' => ['sometimes', 'boolean'],
         ];
     }
 }

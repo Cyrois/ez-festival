@@ -175,8 +175,34 @@ const deps = {
         },
     },
     ShiftTimelineRoster: box('section'),
-    ShiftAssignmentHoursDialog: box('section'),
-    ShiftAssignDialog: box('section'),
+    ShiftAssignmentHoursDialog: {
+        props: ['assignment', 'showOverlaps'],
+        setup: (p, { emit }) => () => h('button', {
+            id: 'apply-copy-hours',
+            'data-show-overlaps': String(p.showOverlaps),
+            onClick: () => {
+                emit('changed', {
+                    hours_mode: 'custom', starts_at: '2026-10-31T23:00', ends_at: '2026-11-01T01:00',
+                    overlaps: [{ shift_name: 'Popup overlap', overlap_minutes: 60 }], other_shifts: [],
+                });
+                emit('close');
+            },
+        }, 'Apply hours'),
+    },
+    ShiftAssignDialog: {
+        props: ['showOverlaps'],
+        setup: (p, { emit }) => () => h('button', {
+            id: 'stage-copy-person',
+            'data-show-overlaps': String(p.showOverlaps),
+            onClick: () => {
+                emit('assigned', {
+                    candidate: { id: 80, name: 'Added person', overlaps: [{ shift_name: 'Candidate overlap', overlap_minutes: 60 }], other_shifts: [{ shift_name: 'Nearby shift' }] },
+                    extra: true, team_engagement_id: 80, hours_mode: 'full_shift',
+                });
+                emit('close');
+            },
+        }, 'Assign'),
+    },
     Dialog: box('section'),
     UnsavedChangesDialog: box('section'),
     LocationScheduleGrid: box('section'),
@@ -397,6 +423,8 @@ test('snapshot strips source ids and maps people to fresh draft slots, including
     assert.equal(draft.assignment_additions[1].slot_key, undefined);
     assert.equal(draft.assignment_additions[0].copy, undefined);
     assert.deepEqual(prefill.assignments[1].slot_index, 1);
+    assert.deepEqual(draft.people[-1].overlaps, []);
+    assert.deepEqual(draft.people[-1].other_shifts, []);
 });
 
 test('copy preserves a role-free extra without creating a role or headcount slot', () => {
@@ -460,6 +488,9 @@ test('copy renders the complete shared timeline; removing a person never writes 
     assert.equal(document.querySelectorAll('[data-roster-row]').length, 4);
     assert.ok(document.querySelector('[data-person-bar]'));
     assert.equal(writes.length, 0);
+    assert.equal(document.querySelector('[data-overlap-hatch]'), null);
+    assert.doesNotMatch(document.body.textContent, /Overlaps another shift|Overlaps Original/);
+    assert.equal(document.querySelector('[data-roster-row].bg-warning\\/10'), null);
     const person = document.querySelector('[data-roster-row="person--2"]');
     [...person.querySelectorAll('button')]
         .find((button) => button.getAttribute('aria-label')?.includes('Remove'))
@@ -475,6 +506,7 @@ test('copy renders the complete shared timeline; removing a person never writes 
     assert.equal(data.color, 'teal');
     assert.equal(data.breaks[0].starts_at, '2026-11-01T00:30');
     assert.equal(data.copy, undefined);
+    assert.equal(data.open_created_shift, true);
     assert.equal(data.assignments, undefined);
     assert.equal(data.assignment_additions[0]._key, undefined);
     assert.equal(data.assignment_additions[0].starts_at, undefined);
@@ -494,13 +526,7 @@ test('copy dates move custom hours and breaks through midnight and DST while ful
     assert.equal(form.assignment_additions[1].ends_at, '2026-11-02T03:00');
     assert.equal(form.breaks[0].starts_at, '2026-11-02T00:30');
     assert.equal(form.assignment_additions[0].starts_at, undefined);
-    assert.ok(
-        requests.every((request) =>
-            request.url.startsWith(
-                '/team/events/7/shifts/assignment-overlaps?',
-            ),
-        ),
-    );
+    assert.equal(requests.length, 0);
     app.unmount();
 });
 
@@ -523,6 +549,37 @@ test('copied roster eligibility and submitted-row errors appear inline on the ti
         /Not hired anymore/,
     );
     app.unmount();
+});
+
+test('Copy hides overlaps for added people and applied or dragged hours, including after a refused save', async () => {
+    const app = mount(Create, baseProps());
+    try {
+        [...document.querySelectorAll('button')].find(button => button.textContent.includes(trans('team.scheduling.assignments.assign_extra'))).click();
+        await nextTick();
+        assert.equal(document.querySelector('#stage-copy-person').dataset.showOverlaps, 'false');
+        document.querySelector('#stage-copy-person').click();
+        await nextTick();
+        const person = document.querySelector('[data-roster-row="person--4"]');
+        assert.match(person.textContent, /Added person/);
+        [...person.querySelectorAll('button')].find(button => button.getAttribute('aria-label')?.includes('Edit hours')).click();
+        await nextTick();
+        assert.equal(document.querySelector('#apply-copy-hours').dataset.showOverlaps, 'false');
+        document.querySelector('#apply-copy-hours').click();
+        await nextTick();
+        person.querySelector('[role="slider"]').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+        await waitPreview();
+        assert.equal(requests.length, 0);
+        assert.equal(document.querySelector('[data-overlap-hatch]'), null);
+        assert.doesNotMatch(document.body.textContent, /Candidate overlap|Popup overlap|Nearby shift|Overlaps another shift/);
+        submit();
+        const addition = writes[0].data.assignment_additions.find(row => row.team_engagement_id === 80);
+        assert.equal(addition.hours_mode, 'custom');
+        writes[0].options.onError({ 'assignment_additions.3.team_engagement_id': 'Choose a hired Team member in this event.' });
+        await nextTick();
+        assert.match(document.body.textContent, /Choose a hired Team member/);
+        assert.equal(form.assignment_additions.length, 4);
+        assert.equal(document.querySelector('[data-overlap-hatch]'), null);
+    } finally { app.unmount(); }
 });
 
 test('templates URL opens Schedule initially and when navigating from List', async () => {

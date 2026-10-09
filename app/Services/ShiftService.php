@@ -7,7 +7,6 @@ use App\Models\MealAssignment;
 use App\Models\Shift;
 use App\Repositories\ShiftAssignmentRepository;
 use App\Support\ShiftAssignmentHours;
-use App\Support\ShiftAssignmentOverlaps;
 use App\Support\ShiftBreaks;
 use App\Support\ShiftMeals;
 use App\Support\ShiftRosterChanges;
@@ -20,16 +19,7 @@ class ShiftService
 {
     public function copyDraft(Shift $shift): Shift
     {
-        $repository = app(ShiftAssignmentRepository::class);
-        $shift = $repository->copySource($shift);
-        $others = $repository->copyOverlaps($shift);
-        foreach ($shift->assignments as $assignment) {
-            $rows = $others->get($assignment->team_engagement_id, collect());
-            $assignment->setAttribute('copy_overlaps', ShiftAssignmentOverlaps::warnings($rows, $assignment->starts_at, $assignment->ends_at, $shift->event->timezone));
-            $assignment->setAttribute('copy_other_shifts', ShiftAssignmentOverlaps::shifts($rows));
-        }
-
-        return $shift;
+        return app(ShiftAssignmentRepository::class)->copySource($shift);
     }
 
     /** @param array<string, mixed> $data */

@@ -293,8 +293,8 @@ const stagePerson = (data) => {
         role_id: slot?.role_id ?? null,
         role_name: slot?.role_name ?? null,
         shift_role_slot_id: slot?.id ?? null,
-        overlaps: candidate.overlaps,
-        other_shifts: candidate.other_shifts ?? [],
+        overlaps: props.copying ? [] : candidate.overlaps,
+        other_shifts: props.copying ? [] : (candidate.other_shifts ?? []),
         is_extra: !slot,
         team_engagement_id: candidate.id,
     };
@@ -333,7 +333,7 @@ const stageHours = (assignment, data, record = true) => {
             ? { starts_at: form.starts_at, ends_at: form.ends_at }
             : hours;
     if (record) recordPerson(assignment.id, resolved, hours.breaks);
-    if (overlaps)
+    if (overlaps && !props.copying)
         overlapPreviews.value[assignment.id] = {
             overlaps,
             ...(other_shifts ? { other_shifts } : {}),
@@ -364,6 +364,7 @@ const resizeHours = async (assignment, hours) => {
     });
 };
 const previewHours = async (assignment, hours) => {
+    if (props.copying) return;
     previewRequests.get(assignment.id)?.abort();
     const controller = new AbortController();
     previewRequests.set(assignment.id, controller);
@@ -518,18 +519,6 @@ watch(
         form.assignment_additions = moved.assignment_additions;
         form.breaks = moved.breaks;
         previousCopyStart = form.starts_at;
-        for (const assignment of rosterShift.value.assignments) {
-            const row = form.assignment_additions.find(
-                (row) => row._key === assignment.id,
-            );
-            if (row)
-                previewHours(assignment, {
-                    hours_mode: row.hours_mode,
-                    ...(row.hours_mode === 'custom'
-                        ? { starts_at: row.starts_at, ends_at: row.ends_at }
-                        : {}),
-                });
-        }
     },
 );
 onUnmounted(() => previewRequests.forEach((controller) => controller.abort()));
@@ -577,6 +566,7 @@ const submit = (afterSave) => {
     const submittedUpdates = [...form.assignment_updates];
     form.transform(({ meals, ...data }) => ({
         ...data,
+        ...(props.copying ? { open_created_shift: true } : {}),
         ...(!props.copying ? { meals: shiftMealPayload(meals) } : {}),
         slots: shiftSlotPayload(data.slots, true),
         breaks: shiftBreakPayload(data.breaks).map((row, i) => ({
@@ -779,6 +769,15 @@ const destroy = () => {
             </header>
 
             <p
+                v-if="copying"
+                class="mb-4 flex items-center gap-2 rounded-lg border border-warning/20 bg-warning/10 p-3 text-sm text-charcoal"
+                role="status"
+            >
+                <Icon :name="['fas', 'circle-exclamation']" />
+                {{ $t('team.scheduling.copy.times_warning') }}
+            </p>
+
+            <p
                 v-if="event.is_locked"
                 class="mb-4 flex items-center gap-2 rounded-lg border border-warning/20 bg-warning/10 p-3 text-sm text-charcoal"
                 role="status"
@@ -920,7 +919,12 @@ const destroy = () => {
                                         v-model="form.starts_at"
                                         type="datetime-local"
                                         :max="form.ends_at || undefined"
-                                        :invalid="invalid"
+                                        :invalid="
+                                            invalid ||
+                                            (copying &&
+                                                form.starts_at ===
+                                                    initialShift.starts_at)
+                                        "
                                         :disabled="!canWrite || form.processing"
                                     />
                                 </template>
@@ -936,7 +940,12 @@ const destroy = () => {
                                         v-model="form.ends_at"
                                         type="datetime-local"
                                         :min="form.starts_at || undefined"
-                                        :invalid="invalid"
+                                        :invalid="
+                                            invalid ||
+                                            (copying &&
+                                                form.ends_at ===
+                                                    initialShift.ends_at)
+                                        "
                                         :disabled="!canWrite || form.processing"
                                     />
                                 </template>
@@ -976,6 +985,7 @@ const destroy = () => {
                 <ShiftTimelineRoster
                     v-if="!creating || validShiftHours"
                     :shift="timelineShift"
+                    :show-overlaps="!copying"
                     :enabled="rosterEnabled"
                     :assign-enabled="assignmentsEnabled"
                     :can-manage="canWrite"
@@ -1130,6 +1140,7 @@ const destroy = () => {
             v-if="selectedSlot || headerAssignOpen"
             :key="selectedSlot?.id ?? 'header'"
             :shift="timelineShift"
+            :show-overlaps="!copying"
             :event-id="event.id"
             :requirement="selectedSlot"
             :return-context="returnContext"
@@ -1147,6 +1158,7 @@ const destroy = () => {
             v-if="selectedAssignment"
             :key="selectedAssignment.id"
             :shift="timelineShift"
+            :show-overlaps="!copying"
             :assignment="selectedAssignment"
             :break-options="breakOptions"
             :break-errors="selectedBreakErrors"

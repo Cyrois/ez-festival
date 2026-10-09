@@ -25,6 +25,7 @@ const props = defineProps({
     assignment: { type: Object, required: true },
     enabled: { type: Boolean, default: false },
     eventId: { type: Number, default: null },
+    showOverlaps: { type: Boolean, default: true },
 });
 const emit = defineEmits(['close', 'changed']);
 const form = useForm({
@@ -64,8 +65,10 @@ const valid = computed(() =>
         form.ends_at,
     ),
 );
-const overlaps = ref(props.assignment.overlaps);
-const otherShifts = ref(props.assignment.other_shifts ?? []);
+const overlaps = ref(props.showOverlaps ? props.assignment.overlaps : []);
+const otherShifts = ref(
+    props.showOverlaps ? (props.assignment.other_shifts ?? []) : [],
+);
 const checking = ref(false);
 const previewFailed = ref(false);
 let controller;
@@ -77,7 +80,7 @@ const preview = async () => {
     const number = ++requestNumber;
     overlaps.value = [];
     previewFailed.value = false;
-    if (!valid.value) {
+    if (!props.showOverlaps || !valid.value) {
         checking.value = false;
         return;
     }
@@ -113,8 +116,8 @@ watch(
         clearTimeout(timer);
         overlaps.value = [];
         previewFailed.value = false;
-        checking.value = valid.value;
-        if (valid.value) timer = setTimeout(preview, 250);
+        checking.value = props.showOverlaps && valid.value;
+        if (checking.value) timer = setTimeout(preview, 250);
     },
 );
 onUnmounted(() => {
@@ -244,7 +247,10 @@ const save = () => {
                     personal
                 />
             </div>
-            <div aria-live="polite">
+            <div
+                v-if="showOverlaps"
+                aria-live="polite"
+            >
                 <p
                     v-if="checking"
                     class="m-0 text-sm text-muted"
