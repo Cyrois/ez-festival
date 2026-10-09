@@ -21,6 +21,7 @@ use App\Http\Controllers\Kitchen\KitchenPersonController;
 use App\Http\Controllers\Kitchen\KitchenSettingsController;
 use App\Http\Controllers\Kitchen\MealClaimController;
 use App\Http\Controllers\Kitchen\MealController;
+use App\Http\Controllers\Kitchen\MealOverrideController;
 use App\Http\Controllers\Kitchen\MealTypeController;
 use App\Http\Controllers\PassAssignmentController;
 use App\Http\Controllers\PatronController;
@@ -111,6 +112,11 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::delete('events/{event}/meals/people/{member}/claims', [MealClaimController::class, 'destroy'])
             ->middleware('event.writable')->name('meals.claims.destroy');
         Route::get('meals/settings', [KitchenSettingsController::class, 'index'])->name('meals.settings');
+        Route::get('events/{event}/meals/people/{member}/overrides', [MealOverrideController::class, 'index'])->name('meals.overrides.index');
+        Route::post('events/{event}/meals/people/{member}/overrides', [MealOverrideController::class, 'store'])
+            ->middleware('event.writable')->name('meals.overrides.store');
+        Route::delete('events/{event}/meals/people/{member}/overrides', [MealOverrideController::class, 'destroy'])
+            ->middleware('event.writable')->name('meals.overrides.destroy');
         Route::get('meals/settings/meals', [MealController::class, 'index'])->name('meals.data');
         Route::get('meals/settings/meals/create', [MealController::class, 'create'])->name('meals.create');
         Route::get('meals/settings/meals/{meal}/edit', [MealController::class, 'edit'])->name('meals.edit');

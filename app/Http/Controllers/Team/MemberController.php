@@ -9,10 +9,12 @@ use App\Http\Requests\Team\UpdateTeamMemberRequest;
 use App\Http\Requests\Team\ViewTeamMemberRequest;
 use App\Http\Resources\TeamEngagementNoteResource;
 use App\Http\Resources\TeamEngagementResource;
+use App\Http\Resources\TeamMemberMealsResource;
 use App\Http\Resources\TeamPassOptionResource;
 use App\Models\Event;
 use App\Models\Role;
 use App\Models\TeamEngagement;
+use App\Queries\MealEntitlementQuery;
 use App\Repositories\GroupRepository;
 use App\Repositories\PassTypeRepository;
 use App\Services\EventAccessService;
@@ -54,7 +56,7 @@ class MemberController extends Controller
             ->with('success_title', __('toast.saved_title'));
     }
 
-    public function show(ViewTeamMemberRequest $request, TeamEngagement $engagement): Response
+    public function show(ViewTeamMemberRequest $request, TeamEngagement $engagement, MealEntitlementQuery $meals): Response
     {
         $event = $this->resolveEvent($request, $engagement);
         $engagement->load([
@@ -70,6 +72,7 @@ class MemberController extends Controller
                 ->latest('id'),
         ]);
         $canReadNotes = Gate::allows('team.notes.read', $engagement);
+        $canReadMeals = $engagement->status === 'hired' && Gate::allows('meals.view', $event);
         $notes = $canReadNotes
             ? $engagement->notes()
                 ->with('user:id,name')
@@ -82,6 +85,14 @@ class MemberController extends Controller
             'engagement' => (new TeamEngagementResource($engagement))->resolve(),
             ...($canReadNotes ? [
                 'notes' => TeamEngagementNoteResource::collection($notes)->resolve(),
+            ] : []),
+            ...($canReadMeals ? [
+                'meals' => fn () => (new TeamMemberMealsResource([
+                    'rows' => $meals->forPersonAcrossEvent($event, $engagement->id)
+                        ->orderBy('meal_date')->orderBy('starts_at')->orderBy('shift_location_name')
+                        ->orderBy('shift_starts_at')->orderBy('assignment_id')->get(),
+                    'timezone' => $event->timezone,
+                ]))->resolve(),
             ] : []),
             'event' => $event->only('id', 'name', 'locked', 'timezone'),
             'groups' => $this->groups->optionsFor($event),
@@ -97,6 +108,7 @@ class MemberController extends Controller
             'canWrite' => ! $event->isLocked() && Gate::allows('team.edit'),
             'canReadNotes' => $canReadNotes,
             'canViewShifts' => Gate::allows('scheduling.view', $event),
+            'canReadMeals' => $canReadMeals,
             'canAddNotes' => ! $event->isLocked() && Gate::allows('team.notes.add', $engagement),
             'canChangeRole' => ! $event->isLocked() && app(EventAccessService::class)->canAssignRole($request->user(), $engagement, null),
         ]);

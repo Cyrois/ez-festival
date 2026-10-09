@@ -5,6 +5,7 @@ import TeamEngagementNoteLog from '../../components/notes/TeamEngagementNoteLog.
 import TeamPassAssignmentsPanel from '../../components/team/TeamPassAssignmentsPanel.vue';
 import TeamMemberFields from '../../components/team/TeamMemberFields.vue';
 import TeamMemberShiftsCard from '../../components/team/TeamMemberShiftsCard.vue';
+import TeamMemberMeals from '../../components/team/TeamMemberMeals.vue';
 import { Avatar } from '../../components/ui/avatar';
 import { Button } from '../../components/ui/button';
 import { Card, CardTitle } from '../../components/ui/card';
@@ -26,11 +27,13 @@ const props = defineProps({
     employmentTypes: { type: Array, required: true },
     roles: { type: Array, required: true },
     passes: { type: Array, default: () => [] },
+    meals: { type: Object, default: null },
     canWrite: { type: Boolean, required: true },
     canAddNotes: { type: Boolean, required: true },
     canChangeRole: { type: Boolean, required: true },
     canReadNotes: { type: Boolean, required: true },
     canViewShifts: { type: Boolean, required: true },
+    canReadMeals: { type: Boolean, required: true },
 });
 
 const form = useForm({
@@ -70,12 +73,6 @@ const sections = computed(() => [
         title: trans('team.member.sections.contracts.title'),
         description: trans('team.member.sections.contracts.description'),
         available: true,
-    },
-    {
-        key: 'meals',
-        title: trans('team.member.sections.meals.title'),
-        description: trans('team.member.sections.meals.description'),
-        available: hired.value,
     },
 ]);
 const roleItems = computed(() => {
@@ -360,6 +357,13 @@ const submit = () => {
                         }}
                     </div>
                 </Card>
+
+                <TeamMemberMeals
+                    v-if="persistedHired && canReadMeals && meals"
+                    :key="engagement.id"
+                    :meals="meals"
+                    class="mt-4"
+                />
 
                 <TeamEngagementNoteLog
                     v-if="canReadNotes"

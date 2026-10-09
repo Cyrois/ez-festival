@@ -9,6 +9,7 @@ import { Dialog } from '../../components/ui/dialog';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
+import { Radio } from '../../components/ui/radio';
 import { Tooltip } from '../../components/ui/tooltip';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { xsrfToken } from '../../lib/http';
@@ -33,6 +34,49 @@ const busy = ref(false);
 const warning = ref(null);
 const alert = ref('');
 const highlightedAssignment = ref(null);
+const overrideStep = ref('');
+const overrideOptions = ref([]);
+const overrideMealId = ref('');
+const removal = ref(null);
+let overrideRequest;
+const overrideMeal = computed(() =>
+    overrideOptions.value.find((meal) => meal.id === overrideMealId.value),
+);
+const overrideReason = (remove = false) =>
+    panel.value?.is_locked || props.event.is_locked
+        ? trans('events.read_only_locked')
+        : trans(
+              remove
+                  ? 'meals.override.remove_read_only'
+                  : 'meals.override.read_only',
+          );
+const closeOverride = () => {
+    overrideRequest?.abort();
+    overrideStep.value = '';
+    overrideMealId.value = '';
+    overrideOptions.value = [];
+    removal.value = null;
+};
+const overrideDescription = computed(() => {
+    if (overrideStep.value === 'remove')
+        return trans('meals.override.remove_confirm', {
+            name: panel.value?.person.name,
+            meal: removal.value?.name,
+            time: removal.value?.override_at,
+        });
+    if (overrideStep.value === 'confirm')
+        return trans(
+            overrideMeal.value?.extra
+                ? 'meals.override.confirm_extra'
+                : 'meals.override.confirm',
+            {
+                name: panel.value?.person.name,
+                type: overrideMeal.value?.type,
+                meal: overrideMeal.value?.name,
+            },
+        );
+    return trans('meals.override.pick');
+});
 let searchTimer;
 let highlightTimer;
 let refreshTimer;
@@ -58,6 +102,7 @@ const choose = (person) => {
         return;
     }
     detailRequest?.abort();
+    closeOverride();
     selected.value = person;
     panel.value = null;
     alert.value = '';
@@ -107,6 +152,7 @@ watch(search, () => {
     searchRequest?.abort();
     detailRequest?.abort();
     const version = ++lookupVersion;
+    closeOverride();
     people.value = null;
     searching.value = false;
     selected.value = null;
@@ -208,7 +254,8 @@ const clearHighlight = () => {
         .forEach((row) => row.classList.remove('bg-success/10'));
 };
 const claim = async (meal, confirmed = false) => {
-    if (!panel.value?.can_claim || busy.value) return;
+    if (!panel.value?.can_claim || meal.eligible_today === false || busy.value)
+        return;
     const memberId = selected.value.id;
     busy.value = true;
     alert.value = '';
@@ -252,7 +299,13 @@ const claim = async (meal, confirmed = false) => {
     }
 };
 const unclaim = async (meal) => {
-    if (!panel.value?.can_claim || busy.value || !meal.used) return;
+    if (
+        !panel.value?.can_claim ||
+        meal.eligible_today === false ||
+        busy.value ||
+        !meal.used
+    )
+        return;
     const memberId = selected.value.id;
     busy.value = true;
     alert.value = '';
@@ -288,14 +341,119 @@ const unclaim = async (meal) => {
             table.value?.reload(false);
     }
 };
+const openOverride = async () => {
+    if (!panel.value?.can_override || busy.value) return;
+    const memberId = selected.value.id;
+    closeOverride();
+    overrideStep.value = 'pick';
+    busy.value = true;
+    const controller = new AbortController();
+    overrideRequest = controller;
+    try {
+        const response = await fetch(
+            `/events/${props.event.id}/meals/people/${memberId}/overrides`,
+            {
+                headers: { Accept: 'application/json' },
+                signal: controller.signal,
+            },
+        );
+        const result = await response.json();
+        if (
+            disposed ||
+            controller.signal.aborted ||
+            selected.value?.id !== memberId
+        )
+            return;
+        if (response.ok) overrideOptions.value = result.data;
+        else {
+            closeOverride();
+            showError(result.message);
+        }
+    } catch (error) {
+        if (!disposed && error.name !== 'AbortError') {
+            closeOverride();
+            showError();
+        }
+    } finally {
+        busy.value = false;
+    }
+};
+const removeOverride = (meal) => {
+    if (!panel.value?.can_remove_override || busy.value || meal.used) return;
+    removal.value = meal;
+    overrideStep.value = 'remove';
+};
+const saveOverride = async () => {
+    if (busy.value) return;
+    if (overrideStep.value === 'pick') {
+        if (overrideMeal.value?.available) overrideStep.value = 'confirm';
+        return;
+    }
+    const removing = overrideStep.value === 'remove';
+    if (
+        removing
+            ? !panel.value?.can_remove_override
+            : !panel.value?.can_override || !overrideMeal.value?.available
+    )
+        return;
+    const memberId = selected.value.id;
+    busy.value = true;
+    alert.value = '';
+    try {
+        const response = await fetch(
+            `/events/${props.event.id}/meals/people/${memberId}/overrides`,
+            {
+                method: removing ? 'DELETE' : 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-XSRF-TOKEN': xsrfToken(),
+                },
+                body: JSON.stringify(
+                    removing
+                        ? {
+                              assignment_id: removal.value.assignment_id,
+                              confirmed: true,
+                          }
+                        : { meal_id: overrideMeal.value.id, confirmed: true },
+                ),
+            },
+        );
+        const result = await response.json();
+        if (disposed) return;
+        closeOverride();
+        if (response.ok) {
+            highlightedAssignment.value = removing
+                ? null
+                : result.assignment_id;
+            showSuccess(result.message);
+            window.clearTimeout(highlightTimer);
+            highlightTimer = window.setTimeout(clearHighlight, 3000);
+        } else if (response.status === 409) alert.value = result.message;
+        else if (response.status === 422) showFormError(result.errors);
+        else showError(result.message);
+    } catch {
+        if (!disposed) showError();
+    } finally {
+        busy.value = false;
+        if (!disposed && selected.value?.id === memberId)
+            table.value?.reload(false);
+    }
+};
 onMounted(() => {
     refreshTimer = window.setInterval(() => {
-        if (!busy.value && !warning.value && selected.value)
+        if (
+            !busy.value &&
+            !warning.value &&
+            !overrideStep.value &&
+            selected.value
+        )
             table.value?.reload(false);
     }, 60000);
 });
 onUnmounted(() => {
     disposed = true;
+    closeOverride();
     lookupVersion++;
     searchRequest?.abort();
     detailRequest?.abort();
@@ -501,17 +659,28 @@ onUnmounted(() => {
                                 </p>
                             </div>
                         </div>
-                        <div class="text-right text-sm">
-                            <p class="font-semibold">
-                                {{
-                                    $t('meals.claim.today', {
-                                        day: dateLabel(panel.today),
-                                    })
-                                }}
-                            </p>
-                            <p class="text-xs text-muted">
-                                {{ $t('meals.claim.event_time') }}
-                            </p>
+                        <div class="ml-auto flex items-start">
+                            <Tooltip
+                                v-if="!panel.can_override"
+                                :label="overrideReason()"
+                                ><Button
+                                    variant="ghost"
+                                    disabled
+                                    >{{ $t('meals.override.action') }}</Button
+                                >
+                                <template #content>{{
+                                    overrideReason()
+                                }}</template>
+                            </Tooltip>
+                            <Button
+                                v-else
+                                variant="ghost"
+                                :disabled="busy"
+                                @click="openOverride"
+                                ><Icon :name="['fas', 'plus']" />{{
+                                    $t('meals.override.action')
+                                }}</Button
+                            >
                         </div>
                     </div>
                     <div
@@ -534,7 +703,17 @@ onUnmounted(() => {
                                         day: dateLabel(count.date),
                                     },
                                 )
-                            }}</span
+                            }}<template v-if="count.overrides"
+                                >,
+                                {{
+                                    $t(
+                                        count.overrides === 1
+                                            ? 'meals.override.count_one'
+                                            : 'meals.override.count_many',
+                                        { count: count.overrides },
+                                    )
+                                }}</template
+                            ></span
                         >
                     </div>
                     <div
@@ -573,11 +752,9 @@ onUnmounted(() => {
                                 ><span class="font-semibold">{{
                                     rowData.name
                                 }}</span
-                                ><span
-                                    v-if="rowData.date !== panel?.today"
-                                    class="mt-1 block text-xs text-muted"
-                                    >{{ dateLabel(rowData.date) }}</span
-                                ></template
+                                ><span class="mt-1 block text-xs text-muted">{{
+                                    dateLabel(rowData.date)
+                                }}</span></template
                             >
                             <template #typeCell="{ rowData }"
                                 ><Badge pill>{{
@@ -586,7 +763,11 @@ onUnmounted(() => {
                             >
                             <template #shiftCell="{ rowData }"
                                 ><span
-                                    v-if="rowData.source_shift_id !== null"
+                                    v-if="rowData.is_override"
+                                    class="text-muted"
+                                    >{{ $t('meals.override.no_shift') }}</span
+                                ><span
+                                    v-else-if="rowData.source_shift_id !== null"
                                     class="whitespace-nowrap"
                                     >{{ rowData.shift_location }},
                                     {{
@@ -621,44 +802,104 @@ onUnmounted(() => {
                                     v-else
                                     class="whitespace-nowrap text-muted"
                                     >{{ $t('meals.claim.not_used') }}</span
+                                ><Badge
+                                    v-if="rowData.is_override"
+                                    pill
+                                    class="ml-2"
+                                    >{{
+                                        $t('meals.override.origin', {
+                                            time: rowData.override_at,
+                                        })
+                                    }}</Badge
                                 ></template
                             >
                             <template #actionsCell="{ rowData }"
-                                ><template v-if="rowData.used"
+                                ><Tooltip
+                                    v-if="rowData.eligible_today === false"
+                                    :label="$t('meals.claim.outside_day')"
+                                    ><Button
+                                        variant="ghost"
+                                        disabled
+                                        >{{
+                                            $t(
+                                                rowData.used
+                                                    ? 'meals.claim.unclaim'
+                                                    : 'meals.claim.action',
+                                            )
+                                        }}</Button
+                                    ><template #content>{{
+                                        $t('meals.claim.outside_day')
+                                    }}</template></Tooltip
+                                ><template v-else
                                     ><Tooltip
-                                        v-if="!panel?.can_claim"
-                                        :label="disabledReason"
+                                        v-if="
+                                            rowData.is_override &&
+                                            !rowData.used &&
+                                            !panel?.can_remove_override
+                                        "
+                                        :label="overrideReason(true)"
                                         ><Button
                                             variant="outline"
+                                            class="mr-2"
                                             disabled
+                                            >{{
+                                                $t('meals.override.remove')
+                                            }}</Button
+                                        >
+                                        <template #content>{{
+                                            overrideReason(true)
+                                        }}</template> </Tooltip
+                                    ><Button
+                                        v-else-if="
+                                            rowData.is_override && !rowData.used
+                                        "
+                                        variant="outline"
+                                        class="mr-2"
+                                        :disabled="busy"
+                                        @click="removeOverride(rowData)"
+                                        >{{
+                                            $t('meals.override.remove')
+                                        }}</Button
+                                    ><template v-if="rowData.used"
+                                        ><Tooltip
+                                            v-if="!panel?.can_claim"
+                                            :label="disabledReason"
+                                            ><Button
+                                                variant="outline"
+                                                disabled
+                                                >{{
+                                                    $t('meals.claim.unclaim')
+                                                }}</Button
+                                            ><template #content>{{
+                                                disabledReason
+                                            }}</template></Tooltip
+                                        ><Button
+                                            v-else
+                                            variant="outline"
+                                            :disabled="busy"
+                                            @click="unclaim(rowData)"
                                             >{{
                                                 $t('meals.claim.unclaim')
                                             }}</Button
-                                        ><template #content>{{
-                                            disabledReason
-                                        }}</template></Tooltip
-                                    ><Button
-                                        v-else
-                                        variant="outline"
-                                        :disabled="busy"
-                                        @click="unclaim(rowData)"
-                                        >{{ $t('meals.claim.unclaim') }}</Button
-                                    ></template
-                                ><template v-else
-                                    ><Tooltip
-                                        v-if="!panel?.can_claim"
-                                        :label="disabledReason"
-                                        ><Button disabled>{{
-                                            $t('meals.claim.action')
-                                        }}</Button
-                                        ><template #content>{{
-                                            disabledReason
-                                        }}</template></Tooltip
-                                    ><Button
-                                        v-else
-                                        :disabled="busy"
-                                        @click="claim(rowData)"
-                                        >{{ $t('meals.claim.action') }}</Button
+                                        ></template
+                                    ><template v-else
+                                        ><Tooltip
+                                            v-if="!panel?.can_claim"
+                                            :label="disabledReason"
+                                            ><Button disabled>{{
+                                                $t('meals.claim.action')
+                                            }}</Button
+                                            ><template #content>{{
+                                                disabledReason
+                                            }}</template></Tooltip
+                                        ><Button
+                                            v-else
+                                            :disabled="busy"
+                                            @click="claim(rowData)"
+                                            >{{
+                                                $t('meals.claim.action')
+                                            }}</Button
+                                        ></template
                                     ></template
                                 ></template
                             >
@@ -674,6 +915,97 @@ onUnmounted(() => {
                             size="lg" /></template
                 ></EmptyState>
             </div>
+            <Dialog
+                :open="overrideStep !== ''"
+                :title="
+                    overrideStep === 'pick'
+                        ? $t('meals.override.title', {
+                              name: panel?.person.name,
+                          })
+                        : ''
+                "
+                :description="overrideDescription"
+                :sectioned="overrideStep === 'pick'"
+                :confirm-label="
+                    $t(
+                        overrideStep === 'pick'
+                            ? 'meals.override.continue'
+                            : overrideStep === 'remove'
+                              ? 'meals.override.remove'
+                              : 'meals.override.give',
+                    )
+                "
+                :confirm-variant="
+                    overrideStep === 'remove' ? 'danger' : 'primary'
+                "
+                :confirm-disabled="
+                    overrideStep === 'pick' && !overrideMeal?.available
+                "
+                :busy="busy"
+                focus-trap
+                @update:open="
+                    (open) => {
+                        if (!open) closeOverride();
+                    }
+                "
+                @confirm="saveOverride"
+            >
+                <div
+                    v-if="overrideStep === 'pick'"
+                    class="mt-4 flex flex-col gap-2"
+                >
+                    <p
+                        v-if="busy"
+                        class="text-sm text-muted"
+                    >
+                        {{ $t('meals.override.loading') }}
+                    </p>
+                    <p
+                        v-else-if="!overrideOptions.length"
+                        class="text-sm text-muted"
+                    >
+                        {{ $t('meals.override.no_meals') }}
+                    </p>
+                    <div
+                        v-for="meal in overrideOptions"
+                        :key="meal.id"
+                        class="rounded-lg border border-line p-3"
+                        :class="{ 'bg-page text-muted': !meal.available }"
+                    >
+                        <Radio
+                            v-model="overrideMealId"
+                            name="meal-override"
+                            :value="meal.id"
+                            :disabled="!meal.available || busy"
+                            :label="
+                                $t('meals.override.option', {
+                                    meal: meal.name,
+                                    type: meal.type,
+                                    start: meal.starts_at,
+                                    end: meal.ends_at,
+                                })
+                            "
+                        />
+                        <p
+                            v-if="meal.date !== panel?.today"
+                            class="mt-1 text-xs text-muted"
+                        >
+                            {{ dateLabel(meal.date) }}
+                        </p>
+                        <p
+                            v-if="!meal.available"
+                            class="mt-1 text-xs text-muted"
+                        >
+                            {{
+                                $t('meals.override.unused', {
+                                    name: panel?.person.name,
+                                    type: meal.type,
+                                })
+                            }}
+                        </p>
+                    </div>
+                </div>
+            </Dialog>
             <Dialog
                 :open="warning !== null"
                 :description="warning?.message || ''"

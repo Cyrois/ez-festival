@@ -16,6 +16,7 @@ use App\Services\EventService;
 use App\Services\GlobalTeamService;
 use App\Services\MealAssignmentService;
 use App\Services\MealClaimService;
+use App\Services\MealOverrideService;
 use App\Services\MealTypeService;
 use App\Services\PassAssignmentService;
 use App\Services\PassTypeService;
@@ -256,6 +257,48 @@ class PostgresWriteConcurrencyTest extends TestCase
         $this->assertNotSame($claimToken, MealAssignment::findOrFail($claimId)->claim_token);
         $this->assertSame('already_unclaimed', app(MealClaimService::class)->unclaim($event, $member, $user, $claimId, $claimToken)['status']);
         $this->assertSame(1, MealAssignment::query()->whereNotNull('claimed_at')->count());
+    }
+
+    public function test_override_waits_for_unclaim_and_refuses_the_restored_unused_grant(): void
+    {
+        [$event, $user, $member, $meal] = $this->mealContext();
+        $id = MealAssignment::query()->sole()->id;
+        $claim = app(MealClaimService::class)->claim($event, $member, $user, $id);
+        $results = $this->concurrently(
+            fn () => app(MealClaimService::class)->unclaim($event, $member, $user, $id, $claim['claim_token']),
+            function () use ($event, $user, $member, $meal): void {
+                $result = app(MealOverrideService::class)->give($event, $member, $user, $meal->id);
+                if ($result['status'] === 'unused_meal') {
+                    throw ValidationException::withMessages(['meal_id' => $result['message']]);
+                }
+            },
+        );
+        $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+        $this->assertSame('events', $results[1]['first_lock']);
+        $this->assertSame(0, MealAssignment::where('is_override', true)->count());
+    }
+
+    public function test_override_removal_waits_for_claim_and_never_deletes_a_claimed_grant(): void
+    {
+        [$event, $user, $member, $meal] = $this->mealContext();
+        $normalId = MealAssignment::query()->sole()->id;
+        app(MealClaimService::class)->claim($event, $member, $user, $normalId);
+        $override = app(MealOverrideService::class)->give($event, $member, $user, $meal->id);
+        app(MealClaimService::class)->unclaim($event, $member, $user, $override['assignment_id'], $override['claim_token']);
+        $results = $this->concurrently(
+            fn () => app(MealClaimService::class)->claim($event, $member, $user, $override['assignment_id'], true),
+            function () use ($event, $user, $member, $override): void {
+                $result = app(MealOverrideService::class)->remove($event, $member, $user, $override['assignment_id']);
+                if ($result['status'] === 'still_used') {
+                    throw ValidationException::withMessages(['assignment_id' => $result['message']]);
+                }
+            },
+        );
+        $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+        $this->assertSame('events', $results[1]['first_lock']);
+        $this->assertNotNull(MealAssignment::findOrFail($override['assignment_id'])->claimed_at);
+        // Remove committed test fixtures before DatabaseMigrations attempts its guarded rollback.
+        app(EventService::class)->delete($event);
     }
 
     private function mealContext(): array
