@@ -1,8 +1,10 @@
 <script setup>
 import { computed, onUnmounted } from 'vue';
+import { Link } from '@inertiajs/vue3';
 import { getActiveLanguage, trans } from 'laravel-vue-i18n';
 import { Card, CardTitle } from '../ui/card';
 import { DataTable } from '../ui/data-table';
+import { Icon } from '../ui/icon';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { scheduleDateLabel } from '../../lib/scheduleTimeline';
 import { memberShiftTimeLabel } from '../../lib/memberShifts';
@@ -76,6 +78,14 @@ const columns = computed(() => [
         title: trans('team.scheduling.slots.role'),
         render: { display: '#roleCell' },
     },
+    {
+        data: null,
+        title: '',
+        orderable: false,
+        searchable: false,
+        width: '32px',
+        render: { display: '#openCell' },
+    },
 ]);
 const options = computed(() => ({
     serverSide: true,
@@ -85,7 +95,10 @@ const options = computed(() => ({
         bottomEnd: { paging: { firstLast: false } },
     },
     order: [[0, 'asc']],
-    columnDefs: [{ targets: '_all', className: 'dt-left' }],
+    columnDefs: [
+        { targets: [0, 1, 2, 3], className: 'dt-left' },
+        { targets: 4, className: 'dt-right' },
+    ],
     createdRow: (row, assignment) =>
         navigateDataTableRow(
             row,
@@ -124,6 +137,22 @@ const options = computed(() => ({
                 </template>
                 <template #roleCell="{ cellData }">
                     {{ cellData ?? $t('team.scheduling.assignments.no_role') }}
+                </template>
+                <template #openCell="{ rowData }">
+                    <Link
+                        :href="`/team/shifts/${rowData.shift_id}`"
+                        class="inline-flex text-muted hover:text-primary"
+                        :aria-label="
+                            $t('data_table.open', {
+                                name: $t('team.scheduling.table.shift'),
+                            })
+                        "
+                    >
+                        <Icon
+                            :name="['fas', 'chevron-right']"
+                            size="sm"
+                        />
+                    </Link>
                 </template>
             </DataTable>
         </div>

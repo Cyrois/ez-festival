@@ -39,6 +39,8 @@ const dataTable = compile('../../resources/js/components/ui/data-table/DataTable
     [/import \{ cn \} from ['"].*?['"];?/, 'const cn = (...values) => values.filter(Boolean).join(" ");'],
 ]);
 const card = compile('../../resources/js/components/team/TeamMemberShiftsCard.vue', [
+    [/import \{ Link \} from ['"].*?['"];?/, "const Link = 'a';"],
+    [/import \{ Icon \} from ['"].*?['"];?/, 'const Icon = globalThis.memberShiftBox("i");'],
     [/import \{ getActiveLanguage, trans \} from ['"].*?['"];?/, 'const getActiveLanguage = () => "en", trans = globalThis.memberShiftTranslate;'],
     [/import \{ Card, CardTitle \} from ['"].*?['"];?/, 'const Card = globalThis.memberShiftBox("div"), CardTitle = globalThis.memberShiftBox("h2");'],
     [/import \{ DataTable \} from ['"].*?['"];?/, `import DataTable from '${dataTable}';`],
@@ -66,16 +68,19 @@ const mount = async (rows = [row()], respond) => {
     return { app, requests };
 };
 
-test('renders four read-only columns, Saturday own hours, and escaped names', async () => {
+test('renders four read-only columns with a shift link, Saturday own hours, and escaped names', async () => {
     const { app, requests } = await mount([row({ location: '<img src=x>', role_name: null })]);
     try {
-        assert.deepEqual([...document.querySelectorAll('th')].map((cell) => cell.textContent.trim()), ['Day', 'Location', 'Time', 'Role']);
+        assert.deepEqual([...document.querySelectorAll('th')].map((cell) => cell.textContent.trim()), ['Day', 'Location', 'Time', 'Role', '']);
         assert.match(document.querySelector('tbody').textContent, /Sat, Oct 3/);
         assert.match(document.querySelector('tbody').textContent, /00:30 – 02:00/);
         assert.match(document.querySelector('tbody').textContent, /<img src=x>/);
         assert.equal(document.querySelector('img'), null);
         assert.equal(document.querySelectorAll('tbody td')[3].textContent.trim(), '-');
-        assert.equal(document.querySelector('#shifts a'), null);
+        const shiftLink = document.querySelector('tbody td:last-child a');
+        assert.equal(shiftLink.getAttribute('href'), '/team/shifts/47');
+        assert.equal(shiftLink.getAttribute('aria-label'), 'Open Shift');
+        assert.ok(shiftLink.querySelector('i'));
         const params = new URL(requests[0].url, 'http://localhost').searchParams;
         assert.equal(params.get('length'), '25');
         assert.equal(params.get('order[0][column]'), '0');
@@ -113,7 +118,7 @@ test('empty assignments use the localized in-table empty state', async () => {
     const { app } = await mount([]);
     try {
         assert.match(document.querySelector('tbody').textContent, /No assigned shifts yet\./);
-        assert.equal(document.querySelector('tbody td').getAttribute('colspan'), '4');
+        assert.equal(document.querySelector('tbody td').getAttribute('colspan'), '5');
     } finally { app.unmount(); }
 });
 
