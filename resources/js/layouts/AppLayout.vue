@@ -33,10 +33,6 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
-    fullWidthContent: {
-        type: Boolean,
-        default: false,
-    },
 });
 
 const page = usePage();
@@ -550,18 +546,6 @@ const railClass = computed(() => {
                         size="sm"
                     />
                 </button>
-                <Link
-                    v-if="backHref"
-                    :href="backHref"
-                    class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] text-charcoal no-underline hover:bg-page"
-                    :aria-label="backLabel || $t('nav.back')"
-                    :title="backLabel || $t('nav.back')"
-                >
-                    <Icon
-                        :name="['fas', 'arrow-left']"
-                        size="sm"
-                    />
-                </Link>
                 <div
                     class="flex min-w-0 flex-1 items-center justify-between gap-3 lg:hidden"
                     :class="backHref ? 'hidden' : ''"
@@ -579,9 +563,6 @@ const railClass = computed(() => {
                 <nav
                     data-unsaved-navigation
                     class="hidden min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm text-muted lg:flex"
-                    :class="
-                        backHref ? 'ml-5 border-l border-line pl-5 lg:flex' : ''
-                    "
                     :aria-label="$t('nav.breadcrumbs')"
                 >
                     <template
@@ -614,7 +595,7 @@ const railClass = computed(() => {
                 <nav
                     v-if="backHref"
                     data-unsaved-navigation
-                    class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden border-l border-line pl-3 text-sm text-muted lg:hidden"
+                    class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm text-muted lg:hidden"
                     :aria-label="$t('nav.breadcrumbs')"
                 >
                     <template
@@ -648,10 +629,7 @@ const railClass = computed(() => {
             </header>
 
             <main class="content-body flex-1 py-6 md:py-8">
-                <div
-                    class="container mx-auto"
-                    :class="fullWidthContent ? 'max-w-none' : ''"
-                >
+                <div class="container mx-auto">
                     <slot />
                 </div>
             </main>

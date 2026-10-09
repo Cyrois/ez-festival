@@ -728,7 +728,7 @@ const destroy = () => {
         :back-href="backHref"
         :back-label="$t('team.scheduling.actions.back')"
     >
-        <div class="container mx-auto max-w-6xl pb-24 xl:max-w-none">
+        <div class="container mx-auto pb-24">
             <header class="mb-5 flex items-start justify-between gap-4">
                 <div class="min-w-0">
                     <h1 class="m-0 text-2xl font-bold tracking-tight">
@@ -1079,12 +1079,10 @@ const destroy = () => {
 
         <div
             v-if="canWrite"
-            class="fixed inset-x-0 bottom-0 z-30 content-body border-t border-line bg-ground py-4 lg:left-[var(--app-sidebar-width)]"
+            class="content-body fixed inset-x-0 bottom-0 z-30 border-t border-line bg-ground py-4 lg:left-[var(--app-sidebar-width)]"
         >
             <div class="container mx-auto">
-                <div
-                    class="mx-auto flex max-w-6xl items-center justify-between gap-3 xl:max-w-none"
-                >
+                <div class="mx-auto flex items-center justify-between gap-3">
                     <Button
                         :href="backHref"
                         variant="cancel"

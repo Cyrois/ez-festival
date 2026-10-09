@@ -47,7 +47,7 @@ const submit = () =>
         :title="$t('artists.add')"
         :breadcrumbs="breadcrumbs"
     >
-        <div class="max-w-2xl">
+        <div class="container mx-auto">
             <div class="mb-6">
                 <h1 class="m-0 text-2xl font-bold tracking-tight">
                     {{ $t('artists.add') }}

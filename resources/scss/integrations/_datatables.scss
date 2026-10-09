@@ -1,67 +1,3 @@
-@import 'tailwindcss';
-@import 'datatables.net-dt' layer(components);
-@config '../../tailwind.config.js';
-
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
-
-/*
- * Theme tokens mirror tailwind.config.js. Prefer named utilities (bg-primary,
- * bg-brand, text-charcoal, border-line, …) over raw hex in class strings.
- *
- * brand / accent remain aliases of primary / secondary so existing screens
- * keep working while new UI kit components prefer primary / secondary.
- */
-@theme {
-    --font-sans:
-        'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
-        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
-        'Noto Color Emoji';
-
-    --radius-lg: 0.5rem;
-    --radius: 0.5rem;
-
-    --shadow-toast: 0 4px 16px rgb(0 0 0 / 0.08);
-
-    --color-charcoal: #1a1a1a;
-    --color-page: #f4f5f7;
-    --color-muted: #6b7280;
-    --color-line: #e5e7eb;
-
-    --color-ground: #ffffff;
-    --color-ground-dark: #1a1a1a;
-
-    --color-primary: #1f7a74;
-    --color-primary-hover: #196560;
-    --color-primary-soft: #e6f3f2;
-
-    --color-secondary: #3d6b8a;
-    --color-secondary-hover: #345a75;
-    --color-secondary-soft: #e8eef2;
-
-    --color-brand: #1f7a74;
-    --color-brand-hover: #196560;
-    --color-brand-soft: #e6f3f2;
-    --color-accent: #3d6b8a;
-
-    --color-danger: #b91c1c;
-    --color-success: #65a30d;
-    --color-success-soft: #ecfccb;
-    --color-warning: #ca8a04;
-}
-
-/* Shared page gutters; nested containers must also fill narrow screens. */
-@utility content-body {
-    @apply px-[1em] md:px-[1.5em] lg:px-[2em];
-
-    @variant max-lg {
-        &.container,
-        & .container {
-            @apply max-w-none;
-        }
-    }
-}
-
 @layer components {
     /*
      * Accepted exception to the Tailwind-only rule (AGENTS.md): DataTables
@@ -107,10 +43,10 @@
 
     div.dt-container .dt-search input {
         @apply ml-2 w-64 max-w-full px-3;
-    }
 
-    div.dt-container .dt-search input::placeholder {
-        @apply text-muted;
+        &::placeholder {
+            @apply text-muted;
+        }
     }
 
     div.dt-container .dt-length select {
@@ -123,15 +59,15 @@
 
     div.dt-container .dt-paging .dt-paging-button {
         @apply ml-1 min-h-10 min-w-10 rounded-lg border border-line bg-ground text-charcoal;
-    }
 
-    div.dt-container .dt-paging .dt-paging-button.current,
-    div.dt-container .dt-paging .dt-paging-button:hover:not(.disabled) {
-        @apply border-primary bg-primary-soft text-primary;
-    }
+        &.current,
+        &:hover:not(.disabled) {
+            @apply border-primary bg-primary-soft text-primary;
+        }
 
-    div.dt-container .dt-paging .dt-paging-button.disabled {
-        @apply cursor-not-allowed opacity-45;
+        &.disabled {
+            @apply cursor-not-allowed opacity-45;
+        }
     }
 
     div.dt-container div.dt-layout-table > div {
@@ -163,10 +99,10 @@
 
     table.dataTable tbody tr {
         @apply h-11 transition-colors hover:bg-page;
-    }
 
-    table.dataTable tbody tr:has([data-ui='avatar']) td {
-        @apply py-3;
+        &:has([data-ui='avatar']) td {
+            @apply py-3;
+        }
     }
 }
 

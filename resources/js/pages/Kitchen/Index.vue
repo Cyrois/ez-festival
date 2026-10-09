@@ -455,7 +455,6 @@ onUnmounted(() => {
     <AppLayout
         :title="$t('nav.meals')"
         :breadcrumbs="breadcrumbs"
-        full-width-content
     >
         <div class="container mx-auto flex max-w-none flex-col gap-5">
             <header class="flex flex-wrap items-center justify-between gap-4">

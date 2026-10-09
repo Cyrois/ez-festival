@@ -6,7 +6,7 @@ Festival software built with Laravel 13 and Tailwind CSS 4.
 
 - PHP 8.3+
 - Laravel 13
-- Tailwind CSS 4 (`@tailwindcss/vite`)
+- Tailwind CSS 4 (`@tailwindcss/postcss`) with SCSS (`sass-embedded`)
 - Vite
 - Laravel Boost (dev) for MCP / agent tooling
 - Ready for Laravel Cloud
@@ -37,6 +37,25 @@ To create the local test account after rebuilding the database, run:
 ```bash
 php artisan db:seed --class=TestUserSeeder
 ```
+
+## Stylesheets
+
+`resources/js/app.js` imports `resources/scss/app.scss`. Vite compiles its Sass
+`@use` partials before PostCSS resolves Tailwind's `@apply`, `@utility`, and
+`@variant` directives. `npm run dev` watches both SCSS partials and template
+utility classes; `npm run build` emits the final CSS for production.
+
+Custom styles live in `resources/scss/layout/` (shared page gutters) and
+`resources/scss/integrations/` (DataTables). Keep Tailwind utility classes in Vue
+templates and reuse the UI kit. Use shallow SCSS nesting and Tailwind `@apply`
+or theme variables for integration styles.
+
+`resources/css/tailwind.css` holds Tailwind/vendor imports, source scanning,
+configuration, and theme tokens. `_bootstrap.scss` preserves that file's plain
+CSS import so Tailwind itself is processed by PostCSS rather than Sass. Keep its
+tokens synchronized with `tailwind.config.js`; do not add a separate Sass palette.
+This sequencing is intentional because Tailwind 4 does not support being
+evaluated directly by Sass. Do not also enable `@tailwindcss/vite`.
 
 ## Organization database isolation
 

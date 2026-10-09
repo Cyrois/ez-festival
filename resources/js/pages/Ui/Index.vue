@@ -51,7 +51,7 @@ const triggerInfo = () =>
     <Head :title="$t('ui.demo.title')" />
 
     <div class="min-h-screen bg-page px-6 py-8 text-charcoal antialiased">
-        <div class="mx-auto max-w-4xl">
+        <div class="container mx-auto">
             <header class="mb-7">
                 <h1 class="m-0 mb-1.5 text-3xl font-bold tracking-tight">
                     {{ $t('ui.demo.title') }}

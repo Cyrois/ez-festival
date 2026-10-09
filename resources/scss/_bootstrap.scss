@@ -1,0 +1,2 @@
+// Preserve the CSS import for PostCSS; Sass must not evaluate Tailwind itself.
+@import '../css/tailwind.css';

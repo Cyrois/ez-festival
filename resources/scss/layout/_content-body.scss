@@ -1,0 +1,9 @@
+/* Shared page gutters; page containers fill the available width at every breakpoint. */
+@utility content-body {
+    @apply px-[1em] md:px-[1.5em] lg:px-[2em];
+
+    &.container,
+    & .container {
+        @apply max-w-none;
+    }
+}

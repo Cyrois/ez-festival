@@ -66,11 +66,19 @@ Boost replaces these bootstrap instructions with guidelines tailored to the appl
 - Before a PR: `npm run format` then `npm run lint`.
 - Check without writing: `npm run format:check`.
 
+### SCSS / Tailwind build
+
+- Global custom styles live in `resources/scss/`, loaded through `resources/scss/app.scss`; compose partials with Sass `@use` and use shallow nesting.
+- Vite compiles Sass first, then `@tailwindcss/postcss` resolves Tailwind directives such as `@apply`, `@utility`, and `@variant`. Do not also enable `@tailwindcss/vite` or run Tailwind's own CSS through Sass.
+- `resources/css/tailwind.css` is the CSS-only bootstrap for Tailwind/vendor imports, source scanning, configuration, and theme tokens. `_bootstrap.scss` preserves its plain CSS import for PostCSS.
+- SCSS is for the existing shared gutter utility and third-party integration styling (such as DataTables). Keep Tailwind utilities in Vue templates, retain shared UI components, and do not add scoped styles or page-specific styling systems.
+- Continue using theme variables / Tailwind `@apply`; do not duplicate the palette in Sass variables. Preserve cascade layers and selector specificity when nesting.
+
 ## Artist Tree frontend rules
 
 - Do not hardcode user-facing strings in Vue components. Put copy in `lang/*.json` and use `laravel-vue-i18n` (`$t` / `t()`).
 - Style with Tailwind utility classes only. No scoped CSS, no large inline style blocks for layout/branding.
-- Define design tokens in `tailwind.config.js` and mirror them in `@theme` in `resources/css/app.css`. Prefer `primary` / `secondary` for new work; `brand` / `accent` remain aliases of those same hex values so existing `bg-brand` / `text-accent` classes keep working. Also: `text-charcoal`, `bg-page`, `bg-ground`, `text-muted`, `border-line`, `text-danger`, `text-success`, `text-warning`, radius `0.5rem` (`rounded-lg` / `--radius`). Do not sprinkle raw hex in class strings.
+- Define design tokens in `tailwind.config.js` and mirror them in `@theme` in `resources/css/tailwind.css`. Prefer `primary` / `secondary` for new work; `brand` / `accent` remain aliases of those same hex values so existing `bg-brand` / `text-accent` classes keep working. Also: `text-charcoal`, `bg-page`, `bg-ground`, `text-muted`, `border-line`, `text-danger`, `text-success`, `text-warning`, radius `0.5rem` (`rounded-lg` / `--radius`). Do not sprinkle raw hex in class strings.
 - Compose screens from `resources/js/components/ui` (Button, Input, Textarea, Select, Checkbox, Radio, Switch, Badge, Label, Tag, FormField, Toast, Icon, Avatar, Tabs, SegmentedControl, Card, EmptyState, Table, …). Do not one-off restyle controls per page. Extend the kit in a PR when something is missing.
 - For new or changed product dropdown controls, use `CustomDropdown` from `resources/js/components/ui/custom-dropdown`; do not use the native `Select` component for dropdowns.
 - Page body layout: center page content with Tailwind’s `container mx-auto` wrapper. If a page needs a narrower `max-w-*` body, retain `mx-auto` so it stays centered; do not leave constrained page bodies left-aligned. `AppLayout` already supplies the standard responsive page padding.
