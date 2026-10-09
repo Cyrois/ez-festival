@@ -11,9 +11,11 @@ const vue = await import('vue');
 const i18n = await import('laravel-vue-i18n');
 const translations = JSON.parse(readFileSync(new URL('../../lang/en.json', import.meta.url), 'utf8'));
 
-test('application mounts tables only after asynchronous translations are loaded', async () => {
+test('application mounts with translated labels without loading a language chunk', async () => {
     let app;
     let labels;
+    const languageRequests = [];
+    globalThis.appEnglishMessages = translations;
     globalThis.appTranslationDeps = {
         ...vue,
         ...i18n,
@@ -35,20 +37,22 @@ test('application mounts tables only after asynchronous translations are loaded'
     };
     globalThis.appTranslationLanguages = {
         '../../lang/en.json': async () => {
-            await new Promise((resolve) => setTimeout(resolve, 25));
-            return { default: translations };
+            languageRequests.push('en');
+            throw new Error('Language chunk unavailable');
         },
     };
     const source = readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8')
         .replace(/import ['"][^'"]+['"];?/g, '')
+        .replace(/import englishMessages from ['"][^'"]+['"];?/, 'const englishMessages = globalThis.appEnglishMessages;')
         .replace(/import \{([^}]+)\} from ['"][^'"]+['"];?/g, 'const {$1} = globalThis.appTranslationDeps;')
         .replace('import.meta.env.VITE_APP_NAME', 'undefined')
         .replace("import.meta.glob('./pages/**/*.vue')", '{}')
-        .replace("import.meta.glob('../../lang/*.json')", 'globalThis.appTranslationLanguages');
+        .replace(/import.meta.glob\(\[[\s\S]*?\]\)/g, 'globalThis.appTranslationLanguages');
     try {
         await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
         await globalThis.appTranslationSetup;
         assert.deepEqual(labels, ['Day', 'Location', 'Time', 'Role', 'Search:', translations['data_table.info']]);
+        assert.deepEqual(languageRequests, []);
     } finally {
         app?.unmount();
         i18n.reset();
