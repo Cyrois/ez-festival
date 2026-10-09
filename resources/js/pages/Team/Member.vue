@@ -4,6 +4,7 @@ import AppLayout from '../../layouts/AppLayout.vue';
 import TeamEngagementNoteLog from '../../components/notes/TeamEngagementNoteLog.vue';
 import TeamPassAssignmentsPanel from '../../components/team/TeamPassAssignmentsPanel.vue';
 import TeamMemberFields from '../../components/team/TeamMemberFields.vue';
+import TeamMemberShiftsCard from '../../components/team/TeamMemberShiftsCard.vue';
 import TeamMemberMeals from '../../components/team/TeamMemberMeals.vue';
 import { Avatar } from '../../components/ui/avatar';
 import { Button } from '../../components/ui/button';
@@ -31,6 +32,7 @@ const props = defineProps({
     canAddNotes: { type: Boolean, required: true },
     canChangeRole: { type: Boolean, required: true },
     canReadNotes: { type: Boolean, required: true },
+    canViewShifts: { type: Boolean, required: true },
     canReadMeals: { type: Boolean, required: true },
 });
 
@@ -311,28 +313,11 @@ const submit = () => {
                     </p>
                 </Card>
 
-                <Card
-                    id="shifts"
-                    class="mt-4"
-                >
-                    <CardTitle>
-                        {{ $t('team.member.sections.shifts.title') }}
-                    </CardTitle>
-                    <p class="mt-1 mb-3 text-xs text-muted">
-                        {{ $t('team.member.sections.shifts.description') }}
-                    </p>
-                    <div
-                        class="rounded-lg border border-dashed border-line bg-page p-5 text-center text-sm text-muted"
-                    >
-                        {{
-                            $t(
-                                hired
-                                    ? 'team.member.sections.future'
-                                    : 'team.member.sections.hired_required',
-                            )
-                        }}
-                    </div>
-                </Card>
+                <TeamMemberShiftsCard
+                    v-if="canViewShifts"
+                    :key="engagement.id"
+                    :member-id="engagement.id"
+                />
 
                 <Card
                     id="passes"

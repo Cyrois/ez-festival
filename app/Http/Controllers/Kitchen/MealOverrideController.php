@@ -24,7 +24,7 @@ class MealOverrideController extends Controller
 
     public function store(StoreMealOverrideRequest $request, Event $event, TeamEngagement $member, MealOverrideService $overrides): JsonResponse
     {
-        $result = $overrides->give($event, $member, $request->user(), (int) $request->validated('meal_id'));
+        $result = $overrides->give($event, $member, $request->user(), (int) $request->validated('meal_id'), (bool) $request->validated('claim', true));
 
         return (new MealClaimResultResource($result))->response()->setStatusCode($result['status'] === 'overridden' ? 201 : 409);
     }

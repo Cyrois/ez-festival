@@ -14,9 +14,9 @@ use Illuminate\Validation\ValidationException;
 
 class MealOverrideService
 {
-    public function give(Event $event, TeamEngagement $member, User $actor, int $mealId): array
+    public function give(Event $event, TeamEngagement $member, User $actor, int $mealId, bool $claim = true): array
     {
-        return DB::transaction(function () use ($event, $member, $actor, $mealId): array {
+        return DB::transaction(function () use ($event, $member, $actor, $mealId, $claim): array {
             $event = Event::query()->lockForUpdate()->findOrFail($event->id);
             $event->ensureWritable();
             abort_unless($actor->can('meals.override', $event), 403);
@@ -33,11 +33,11 @@ class MealOverrideService
                 'event_id' => $event->id, 'team_engagement_id' => $member->id,
                 ...app(MealAssignmentService::class)->mealAttributes($meal),
                 'is_active' => true, 'is_override' => true, 'override_given_by' => $actor->id, 'override_given_at' => now(),
-                'claimed_by' => $actor->id, 'claimed_at' => now(), 'claim_token' => (string) Str::uuid(),
+                'claimed_by' => $claim ? $actor->id : null, 'claimed_at' => $claim ? now() : null, 'claim_token' => $claim ? (string) Str::uuid() : null,
             ]);
 
             return ['status' => 'overridden', 'assignment_id' => $assignment->id, 'claim_token' => $assignment->claim_token,
-                'message' => __('meals.override.saved', ['meal' => $assignment->meal_name, 'name' => $member->person->name])];
+                'message' => __($claim ? 'meals.override.saved' : 'meals.override.given', ['meal' => $assignment->meal_name, 'name' => $member->person->name])];
         }, 3);
     }
 

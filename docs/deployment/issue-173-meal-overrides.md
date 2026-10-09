@@ -2,8 +2,10 @@
 
 Calvin's confirmed Oct 7 decisions supersede the original ticket's separate-only
 Override count and direct Undo deletion. An override gives a source-free meal
-grant to a hired Team member in the current event and claims it immediately in
-one transaction. It counts as Used; Override is also tracked as its origin and
+grant to a hired Team member in the current event. Calvin's Oct 8 update uses
+one picker with Cancel, Give, and primary Give and claim. Give leaves the grant
+unused; Give and claim claims it immediately in one transaction. A claimed
+override counts as Used; Override is also tracked as its origin and
 as a subset of Used. The override count decreases on Unclaim, while the origin
 badge remains on the unused grant. Scheduling's projected quantities
 exclude override grants. An unused meal of the same type and meal day blocks
@@ -21,6 +23,10 @@ then confirming Remove override; Unclaim keeps the grant and its original
 operator/time, and allows it to be claimed again. Claimed overrides also protect
 meal and Team member deletion through the existing history guards. Removing an
 unused override deletes its grant; no removal audit is added.
+
+The create request sends `meal_id` and optional `claim` (default true); the
+single picker has no separate confirmation field. Removal retains its
+`confirmed` field because the Remove override dialog still requires confirmation.
 
 All writes recheck permissions, hired status and event writability under the
 event lock. Locked events remain read-only, including for admins. The day rule

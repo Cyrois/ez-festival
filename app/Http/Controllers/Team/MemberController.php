@@ -107,6 +107,7 @@ class MemberController extends Controller
             )->resolve(),
             'canWrite' => ! $event->isLocked() && Gate::allows('team.edit'),
             'canReadNotes' => $canReadNotes,
+            'canViewShifts' => Gate::allows('scheduling.view', $event),
             'canReadMeals' => $canReadMeals,
             'canAddNotes' => ! $event->isLocked() && Gate::allows('team.notes.add', $engagement),
             'canChangeRole' => ! $event->isLocked() && app(EventAccessService::class)->canAssignRole($request->user(), $engagement, null),

@@ -538,7 +538,17 @@ const resizeKey = (event, assignment, edge) => {
                             /></span>
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center gap-1.5">
+                                    <a
+                                        v-if="row.assignment?.member_url"
+                                        :href="row.assignment.member_url"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="cursor-pointer truncate text-sm font-semibold hover:text-primary hover:underline focus-visible:text-primary focus-visible:underline"
+                                        :title="row.assignment.name"
+                                        >{{ row.assignment.name }}</a
+                                    >
                                     <span
+                                        v-else
                                         class="truncate text-sm font-semibold"
                                         :title="row.assignment?.name"
                                         >{{

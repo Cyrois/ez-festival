@@ -147,6 +147,7 @@ final class RoutePermissions
         'team.forms.preview' => 'forms.view',
         'team.members.create' => 'team.edit',
         'team.members.show' => 'team.view',
+        'team.members.shifts' => 'scheduling.view',
         'team.members.update' => 'team.member.update',
         'team.members.status.update' => 'team.edit',
         'team.scheduling' => 'scheduling.view',

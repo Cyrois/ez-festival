@@ -69,6 +69,7 @@ class TeamShiftAssignmentsTest extends TestCase
             ->where('shift.assignment_count', 3)->where('shift.filled_count', 2)->where('shift.extra_count', 1)
             ->where('shift.slots.0.open_count', 0)->where('shift.slots.0.assigned_count', 3)
             ->where('shift.assignments.0.role_name', 'Gate crew')->where('shift.assignments.0.starts_at', '2026-10-01T10:00')
+            ->where('shift.assignments.0.member_url', route('team.members.show', $members[0]))
             ->where('shift.assignments.1.ends_at', '2026-10-01T12:00')->where('shift.assignments.2.is_extra', true)
             ->missing('shift.assignments.0.email')->missing('shift.assignments.0.team_engagement_id')
             ->missing('shift.assignments.0.hourly_pay')->missing('candidates'));
@@ -389,7 +390,7 @@ class TeamShiftAssignmentsTest extends TestCase
         $assignment = $this->assign($this->member('Alpha'));
         $this->grantRoleAccess($this->user, ['scheduling.view']);
         $this->get(route('team.shifts.show', $this->shift))->assertInertia(fn (Assert $page) => $page
-            ->where('canManage', false)->where('shift.assignments.0.name', 'Alpha')->missing('candidates'));
+            ->where('canManage', false)->where('shift.assignments.0.name', 'Alpha')->where('shift.assignments.0.member_url', null)->missing('candidates'));
         $this->getJson($this->candidateUrl())->assertForbidden()->assertJsonMissingPath('data');
         $this->post($this->storeUrl(), $this->payload($this->member('Beta')))->assertForbidden();
         $this->delete(route('team.shifts.assignments.destroy', [$this->event, $this->shift, $assignment]))->assertForbidden();

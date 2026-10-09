@@ -67,6 +67,10 @@ const props = defineProps({
         type: String,
         default: 'cancel',
     },
+    cancelAlignStart: {
+        type: Boolean,
+        default: false,
+    },
     confirmIcon: {
         type: [String, Array, Object],
         default: null,
@@ -275,11 +279,13 @@ onUnmounted(() => {
                         type="button"
                         :variant="cancelVariant"
                         class="min-h-11 w-full sm:w-auto"
+                        :class="{ 'sm:mr-auto': cancelAlignStart }"
                         :disabled="busy"
                         @click="close"
                     >
                         {{ cancelLabel || $t('ui.dialog.cancel') }}
                     </Button>
+                    <slot name="footer-actions" />
                     <Button
                         v-if="showConfirm"
                         type="button"

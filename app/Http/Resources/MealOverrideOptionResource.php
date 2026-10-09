@@ -11,6 +11,6 @@ class MealOverrideOptionResource extends JsonResource
     {
         return ['id' => (int) $this->id, 'name' => $this->name, 'date' => $this->meal_date, 'type' => $this->type_name,
             'starts_at' => substr($this->starts_at, 0, 5), 'ends_at' => substr($this->ends_at, 0, 5),
-            'available' => (bool) $this->available, 'extra' => (bool) $this->extra];
+            'available' => (bool) $this->available];
     }
 }

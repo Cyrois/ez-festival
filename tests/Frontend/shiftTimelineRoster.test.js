@@ -297,6 +297,31 @@ const shift = {
     ],
 };
 
+test('roster names link to Team member pages in a new tab when a member URL is available', () => {
+    const app = mount(Roster, {
+        shift: {
+            ...shift,
+            assignments: shift.assignments.map((assignment, index) => ({
+                ...assignment,
+                member_url: index === 0 ? '/team/members/42' : null,
+            })),
+        },
+    });
+    try {
+        const link = document.querySelector('[data-roster-row="person-8"] a');
+        assert.equal(link.getAttribute('href'), '/team/members/42');
+        assert.equal(link.getAttribute('target'), '_blank');
+        assert.equal(link.getAttribute('rel'), 'noopener noreferrer');
+        assert.equal(link.textContent, shift.assignments[0].name);
+        assert.ok(link.classList.contains('cursor-pointer'));
+        assert.ok(link.classList.contains('hover:text-primary'));
+        assert.ok(link.classList.contains('hover:underline'));
+        assert.equal(document.querySelector('[data-roster-row="person-10"] a'), null);
+    } finally {
+        app.unmount();
+    }
+});
+
 test('geometry continues through midnight, clips intervals, merges conflict segments and preserves fractional bounds', () => {
     assert.deepEqual(
         timeline.timelineIntersection(shift.assignments[0], shift),
