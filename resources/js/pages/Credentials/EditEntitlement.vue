@@ -177,8 +177,7 @@ const formatWhen = (value) =>
     <AppLayout
         :title="item.name"
         :breadcrumbs="breadcrumbs"
-        back-href="/credentials/entitlements"
-        :back-label="$t('credentials.entitlements.view.back')"
+        compact-mobile-header
     >
         <div
             class="container mx-auto"

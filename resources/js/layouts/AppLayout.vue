@@ -21,13 +21,9 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
-    backHref: {
-        type: String,
-        default: '',
-    },
-    backLabel: {
-        type: String,
-        default: '',
+    compactMobileHeader: {
+        type: Boolean,
+        default: false,
     },
     settingsNav: {
         type: Boolean,
@@ -548,7 +544,7 @@ const railClass = computed(() => {
                 </button>
                 <div
                     class="flex min-w-0 flex-1 items-center justify-between gap-3 lg:hidden"
-                    :class="backHref ? 'hidden' : ''"
+                    :class="compactMobileHeader ? 'hidden' : ''"
                 >
                     <span class="truncate text-[15px] font-bold">
                         {{ $t('app.name') }}
@@ -593,7 +589,7 @@ const railClass = computed(() => {
                     </template>
                 </nav>
                 <nav
-                    v-if="backHref"
+                    v-if="compactMobileHeader"
                     data-unsaved-navigation
                     class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm text-muted lg:hidden"
                     :aria-label="$t('nav.breadcrumbs')"

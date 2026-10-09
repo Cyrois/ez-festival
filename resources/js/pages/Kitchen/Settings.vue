@@ -120,8 +120,7 @@ const submit = () => {
     <AppLayout
         :title="$t('meals.settings.title')"
         :breadcrumbs="breadcrumbs"
-        back-href="/meals"
-        :back-label="$t('meals.back')"
+        compact-mobile-header
     >
         <div class="container mx-auto flex flex-col gap-5">
             <header>

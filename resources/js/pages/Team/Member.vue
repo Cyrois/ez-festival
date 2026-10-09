@@ -165,8 +165,7 @@ const submit = () => {
     <AppLayout
         :title="engagement.name"
         :breadcrumbs="breadcrumbs"
-        back-href="/team/advancement"
-        :back-label="$t('team.member.back')"
+        compact-mobile-header
     >
         <div class="container mx-auto pb-24">
             <header class="mb-5 flex items-center gap-3.5">

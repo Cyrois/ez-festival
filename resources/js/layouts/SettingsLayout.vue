@@ -13,13 +13,9 @@ defineProps({
         type: Array,
         default: () => [],
     },
-    backHref: {
-        type: String,
-        default: '',
-    },
-    backLabel: {
-        type: String,
-        default: '',
+    compactMobileHeader: {
+        type: Boolean,
+        default: false,
     },
 });
 
@@ -95,8 +91,7 @@ const isPersonalNavActive = (key) =>
     <AppLayout
         :title="title"
         :breadcrumbs="breadcrumbs"
-        :back-href="backHref"
-        :back-label="backLabel"
+        :compact-mobile-header="compactMobileHeader"
         settings-nav
     >
         <template #settings-nav>

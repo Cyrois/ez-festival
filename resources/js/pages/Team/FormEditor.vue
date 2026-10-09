@@ -203,8 +203,7 @@ const submit = () => {
                 : $t('team.forms.editor.create_title')
         "
         :breadcrumbs="breadcrumbs"
-        back-href="/team/forms"
-        :back-label="$t('team.forms.actions.back')"
+        compact-mobile-header
     >
         <form
             id="team-form-editor"

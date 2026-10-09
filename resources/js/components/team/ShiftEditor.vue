@@ -725,8 +725,7 @@ const destroy = () => {
     <AppLayout
         :title="displayName"
         :breadcrumbs="breadcrumbs"
-        :back-href="backHref"
-        :back-label="$t('team.scheduling.actions.back')"
+        compact-mobile-header
     >
         <div class="container mx-auto pb-24">
             <header class="mb-5 flex items-start justify-between gap-4">

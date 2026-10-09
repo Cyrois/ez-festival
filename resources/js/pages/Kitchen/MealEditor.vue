@@ -76,8 +76,7 @@ const submit = () => {
     <AppLayout
         :title="title"
         :breadcrumbs="breadcrumbs"
-        back-href="/meals/settings"
-        :back-label="$t('meals.back_settings')"
+        compact-mobile-header
     >
         <div class="container mx-auto pb-24">
             <h1 class="mb-5 text-2xl font-bold text-charcoal">{{ title }}</h1>

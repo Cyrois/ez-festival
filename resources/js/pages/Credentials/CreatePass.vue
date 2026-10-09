@@ -92,8 +92,7 @@ const submit = () => {
     <AppLayout
         :title="pageTitle"
         :breadcrumbs="breadcrumbs"
-        back-href="/credentials/passes"
-        :back-label="$t('credentials.passes.back')"
+        compact-mobile-header
     >
         <div class="w-full">
             <div class="mb-6">

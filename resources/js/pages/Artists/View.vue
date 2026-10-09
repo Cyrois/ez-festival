@@ -73,8 +73,7 @@ const submit = () => {
     <AppLayout
         :title="engagement.name"
         :breadcrumbs="breadcrumbs"
-        back-href="/artists/advancing"
-        :back-label="$t('artists.back_to_advancing')"
+        compact-mobile-header
     >
         <div class="container mx-auto pb-24">
             <div class="mb-5 flex items-center gap-3.5">

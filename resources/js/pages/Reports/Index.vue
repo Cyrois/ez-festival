@@ -64,8 +64,7 @@ const tableOptions = {
     <AppLayout
         :title="$t('reports.meals.page_title')"
         :breadcrumbs="breadcrumbs"
-        back-href="/dashboard"
-        :back-label="$t('nav.home')"
+        compact-mobile-header
     >
         <div class="container mx-auto space-y-6">
             <h1 class="text-2xl font-bold text-charcoal">

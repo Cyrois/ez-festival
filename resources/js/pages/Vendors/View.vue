@@ -124,8 +124,7 @@ const noteTime = (iso) =>
     <AppLayout
         :title="engagement.name"
         :breadcrumbs="breadcrumbs"
-        back-href="/vendors/advancing"
-        :back-label="$t('vendors.back_to_advancing')"
+        compact-mobile-header
     >
         <div class="container mx-auto pb-24">
             <div class="mb-5 flex items-center gap-3.5">

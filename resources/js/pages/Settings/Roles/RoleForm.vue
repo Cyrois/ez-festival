@@ -85,8 +85,7 @@ const submit = () => {
     <SettingsLayout
         :title="title"
         :breadcrumbs="breadcrumbs"
-        back-href="/settings/roles"
-        :back-label="$t('permissions.back_roles')"
+        compact-mobile-header
     >
         <div class="container mx-auto pb-24">
             <div class="flex items-center justify-between gap-4">
