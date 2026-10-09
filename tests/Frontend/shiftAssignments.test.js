@@ -426,6 +426,18 @@ const choose = async (name) => {
     await nextTick();
 };
 
+test('Assign hides overlap chips, tooltips and selected-person notes when overlaps are disabled', async () => {
+    const app = await mount({ showOverlaps: false });
+    try {
+        await choose('Alpha');
+        assert.doesNotMatch(document.body.textContent, /Overlaps|overlap/i);
+        assert.equal(document.querySelector('[role="tooltip"]'), null);
+        assert.equal(document.querySelector('#assign').disabled, false);
+        assert.ok(harness.requests.length > 0);
+        assert.ok(harness.requests.every(request => request.pathname.endsWith('/assignment-candidates')));
+    } finally { app.unmount(); }
+});
+
 test('full/custom hours have bounded intervals and submit only assignment inputs', () => {
     assert.equal(validAssignmentHours(shift, 'full_shift', '', ''), true);
     assert.equal(

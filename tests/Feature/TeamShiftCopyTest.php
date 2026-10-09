@@ -71,7 +71,7 @@ class TeamShiftCopyTest extends TestCase
             ->where('prefill.ends_at', '2026-10-01T14:00')->has('prefill.slots', 2)->has('prefill.assignments', 3)->has('prefill.breaks', 1)
             ->where('prefill.assignments.1.hours_mode', 'custom')->where('prefill.assignments.1.starts_at', '2026-10-01T11:30')
             ->where('prefill.assignments.1.role_id', $this->slots[1]['role_id'])
-            ->where('prefill.assignments.0.overlaps.0.shift_id', $this->source->id)
+            ->where('prefill.assignments', fn ($rows) => collect($rows)->every(fn ($row) => ! array_key_exists('overlaps', $row) && ! array_key_exists('other_shifts', $row)))
             ->where('returnContext.return_tab', 'schedule')->missing('prefill.copy')->missing('prefill.assignments.0.email'));
         $this->assertSame($before, $this->snapshot());
     }
@@ -122,6 +122,42 @@ class TeamShiftCopyTest extends TestCase
         $this->assertSame($before, $this->snapshot());
         $this->post(route('team.shifts.store', $this->event), $this->snapshotPayload())->assertSessionHasNoErrors();
         $this->assertDatabaseCount('shift_assignments', 6);
+    }
+
+    public function test_copy_creation_opens_the_new_shift_with_its_scheduling_return_context(): void
+    {
+        foreach ([[], ['return_tab' => 'schedule'], ['return_tab' => 'list']] as $tab) {
+            $context = [...$tab, 'schedule_date' => '2026-10-01', 'schedule_location_id' => $this->source->location_id, 'schedule_view' => 'location_shifts'];
+            $response = $this->post(route('team.shifts.store', $this->event), [...$this->snapshotPayload(), ...$context]);
+            $created = Shift::whereKeyNot($this->source->id)->latest('id')->firstOrFail();
+            $response->assertSessionHasNoErrors()->assertRedirect(route('team.shifts.show', ['shift' => $created, ...$context]))
+                ->assertSessionHas('success', __('team.scheduling.toast.created'));
+            $this->get($response->headers->get('Location'))->assertInertia(fn (Assert $page) => $page
+                ->component('Team/Shift')->where('returnContext', array_map('strval', $context))
+                ->where('shift.assignments.0.overlaps.0.shift_id', $this->source->id));
+        }
+    }
+
+    public function test_normal_new_shift_keeps_its_existing_redirects(): void
+    {
+        $payload = $this->snapshotPayload();
+        unset($payload['open_created_shift']);
+        foreach (['schedule', 'list'] as $tab) {
+            $this->post(route('team.shifts.store', $this->event), [...$payload, 'return_tab' => $tab, 'schedule_date' => '2026-10-02'])
+                ->assertSessionHasNoErrors()->assertRedirect(route('team.scheduling', ['tab' => $tab, 'date' => '2026-10-02']));
+        }
+        $this->post(route('team.shifts.store', $this->event), [...$payload, 'open_created_shift' => false, 'return_tab' => 'list'])
+            ->assertRedirect(route('team.scheduling', ['tab' => 'list', 'date' => '2026-10-01']));
+        $response = $this->post(route('team.shifts.store', $this->event), [...$payload, 'schedule_date' => '2026-10-02'])->assertSessionHasNoErrors();
+        $response->assertRedirect(route('team.shifts.show', Shift::whereKeyNot($this->source->id)->latest('id')->firstOrFail()));
+    }
+
+    public function test_created_shift_redirect_flag_is_validated_without_partial_writes(): void
+    {
+        $before = $this->snapshot();
+        $this->postJson(route('team.shifts.store', $this->event), [...$this->snapshotPayload(), 'open_created_shift' => 'invalid'])
+            ->assertUnprocessable()->assertJsonValidationErrors('open_created_shift');
+        $this->assertSame($before, $this->snapshot());
     }
 
     public function test_only_normal_assignment_checks_apply_and_people_need_not_remain_on_source(): void
@@ -229,6 +265,7 @@ class TeamShiftCopyTest extends TestCase
         $slots = array_map(fn ($slot, $index) => ['role_id' => $slot['role_id'], 'needed' => $slot['needed'], 'client_key' => 'draft-'.($index + 1)], $draft['slots'], array_keys($draft['slots']));
 
         return [
+            'open_created_shift' => true,
             ...array_intersect_key($draft, array_flip(['name', 'color', 'location_id', 'starts_at', 'ends_at', 'breaks'])),
             'slots' => $slots,
             'assignment_additions' => array_map(fn ($person) => [

@@ -29,6 +29,7 @@ const props = defineProps({
     returnContext: { type: Object, default: () => ({}) },
     deferred: { type: Boolean, default: false },
     pendingMemberIds: { type: Array, default: () => [] },
+    showOverlaps: { type: Boolean, default: true },
 });
 const emit = defineEmits(['close', 'assigned']);
 const table = ref(null);
@@ -558,7 +559,9 @@ const assign = () => {
                                 }}
                             </Badge>
                             <span
-                                v-else-if="rowData.overlaps.length"
+                                v-else-if="
+                                    showOverlaps && rowData.overlaps.length
+                                "
                                 class="group relative inline-flex"
                                 :aria-label="overlapDetails(rowData)"
                                 :aria-describedby="`${overlapTooltipId}-${rowData.id}`"
@@ -679,7 +682,12 @@ const assign = () => {
                 </template>
             </div>
             <div
-                v-if="selected?.overlaps.length && validHours && loaded"
+                v-if="
+                    showOverlaps &&
+                    selected?.overlaps.length &&
+                    validHours &&
+                    loaded
+                "
                 class="space-y-1 rounded-lg border border-warning/20 bg-warning/10 px-3 py-2 text-sm text-warning"
                 role="status"
             >

@@ -38,8 +38,6 @@ class ShiftCopyResource extends JsonResource
                 'starts_at' => $assignment->starts_at->format('Y-m-d\TH:i'),
                 'ends_at' => $assignment->ends_at->format('Y-m-d\TH:i'),
                 'error' => ShiftAssignmentService::eligibilityError($assignment->teamEngagement),
-                'overlaps' => $assignment->copy_overlaps,
-                'other_shifts' => $assignment->copy_other_shifts,
             ])->all(),
         ];
     }

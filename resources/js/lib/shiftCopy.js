@@ -22,6 +22,8 @@ export function copiedShiftDraft(prefill) {
         const slot = slots[person.slot_index];
         people[key] = {
             ...person,
+            overlaps: [],
+            other_shifts: [],
             shift_role_slot_id: slot?._key ?? null,
             is_extra: !slot,
         };

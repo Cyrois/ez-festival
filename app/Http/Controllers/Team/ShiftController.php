@@ -87,15 +87,17 @@ class ShiftController extends Controller
     ): RedirectResponse {
         $eventContext->requireCurrentEvent($request->user(), $event);
         $data = $request->validated();
+        $openCreatedShift = $data['open_created_shift'] ?? false;
+        unset($data['open_created_shift']);
         $shift = $this->shifts->create($event, ShiftReturnContext::without($data));
 
-        if (isset($data['return_tab'])) {
+        if (! $openCreatedShift && isset($data['return_tab'])) {
             return redirect()->route('team.scheduling', ShiftReturnContext::schedulingParameters($data, $shift->starts_at->format('Y-m-d')))
                 ->with('success', __('team.scheduling.toast.created'))
                 ->with('success_title', __('toast.saved_title'));
         }
 
-        return redirect()->route('team.shifts.show', $shift)
+        return redirect()->route('team.shifts.show', ['shift' => $shift, ...($openCreatedShift ? ShiftReturnContext::from($data) : [])])
             ->with('success', __('team.scheduling.toast.created'))
             ->with('success_title', __('toast.saved_title'));
     }
