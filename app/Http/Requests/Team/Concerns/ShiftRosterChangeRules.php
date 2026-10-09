@@ -11,6 +11,7 @@ trait ShiftRosterChangeRules
     {
         $shift = $this->route('shift');
         $rules = [
+            'supervisor_key' => ['sometimes', 'nullable', 'integer', 'not_in:0'],
             'assignment_updates' => $shift ? ['sometimes', 'array', 'list'] : ['prohibited'],
             'assignment_updates.*' => ['required', 'array:id,hours_mode,starts_at,ends_at,breaks'],
             'assignment_updates.*.id' => ['required', 'integer', 'distinct', Rule::exists('shift_assignments', 'id')->where('shift_id', $shift?->id)],

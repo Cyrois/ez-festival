@@ -54,6 +54,15 @@ export const shiftColumns = (trans) => [
         title: trans('team.scheduling.meals.title'),
     },
     {
+        data: 'supervisor_name',
+        defaultContent: trans('data_table.empty_value'),
+        name: 'supervisor',
+        orderable: false,
+        searchable: false,
+        render: { display: '#supervisorCell' },
+        title: trans('team.scheduling.supervisor.tag'),
+    },
+    {
         data: null,
         defaultContent: '',
         name: 'open',

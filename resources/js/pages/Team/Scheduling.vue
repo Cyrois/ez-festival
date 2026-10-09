@@ -387,6 +387,10 @@ const formatDateTime = (value) =>
                                 }}</span>
                             </div>
                         </template>
+                        <template #supervisorCell="{ rowData }">{{
+                            rowData.supervisor_name ||
+                            $t('data_table.empty_value')
+                        }}</template>
                         <template #mealsCell="{ rowData }">{{
                             (rowData.meals ?? [])
                                 .map((row) => row.meal.name)

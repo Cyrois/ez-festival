@@ -58,6 +58,9 @@ export function copiedShiftDraft(prefill) {
         slots,
         breaks,
         assignment_additions: additions,
+        supervisor_key:
+            additions.find((row) => people[row._key].is_supervisor)?._key ??
+            null,
         people,
     };
 }

@@ -61,7 +61,7 @@ class TeamScheduleGridTest extends TestCase
             ->assertJsonPath('data.1.shifts.0.id', $overnight->id)
             ->assertJsonPath('data.1.shifts.0.starts_at', '2026-09-25T23:00')
             ->assertJsonPath('data.1.shifts.1.id', $ordinary->id);
-        $this->assertSame(['id', 'name', 'color', 'location_id', 'starts_at', 'ends_at', 'total_needs', 'filled_count', 'assignment_count', 'meals'], array_keys($response->json('data.1.shifts.0')));
+        $this->assertSame(['id', 'name', 'supervisor_name', 'color', 'location_id', 'starts_at', 'ends_at', 'total_needs', 'filled_count', 'assignment_count', 'meals'], array_keys($response->json('data.1.shifts.0')));
     }
 
     public function test_counts_cap_each_requirement_and_do_not_leak_people_or_slots(): void

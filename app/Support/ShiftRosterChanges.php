@@ -16,6 +16,14 @@ final class ShiftRosterChanges
         $existing = $shift->exists ? $existing->get()->keyBy('id') : collect();
         $removals = $data['assignment_removals'] ?? [];
         $errors = [];
+        if (isset($data['supervisor_key'])) {
+            $key = $data['supervisor_key'];
+            $rosterKeys = [...array_diff($existing->keys()->all(), $removals), ...array_column($data['assignment_additions'] ?? [], 'client_key')];
+            if ((! is_int($key) && (! is_string($key) || ! preg_match('/^-?[1-9]\d*$/', $key)))
+                || ! in_array($key, $rosterKeys)) {
+                $errors['supervisor_key'] = __('team.scheduling.supervisor.errors.roster');
+            }
+        }
         foreach ($removals as $index => $id) {
             if (! $existing->has($id)) {
                 $errors["assignment_removals.$index"] = __('team.scheduling.assignments.errors.stale_roster');

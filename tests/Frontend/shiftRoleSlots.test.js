@@ -73,4 +73,11 @@ test('the additional List columns do not shift existing server sort indexes', ()
     assert.equal(columns[4].searchable, false);
     assert.equal(columns[5].orderable, false);
     assert.equal(columns[5].render.display, '#needsCell');
+    const supervisor = columns.find((column) => column.name === 'supervisor');
+    assert.equal(supervisor.data, 'supervisor_name');
+    assert.equal(supervisor.orderable, false);
+    assert.equal(supervisor.searchable, false);
+    assert.equal(supervisor.render.display, '#supervisorCell');
+    assert.equal(supervisor.title, 'team.scheduling.supervisor.tag');
+    assert.equal(columns.at(-1).name, 'open');
 });

@@ -57,6 +57,13 @@ const personGeometry = (assignment) => {
         <div class="flex h-20">
             <Link
                 :href="href"
+                :title="
+                    shift.supervisor_name
+                        ? $t('team.scheduling.supervisor.summary', {
+                              name: shift.supervisor_name,
+                          })
+                        : undefined
+                "
                 class="sticky left-0 z-10 flex w-[var(--label-width)] shrink-0 flex-col justify-center border-r border-line bg-ground px-3 text-charcoal no-underline hover:bg-page focus-visible:outline-primary"
             >
                 <span
@@ -120,7 +127,7 @@ const personGeometry = (assignment) => {
                               ]
                     "
                     :style="geometry(interval.start, interval.end)"
-                    :title="`${shift.name || $t('team.scheduling.unnamed_shift')} · ${hours(shift)}`"
+                    :title="`${shift.name || $t('team.scheduling.unnamed_shift')} · ${hours(shift)}${shift.supervisor_name ? '\n' + $t('team.scheduling.supervisor.summary', { name: shift.supervisor_name }) : ''}`"
                 >
                     <Icon
                         :name="[
@@ -183,21 +190,42 @@ const personGeometry = (assignment) => {
                                 class="text-warning"
                             />
                         </div>
-                        <p
-                            class="m-0 mt-1 truncate text-xs text-muted"
-                            :title="row.assignment.role_name"
+                        <div
+                            class="mt-1 flex flex-wrap items-center gap-1.5"
+                            data-roster-details
                         >
-                            {{
-                                (row.assignment.role_name
-                                    ? `${row.assignment.role_name} · `
-                                    : '') +
-                                (fullShift(row.assignment)
-                                    ? $t(
-                                          'team.scheduling.assignments.full_shift',
-                                      )
-                                    : hours(row.assignment))
-                            }}
-                        </p>
+                            <span
+                                class="min-w-0 truncate text-xs text-muted"
+                                :title="row.assignment.role_name"
+                            >
+                                {{
+                                    (row.assignment.role_name
+                                        ? `${row.assignment.role_name} · `
+                                        : '') +
+                                    (fullShift(row.assignment)
+                                        ? $t(
+                                              'team.scheduling.assignments.full_shift',
+                                          )
+                                        : hours(row.assignment))
+                                }}
+                            </span>
+                            <Badge
+                                v-if="row.assignment.is_supervisor"
+                                pill
+                                variant="primary"
+                                data-supervisor-tag
+                                :title="$t('team.scheduling.supervisor.tag')"
+                                :aria-label="
+                                    $t('team.scheduling.supervisor.tag')
+                                "
+                                role="img"
+                            >
+                                <Icon
+                                    :name="['fas', 'user-tie']"
+                                    size="sm"
+                                />
+                            </Badge>
+                        </div>
                     </div>
                 </template>
                 <template v-else>

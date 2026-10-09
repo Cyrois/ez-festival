@@ -174,6 +174,32 @@ const settle = async () => {
 };
 const baseProps = { shift, date, locationId: 9, geometry, slots: [0, 1] };
 
+test('schedule blocks show the supervisor summary and By location tags only the person name', () => {
+    const supervised = {
+        ...shift, supervisor_name: 'Extra person',
+        assignments: shift.assignments.map((person) => ({ ...person, is_supervisor: person.id === 5 })),
+    };
+    const app = mount(deps.ScheduleShiftRoster, { ...baseProps, shift: supervised });
+    try {
+        const tag = document.querySelector('[data-supervisor-tag]');
+        assert.equal(tag.closest('[data-roster-row]').dataset.rosterRow, 'person-5');
+        assert.match(tag.closest('[data-roster-details]').textContent, /Volunteer/);
+        assert.equal(tag.getAttribute('aria-label'), 'team.scheduling.supervisor.tag ');
+        assert.equal(tag.textContent.trim(), '');
+        assert.equal(tag.closest('a'), null);
+        assert.equal(document.querySelectorAll('[data-supervisor-tag]').length, 1);
+        const links = [...document.querySelectorAll('a')].filter((link) => link.href.includes('/team/shifts/17'));
+        assert.equal(links.length, 2);
+        for (const link of links) assert.match(link.title, /supervisor.summary name=Extra person/);
+    } finally { app.unmount(); }
+    const grid = mount(deps.ScheduleTimeline, { date, rows: [{ id: 9, name: 'Gate', shifts: [supervised] }] });
+    try {
+        const link = [...document.querySelectorAll('a')].find((link) => link.href.includes('/team/shifts/17'));
+        assert.match(link.title, /supervisor.summary name=Extra person/);
+        assert.equal(document.querySelector('[data-supervisor-tag]'), null);
+    } finally { grid.unmount(); }
+});
+
 test('roster orders slots, assigned people, Open rows, then removed-slot Extras', () => {
     assert.deepEqual(
         scheduleRosterRows(shift).map((row) => row.key),

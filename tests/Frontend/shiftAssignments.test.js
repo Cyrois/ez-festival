@@ -143,13 +143,14 @@ const dependencies = {
                     props.label,
                 ]),
     },
-    Checkbox: {
+    Switch: {
         props: ['modelValue', 'disabled'],
         setup:
             (props, { emit }) =>
             () =>
                 h('input', {
                     type: 'checkbox',
+                    role: 'switch',
                     checked: props.modelValue,
                     disabled: props.disabled,
                     onChange: (event) =>

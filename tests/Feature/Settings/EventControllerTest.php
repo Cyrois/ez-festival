@@ -233,6 +233,7 @@ class EventControllerTest extends TestCase
         $engagement = $event->teamEngagements()->firstOrFail();
         $assignment = $shift->assignments()->create([
             'team_engagement_id' => $engagement->id, 'shift_role_slot_id' => $slot->id,
+            'is_supervisor' => true,
             'role_id' => $role->id, 'starts_at' => $shift->starts_at, 'ends_at' => $shift->ends_at,
         ]);
         $break = $shift->breaks()->create([

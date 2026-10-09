@@ -33,6 +33,7 @@ class ShiftService
             $slots = $data['slots'] ?? [];
             $breaks = $data['breaks'] ?? [];
             $additions = $data['assignment_additions'] ?? [];
+            $supervisor = array_intersect_key($data, ['supervisor_key' => true]);
             $errors = [...ShiftBreaks::errors($data, collect()), ...ShiftRosterChanges::errors(new Shift(['event_id' => $event->id]), $data), ...ShiftMeals::errors(new Shift(['event_id' => $event->id]), $data)];
             if ($errors !== []) {
                 throw ValidationException::withMessages($errors);
@@ -40,11 +41,12 @@ class ShiftService
             $this->validatePersonalBreaks(new Shift($data), $data, collect(), collect());
             app(ShiftBreakService::class)->replay($data, collect(), collect());
             unset($data['break_operations']);
-            unset($data['meals'], $data['slots'], $data['breaks'], $data['assignment_additions'], $data['assignment_updates'], $data['assignment_removals']);
+            unset($data['supervisor_key'], $data['meals'], $data['slots'], $data['breaks'], $data['assignment_additions'], $data['assignment_updates'], $data['assignment_removals']);
             $shift = $event->shifts()->create($data);
             $draftSlots = $this->syncSlots($shift, $slots);
             $draftBreaks = $this->syncBreaks($shift, $breaks, collect());
             $draftPeople = $this->addAssignments($shift, $additions, $draftSlots, $draftBreaks);
+            $this->syncSupervisor($shift, $supervisor, $draftPeople);
             $this->syncMeals($shift, $meals, $draftPeople);
 
             return $shift;
@@ -90,7 +92,8 @@ class ShiftService
             $removals = $data['assignment_removals'] ?? [];
             $additions = $data['assignment_additions'] ?? [];
             $meals = $data['meals'] ?? null;
-            unset($data['meals'], $data['assignment_updates'], $data['assignment_removals'], $data['assignment_additions']);
+            $supervisor = array_intersect_key($data, ['supervisor_key' => true]);
+            unset($data['supervisor_key'], $data['meals'], $data['assignment_updates'], $data['assignment_removals'], $data['assignment_additions']);
             $shift->update($data);
             MealAssignment::query()->whereIn('shift_assignment_id', $removals)->update(['is_active' => false]);
             $shift->assignments()->whereIn('id', $removals)->delete();
@@ -104,6 +107,7 @@ class ShiftService
                 }
             }
             $draftPeople = $this->addAssignments($shift, $additions, $draftSlots, $draftBreaks);
+            $this->syncSupervisor($shift, $supervisor, $draftPeople);
             if ($meals !== null) {
                 $this->syncMeals($shift, $meals, $draftPeople);
             }
@@ -157,6 +161,20 @@ class ShiftService
         }
 
         return $draftPeople;
+    }
+
+    private function syncSupervisor(Shift $shift, array $data, array $draftPeople): void
+    {
+        if (! array_key_exists('supervisor_key', $data)) {
+            return;
+        }
+
+        // Clear first so replacing the supervisor never violates the unique index.
+        $shift->assignments()->where('is_supervisor', true)->update(['is_supervisor' => false]);
+        if ($data['supervisor_key'] !== null) {
+            $key = (int) $data['supervisor_key'];
+            $shift->assignments()->whereKey($key < 0 ? $draftPeople[$key] : $key)->update(['is_supervisor' => true]);
+        }
     }
 
     private function syncMeals(Shift $shift, array $rows, array $draftPeople): void

@@ -168,34 +168,35 @@ const deps = {
     },
     useFlashToast: () => ({ showFormError: () => {} }),
     useForm: (data) => {
-        form = reactive({ ...data, errors: {}, processing: false });
+        const currentForm = reactive({ ...data, errors: {}, processing: false });
+        form = currentForm;
         let transform = (data) => data;
         const keys = Object.keys(data);
         let defaults = JSON.stringify(data);
-        Object.defineProperty(form, 'isDirty', {
+        Object.defineProperty(currentForm, 'isDirty', {
             get: () =>
                 JSON.stringify(
-                    Object.fromEntries(keys.map((key) => [key, form[key]])),
+                    Object.fromEntries(keys.map((key) => [key, currentForm[key]])),
                 ) !== defaults,
         });
-        form.defaults = () => {
+        currentForm.defaults = () => {
             defaults = JSON.stringify(
-                Object.fromEntries(keys.map((key) => [key, form[key]])),
+                Object.fromEntries(keys.map((key) => [key, currentForm[key]])),
             );
         };
-        form.clearErrors = (...keys) => {
-            if (!keys.length) form.errors = {};
-            else for (const key of keys) delete form.errors[key];
+        currentForm.clearErrors = (...keys) => {
+            if (!keys.length) currentForm.errors = {};
+            else for (const key of keys) delete currentForm.errors[key];
         };
-        form.transform = (cb) => {
+        currentForm.transform = (cb) => {
             transform = cb;
-            return form;
+            return currentForm;
         };
-        form.put = (url, options) =>
-            writes.push({ url, data: transform(form), options, method: 'put' });
-        form.post = (url, options) =>
-            writes.push({ url, data: transform(form), options, method: 'post' });
-        return form;
+        currentForm.put = (url, options) =>
+            writes.push({ url, data: transform(currentForm), options, method: 'put' });
+        currentForm.post = (url, options) =>
+            writes.push({ url, data: transform(currentForm), options, method: 'post' });
+        return currentForm;
     },
 };
 globalThis.__shiftTimelineTest = deps;
@@ -232,6 +233,7 @@ async function compile(name, folder = 'components/team') {
 }
 deps.Tooltip = await compile('Tooltip', 'components/ui/tooltip');
 const Roster = await compile('ShiftTimelineRoster');
+deps.Switch = await compile('Switch', 'components/ui/switch');
 deps.CustomDropdown = {props: ['modelValue', 'items'], setup: (p, {emit}) => () => h('select', {value: p.modelValue, onChange: (e) => emit('update:modelValue', e.target.value)}, p.items.map((row) => h('option', {value: row.value}, row.title)))};
 deps.ShiftBreaks = await compile('ShiftBreaks');
 deps.ShiftMeals = await compile('ShiftMeals');
@@ -584,6 +586,7 @@ test('Edit hours updates previews without stale responses and stages hours only;
         assert.equal(writes.length, 0);
         assert.deepEqual(events[0], {
             hours_mode: 'custom',
+            is_supervisor: false,
             starts_at: '2026-10-01T22:00',
             ends_at: '2026-10-02T01:00',
             breaks: [],
@@ -613,14 +616,19 @@ test('full-shift Edit hours omits timestamps; preview failure permits Save but i
     });
     try {
         assert.equal(form.hours_mode, 'full_shift');
+        const fields = [...document.querySelectorAll('input[type="datetime-local"]')];
+        assert.equal(fields.length, 2);
+        assert.ok(fields.every((field) => field.disabled));
+        assert.deepEqual(fields.map((field) => field.value), [shift.starts_at, shift.ends_at]);
         document.querySelector('#save').click();
         assert.equal(writes.length, 0);
-        assert.deepEqual(changes[0], { hours_mode: 'full_shift', breaks: [], overlaps: [], other_shifts: [] });
+        assert.deepEqual(changes[0], { hours_mode: 'full_shift', is_supervisor: false, breaks: [], overlaps: [], other_shifts: [] });
         form.hours_mode = 'custom';
         form.starts_at = '2026-10-01T22:00';
         await nextTick();
         await settle();
         await nextTick();
+        assert.ok(fields.every((field) => !field.disabled));
         assert.match(document.body.textContent, /preview_failed/);
         assert.equal(document.querySelector('#save').disabled, false);
         form.ends_at = '2026-10-03T01:00';
@@ -1580,4 +1588,171 @@ test('meal rows use the atomic shift Save payload and recipient removal follows 
         await nextTick();
         assert.match(document.body.textContent, /Pick who gets this meal/);
     } finally { app.unmount(); }
+});
+
+async function supervisorEditor(props) {
+    Object.assign(deps, {
+        ...breakHelpers, ...slotHelpers, ...mealHelpers,
+        ColorPicker: box('div'), ShiftRoleSlots: box('div'), Card: box('div'),
+        CustomDropdown: box('div'), AppLayout: box('main'),
+        ShiftTimelineRoster: Roster, ShiftAssignmentHoursDialog: Hours,
+        ShiftBreaks: {
+            setup: (_, { expose }) => {
+                expose({ validate: () => true });
+                return () => h('div');
+            },
+        },
+        ShiftAssignDialog: {
+            setup: (_, { emit }) => () => h('button', {
+                id: 'supervisor-assign',
+                onClick: () => emit('assigned', {
+                    candidate: { id: 20, name: 'Draft supervisor', overlaps: [] },
+                    slot: null, extra: true, team_engagement_id: 20, hours_mode: 'full_shift',
+                }),
+            }),
+        },
+        fieldError: (form, key) => form.errors[key],
+        toastFormErrors: () => {},
+        router: { delete: () => assert.fail('Supervisor changes must use page Save') },
+    });
+    if (props.shift) props.shift = { ...props.shift, breaks: props.shift.breaks ?? [] };
+    writes.length = 0;
+    globalThis.fetch = async () => ({ ok: true, json: async () => ({ data: [] }) });
+    const Page = await compile('ShiftEditor');
+    const app = mount(Page, {
+        event: { id: 2, is_locked: false }, canManage: true,
+        locations: [{ id: 1, name: 'Gate' }], roles: [], labelColors: [],
+        breakOptions: { durations: [15, 30, 45, 60], default_duration: 15 },
+        ...props,
+    });
+    return { app, editorForm: form };
+}
+const editSupervisor = async (id) => {
+    document.querySelector('[data-roster-row="person-' + id + '"] button[title*="edit_hours"]').click();
+    await nextTick();
+};
+const applySupervisor = async (checked) => {
+    const input = document.querySelector('[role="switch"][aria-describedby="shift-supervisor-helper"]');
+    if (input.checked !== checked) input.click();
+    await nextTick();
+    document.querySelector('#save').click();
+    await nextTick();
+};
+const saveSupervisorPage = () => {
+    document.querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+};
+
+test('supervisor switch stages one selection, Cancel preserves it, and Save preserves hours, breaks and meals', async () => {
+    const data = structuredClone(shift);
+    data.assignments[0].breaks = [{ id: 25, shift_break_id: null, duration_minutes: 15, starts_at: '2026-10-01T23:30' }];
+    data.meals = [{ id: 30, meal_id: 1, assignment_ids: [8, 10], meal: { name: 'Dinner', starts_at: '23:30', ends_at: '00:00', meal_type: { name: 'Dinner' } } }];
+    const { app, editorForm } = await supervisorEditor({ shift: data });
+    try {
+        const meals = JSON.stringify(editorForm.meals);
+        await editSupervisor(8);
+        const input = document.querySelector('[role="switch"][aria-describedby="shift-supervisor-helper"]');
+        assert.equal(input.checked, false);
+        input.click();
+        await nextTick();
+        assert.equal(editorForm.supervisor_key, null);
+        document.querySelector('#cancel').click();
+        await nextTick();
+        assert.equal(editorForm.supervisor_key, null);
+        await editSupervisor(8);
+        await applySupervisor(true);
+        assert.equal(editorForm.supervisor_key, 8);
+        assert.equal(editorForm.assignment_updates.length, 0);
+        assert.equal(editorForm.break_operations.length, 0);
+        assert.equal(JSON.stringify(editorForm.meals), meals);
+        assert.ok(document.querySelector('[data-save-reminder]'));
+        const tag = document.querySelector('[data-supervisor-tag]');
+        assert.equal(tag.closest('[data-roster-row]').dataset.rosterRow, 'person-8');
+        const details = tag.closest('[data-roster-details]');
+        assert.ok(details);
+        assert.match(details.textContent, /Crew/);
+        assert.ok(details.querySelector('[aria-label^="team.scheduling.meals.badge_hint"]'));
+        assert.equal(tag.getAttribute('aria-label'), 'team.scheduling.supervisor.tag ');
+        assert.equal(tag.textContent.trim(), '');
+        assert.equal(document.querySelector('[data-person-bar] [data-supervisor-tag]'), null);
+        assert.equal(writes.length, 0);
+        await editSupervisor(10);
+        assert.doesNotMatch(document.body.textContent, /replace_hint/);
+        document.querySelector('[role="switch"][aria-describedby="shift-supervisor-helper"]').click();
+        await nextTick();
+        assert.match(document.body.textContent, /replace_hint current=Person with very long name next=Extra/);
+        await applySupervisor(true);
+        assert.equal(editorForm.supervisor_key, 10);
+        assert.equal(document.querySelectorAll('[data-supervisor-tag]').length, 1);
+        assert.equal(document.querySelector('[data-supervisor-tag]').closest('[data-roster-row]').dataset.rosterRow, 'person-10');
+        saveSupervisorPage();
+        assert.equal(writes.length, 1);
+        assert.equal(writes[0].data.supervisor_key, 10);
+        assert.deepEqual(writes[0].data.assignment_updates, []);
+        assert.deepEqual(writes[0].data.meals, [{ meal_id: 1, assignment_keys: [8, 10] }]);
+        writes[0].options.onError({ supervisor_key: 'Roster changed; pick a person again.' });
+        editorForm.errors.supervisor_key = 'Roster changed; pick a person again.';
+        await nextTick();
+        assert.equal(editorForm.supervisor_key, 10);
+        assert.ok(document.querySelector('[data-save-reminder]'));
+        assert.match(document.body.textContent, /Roster changed/);
+        await editSupervisor(10);
+        await applySupervisor(false);
+        assert.equal(editorForm.supervisor_key, null);
+        assert.equal(document.querySelector('[data-supervisor-tag]'), null);
+        assert.equal(JSON.stringify(editorForm.meals), meals);
+    } finally { app.unmount(); }
+});
+
+test('New shift can supervise a draft Extra, removing and readding them starts without a supervisor', async () => {
+    const { app, editorForm } = await supervisorEditor({
+        prefill: { name: 'Draft', location_id: 1, starts_at: shift.starts_at, ends_at: shift.ends_at },
+    });
+    const add = async () => {
+        [...document.querySelectorAll('button')].find((button) => button.textContent.includes('assign_extra')).click();
+        await nextTick();
+        document.querySelector('#supervisor-assign').click();
+        await nextTick();
+    };
+    try {
+        await add();
+        await editSupervisor(-1);
+        await applySupervisor(true);
+        assert.equal(editorForm.supervisor_key, -1);
+        assert.equal(writes.length, 0);
+        document.querySelector('[data-roster-row="person--1"] button[title*="remove_person"]').click();
+        await nextTick();
+        assert.equal(editorForm.supervisor_key, null);
+        await add();
+        assert.equal(document.querySelector('[data-supervisor-tag]'), null);
+        await editSupervisor(-2);
+        assert.equal(document.querySelector('[role="switch"][aria-describedby="shift-supervisor-helper"]').checked, false);
+        await applySupervisor(true);
+        saveSupervisorPage();
+        assert.equal(writes.length, 1);
+        assert.equal(writes[0].method, 'post');
+        assert.equal(writes[0].data.supervisor_key, -2);
+        assert.equal(writes[0].data.assignment_additions[0].client_key, -2);
+        assert.equal('is_supervisor' in writes[0].data.assignment_additions[0], false);
+    } finally { app.unmount(); }
+});
+
+test('supervisor tags remain readable and edit controls cannot open without permission or on locked events', async () => {
+    for (const [canManage, locked] of [[false, false], [true, true]]) {
+        const data = structuredClone(shift);
+        data.assignments[0].is_supervisor = true;
+        const { app, editorForm } = await supervisorEditor({
+            shift: data, canManage, event: { id: 2, is_locked: locked },
+        });
+        try {
+            assert.ok(document.querySelector('[data-supervisor-tag]'));
+            for (const button of document.querySelectorAll('button[title*="edit_hours"]')) {
+                assert.equal(button.disabled, true);
+                button.click();
+            }
+            await nextTick();
+            assert.equal(document.querySelector('[role="switch"][aria-describedby="shift-supervisor-helper"]'), null);
+            assert.equal(editorForm.supervisor_key, 8);
+            assert.equal(writes.length, 0);
+        } finally { app.unmount(); }
+    }
 });
