@@ -82,6 +82,7 @@ const options = computed(() => ({
     pageLength: 25,
     lengthChange: false,
     order: [[0, 'asc']],
+    columnDefs: [{ targets: '_all', className: 'dt-left' }],
     language: { emptyTable: trans('team.member.shifts.empty') },
 }));
 </script>
