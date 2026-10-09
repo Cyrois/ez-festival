@@ -92,7 +92,7 @@ const remove = (slot) => {
         </div>
         <div
             v-if="editable"
-            class="grid gap-[1em] rounded-lg border border-line bg-page p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
+            class="grid gap-[1em] rounded-lg bg-page p-3 ring-1 ring-line ring-inset sm:grid-cols-[minmax(0,1fr)_auto_auto]"
         >
             <FormField
                 :label="$t('team.scheduling.slots.role')"
@@ -152,13 +152,13 @@ const remove = (slot) => {
             v-for="slot in ordered"
             :key="slot._key"
             :data-headcount-row="slot._key"
-            class="space-y-2 rounded-lg border border-line p-3"
+            class="space-y-2 rounded-lg bg-page/50 px-3 py-2"
         >
             <div
                 v-if="editable"
-                class="grid items-start gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"
+                class="grid items-center gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"
             >
-                <div class="pt-2">
+                <div>
                     <p class="m-0 text-sm font-semibold">
                         {{ slot.role_name }}
                     </p>

@@ -9,6 +9,7 @@ import { FormField } from '../ui/form-field';
 import { Icon } from '../ui/icon';
 import { IconButton } from '../ui/icon-button';
 import { Input } from '../ui/input';
+import { Tooltip } from '../ui/tooltip';
 import {
     newShiftBreak,
     shiftBreakDays,
@@ -209,21 +210,31 @@ defineExpose({ validate: () => Object.keys(localErrors.value).length === 0 });
 <template>
     <section class="@container space-y-4">
         <div class="flex items-center justify-between gap-3">
-            <CardTitle>
-                {{ $t('team.scheduling.breaks.title') }}
-            </CardTitle>
-            <span class="text-sm text-muted">{{
-                $t('team.scheduling.breaks.optional')
-            }}</span>
+            <div class="flex items-center gap-2">
+                <CardTitle>
+                    {{ $t('team.scheduling.breaks.title') }}
+                </CardTitle>
+                <Tooltip :label="$t('team.scheduling.breaks.paid_hours')">
+                    <Icon
+                        :name="['fas', 'circle-info']"
+                        class="text-muted"
+                        size="sm"
+                    />
+                    <template #content>
+                        {{ $t('team.scheduling.breaks.paid_hours') }}
+                    </template>
+                </Tooltip>
+            </div>
         </div>
-        <p class="text-sm text-muted">
+        <p
+            v-if="!personal"
+            class="text-sm text-muted"
+        >
             {{
                 $t(
                     mass
                         ? 'team.scheduling.breaks.mass_description'
-                        : personal
-                          ? 'team.scheduling.breaks.personal_description'
-                          : 'team.scheduling.breaks.description',
+                        : 'team.scheduling.breaks.description',
                 )
             }}
         </p>
@@ -232,8 +243,12 @@ defineExpose({ validate: () => Object.keys(localErrors.value).length === 0 });
                 v-for="row in mass ? [pending] : [pending, ...modelValue]"
                 :key="row._key"
                 :data-break-row="row._key"
-                class="grid grid-cols-[minmax(0,8rem)_minmax(0,1fr)] items-start gap-3 rounded-lg border border-line p-3 @min-[32rem]:grid-cols-[8rem_11rem_minmax(0,1fr)]"
-                :class="row._key === pending._key ? 'bg-page' : 'bg-ground'"
+                class="grid grid-cols-[minmax(0,8rem)_minmax(0,1fr)] gap-3 rounded-lg @min-[32rem]:grid-cols-[8rem_11rem_minmax(0,1fr)]"
+                :class="
+                    row._key === pending._key
+                        ? 'items-start bg-page p-3 ring-1 ring-line ring-inset'
+                        : 'items-center bg-page/50 px-3 py-2'
+                "
             >
                 <FormField
                     class="w-full max-w-32"
@@ -248,6 +263,7 @@ defineExpose({ validate: () => Object.keys(localErrors.value).length === 0 });
                     <template #default="{ id, invalid }">
                         <CustomDropdown
                             :id="id"
+                            :class="row._key !== pending._key ? 'h-8 px-2' : ''"
                             :model-value="row.duration_minutes"
                             :items="durationItems"
                             :aria-label="$t('team.scheduling.breaks.length')"
@@ -272,6 +288,9 @@ defineExpose({ validate: () => Object.keys(localErrors.value).length === 0 });
                         <template #default="{ id, invalid }">
                             <Input
                                 :id="id"
+                                :class="
+                                    row._key !== pending._key ? 'h-8 px-2' : ''
+                                "
                                 :model-value="row._time"
                                 type="time"
                                 :aria-label="$t('team.scheduling.breaks.start')"
@@ -291,6 +310,9 @@ defineExpose({ validate: () => Object.keys(localErrors.value).length === 0 });
                         <template #default="{ id }">
                             <CustomDropdown
                                 :id="id"
+                                :class="
+                                    row._key !== pending._key ? 'h-8 px-2' : ''
+                                "
                                 :model-value="row._day"
                                 :items="dayItems(row)"
                                 :aria-label="$t('team.scheduling.breaks.day')"
@@ -305,7 +327,7 @@ defineExpose({ validate: () => Object.keys(localErrors.value).length === 0 });
                 <Button
                     v-if="row._key === pending._key"
                     type="button"
-                    class="col-span-2 h-10 w-auto justify-self-end @min-[32rem]:col-span-1 @min-[32rem]:mt-6"
+                    class="col-span-2 h-10 w-auto justify-self-end @min-[32rem]:col-span-1 @min-[32rem]:self-end"
                     :disabled="busy || !days.length"
                     @click="add"
                     ><Icon :name="['fas', 'plus']" />{{
@@ -316,7 +338,7 @@ defineExpose({ validate: () => Object.keys(localErrors.value).length === 0 });
                     v-else
                     :icon="['fas', 'trash-can']"
                     tone="delete"
-                    class="col-span-2 h-10 w-10 justify-self-end @min-[32rem]:col-span-1"
+                    class="col-span-2 h-8 w-8 justify-self-end bg-ground @min-[32rem]:col-span-1"
                     :disabled="busy"
                     :label="$t('team.scheduling.breaks.remove')"
                     @click="remove(row)"
@@ -329,13 +351,14 @@ defineExpose({ validate: () => Object.keys(localErrors.value).length === 0 });
                     {{ error(row, 'id') }}
                 </p>
             </div>
-            <p class="m-0 text-xs text-muted">
+            <p
+                v-if="mass || !days.length"
+                class="m-0 text-xs text-muted"
+            >
                 {{
                     $t(
                         days.length
-                            ? mass
-                                ? 'team.scheduling.breaks.mass_hint'
-                                : 'team.scheduling.breaks.save_hint'
+                            ? 'team.scheduling.breaks.mass_hint'
                             : 'team.scheduling.breaks.errors.shift_times',
                     )
                 }}

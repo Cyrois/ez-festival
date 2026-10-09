@@ -414,6 +414,38 @@ test('copy preserves a role-free extra without creating a role or headcount slot
     assert.equal(draft.people[-2].role_name, null);
 });
 
+test('Copy preserves the supervisor by fresh draft key as dates move, clearing it on removal', async () => {
+    const props = baseProps();
+    props.prefill = structuredClone(prefill);
+    props.prefill.assignments[1].is_supervisor = true;
+    const draft = copy.copiedShiftDraft(props.prefill);
+    assert.equal(draft.supervisor_key, -2);
+    const app = mount(Create, props);
+    try {
+        assert.equal(form.supervisor_key, -2);
+        const row = document.querySelector('[data-roster-row="person--2"]');
+        assert.ok(row.querySelector('[data-supervisor-tag]'));
+        assert.equal(row.querySelector('[data-person-bar] [data-supervisor-tag]'), null);
+        form.starts_at = '2026-11-02T22:00';
+        form.ends_at = '2026-11-03T04:00';
+        await nextTick();
+        assert.equal(form.supervisor_key, -2);
+        submit();
+        assert.equal(writes.length, 1);
+        assert.equal(writes[0].data.supervisor_key, -2);
+        assert.equal(writes[0].data.assignment_additions[1].client_key, -2);
+        assert.equal('is_supervisor' in writes[0].data.assignment_additions[1], false);
+        [...row.querySelectorAll('button')]
+            .find((button) => button.getAttribute('aria-label')?.includes('Remove'))
+            .click();
+        await nextTick();
+        assert.equal(form.supervisor_key, null);
+        assert.equal(document.querySelector('[data-supervisor-tag]'), null);
+        submit();
+        assert.equal(writes[1].data.supervisor_key, null);
+    } finally { app.unmount(); }
+});
+
 test('Copy opens its dedicated page in a new tab even with unsaved changes and keeps return context', async () => {
     for (const [canManage, locked, shown] of [
         [true, false, true],

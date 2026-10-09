@@ -110,9 +110,11 @@ const cardTitleUrl = await compile(
     '../../resources/js/components/ui/card/CardTitle.vue',
 );
 const checkboxUrl = await compile('../../resources/js/components/ui/checkbox/Checkbox.vue');
+const tooltipUrl = await compile('../../resources/js/components/ui/tooltip/Tooltip.vue');
 const componentUrl = await compile(
     '../../resources/js/components/team/ShiftBreaks.vue',
     [
+        [/import \{ Tooltip \} from ['"].*?['"];?/, `import Tooltip from '${tooltipUrl}';`],
         [/from ['"].*?lib\/personalBreaks['"]/, `from '${new URL('../../resources/js/lib/personalBreaks.js', import.meta.url).href}'`],
         [/import \{ Checkbox \} from ['"].*?['"];?/, `import Checkbox from '${checkboxUrl}';`],
         [
@@ -428,12 +430,12 @@ test('failed-save errors preserve rows and clear on correction; busy and readonl
         assert.equal(document.querySelector('button').disabled, true);
         assert.match(document.body.textContent, /4:00/);
         assert.equal(
-            document.querySelector('[tabindex="0"]').title,
+            document.querySelector('[tabindex="0"][title]').title,
             'Scheduling is read-only.',
         );
         assert.equal(
             document
-                .querySelector('[tabindex="0"]')
+                .querySelector('[tabindex="0"][title]')
                 .getAttribute('aria-describedby'),
             document.querySelector('.sr-only').id,
         );

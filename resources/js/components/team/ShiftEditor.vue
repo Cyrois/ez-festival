@@ -92,6 +92,10 @@ const form = useForm({
     slots: copied?.slots ?? draftShiftSlots(initialShift.value.slots),
     breaks: copied?.breaks ?? draftShiftBreaks(initialShift.value.breaks),
     meals: props.copying ? [] : draftShiftMeals(initialShift.value.meals),
+    supervisor_key:
+        copied?.supervisor_key ??
+        initialShift.value.assignments.find((row) => row.is_supervisor)?.id ??
+        null,
     assignment_updates: [],
     assignment_removals: [],
     assignment_additions: copied?.assignment_additions ?? [],
@@ -198,8 +202,13 @@ const rosterShift = computed(() =>
 const timelineShift = computed(() => ({
     ...rosterShift.value,
     meals: form.meals,
+    supervisor_name:
+        rosterShift.value.assignments.find(
+            (row) => row.id === form.supervisor_key,
+        )?.name ?? null,
     assignments: rosterShift.value.assignments.map((row) => ({
         ...row,
+        is_supervisor: row.id === form.supervisor_key,
         ...(overlapPreviews.value[row.id] ?? {}),
         validation_errors: assignmentErrors.value[row.id] ?? [],
     })),
@@ -251,6 +260,8 @@ const rosterEnabled = computed(
 );
 const removeAssignment = (assignment) => {
     if (!rosterEnabled.value) return;
+    if (form.supervisor_key === assignment.id) form.supervisor_key = null;
+    form.clearErrors('supervisor_key');
     form.meals = removeMealRecipient(form.meals, assignment.id);
     clearMealErrors();
     previewRequests.get(assignment.id)?.abort();
@@ -338,6 +349,34 @@ const stageHours = (assignment, data, record = true) => {
             overlaps,
             ...(other_shifts ? { other_shifts } : {}),
         };
+};
+const stageAssignmentChanges = (assignment, data) => {
+    if (!rosterEnabled.value) return;
+    const { is_supervisor, ...hours } = data;
+    if (is_supervisor) form.supervisor_key = assignment.id;
+    else if (form.supervisor_key === assignment.id) form.supervisor_key = null;
+    form.clearErrors('supervisor_key');
+
+    // Applying only the supervisor switch must preserve hours, breaks and meals.
+    const resolved = hours.hours_mode === 'full_shift' ? form : hours;
+    const currentMode =
+        assignment.starts_at === timelineShift.value.starts_at &&
+        assignment.ends_at === timelineShift.value.ends_at
+            ? 'full_shift'
+            : 'custom';
+    if (
+        hours.hours_mode !== currentMode ||
+        resolved.starts_at !== assignment.starts_at ||
+        resolved.ends_at !== assignment.ends_at ||
+        JSON.stringify(personalBreakPayload(hours.breaks ?? [])) !==
+            JSON.stringify(
+                personalBreakPayload(
+                    personalBreakDraft(assignment.breaks ?? []),
+                ),
+            )
+    ) {
+        stageHours(assignment, hours);
+    }
 };
 const stageBreaks = (assignment, breaks) => {
     const pending =
@@ -664,6 +703,10 @@ const submit = (afterSave) => {
         },
         onSuccess: () => {
             if (!creating.value) {
+                form.supervisor_key =
+                    initialShift.value.assignments.find(
+                        (row) => row.is_supervisor,
+                    )?.id ?? null;
                 form.meals = draftShiftMeals(initialShift.value.meals);
                 form.slots = draftShiftSlots(initialShift.value.slots);
                 form.breaks = draftShiftBreaks(initialShift.value.breaks);
@@ -1015,6 +1058,13 @@ const destroy = () => {
                         {{ $t('team.scheduling.roster.enter_hours') }}
                     </p>
                 </template>
+                <p
+                    v-if="form.errors.supervisor_key"
+                    class="mt-3 text-sm text-danger"
+                    role="alert"
+                >
+                    {{ form.errors.supervisor_key }}
+                </p>
             </Card>
             <div class="mt-4 grid items-start gap-4 xl:grid-cols-2">
                 <Card class="min-w-0">
@@ -1152,7 +1202,8 @@ const destroy = () => {
             :break-errors="selectedBreakErrors"
             :enabled="rosterEnabled"
             :event-id="event.id"
-            @changed="stageHours(selectedAssignment, $event)"
+            :supervisor-error="form.errors.supervisor_key ?? ''"
+            @changed="stageAssignmentChanges(selectedAssignment, $event)"
             @close="selectedAssignment = null"
         />
         <UnsavedChangesDialog

@@ -66,7 +66,7 @@ const clampInput = (event) => {
             <IconButton
                 :icon="['fas', isRemove ? 'circle-minus' : 'minus']"
                 :tone="isRemove ? 'delete' : 'default'"
-                class="shrink-0 disabled:pointer-events-none"
+                class="shrink-0 bg-ground disabled:pointer-events-none"
                 :class="size === 'md' ? 'h-10 w-10' : ''"
                 :label="
                     isRemove
@@ -102,7 +102,7 @@ const clampInput = (event) => {
         />
         <IconButton
             :icon="['fas', 'plus']"
-            class="shrink-0"
+            class="shrink-0 bg-ground"
             :class="size === 'md' ? 'h-10 w-10' : ''"
             :label="$t('ui.quantity.increase', { label })"
             :disabled="disabled || amount >= max"

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable(['event_id', 'location_id', 'name', 'color', 'starts_at', 'ends_at'])]
 class Shift extends Model
@@ -18,6 +19,11 @@ class Shift extends Model
     public function assignments(): HasMany
     {
         return $this->hasMany(ShiftAssignment::class)->orderBy('shift_assignments.created_at')->orderBy('shift_assignments.id');
+    }
+
+    public function supervisorAssignment(): HasOne
+    {
+        return $this->hasOne(ShiftAssignment::class)->where('is_supervisor', true);
     }
 
     protected function casts(): array

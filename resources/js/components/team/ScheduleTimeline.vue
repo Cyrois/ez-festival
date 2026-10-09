@@ -313,7 +313,7 @@ onUnmounted(() => {
                                         shift.lane,
                                     )
                                 "
-                                :title="`${shift.name || $t('team.scheduling.unnamed_shift')} · ${shift.starts_at.replace('T', ' ')} – ${shift.ends_at.replace('T', ' ')}`"
+                                :title="`${shift.name || $t('team.scheduling.unnamed_shift')} · ${shift.starts_at.replace('T', ' ')} – ${shift.ends_at.replace('T', ' ')}${shift.supervisor_name ? '\n' + $t('team.scheduling.supervisor.summary', { name: shift.supervisor_name }) : ''}`"
                                 :aria-label="
                                     $t('team.scheduling.grid.open_shift', {
                                         name:

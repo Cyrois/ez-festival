@@ -24,7 +24,7 @@ class ShiftRepository
             ->with(['shifts' => fn ($query) => $query
                 ->where('event_id', $event->id)
                 ->where('starts_at', '<', $end)->where('ends_at', '>', $start)
-                ->withCount('assignments')->with(['roleSlots', 'meals.meal.mealType'])
+                ->withCount('assignments')->with(['roleSlots', 'meals.meal.mealType', 'supervisorAssignment:id,shift_id,team_engagement_id', 'supervisorAssignment.teamEngagement:id,person_id', 'supervisorAssignment.teamEngagement.person:id,name'])
                 ->orderBy('starts_at')->orderBy('id')])
             ->orderBy('name')->orderBy('id')
             ->paginate(25, ['*'], 'page', $page);
@@ -94,7 +94,7 @@ class ShiftRepository
         $query = Shift::query()
             ->whereBelongsTo($event)
             ->withCount('assignments')
-            ->with(['location:id,name', 'roleSlots.role:id,name', 'meals.meal.mealType']);
+            ->with(['location:id,name', 'roleSlots.role:id,name', 'meals.meal.mealType', 'supervisorAssignment:id,shift_id,team_engagement_id', 'supervisorAssignment.teamEngagement:id,person_id', 'supervisorAssignment.teamEngagement.person:id,name']);
         $total = (clone $query)->count();
 
         if ($search !== '') {

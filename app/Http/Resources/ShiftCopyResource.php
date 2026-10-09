@@ -26,6 +26,7 @@ class ShiftCopyResource extends JsonResource
             ])->all(),
             'assignments' => $this->assignments->map(fn ($assignment) => [
                 'team_engagement_id' => $assignment->team_engagement_id,
+                'is_supervisor' => (bool) $assignment->is_supervisor,
                 'breaks' => $assignment->breaks->map(fn ($break) => [
                     'duration_minutes' => $break->duration_minutes, 'starts_at' => $break->starts_at->format('Y-m-d\TH:i'),
                     'source_break_index' => $break->shift_break_id === null ? null : $breakIndices->get($break->shift_break_id),

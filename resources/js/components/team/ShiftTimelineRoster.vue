@@ -566,6 +566,45 @@ const resizeKey = (event, assignment, edge) => {
                                             )
                                         }}</Badge
                                     >
+                                </div>
+                                <div
+                                    class="mt-1 flex flex-wrap items-center gap-1.5"
+                                    data-roster-details
+                                >
+                                    <span
+                                        v-if="
+                                            row.assignment?.role_name ||
+                                            row.slot?.role_name
+                                        "
+                                        class="min-w-0 truncate text-xs text-muted"
+                                        :title="
+                                            row.assignment?.role_name ??
+                                            row.slot?.role_name
+                                        "
+                                    >
+                                        {{
+                                            row.assignment?.role_name ??
+                                            row.slot?.role_name
+                                        }}
+                                    </span>
+                                    <Badge
+                                        v-if="row.assignment?.is_supervisor"
+                                        pill
+                                        variant="primary"
+                                        data-supervisor-tag
+                                        :title="
+                                            $t('team.scheduling.supervisor.tag')
+                                        "
+                                        :aria-label="
+                                            $t('team.scheduling.supervisor.tag')
+                                        "
+                                        role="img"
+                                    >
+                                        <Icon
+                                            :name="['fas', 'user-tie']"
+                                            size="sm"
+                                        />
+                                    </Badge>
                                     <Tooltip
                                         v-if="
                                             row.assignment &&
@@ -633,22 +672,6 @@ const resizeKey = (event, assignment, edge) => {
                                         </template>
                                     </Tooltip>
                                 </div>
-                                <p
-                                    v-if="
-                                        row.assignment?.role_name ||
-                                        row.slot?.role_name
-                                    "
-                                    class="mt-1 mb-0 truncate text-xs text-muted"
-                                    :title="
-                                        row.assignment?.role_name ??
-                                        row.slot?.role_name
-                                    "
-                                >
-                                    {{
-                                        row.assignment?.role_name ??
-                                        row.slot?.role_name
-                                    }}
-                                </p>
                             </div>
                             <span
                                 v-if="row.assignment?.overlaps.length"

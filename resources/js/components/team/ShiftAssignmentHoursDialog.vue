@@ -7,8 +7,10 @@ import { trans } from 'laravel-vue-i18n';
 import { Dialog } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { FormField } from '../ui/form-field';
-import { Checkbox } from '../ui/checkbox';
+import { Switch } from '../ui/switch';
 import { Button } from '../ui/button';
+import { Icon } from '../ui/icon';
+import { Tooltip } from '../ui/tooltip';
 import {
     validAssignmentHours,
     assignmentOverlapUrl,
@@ -24,6 +26,7 @@ const props = defineProps({
     shift: { type: Object, required: true },
     assignment: { type: Object, required: true },
     enabled: { type: Boolean, default: false },
+    supervisorError: { type: String, default: '' },
     eventId: { type: Number, default: null },
 });
 const emit = defineEmits(['close', 'changed']);
@@ -123,10 +126,17 @@ onUnmounted(() => {
     controller?.abort();
 });
 const personalBreaks = ref(personalBreakDraft(props.assignment.breaks ?? []));
+const isSupervisor = ref(Boolean(props.assignment.is_supervisor));
+const currentSupervisor = computed(() =>
+    props.shift.assignments.find(
+        (row) => row.is_supervisor && row.id !== props.assignment.id,
+    ),
+);
 const save = () => {
     if (!props.enabled || !valid.value || form.processing) return;
     emit('changed', {
         ...hoursPayload(),
+        is_supervisor: isSupervisor.value,
         breaks: personalBreaks.value,
         overlaps: overlaps.value,
         other_shifts: otherShifts.value,
@@ -156,32 +166,12 @@ const save = () => {
     >
         <div class="space-y-6">
             <div class="space-y-4">
-                <p class="text-sm text-muted">
-                    {{
-                        $t('team.scheduling.assignments.draft_hint', {
-                            action: $t(
-                                shift.id
-                                    ? 'team.scheduling.actions.save'
-                                    : 'team.scheduling.actions.create',
-                            ),
-                        })
-                    }}
-                </p>
-                <Checkbox
+                <Switch
                     v-model="fullShift"
                     :label="$t('team.scheduling.assignments.full_shift')"
                     :disabled="form.processing"
                 />
-                <p
-                    v-if="fullShift"
-                    class="text-sm text-muted"
-                >
-                    {{ bounds.from }}–{{ bounds.to }}
-                </p>
-                <div
-                    v-else
-                    class="grid gap-3 sm:grid-cols-2"
-                >
+                <div class="grid gap-3 sm:grid-cols-2">
                     <FormField
                         :label="$t('team.scheduling.fields.start')"
                         :error="form.errors.starts_at"
@@ -195,7 +185,7 @@ const save = () => {
                                 :min="shift.starts_at"
                                 :max="shift.ends_at"
                                 :invalid="invalid"
-                                :disabled="form.processing"
+                                :disabled="fullShift || form.processing"
                         /></template>
                     </FormField>
                     <FormField
@@ -211,13 +201,10 @@ const save = () => {
                                 :min="shift.starts_at"
                                 :max="shift.ends_at"
                                 :invalid="invalid"
-                                :disabled="form.processing"
+                                :disabled="fullShift || form.processing"
                         /></template>
                     </FormField>
                 </div>
-                <p class="text-xs text-muted">
-                    {{ $t('team.scheduling.assignments.hours_hint', bounds) }}
-                </p>
                 <p
                     v-if="!valid"
                     class="m-0 text-sm text-danger"
@@ -225,15 +212,52 @@ const save = () => {
                 >
                     {{ $t('team.scheduling.assignments.errors.hours', bounds) }}
                 </p>
+            </div>
+            <div class="space-y-2">
+                <div class="flex items-center gap-2">
+                    <Switch
+                        v-model="isSupervisor"
+                        :label="$t('team.scheduling.supervisor.switch')"
+                        :disabled="!enabled || form.processing"
+                        aria-describedby="shift-supervisor-helper"
+                    />
+                    <Tooltip :label="$t('team.scheduling.supervisor.helper')">
+                        <Icon
+                            :name="['fas', 'circle-info']"
+                            class="text-muted"
+                            size="sm"
+                        />
+                        <template #content>
+                            {{ $t('team.scheduling.supervisor.helper') }}
+                        </template>
+                    </Tooltip>
+                </div>
                 <p
-                    v-if="fullShift && form.errors.ends_at"
-                    class="m-0 text-sm text-danger"
+                    id="shift-supervisor-helper"
+                    class="sr-only"
+                >
+                    {{ $t('team.scheduling.supervisor.helper') }}
+                </p>
+                <p
+                    v-if="isSupervisor && currentSupervisor"
+                    class="text-xs text-muted"
+                >
+                    {{
+                        $t('team.scheduling.supervisor.replace_hint', {
+                            current: currentSupervisor.name,
+                            next: assignment.name,
+                        })
+                    }}
+                </p>
+                <p
+                    v-if="supervisorError"
+                    class="text-sm text-danger"
                     role="alert"
                 >
-                    {{ form.errors.ends_at }}
+                    {{ supervisorError }}
                 </p>
             </div>
-            <div class="border-t border-line pt-6">
+            <div>
                 <ShiftBreaks
                     v-model="personalBreaks"
                     :options="breakOptions"

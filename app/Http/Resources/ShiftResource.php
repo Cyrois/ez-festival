@@ -11,10 +11,14 @@ class ShiftResource extends JsonResource
     public function toArray(Request $request): array
     {
         $canViewTeam = $this->relationLoaded('assignments') && Gate::allows('team.view');
+        $supervisor = $this->relationLoaded('assignments')
+            ? $this->assignments->firstWhere('is_supervisor', true)
+            : ($this->relationLoaded('supervisorAssignment') ? $this->supervisorAssignment : null);
 
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'supervisor_name' => $supervisor?->teamEngagement->person->name,
             'color' => $this->color,
             'location_id' => $this->location_id,
             'location' => $this->whenLoaded('location', fn () => $this->location->name),

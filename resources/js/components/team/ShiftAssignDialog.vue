@@ -9,7 +9,7 @@ import { SegmentedControl } from '../ui/segmented-control';
 import { Dialog } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { FormField } from '../ui/form-field';
-import { Checkbox } from '../ui/checkbox';
+import { Switch } from '../ui/switch';
 import { Radio } from '../ui/radio';
 import { Icon } from '../ui/icon';
 import { DataTable } from '../ui/data-table';
@@ -402,20 +402,6 @@ const assign = () => {
         </template>
         <div class="space-y-4">
             <p
-                v-if="deferred"
-                class="text-sm text-muted"
-            >
-                {{
-                    $t('team.scheduling.assignments.draft_hint', {
-                        action: $t(
-                            shift.id
-                                ? 'team.scheduling.actions.save'
-                                : 'team.scheduling.actions.create',
-                        ),
-                    })
-                }}
-            </p>
-            <p
                 v-if="!validHours"
                 class="text-sm text-danger"
                 role="alert"
@@ -616,7 +602,7 @@ const assign = () => {
                     {{ $t('team.scheduling.assignments.hours') }}
                 </h3>
                 <div class="flex flex-wrap items-center justify-between gap-3">
-                    <Checkbox
+                    <Switch
                         v-model="fullShift"
                         :label="$t('team.scheduling.assignments.full_shift')"
                         :disabled="form.processing"

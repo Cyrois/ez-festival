@@ -18,6 +18,7 @@ class ShiftAssignmentResource extends JsonResource
             'breaks' => $this->whenLoaded('breaks', fn () => ShiftAssignmentBreakResource::collection($this->breaks)->resolve($request)),
             'scheduled_minutes' => (int) $this->scheduled_minutes,
             'is_extra' => (bool) $this->is_extra, 'overlaps' => $this->overlaps,
+            'is_supervisor' => (bool) $this->is_supervisor,
             'other_shifts' => $this->other_shifts ?? [],
         ];
     }

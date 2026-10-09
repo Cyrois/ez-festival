@@ -7,12 +7,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['team_engagement_id', 'shift_role_slot_id', 'role_id', 'starts_at', 'ends_at'])]
+#[Fillable(['team_engagement_id', 'shift_role_slot_id', 'role_id', 'starts_at', 'ends_at', 'is_supervisor'])]
 class ShiftAssignment extends Model
 {
     protected function casts(): array
     {
-        return ['starts_at' => 'datetime', 'ends_at' => 'datetime'];
+        return ['starts_at' => 'datetime', 'ends_at' => 'datetime', 'is_supervisor' => 'boolean'];
     }
 
     public function breaks(): HasMany
