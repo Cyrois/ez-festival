@@ -182,4 +182,21 @@
     table.dataTable tbody tr:hover td.dataTables_empty {
         @apply text-center align-middle font-normal text-muted no-underline;
     }
+
+    /* Keep the initial loading text and processing dots inside the white row. */
+    div.dt-container div.dt-layout-table > div:has(.dt-loading) {
+        @apply relative;
+    }
+
+    div.dt-container table.dataTable tbody tr:has(.dt-loading) {
+        @apply h-22 py-0;
+    }
+
+    div.dt-container table.dataTable tbody td:has(.dt-loading) {
+        @apply h-22 pb-8 text-center;
+    }
+
+    div.dt-container div.dt-layout-table > div:has(.dt-loading) .dt-processing {
+        @apply top-auto bottom-0 mt-0 h-22 pt-12;
+    }
 }

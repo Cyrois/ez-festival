@@ -214,9 +214,6 @@ const updateViewMode = (value) => {
                             :aria-label="$t('artists.filter_labels')"
                             @update:model-value="updateLabelFilters"
                         />
-                        <p class="mt-1 mb-0 text-xs text-muted">
-                            {{ $t('artists.filter_hint') }}
-                        </p>
                     </div>
                     <Button
                         v-if="search || selectedLabels.length"

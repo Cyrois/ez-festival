@@ -6,6 +6,7 @@ use App\Support\SqlLike;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Pagination\LengthAwarePaginator as Paginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class CheckInPeopleQuery
@@ -39,6 +40,25 @@ class CheckInPeopleQuery
             'path' => Paginator::resolveCurrentPath(),
             'query' => request()->query(),
         ]);
+    }
+
+    /** @return array{total: int, filtered: int, people: Collection} */
+    public function dataTable(int $eventId, ?int $passId, string $search, string $status, string $type, int $start, int $length): array
+    {
+        $total = DB::query()->fromSub($this->baseQuery($eventId, null, '', 'all', 'all'), 'holders')->count();
+        if (! in_array($type, ['all', 'artist', 'vendor'], true)) {
+            return ['total' => $total, 'filtered' => 0, 'people' => collect()];
+        }
+
+        $query = $this->baseQuery($eventId, $passId, $search, $status, $type);
+        $filtered = DB::query()->fromSub(clone $query, 'holders')->count();
+        $people = $query->orderByRaw('MIN(lower(p.name))')
+            ->orderBy('pa.person_id')
+            ->orderBy('pa.artist_engagement_id')
+            ->orderBy('pa.vendor_engagement_id')
+            ->offset($start)->limit($length)->get();
+
+        return ['total' => $total, 'filtered' => $filtered, 'people' => $people];
     }
 
     private function baseQuery(int $eventId, ?int $passId, string $search, string $status, string $type): Builder

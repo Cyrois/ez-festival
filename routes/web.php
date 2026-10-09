@@ -10,6 +10,7 @@ use App\Http\Controllers\Auth\InvitePasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\TemporaryPasswordController;
 use App\Http\Controllers\CheckInController;
+use App\Http\Controllers\CheckInDataTableController;
 use App\Http\Controllers\Credentials\EntitlementItemController;
 use App\Http\Controllers\Credentials\PassTypeController;
 use App\Http\Controllers\Credentials\ProductsController;
@@ -137,6 +138,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             ->middleware('event.writable')->name('meals.types.update');
         Route::get('dashboard', DashboardController::class)->name('dashboard');
 
+        Route::get('check-in/data', [CheckInDataTableController::class, 'index'])->name('check-in.data');
         Route::get('check-in', [CheckInController::class, 'index'])->name('check-in.index');
         Route::get('check-in/artists/{engagement}', [ArtistCheckInController::class, 'show'])->name('check-in.show');
         Route::get('check-in/vendors/{engagement}', [VendorCheckInController::class, 'show'])->name('check-in.vendors.show');

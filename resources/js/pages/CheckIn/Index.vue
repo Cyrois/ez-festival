@@ -10,18 +10,11 @@ import { Button } from '../../components/ui/button';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
 import { Select } from '../../components/ui/select';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '../../components/ui/table';
+import { DataTable } from '../../components/ui/data-table';
+import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
 import { checkInQuery } from './filters';
 
 const props = defineProps({
-    people: { type: Object, required: true },
     passes: { type: Array, required: true },
     filters: { type: Object, required: true },
     event: { type: Object, required: true },
@@ -42,6 +35,61 @@ const breadcrumbs = computed(() => [
     { label: trans('app.name'), href: '/dashboard' },
     { label: trans('check_in.title') },
 ]);
+const checkInHref = (person) =>
+    `/check-in/${person.type}s/${person.engagement_id}?person=${person.person_id}`;
+const columns = computed(() => [
+    {
+        data: 'name',
+        title: trans('check_in.columns.person'),
+        render: { display: '#personCell' },
+    },
+    { data: 'pass_name', title: trans('check_in.columns.pass') },
+    { data: 'context', title: trans('check_in.columns.context') },
+    {
+        data: 'check_in_status',
+        title: trans('check_in.columns.status'),
+        render: { display: '#statusCell' },
+    },
+    {
+        data: null,
+        title: '',
+        defaultContent: '',
+        orderable: false,
+        searchable: false,
+        render: { display: '#openCell' },
+    },
+]);
+const tableOptions = computed(() => ({
+    serverSide: true,
+    ordering: false,
+    lengthChange: false,
+    pageLength: 25,
+    layout: { topStart: null, topEnd: null },
+    columnDefs: [{ targets: 4, className: 'text-right', width: '1%' }],
+    createdRow: (row, person) => navigateDataTableRow(row, person, checkInHref),
+    language: {
+        emptyTable: trans('check_in.empty'),
+        zeroRecords: trans('check_in.empty'),
+    },
+}));
+const tableAjax = {
+    url: '/check-in/data',
+    data: (data) => {
+        Object.assign(
+            data,
+            checkInQuery({
+                type: type.value,
+                pass: pass.value,
+                status: status.value,
+                search: search.value,
+            }),
+        );
+        // DataTables serializes undefined as the literal string "undefined".
+        // An empty pass must reach Laravel as null for nullable validation.
+        data.pass = pass.value || null;
+        data.search = search.value.trim();
+    },
+};
 let searchTimer;
 
 const applyFilters = () => {
@@ -171,154 +219,60 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer));
                 {{ $t('check_in.results_note') }}
             </p>
 
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>{{
-                            $t('check_in.columns.person')
-                        }}</TableHead>
-                        <TableHead>{{
-                            $t('check_in.columns.context')
-                        }}</TableHead>
-                        <TableHead>{{ $t('check_in.columns.pass') }}</TableHead>
-                        <TableHead>{{
-                            $t('check_in.columns.status')
-                        }}</TableHead>
-                        <TableHead class="text-right">
-                            {{ $t('check_in.columns.action') }}
-                        </TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    <TableRow
-                        v-for="person in people.data"
-                        :key="`${person.type}-${person.engagement_id}-${person.person_id}`"
-                    >
-                        <TableCell>
-                            <div class="flex min-w-44 items-center gap-2.5">
-                                <Avatar
-                                    :name="person.name"
-                                    size="sm"
-                                />
-                                <div>
-                                    <span class="block font-bold">
-                                        {{ person.name }}
-                                    </span>
-                                    <span class="block text-xs text-muted">
-                                        <HiddenPersonalInfo
-                                            v-if="person.personal_info_hidden"
-                                        />
-                                        <span v-else>{{
-                                            person.subtitle
-                                        }}</span>
-                                    </span>
-                                </div>
-                            </div>
-                        </TableCell>
-                        <TableCell class="text-muted">
-                            {{ person.context }}
-                        </TableCell>
-                        <TableCell class="text-muted">
-                            {{ person.pass_name }}
-                        </TableCell>
-                        <TableCell>
-                            <Badge
-                                :variant="
-                                    statusVariants[person.check_in_status]
-                                "
-                                pill
-                                class="uppercase"
-                            >
-                                {{
-                                    $t(
-                                        `check_in.status.${person.check_in_status}`,
-                                    )
-                                }}
-                            </Badge>
-                        </TableCell>
-                        <TableCell class="text-right">
-                            <Button
-                                :variant="
-                                    person.check_in_status === 'complete'
-                                        ? 'outline-secondary'
-                                        : 'primary'
-                                "
-                                size="sm"
-                                :href="`/check-in/${person.type}s/${person.engagement_id}?person=${person.person_id}`"
-                            >
-                                {{
-                                    person.check_in_status === 'complete'
-                                        ? $t('check_in.actions.view')
-                                        : $t('check_in.actions.check_in')
-                                }}
-                            </Button>
-                            <Link
-                                v-if="person.can_edit"
-                                :href="`/${person.type}s/engagements/${person.engagement_id}#passes`"
-                                class="mt-1 block text-xs font-semibold text-secondary no-underline hover:underline"
-                            >
-                                {{ $t('check_in.actions.edit_passes') }}
-                            </Link>
-                            <template v-else>
-                                <span
-                                    class="mt-1 block text-xs font-semibold text-muted"
-                                >
-                                    {{ $t('check_in.actions.edit_passes') }}
-                                </span>
-                                <span class="block text-[11px] text-muted/70">
-                                    {{
-                                        $t(
-                                            'check_in.actions.needs_edit_permission',
-                                        )
-                                    }}
-                                </span>
-                            </template>
-                        </TableCell>
-                    </TableRow>
-                    <TableRow v-if="people.data.length === 0">
-                        <TableCell
-                            colspan="5"
-                            class="py-16 text-center text-muted"
-                        >
-                            {{ $t('check_in.empty') }}
-                        </TableCell>
-                    </TableRow>
-                </TableBody>
-            </Table>
-
-            <div
-                v-if="people.meta.last_page > 1"
-                class="mt-4 flex flex-wrap items-center justify-between gap-3"
+            <DataTable
+                :key="JSON.stringify(filters)"
+                :ajax="tableAjax"
+                :columns="columns"
+                :options="tableOptions"
             >
-                <p class="m-0 text-sm text-muted">
-                    {{
-                        $t('check_in.pagination', {
-                            from: people.meta.from,
-                            to: people.meta.to,
-                            total: people.meta.total,
-                        })
-                    }}
-                </p>
-                <nav
-                    class="flex gap-2"
-                    :aria-label="$t('check_in.pagination_label')"
-                >
-                    <Button
-                        :href="people.links.prev || ''"
-                        :disabled="!people.links.prev"
-                        variant="outline"
+                <template #personCell="{ rowData }">
+                    <div class="flex min-w-44 items-center gap-2.5">
+                        <Avatar
+                            :name="rowData.name"
+                            size="sm"
+                        />
+                        <div>
+                            <Link
+                                :href="checkInHref(rowData)"
+                                class="block font-bold text-charcoal no-underline hover:text-primary"
+                            >
+                                {{ rowData.name }}
+                            </Link>
+                            <span class="block text-xs text-muted">
+                                <HiddenPersonalInfo
+                                    v-if="rowData.personal_info_hidden"
+                                />
+                                <span v-else>{{ rowData.subtitle }}</span>
+                            </span>
+                        </div>
+                    </div>
+                </template>
+                <template #statusCell="{ rowData }">
+                    <Badge
+                        :variant="statusVariants[rowData.check_in_status]"
+                        pill
+                        class="uppercase"
                     >
-                        {{ $t('check_in.previous') }}
-                    </Button>
-                    <Button
-                        :href="people.links.next || ''"
-                        :disabled="!people.links.next"
-                        variant="outline"
+                        {{ $t(`check_in.status.${rowData.check_in_status}`) }}
+                    </Badge>
+                </template>
+                <template #openCell="{ rowData }">
+                    <Link
+                        :href="checkInHref(rowData)"
+                        class="inline-flex text-muted hover:text-primary"
+                        :aria-label="
+                            rowData.check_in_status === 'complete'
+                                ? $t('check_in.actions.view')
+                                : $t('check_in.actions.check_in')
+                        "
                     >
-                        {{ $t('check_in.next') }}
-                    </Button>
-                </nav>
-            </div>
+                        <Icon
+                            :name="['fas', 'chevron-right']"
+                            size="sm"
+                        />
+                    </Link>
+                </template>
+            </DataTable>
         </div>
     </AppLayout>
 </template>
