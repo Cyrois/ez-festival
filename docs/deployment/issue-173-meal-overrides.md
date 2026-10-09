@@ -2,8 +2,10 @@
 
 Calvin's confirmed Oct 7 decisions supersede the original ticket's separate-only
 Override count and direct Undo deletion. An override gives a source-free meal
-grant to a hired Team member in the current event and claims it immediately in
-one transaction. It counts as Used; Override is also tracked as its origin and
+grant to a hired Team member in the current event. Calvin's Oct 8 update uses
+one picker with Cancel, Give, and primary Give and claim. Give leaves the grant
+unused; Give and claim claims it immediately in one transaction. A claimed
+override counts as Used; Override is also tracked as its origin and
 as a subset of Used. The override count decreases on Unclaim, while the origin
 badge remains on the unused grant. Scheduling's projected quantities
 exclude override grants. An unused meal of the same type and meal day blocks

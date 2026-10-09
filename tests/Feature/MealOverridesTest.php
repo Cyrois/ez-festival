@@ -72,6 +72,30 @@ class MealOverridesTest extends TestCase
         $this->assertSame([], app(MealEntitlementQuery::class)->projected($this->event)->all());
     }
 
+    public function test_give_without_claim_preserves_origin_and_can_be_claimed_later(): void
+    {
+        $this->grantRoleAccess($this->user, ['meals.override']);
+        $id = $this->postJson(route('meals.overrides.store', [$this->event, $this->member]), [
+            'meal_id' => $this->meal->id, 'confirmed' => true, 'claim' => false,
+        ])->assertCreated()->assertJsonPath('status', 'overridden')->json('assignment_id');
+        $assignment = MealAssignment::findOrFail($id);
+        $this->assertTrue($assignment->is_override);
+        $this->assertSame($this->user->id, $assignment->override_given_by);
+        $this->assertNotNull($assignment->override_given_at);
+        $this->assertNull($assignment->claimed_at);
+        $this->assertNull($assignment->claimed_by);
+        $this->assertNull($assignment->claim_token);
+        $this->assertNull($assignment->source_shift_id);
+        $this->detail()->assertJsonPath('data.0.used', false)->assertJsonPath('counts.0.left', 1)->assertJsonPath('counts.0.overrides', 0);
+        $this->give()->assertConflict()->assertJsonPath('status', 'unused_meal');
+        $this->postJson(route('meals.overrides.store', [$this->event, $this->member]), [
+            'meal_id' => $this->meal->id, 'confirmed' => true, 'claim' => 'invalid',
+        ])->assertUnprocessable()->assertJsonValidationErrors('claim');
+        $this->grantRoleAccess($this->user, ['meals.claim']);
+        $this->postJson(route('meals.claims.store', [$this->event, $this->member]), ['assignment_id' => $id])->assertCreated();
+        $this->detail()->assertJsonPath('data.0.used', true)->assertJsonPath('counts.0.left', 0)->assertJsonPath('counts.0.overrides', 1);
+    }
+
     public function test_unused_grants_of_the_same_type_block_every_meal_of_that_type_and_full_counts_are_used(): void
     {
         $otherLunch = $this->meal('Second lunch');

@@ -64,17 +64,6 @@ const overrideDescription = computed(() => {
             meal: removal.value?.name,
             time: removal.value?.override_at,
         });
-    if (overrideStep.value === 'confirm')
-        return trans(
-            overrideMeal.value?.extra
-                ? 'meals.override.confirm_extra'
-                : 'meals.override.confirm',
-            {
-                name: panel.value?.person.name,
-                type: overrideMeal.value?.type,
-                meal: overrideMeal.value?.name,
-            },
-        );
     return trans('meals.override.pick');
 });
 let searchTimer;
@@ -383,12 +372,8 @@ const removeOverride = (meal) => {
     removal.value = meal;
     overrideStep.value = 'remove';
 };
-const saveOverride = async () => {
+const saveOverride = async (claim = true) => {
     if (busy.value) return;
-    if (overrideStep.value === 'pick') {
-        if (overrideMeal.value?.available) overrideStep.value = 'confirm';
-        return;
-    }
     const removing = overrideStep.value === 'remove';
     if (
         removing
@@ -415,7 +400,11 @@ const saveOverride = async () => {
                               assignment_id: removal.value.assignment_id,
                               confirmed: true,
                           }
-                        : { meal_id: overrideMeal.value.id, confirmed: true },
+                        : {
+                              meal_id: overrideMeal.value.id,
+                              confirmed: true,
+                              claim,
+                          },
                 ),
             },
         );
@@ -926,13 +915,12 @@ onUnmounted(() => {
                 "
                 :description="overrideDescription"
                 :sectioned="overrideStep === 'pick'"
+                :cancel-align-start="overrideStep === 'pick'"
                 :confirm-label="
                     $t(
-                        overrideStep === 'pick'
-                            ? 'meals.override.continue'
-                            : overrideStep === 'remove'
-                              ? 'meals.override.remove'
-                              : 'meals.override.give',
+                        overrideStep === 'remove'
+                            ? 'meals.override.remove'
+                            : 'meals.override.give_and_claim',
                     )
                 "
                 :confirm-variant="
@@ -948,8 +936,19 @@ onUnmounted(() => {
                         if (!open) closeOverride();
                     }
                 "
-                @confirm="saveOverride"
+                @confirm="saveOverride(true)"
             >
+                <template #footer-actions>
+                    <Button
+                        v-if="overrideStep === 'pick'"
+                        variant="outline"
+                        class="min-h-11 w-full sm:w-auto"
+                        :disabled="busy || !overrideMeal?.available"
+                        @click="saveOverride(false)"
+                    >
+                        {{ $t('meals.override.give') }}
+                    </Button>
+                </template>
                 <div
                     v-if="overrideStep === 'pick'"
                     class="mt-4 flex flex-col gap-2"
