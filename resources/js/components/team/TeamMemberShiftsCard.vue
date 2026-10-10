@@ -10,7 +10,11 @@ import { scheduleDateLabel } from '../../lib/scheduleTimeline';
 import { memberShiftTimeLabel } from '../../lib/memberShifts';
 import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
 
-const props = defineProps({ memberId: { type: Number, required: true } });
+const props = defineProps({
+    memberId: { type: Number, required: true },
+    checkInShifts: { type: Array, default: null },
+});
+const checkIn = computed(() => props.checkInShifts !== null);
 const { showError } = useFlashToast();
 const locale = computed(() => getActiveLanguage());
 let controller;
@@ -78,17 +82,24 @@ const columns = computed(() => [
         title: trans('team.scheduling.slots.role'),
         render: { display: '#roleCell' },
     },
-    {
-        data: null,
-        title: '',
-        orderable: false,
-        searchable: false,
-        width: '32px',
-        render: { display: '#openCell' },
-    },
+    ...(!checkIn.value
+        ? [
+              {
+                  data: null,
+                  title: '',
+                  orderable: false,
+                  searchable: false,
+                  width: '32px',
+                  render: { display: '#openCell' },
+              },
+          ]
+        : []),
 ]);
 const options = computed(() => ({
-    serverSide: true,
+    serverSide: !checkIn.value,
+    ...(checkIn.value
+        ? { paging: false, searching: false, ordering: false, info: false }
+        : {}),
     pageLength: 25,
     lengthChange: false,
     layout: {
@@ -97,15 +108,23 @@ const options = computed(() => ({
     order: [[0, 'asc']],
     columnDefs: [
         { targets: [0, 1, 2, 3], className: 'dt-left' },
-        { targets: 4, className: 'dt-right' },
+        ...(!checkIn.value ? [{ targets: 4, className: 'dt-right' }] : []),
     ],
-    createdRow: (row, assignment) =>
+    createdRow: (row, assignment) => {
+        if (checkIn.value) return;
         navigateDataTableRow(
             row,
             assignment,
             (item) => `/team/shifts/${item.shift_id}`,
+        );
+    },
+    language: {
+        emptyTable: trans(
+            checkIn.value
+                ? 'check_in.member_shifts_empty'
+                : 'team.member.shifts.empty',
         ),
-    language: { emptyTable: trans('team.member.shifts.empty') },
+    },
 }));
 </script>
 
@@ -115,14 +134,27 @@ const options = computed(() => ({
         class="mt-4"
     >
         <CardTitle>
-            {{ $t('team.member.sections.shifts.title') }}
+            {{
+                $t(
+                    checkIn
+                        ? 'check_in.member_shifts'
+                        : 'team.member.sections.shifts.title',
+                )
+            }}
         </CardTitle>
         <p class="mt-1 mb-4 text-xs text-muted">
-            {{ $t('team.member.sections.shifts.description') }}
+            {{
+                $t(
+                    checkIn
+                        ? 'check_in.member_shifts_hint'
+                        : 'team.member.sections.shifts.description',
+                )
+            }}
         </p>
         <div class="overflow-x-auto">
             <DataTable
-                :ajax="loadShifts"
+                :ajax="checkIn ? undefined : loadShifts"
+                :data="checkInShifts ?? undefined"
                 :columns="columns"
                 :options="options"
             >

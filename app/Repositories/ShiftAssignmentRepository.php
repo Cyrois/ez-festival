@@ -15,6 +15,26 @@ use Illuminate\Support\Collection;
 
 class ShiftAssignmentRepository
 {
+    /** Recent and upcoming assignments use the member's hours, in the event's local time. */
+    public function recentAndUpcomingForMember(Event $event, TeamEngagement $engagement): Collection
+    {
+        $query = $engagement->shiftAssignments()
+            ->reorder()
+            ->join('shifts', 'shifts.id', '=', 'shift_assignments.shift_id')
+            ->join('locations', 'locations.id', '=', 'shifts.location_id')
+            ->leftJoin('roles', 'roles.id', '=', 'shift_assignments.role_id')
+            ->where('shifts.event_id', $event->id)
+            ->select(['shift_assignments.id', 'shift_assignments.shift_id', 'shift_assignments.starts_at', 'shift_assignments.ends_at',
+                'locations.name as location_name', 'roles.name as role_name']);
+        $now = now($event->timezone)->format('Y-m-d H:i:s');
+        $past = (clone $query)->where('shift_assignments.starts_at', '<', $now)
+            ->orderByDesc('shift_assignments.starts_at')->orderByDesc('shift_assignments.id')->limit(2)->get();
+        $upcoming = (clone $query)->where('shift_assignments.starts_at', '>=', $now)
+            ->orderBy('shift_assignments.starts_at')->orderBy('shift_assignments.id')->limit(5)->get();
+
+        return $past->reverse()->values()->concat($upcoming);
+    }
+
     /** @return array{total: int, filtered: int, rows: Collection<int, ShiftAssignment>} */
     public function memberDataTable(
         Event $event,

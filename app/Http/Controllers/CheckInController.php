@@ -25,12 +25,11 @@ class CheckInController extends Controller
         $event = $this->eventContext->requireCurrent($request->user());
         $filters = $request->validated();
         $type = $filters['type'] ?? 'all';
-        $status = $filters['status'] ?? 'all';
         $passId = isset($filters['pass']) ? (int) $filters['pass'] : null;
         $search = trim($filters['search'] ?? '');
 
-        $people = in_array($type, ['all', 'artist', 'vendor'], true)
-            ? $this->people->paginate($event->id, $passId, $search, $status, $type)
+        $people = in_array($type, ['all', 'artist', 'vendor', 'team'], true)
+            ? $this->people->paginate($event->id, $passId, $search, 'all', $type)
             : $this->people->empty();
         $canEdit = [
             'artist' => $request->user()->can('artists.edit', $event),
@@ -48,7 +47,6 @@ class CheckInController extends Controller
             'filters' => [
                 'type' => $type,
                 'pass' => $passId,
-                'status' => $status,
                 'search' => $search,
             ],
             'event' => $event->only('id', 'name', 'locked', 'timezone'),
@@ -62,11 +60,12 @@ class CheckInController extends Controller
     ): RedirectResponse {
         $expectedEntitlement->loadMissing('passAssignment.artistEngagement.people');
         $assignment = $expectedEntitlement->passAssignment;
-        $assignment->loadMissing('vendorEngagement.people');
-        $engagement = $assignment->artistEngagement ?? $assignment->vendorEngagement;
-        abort_unless($engagement !== null && $engagement->status === 'confirmed' && $assignment->person_id !== null, 404);
+        $assignment->loadMissing(['vendorEngagement.people', 'teamEngagement']);
+        $engagement = $assignment->artistEngagement ?? $assignment->vendorEngagement ?? $assignment->teamEngagement;
+        $isTeam = $assignment->team_engagement_id !== null;
+        abort_unless($engagement !== null && $engagement->status === ($isTeam ? 'hired' : 'confirmed') && $assignment->person_id !== null, 404);
         $this->eventContext->requireCurrentEvent($request->user(), $engagement->event, writable: true);
-        abort_unless($engagement->people->contains('id', $assignment->person_id), 404);
+        abort_unless($isTeam ? $engagement->person_id === $assignment->person_id : $engagement->people->contains('id', $assignment->person_id), 404);
         $data = $request->validated();
         $consume->consume($expectedEntitlement, $request->user(), (int) $data['location_id'], $data['code'] ?? null);
 

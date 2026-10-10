@@ -2,9 +2,9 @@
 
 namespace App\Http\Resources;
 
+use App\Models\TeamEngagement;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Collection;
 
 abstract class CheckInShowResource extends JsonResource
 {
@@ -13,52 +13,28 @@ abstract class CheckInShowResource extends JsonResource
         $canSeePersonalInfo = $request->user()->can($permission, $this->event);
         $assignments = $this->passAssignments
             ->whereNotNull('person_id')
+            ->filter(fn ($assignment) => $assignment->passType->event_id === $this->event_id)
             ->groupBy('person_id');
 
-        $people = $this->people->map(function ($person) use ($assignments, $canSeePersonalInfo): array {
+        $isTeam = $this->resource instanceof TeamEngagement;
+        $holders = $isTeam ? collect([$this->person]) : $this->people;
+        $people = $holders->map(function ($person) use ($assignments, $canSeePersonalInfo, $isTeam): array {
             $held = $assignments->get($person->id, collect());
-            $entitlements = $held->flatMap(function ($assignment): Collection {
-                return $assignment->expectedEntitlements->map(function ($expected) use ($assignment): array {
-                    $issued = $expected->issuedEntitlement;
-                    $locations = $expected->entitlementItem->adjustments
-                        ->filter(fn ($stock) => $stock->location !== null)
-                        ->sortBy('location.name')
-                        ->values()
-                        ->map(fn ($stock): array => [
-                            'id' => $stock->location_id,
-                            'name' => $stock->location->name,
-                            'in_stock' => (int) $stock->balance,
-                        ]);
-
-                    return [
-                        'id' => $expected->id,
-                        'name' => $expected->entitlementItem->name,
-                        'source' => $assignment->passType->name,
-                        'status' => $issued ? 'issued' : 'pending',
-                        'locations' => $locations,
-                        'issued' => $issued ? [
-                            'location' => $issued->location?->name,
-                            'code' => $issued->code,
-                            'issued_at' => $issued->issued_at,
-                        ] : null,
-                    ];
-                });
-            })->sortBy('name')->values();
 
             return [
                 'id' => $person->id,
                 'name' => $person->name,
                 ...($canSeePersonalInfo ? ['email' => $person->email] : ['personal_info_hidden' => true]),
-                'is_primary' => (bool) $person->pivot->is_primary,
+                'is_primary' => ! $isTeam && (bool) $person->pivot->is_primary,
+                'has_pass' => $held->isNotEmpty(),
                 'passes' => $held->pluck('passType.name')->unique()->values(),
                 'pass_labels' => $held->flatMap(fn ($assignment) => $assignment->passType->labels)
                     ->unique('id')
                     ->sortBy('name')
                     ->values()
                     ->map->only('name', 'color'),
-                'issued' => $entitlements->where('status', 'issued')->count(),
-                'expected' => $entitlements->count(),
-                'entitlements' => $entitlements,
+                'issued' => (int) $held->sum('issued_count'),
+                'expected' => (int) $held->sum('expected_entitlements_count'),
             ];
         })->values();
 

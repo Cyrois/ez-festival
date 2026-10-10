@@ -10,6 +10,7 @@ import { Button } from '../../components/ui/button';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
 import { Select } from '../../components/ui/select';
+import { Tooltip } from '../../components/ui/tooltip';
 import { DataTable } from '../../components/ui/data-table';
 import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
 import { checkInQuery } from './filters';
@@ -22,10 +23,8 @@ const props = defineProps({
 
 const type = ref(props.filters.type ?? 'all');
 const pass = ref(props.filters.pass ? String(props.filters.pass) : '');
-const status = ref(props.filters.status ?? 'all');
 const search = ref(props.filters.search ?? '');
 const types = ['all', 'artist', 'vendor', 'patron', 'team'];
-const statuses = ['all', 'not_started', 'partial', 'complete'];
 const statusVariants = {
     not_started: 'neutral',
     partial: 'warning',
@@ -80,7 +79,7 @@ const tableAjax = {
             checkInQuery({
                 type: type.value,
                 pass: pass.value,
-                status: status.value,
+
                 search: search.value,
             }),
         );
@@ -98,7 +97,7 @@ const applyFilters = () => {
         checkInQuery({
             type: type.value,
             pass: pass.value,
-            status: status.value,
+
             search: search.value,
         }),
         {
@@ -116,7 +115,7 @@ const scanQr = () => {
     search.value = code;
 };
 
-watch([type, pass, status], applyFilters);
+watch([type, pass], applyFilters);
 watch(search, () => {
     window.clearTimeout(searchTimer);
     searchTimer = window.setTimeout(applyFilters, 300);
@@ -201,18 +200,6 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer));
                     <Icon :name="['fas', 'qrcode']" />
                     {{ $t('check_in.filters.scan_qr') }}
                 </Button>
-                <Button
-                    v-for="value in statuses"
-                    :key="value"
-                    size="sm"
-                    :variant="
-                        status === value ? 'outline-secondary' : 'outline'
-                    "
-                    class="rounded-full font-normal"
-                    @click="status = value"
-                >
-                    {{ $t(`check_in.status.${value}`) }}
-                </Button>
             </div>
 
             <p class="mt-0 mb-4 text-xs text-muted">
@@ -232,12 +219,36 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer));
                             size="sm"
                         />
                         <div>
-                            <Link
-                                :href="checkInHref(rowData)"
-                                class="block font-bold text-charcoal no-underline hover:text-primary"
-                            >
-                                {{ rowData.name }}
-                            </Link>
+                            <div class="flex items-center gap-2">
+                                <Link
+                                    :href="checkInHref(rowData)"
+                                    class="block font-bold text-charcoal no-underline hover:text-primary"
+                                >
+                                    {{ rowData.name }}
+                                </Link>
+                                <span
+                                    v-if="
+                                        rowData.type === 'team' &&
+                                        !rowData.has_pass
+                                    "
+                                    class="inline-flex"
+                                    @click.stop
+                                >
+                                    <Tooltip :label="$t('check_in.no_pass')">
+                                        <Icon
+                                            :name="[
+                                                'fas',
+                                                'triangle-exclamation',
+                                            ]"
+                                            class="text-warning"
+                                            size="sm"
+                                        />
+                                        <template #content>{{
+                                            $t('check_in.no_pass')
+                                        }}</template>
+                                    </Tooltip>
+                                </span>
+                            </div>
                             <span class="block text-xs text-muted">
                                 <HiddenPersonalInfo
                                     v-if="rowData.personal_info_hidden"

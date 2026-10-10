@@ -13,7 +13,6 @@ test('check-in filter query trims search and omits an empty pass', () => {
         {
             type: 'artist',
             pass: undefined,
-            status: 'partial',
             search: 'maya',
         },
     );
