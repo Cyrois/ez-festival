@@ -1,6 +1,7 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, inject } from 'vue';
 import { cn } from '../../../lib/utils';
+import { TABS_KEY } from './tabsContext';
 
 const props = defineProps({
     class: {
@@ -11,10 +12,12 @@ const props = defineProps({
 
 const classes = computed(() =>
     cn(
-        'flex flex-nowrap gap-1 overflow-x-auto border-b border-line',
+        'flex flex-nowrap gap-1 overflow-x-auto overflow-y-hidden border-b border-line',
         props.class,
     ),
 );
+const tabs = inject(TABS_KEY, null);
+const navigation = computed(() => tabs?.value?.navigation === true);
 
 const enabledTabs = (list) =>
     [...list.querySelectorAll('[role="tab"]')].filter(
@@ -64,11 +67,12 @@ const onKeydown = (event) => {
 </script>
 
 <template>
-    <div
-        role="tablist"
+    <component
+        :is="navigation ? 'nav' : 'div'"
+        :role="navigation ? undefined : 'tablist'"
         :class="classes"
         @keydown="onKeydown"
     >
         <slot />
-    </div>
+    </component>
 </template>

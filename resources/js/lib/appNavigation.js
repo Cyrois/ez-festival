@@ -1,0 +1,170 @@
+export function getAppNavigation({
+    features = {},
+    permissions = {},
+    isAdmin = false,
+} = {}) {
+    return [
+        {
+            key: 'home',
+            href: '/dashboard',
+            icon: ['fas', 'house'],
+            enabled: true,
+        },
+        {
+            key: 'check_in',
+            href: '/check-in',
+            icon: ['fas', 'clipboard-check'],
+            enabled: true,
+        },
+        {
+            key: 'artists',
+            href: '/artists/advancing',
+            icon: ['fas', 'music'],
+            enabled: true,
+        },
+        {
+            key: 'vendors',
+            href: '/vendors/advancing',
+            icon: ['fas', 'store'],
+            enabled: true,
+        },
+        {
+            key: 'patrons',
+            href: '/patrons',
+            icon: ['fas', 'address-book'],
+            enabled: features.patrons ?? true,
+        },
+        {
+            key: 'team',
+            href: '/team/advancement',
+            icon: ['fas', 'users'],
+            enabled: features.team ?? true,
+            tabs: [
+                {
+                    key: 'team.advancement',
+                    href: '/team/advancement',
+                    enabled: true,
+                },
+                {
+                    key: 'team.scheduling',
+                    href: '/team/scheduling',
+                    enabled: true,
+                },
+                {
+                    key: 'team.forms',
+                    href: '/team/forms',
+                    enabled: true,
+                },
+                {
+                    key: 'team.configure',
+                    href: '/team/configure',
+                    enabled: true,
+                },
+            ],
+        },
+        {
+            key: 'credentials',
+            href: '/credentials/passes',
+            icon: ['fas', 'id-card'],
+            enabled: true,
+            tabs: [
+                {
+                    key: 'credentials.products',
+                    href: null,
+                    enabled: false,
+                },
+                {
+                    key: 'credentials.passes',
+                    href: '/credentials/passes',
+                    enabled: true,
+                },
+                {
+                    key: 'credentials.entitlements',
+                    href: '/credentials/entitlements',
+                    enabled: true,
+                },
+            ],
+        },
+        {
+            key: 'meals',
+            href: '/meals',
+            icon: ['fas', 'utensils'],
+            enabled: true,
+            tabs: [
+                {
+                    key: 'meals.index',
+                    href: '/meals',
+                    enabled: true,
+                    exclude: ['/meals/settings'],
+                },
+                {
+                    key: 'meals.report',
+                    href: '/reports',
+                    enabled: true,
+                },
+                {
+                    key: 'meals.settings',
+                    href: '/meals/settings',
+                    enabled: true,
+                },
+            ],
+        },
+    ]
+        .map((item) => {
+            if (item.key !== 'team') return item;
+            const tabs = item.tabs.filter(
+                (child) =>
+                    permissions?.[
+                        {
+                            'team.scheduling': 'scheduling.view',
+                            'team.forms': 'forms.view',
+                        }[child.key] ?? 'team.view'
+                    ],
+            );
+            return { ...item, tabs, href: tabs[0]?.href };
+        })
+        .filter((item) => {
+            if (item.key === 'team') return item.tabs.length > 0;
+            const permission = {
+                artists: 'artists.view',
+                vendors: 'vendors.view',
+                check_in: 'checkin.view',
+                patrons: 'patrons.view',
+                meals: 'meals.view',
+            }[item.key];
+            return item.key === 'credentials'
+                ? isAdmin
+                : !permission || permissions?.[permission];
+        });
+}
+
+export function isNavigationItemActive(item, url) {
+    const path = url.split(/[?#]/)[0];
+    const matches = (href) =>
+        href && (path === href || path.startsWith(`${href}/`));
+
+    if (item.tabs) {
+        return item.tabs.some((tab) => isNavigationItemActive(tab, path));
+    }
+
+    if (item.exclude?.some(matches)) return false;
+    if (item.href === '/artists/advancing') {
+        return (
+            matches(item.href) ||
+            matches('/artists/create') ||
+            matches('/artists/engagements')
+        );
+    }
+    if (item.href === '/vendors/advancing') {
+        return (
+            matches(item.href) ||
+            matches('/vendors/create') ||
+            matches('/vendors/engagements')
+        );
+    }
+    if (item.key === 'team.advancement' && matches('/team/members'))
+        return true;
+    if (item.key === 'team.scheduling' && matches('/team/shifts')) return true;
+
+    return Boolean(matches(item.href));
+}
