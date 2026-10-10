@@ -80,6 +80,8 @@ test(`${type} rows navigate without Edit passes; has pass: ${hasPass}`, async ()
         assert.equal(requests[0].url, '/check-in/data');
         assert.equal(requests[0].data.length, '25');
         assert.equal(requests[0].data.search, 'Maya');
+        assert.equal(requests[0].data.status, undefined);
+        assert.equal([...document.querySelectorAll('button')].some(button => ['Not started', 'Partial', 'Complete'].includes(button.textContent.trim())), false);
         assert.equal(requests[0].data.type, type);
         assert.equal(requests[0].data.pass, '');
         const row = document.querySelector('tbody tr[data-row-link]');

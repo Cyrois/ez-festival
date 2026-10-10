@@ -23,10 +23,8 @@ const props = defineProps({
 
 const type = ref(props.filters.type ?? 'all');
 const pass = ref(props.filters.pass ? String(props.filters.pass) : '');
-const status = ref(props.filters.status ?? 'all');
 const search = ref(props.filters.search ?? '');
 const types = ['all', 'artist', 'vendor', 'patron', 'team'];
-const statuses = ['all', 'not_started', 'partial', 'complete'];
 const statusVariants = {
     not_started: 'neutral',
     partial: 'warning',
@@ -81,7 +79,7 @@ const tableAjax = {
             checkInQuery({
                 type: type.value,
                 pass: pass.value,
-                status: status.value,
+
                 search: search.value,
             }),
         );
@@ -99,7 +97,7 @@ const applyFilters = () => {
         checkInQuery({
             type: type.value,
             pass: pass.value,
-            status: status.value,
+
             search: search.value,
         }),
         {
@@ -117,7 +115,7 @@ const scanQr = () => {
     search.value = code;
 };
 
-watch([type, pass, status], applyFilters);
+watch([type, pass], applyFilters);
 watch(search, () => {
     window.clearTimeout(searchTimer);
     searchTimer = window.setTimeout(applyFilters, 300);
@@ -201,18 +199,6 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer));
                 >
                     <Icon :name="['fas', 'qrcode']" />
                     {{ $t('check_in.filters.scan_qr') }}
-                </Button>
-                <Button
-                    v-for="value in statuses"
-                    :key="value"
-                    size="sm"
-                    :variant="
-                        status === value ? 'outline-secondary' : 'outline'
-                    "
-                    class="rounded-full font-normal"
-                    @click="status = value"
-                >
-                    {{ $t(`check_in.status.${value}`) }}
                 </Button>
             </div>
 
