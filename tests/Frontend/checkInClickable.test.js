@@ -35,12 +35,18 @@ const dataTable = compile('../../resources/js/components/ui/data-table/DataTable
     [/import \{ cn \} from ['"].*?['"];?/, 'const cn = (...values) => values.filter(Boolean).join(" ");'],
 ]);
 const tooltip = compile('../../resources/js/components/ui/tooltip/Tooltip.vue', []);
+const button = compile('../../resources/js/components/ui/button/Button.vue', [
+    [/import \{ Link \} from ['"].*?['"];?/, 'const Link = "a";'],
+    [/import \{ cn \} from ['"].*?['"];?/, 'const cn = (...values) => values.filter(Boolean).join(" ");'],
+    [/import \{ buttonVariants \} from ['"].*?['"];?/, 'const buttonVariants = () => "";'],
+]);
 const page = compile('../../resources/js/pages/CheckIn/Index.vue', [
     [/import HiddenPersonalInfo from ['"].*?['"];?/, 'const HiddenPersonalInfo = globalThis.checkInBox("span");'],
     [/import \{ Link, router \} from ['"].*?['"];?/, 'const Link = "a", router = globalThis.checkInRouter;'],
     [/import \{ trans \} from ['"].*?['"];?/, 'const trans = globalThis.checkInTranslate;'],
     [/import AppLayout from ['"].*?['"];?/, 'const AppLayout = globalThis.checkInBox("main");'],
-    ...['Avatar','Badge','Button','Icon','Input','Select'].map((name) => [new RegExp(`import \\{ ${name} \\} from ['"].*?['"];?`), `const ${name} = globalThis.checkInBox("${name === 'Icon' ? 'i' : 'span'}");`]),
+    ...['Avatar','Badge','Icon','Input','Select'].map((name) => [new RegExp(`import \\{ ${name} \\} from ['"].*?['"];?`), `const ${name} = globalThis.checkInBox("${name === 'Icon' ? 'i' : 'span'}");`]),
+    [/import \{ Button \} from ['"].*?['"];?/, `import Button from '${button}';`],
     [/import \{ Tooltip \} from ['"].*?['"];?/, `import Tooltip from '${tooltip}';`],
     [/import \{ DataTable \} from ['"].*?['"];?/, `import DataTable from '${dataTable}';`],
     [/import \{ navigateDataTableRow \} from ['"].*?['"];?/, 'const navigateDataTableRow = globalThis.checkInNavigate;'],
@@ -50,7 +56,7 @@ const { default: CheckIn } = await import(page);
 
 for (const [type, hasPass] of [['artist', true], ['team', false], ['team', true]]) {
 test(`${type} rows navigate without Edit passes; has pass: ${hasPass}`, async () => {
-    const requests = [], visits = [], opened = [];
+    const requests = [], visits = [], opened = [], filterVisits = [];
     const originalXhr = globalThis.XMLHttpRequest;
     const originalGet = router.get;
     const originalOpen = window.open;
@@ -69,9 +75,9 @@ test(`${type} rows navigate without Edit passes; has pass: ${hasPass}`, async ()
             }, 0);
         }
     };
-    router.get = (href) => visits.push(href);
+    router.get = (href, data) => { visits.push(href); if (data) filterVisits.push(data); };
     window.open = (href) => opened.push(href);
-    const app = createApp(CheckIn, { passes: [], filters: { type, status: 'not_started', search: ' Maya ' }, event: { id: 1 } });
+    const app = createApp(CheckIn, { passes: [], filters: { type, search: ' Maya ' }, event: { id: 1 } });
     app.config.globalProperties.$t = translate;
     try {
         app.mount('#app');
@@ -80,8 +86,10 @@ test(`${type} rows navigate without Edit passes; has pass: ${hasPass}`, async ()
         assert.equal(requests[0].url, '/check-in/data');
         assert.equal(requests[0].data.length, '25');
         assert.equal(requests[0].data.search, 'Maya');
-        assert.equal(requests[0].data.status, undefined);
-        assert.equal([...document.querySelectorAll('button')].some(button => ['Not started', 'Partial', 'Complete'].includes(button.textContent.trim())), false);
+        assert.equal(requests[0].data.status, 'incomplete');
+        const statusGroup = document.querySelector('[role="group"][aria-label="Status"]');
+        assert.deepEqual([...statusGroup.querySelectorAll('button')].map(button => button.textContent.trim()), ['Incomplete', 'Complete']);
+        assert.equal(statusGroup.querySelector('button[aria-pressed="true"]').textContent.trim(), 'Incomplete');
         assert.equal(requests[0].data.type, type);
         assert.equal(requests[0].data.pass, '');
         const row = document.querySelector('tbody tr[data-row-link]');
@@ -106,6 +114,14 @@ test(`${type} rows navigate without Edit passes; has pass: ${hasPass}`, async ()
         assert.ok(!row.textContent.includes(translate('check_in.actions.edit_passes')));
         row.children[1].dispatchEvent(new window.MouseEvent('click', { bubbles: true, ctrlKey: true }));
         assert.deepEqual(opened, [`/check-in/${type}s/8?person=17`]);
+        const complete = [...statusGroup.querySelectorAll('button')].find(button => button.textContent.trim() === 'Complete');
+        complete.click();
+        await nextTick();
+        assert.deepEqual(filterVisits, [{ type, pass: undefined, status: 'complete', search: 'Maya' }]);
+        assert.equal(statusGroup.querySelector('button[aria-pressed="true"]').textContent.trim(), 'Complete');
+        statusGroup.querySelector('button').click();
+        await nextTick();
+        assert.deepEqual(filterVisits[1], { type, pass: undefined, status: 'incomplete', search: 'Maya' });
     } finally {
         app.unmount();
         globalThis.XMLHttpRequest = originalXhr;

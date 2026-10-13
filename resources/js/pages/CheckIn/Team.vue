@@ -30,8 +30,8 @@ const writeBlockedReason = computed(() =>
 );
 const person = computed(() => props.engagement.people[0]);
 const status = computed(() => {
+    if (!person.value?.has_pass) return 'no_pass';
     if (
-        !person.value ||
         person.value.expected === 0 ||
         person.value.issued >= person.value.expected
     )
@@ -175,9 +175,7 @@ const breadcrumbs = computed(() => [
                                 status === 'partial' ? 'warning' : 'neutral'
                             "
                             pill
-                            >{{
-                                $t(`artists.check_in.status.${status}`)
-                            }}</Badge
+                            >{{ $t(`check_in.status.${status}`) }}</Badge
                         >
                     </div>
                     <div

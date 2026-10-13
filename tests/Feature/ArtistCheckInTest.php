@@ -52,7 +52,7 @@ class ArtistCheckInTest extends TestCase
             'person_id' => $zeroPerson->id,
         ]);
 
-        $this->actingAs($user)->get(route('check-in.index'))->assertInertia(fn (Assert $page) => $page
+        $this->actingAs($user)->get(route('check-in.index', ['status' => 'complete']))->assertInertia(fn (Assert $page) => $page
             ->component('CheckIn/Index')
             ->has('people.data', 2)
             ->where('people.data.0.name', $zeroPerson->name)
@@ -90,7 +90,7 @@ class ArtistCheckInTest extends TestCase
             ->where('people.data.0.name', $maya->name)
             ->where('people.data.0.can_edit', false)
             ->where('filters.type', 'artist')
-            ->missing('filters.status'));
+            ->where('filters.status', 'not_started'));
 
         $this->get(route('check-in.index', ['type' => 'vendor']))
             ->assertOk()
@@ -100,7 +100,8 @@ class ArtistCheckInTest extends TestCase
                 ->where('people.data.0.name', $vendorPerson->name)
                 ->where('people.data.0.type', 'vendor')
                 ->where('people.data.0.context', 'Cedar Craft Co')
-                ->where('filters.type', 'vendor'));
+                ->where('filters.type', 'vendor')
+                ->where('filters.status', 'incomplete'));
 
         foreach (['patron', 'team'] as $type) {
             $this->get(route('check-in.index', ['type' => $type]))

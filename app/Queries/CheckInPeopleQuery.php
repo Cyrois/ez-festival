@@ -190,7 +190,8 @@ class CheckInPeopleQuery
     private function filterStatus(Builder $query, string $status): Builder
     {
         return match ($status) {
-            'complete' => $query->havingRaw('COUNT(DISTINCT ee.id) = 0 OR COUNT(DISTINCT ie.id) >= COUNT(DISTINCT ee.id)'),
+            'complete' => $query->havingRaw('COUNT(DISTINCT pa.id) > 0 AND (COUNT(DISTINCT ee.id) = 0 OR COUNT(DISTINCT ie.id) >= COUNT(DISTINCT ee.id))'),
+            'incomplete' => $query->havingRaw('COUNT(DISTINCT pa.id) = 0 OR COUNT(DISTINCT ie.id) < COUNT(DISTINCT ee.id)'),
             'not_started' => $query->havingRaw('COUNT(DISTINCT ee.id) > 0 AND COUNT(DISTINCT ie.id) = 0'),
             'partial' => $query->havingRaw('COUNT(DISTINCT ie.id) > 0 AND COUNT(DISTINCT ie.id) < COUNT(DISTINCT ee.id)'),
             default => $query,

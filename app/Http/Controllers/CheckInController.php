@@ -25,11 +25,12 @@ class CheckInController extends Controller
         $event = $this->eventContext->requireCurrent($request->user());
         $filters = $request->validated();
         $type = $filters['type'] ?? 'all';
+        $status = $filters['status'] ?? 'incomplete';
         $passId = isset($filters['pass']) ? (int) $filters['pass'] : null;
         $search = trim($filters['search'] ?? '');
 
         $people = in_array($type, ['all', 'artist', 'vendor', 'team'], true)
-            ? $this->people->paginate($event->id, $passId, $search, 'all', $type)
+            ? $this->people->paginate($event->id, $passId, $search, $status, $type)
             : $this->people->empty();
         $canEdit = [
             'artist' => $request->user()->can('artists.edit', $event),
@@ -46,6 +47,7 @@ class CheckInController extends Controller
             'passes' => $event->passTypes()->orderBy('name')->get(['id', 'name']),
             'filters' => [
                 'type' => $type,
+                'status' => $status,
                 'pass' => $passId,
                 'search' => $search,
             ],

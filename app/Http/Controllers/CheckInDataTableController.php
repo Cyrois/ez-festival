@@ -17,7 +17,7 @@ class CheckInDataTableController extends Controller
             $event->id,
             isset($data['pass']) ? (int) $data['pass'] : null,
             trim($data['search'] ?? ''),
-            $data['status'] ?? 'all',
+            $data['status'] ?? 'incomplete',
             $data['type'] ?? 'all',
             (int) $data['start'],
             (int) $data['length'],

@@ -13,6 +13,7 @@ use App\Models\TeamEngagement;
 use App\Models\User;
 use App\Models\Vendor;
 use App\Models\VendorEngagement;
+use App\Queries\CheckInPeopleQuery;
 use App\Services\EntitlementConsumeService;
 use App\Services\EventService;
 use App\Support\OrganizationContext;
@@ -64,9 +65,9 @@ class TeamCheckInTest extends TestCase
             ->assertJsonPath('data.2.context', 'Team')
             ->assertJsonPath('data.3.context', 'Supervisor')
             ->assertJsonPath('data.0.has_pass', false)
-            ->assertJsonPath('data.0.check_in_status', 'complete')
+            ->assertJsonPath('data.0.check_in_status', 'no_pass')
             ->assertJsonPath('data.4.has_pass', true)->assertJsonPath('data.4.expected', 0);
-        $this->get(route('check-in.index', ['type' => 'team']))->assertInertia(fn (Assert $page) => $page
+        $this->get(route('check-in.index', ['type' => 'team', 'status' => 'all']))->assertInertia(fn (Assert $page) => $page
             ->has('people.data', 5)->where('people.meta.total', 5));
     }
 
@@ -103,7 +104,7 @@ class TeamCheckInTest extends TestCase
         }
         $this->getJson(route('check-in.data', $this->paging(['type' => 'team', 'search' => 'team-100%_'])))
             ->assertJsonPath('recordsFiltered', 1)->assertJsonPath('data.0.expected', 3)->assertJsonPath('data.0.issued', 1);
-        $this->getJson(route('check-in.data', $this->paging(['type' => 'team', 'status' => 'partial'])))
+        $this->getJson(route('check-in.data', $this->paging(['type' => 'team', 'status' => 'incomplete', 'search' => 'Alex'])))
             ->assertJsonPath('recordsFiltered', 1)->assertJsonPath('data.0.person_id', $member->person_id);
         $this->getJson(route('check-in.data', $this->paging(['pass' => $expected->passAssignment->pass_type_id])))
             ->assertJsonPath('recordsFiltered', 1)->assertJsonPath('data.0.expected', 2);
@@ -111,9 +112,56 @@ class TeamCheckInTest extends TestCase
             ->assertJsonPath('recordsFiltered', 1);
         $this->getJson(route('check-in.data', $this->paging(['status' => 'not_started'])))->assertJsonCount(0, 'data');
         $this->getJson(route('check-in.data', $this->paging(['status' => 'complete', 'start' => 25])))
-            ->assertJsonPath('recordsFiltered', 27)->assertJsonCount(2, 'data');
+            ->assertJsonPath('recordsFiltered', 0)->assertJsonCount(0, 'data');
         $this->get(route('check-in.index', ['type' => 'team', 'page' => 2]))->assertInertia(fn (Assert $page) => $page
             ->has('people.data', 3)->where('people.meta.total', 28));
+    }
+
+    public function test_complete_filter_requires_a_pass_and_accepts_zero_line_and_fully_issued_passes(): void
+    {
+        [$user, $event] = $this->context();
+        $noPass = $this->member($event, 'No pass');
+        $zeroLines = $this->member($event, 'Zero lines');
+        $this->pass($zeroLines, 0);
+        $issued = $this->member($event, 'Fully issued');
+        $expected = $this->pass($issued);
+        $expected->issuedEntitlement()->create([
+            'entitlement_item_id' => $expected->entitlement_item_id,
+            'issued_by' => $user->id,
+        ]);
+        $pending = $this->member($event, 'Pending');
+        $this->pass($pending);
+
+        foreach (['all', 'team'] as $type) {
+            $this->getJson(route('check-in.data', $this->paging(['type' => $type, 'status' => 'complete'])))
+                ->assertOk()->assertJsonPath('recordsTotal', 4)->assertJsonPath('recordsFiltered', 2)
+                ->assertJsonCount(2, 'data')
+                ->assertJsonPath('data.0.person_id', $issued->person_id)
+                ->assertJsonPath('data.0.check_in_status', 'complete')
+                ->assertJsonPath('data.1.person_id', $zeroLines->person_id)
+                ->assertJsonPath('data.1.check_in_status', 'complete');
+            $this->get(route('check-in.index', ['type' => $type, 'status' => 'complete']))
+                ->assertInertia(fn (Assert $page) => $page
+                    ->where('filters.status', 'complete')->has('people.data', 2)
+                    ->where('people.meta.total', 2)
+                    ->where('people.data.0.person_id', $issued->person_id)
+                    ->where('people.data.1.person_id', $zeroLines->person_id));
+            $this->getJson(route('check-in.data', $this->paging(['type' => $type, 'status' => 'incomplete'])))
+                ->assertOk()->assertJsonPath('recordsFiltered', 2)->assertJsonCount(2, 'data')
+                ->assertJsonPath('data.0.person_id', $noPass->person_id)
+                ->assertJsonPath('data.1.person_id', $pending->person_id);
+            $this->get(route('check-in.index', ['type' => $type]))
+                ->assertInertia(fn (Assert $page) => $page
+                    ->where('filters.status', 'incomplete')->has('people.data', 2)
+                    ->where('people.data.0.person_id', $noPass->person_id)
+                    ->where('people.data.1.person_id', $pending->person_id));
+            $page = app(CheckInPeopleQuery::class)->paginate($event->id, null, '', 'complete', $type);
+            $this->assertSame(2, $page->total());
+            $this->assertSame([$issued->person_id, $zeroLines->person_id], $page->getCollection()->pluck('person_id')->all());
+        }
+        $this->getJson(route('check-in.data', $this->paging(['search' => 'No pass'])))
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.person_id', $noPass->person_id)
+            ->assertJsonPath('data.0.check_in_status', 'no_pass');
     }
 
     public function test_shared_page_distinguishes_no_pass_from_a_zero_line_pass(): void
@@ -457,6 +505,6 @@ class TeamCheckInTest extends TestCase
 
     private function paging(array $filters = []): array
     {
-        return [...['draw' => 1, 'start' => 0, 'length' => 25, 'type' => 'all'], ...$filters];
+        return [...['draw' => 1, 'start' => 0, 'length' => 25, 'type' => 'all', 'status' => 'all'], ...$filters];
     }
 }

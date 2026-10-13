@@ -35,6 +35,7 @@ class CheckInPersonResource extends JsonResource
     private function status(int $issued, int $expected): string
     {
         return match (true) {
+            ! (bool) $this->has_pass => 'no_pass',
             $expected === 0, $issued >= $expected => 'complete',
             $issued === 0 => 'not_started',
             default => 'partial',

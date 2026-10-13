@@ -23,9 +23,14 @@ const props = defineProps({
 
 const type = ref(props.filters.type ?? 'all');
 const pass = ref(props.filters.pass ? String(props.filters.pass) : '');
+const status = ref(
+    props.filters.status === 'complete' ? 'complete' : 'incomplete',
+);
+const statuses = ['incomplete', 'complete'];
 const search = ref(props.filters.search ?? '');
 const types = ['all', 'artist', 'vendor', 'patron', 'team'];
 const statusVariants = {
+    no_pass: 'neutral',
     not_started: 'neutral',
     partial: 'warning',
     complete: 'success',
@@ -83,7 +88,7 @@ const tableAjax = {
             checkInQuery({
                 type: type.value,
                 pass: pass.value,
-
+                status: status.value,
                 search: search.value,
             }),
         );
@@ -101,7 +106,7 @@ const applyFilters = () => {
         checkInQuery({
             type: type.value,
             pass: pass.value,
-
+            status: status.value,
             search: search.value,
         }),
         {
@@ -112,14 +117,7 @@ const applyFilters = () => {
     );
 };
 
-const scanQr = () => {
-    const code = window.prompt(trans('check_in.scan_prompt'));
-
-    if (code === null) return;
-    search.value = code;
-};
-
-watch([type, pass], applyFilters);
+watch([type, pass, status], applyFilters);
 watch(search, () => {
     window.clearTimeout(searchTimer);
     searchTimer = window.setTimeout(applyFilters, 300);
@@ -136,11 +134,8 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer));
             <h1 class="m-0 text-2xl font-bold tracking-tight">
                 {{ $t('check_in.title') }}
             </h1>
-            <p class="mt-1 mb-0 text-sm text-muted">
+            <p class="mt-1 mb-5 text-sm text-muted">
                 {{ $t('check_in.lead') }}
-            </p>
-            <p class="mt-1 mb-5 text-xs text-muted/70">
-                {{ $t('check_in.shift_note') }}
             </p>
 
             <div class="mb-3 flex flex-wrap items-center gap-2">
@@ -177,6 +172,28 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer));
                         </option>
                     </Select>
                 </div>
+                <div
+                    class="ml-2 flex items-center gap-2"
+                    role="group"
+                    :aria-label="$t('check_in.columns.status')"
+                >
+                    <span class="mr-1 text-xs font-bold text-muted">
+                        {{ $t('check_in.columns.status') }}
+                    </span>
+                    <Button
+                        v-for="value in statuses"
+                        :key="value"
+                        size="sm"
+                        :variant="
+                            status === value ? 'outline-secondary' : 'outline'
+                        "
+                        :aria-pressed="status === value"
+                        class="rounded-full font-normal"
+                        @click="status = value"
+                    >
+                        {{ $t(`check_in.status.${value}`) }}
+                    </Button>
+                </div>
             </div>
 
             <div class="mb-3 flex flex-wrap items-center gap-2">
@@ -197,18 +214,7 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer));
                         :aria-label="$t('check_in.filters.search_placeholder')"
                     />
                 </form>
-                <Button
-                    variant="outline"
-                    @click="scanQr"
-                >
-                    <Icon :name="['fas', 'qrcode']" />
-                    {{ $t('check_in.filters.scan_qr') }}
-                </Button>
             </div>
-
-            <p class="mt-0 mb-4 text-xs text-muted">
-                {{ $t('check_in.results_note') }}
-            </p>
 
             <DataTable
                 :key="JSON.stringify(filters)"

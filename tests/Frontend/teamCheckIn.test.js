@@ -106,6 +106,8 @@ test('Team no-pass banner appears only when no pass is held, including zero-line
             const text = document.querySelector('#app').textContent;
             assert.doesNotMatch(text, /Team member|Hired|Select a person/);
             assert.equal(text.includes(locale['check_in.no_pass_banner']), !hasPass);
+            assert.equal(text.includes(locale['check_in.status.complete']), hasPass);
+            assert.ok(text.includes(locale[hasPass ? 'check_in.status.complete' : 'check_in.status.no_pass']));
             assert.ok(text.includes(locale['artists.check_in.no_entitlements']));
             assert.ok(text.includes('Hidden for your role'));
             assert.ok(!text.includes(locale['artists.check_in.primary_contact']));
