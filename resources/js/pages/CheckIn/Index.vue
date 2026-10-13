@@ -42,7 +42,11 @@ const columns = computed(() => [
         title: trans('check_in.columns.person'),
         render: { display: '#personCell' },
     },
-    { data: 'pass_name', title: trans('check_in.columns.pass') },
+    {
+        data: 'pass_name',
+        title: trans('check_in.columns.pass'),
+        render: { display: '#passCell' },
+    },
     { data: 'context', title: trans('check_in.columns.context') },
     {
         data: 'check_in_status',
@@ -226,28 +230,6 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer));
                                 >
                                     {{ rowData.name }}
                                 </Link>
-                                <span
-                                    v-if="
-                                        rowData.type === 'team' &&
-                                        !rowData.has_pass
-                                    "
-                                    class="inline-flex"
-                                    @click.stop
-                                >
-                                    <Tooltip :label="$t('check_in.no_pass')">
-                                        <Icon
-                                            :name="[
-                                                'fas',
-                                                'triangle-exclamation',
-                                            ]"
-                                            class="text-warning"
-                                            size="sm"
-                                        />
-                                        <template #content>{{
-                                            $t('check_in.no_pass')
-                                        }}</template>
-                                    </Tooltip>
-                                </span>
                             </div>
                             <span class="block text-xs text-muted">
                                 <HiddenPersonalInfo
@@ -257,6 +239,25 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer));
                             </span>
                         </div>
                     </div>
+                </template>
+                <template #passCell="{ rowData }">
+                    <span
+                        v-if="rowData.type === 'team' && !rowData.has_pass"
+                        class="inline-flex"
+                        @click.stop
+                    >
+                        <Tooltip :label="$t('check_in.no_pass')">
+                            <Icon
+                                :name="['fas', 'triangle-exclamation']"
+                                class="text-warning"
+                                size="lg"
+                            />
+                            <template #content>{{
+                                $t('check_in.no_pass')
+                            }}</template>
+                        </Tooltip>
+                    </span>
+                    <span v-else>{{ rowData.pass_name }}</span>
                 </template>
                 <template #statusCell="{ rowData }">
                     <Badge
