@@ -38,6 +38,9 @@ class DatabaseSeederTest extends TestCase
         $this->assertSame($event->id, $user->current_event_id);
         $this->assertTrue($user->is_admin);
         $this->assertTrue($user->person->can_log_in);
+        $this->withoutVite();
+        $this->actingAs($user)->get(route('reports.index'))->assertOk();
+        $this->get(route('reports.meals.export'))->assertOk();
         $teamEngagement = $user->person
             ->teamEngagements()
             ->whereBelongsTo($event)

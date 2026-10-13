@@ -220,14 +220,38 @@ class MealTypesTest extends TestCase
         $this->assertEqualsCanonicalizing(['meals.edit', 'meals.view'], $role->permissions);
         foreach (['settings.roles.create', 'settings.roles.edit'] as $routeName) {
             $this->get(route($routeName, $routeName === 'settings.roles.edit' ? $role : []))
-                ->assertInertia(fn (Assert $page) => $page->has('permissionGroups.meals', 5)
+                ->assertInertia(fn (Assert $page) => $page->has('permissionGroups.meals', 6)
                     ->where('permissionGroups.meals.0.label', 'View meals')
                     ->where('permissionGroups.meals.1.includes', ['meals.view'])
                     ->where('permissionGroups.meals.2.key', 'meals.claim')
                     ->where('permissionGroups.meals.2.includes', ['meals.view'])
                     ->where('permissionGroups.meals.3.key', 'meals.override')
-                    ->where('permissionGroups.meals.4.key', 'meals.undo_claim'));
+                    ->where('permissionGroups.meals.4.key', 'meals.undo_claim')
+                    ->where('permissionGroups.meals.5.key', 'meals.report.view')
+                    ->where('permissionGroups.meals.5.label', 'View meal report')
+                    ->where('permissionGroups.meals.5.tooltip', 'The meal report under Kitchen, and its export.')
+                    ->where('permissionGroups.meals.5.includes', [])
+                    ->where('permissionGroups.meals.0.tooltip', 'The Kitchen page and Kitchen settings.'));
         }
+    }
+
+    public function test_meal_report_permission_round_trips_independently_of_view_meals(): void
+    {
+        $this->grantAdminAccess($this->user);
+        $this->post(route('settings.roles.store'), ['name' => 'Meal reporter', 'permissions' => ['meals.report.view']])
+            ->assertSessionHasNoErrors();
+        $role = Role::where('name', 'Meal reporter')->sole();
+        $this->assertSame(['meals.report.view'], $role->permissions);
+
+        $this->put(route('settings.roles.update', $role), [
+            'name' => 'Meal reporter', 'permissions' => ['meals.view', 'meals.report.view'],
+        ])->assertSessionHasNoErrors();
+        $this->assertEqualsCanonicalizing(['meals.view', 'meals.report.view'], $role->fresh()->permissions);
+
+        $this->put(route('settings.roles.update', $role), [
+            'name' => 'Meal reporter', 'permissions' => ['meals.view'],
+        ])->assertSessionHasNoErrors();
+        $this->assertSame(['meals.view'], $role->fresh()->permissions);
     }
 
     public function test_database_uniqueness_is_event_scoped_and_case_insensitive(): void
