@@ -173,26 +173,28 @@ const navItems = computed(() =>
         },
     ]
         .map((item) => {
-            if (item.key !== 'team') return item;
+            if (!['team', 'meals'].includes(item.key)) return item;
             const children = item.children.filter(
                 (child) =>
                     page.props.permissions?.[
                         {
                             'team.scheduling': 'scheduling.view',
                             'team.forms': 'forms.view',
-                        }[child.key] ?? 'team.view'
+                            'meals.report': 'meals.report.view',
+                        }[child.key] ??
+                            (item.key === 'meals' ? 'meals.view' : 'team.view')
                     ],
             );
             return { ...item, children, href: children[0]?.href };
         })
         .filter((item) => {
-            if (item.key === 'team') return item.children.length > 0;
+            if (['team', 'meals'].includes(item.key))
+                return item.children.length > 0;
             const permission = {
                 artists: 'artists.view',
                 vendors: 'vendors.view',
                 check_in: 'checkin.view',
                 patrons: 'patrons.view',
-                meals: 'meals.view',
             }[item.key];
             return item.key === 'credentials'
                 ? user.value?.is_admin
