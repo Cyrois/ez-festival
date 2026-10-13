@@ -325,10 +325,11 @@ class DatabaseAuditRegressionTest extends TestCase
                 $ledgerQueries[] = strtolower($query->sql);
             }
         });
-        $this->actingAs($user)->get(route('check-in.show', $engagement))->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->has('engagement.people.0.entitlements.0.locations', 1)
-                ->where('engagement.people.0.entitlements.0.locations.0.name', 'Available')
-                ->where('engagement.people.0.entitlements.0.locations.0.in_stock', 26));
+        $this->actingAs($user)->getJson(route('check-in.entitlements', [
+            'draw' => 1, 'start' => 0, 'length' => 25, 'type' => 'artist',
+            'engagement_id' => $engagement->id, 'person_id' => $person->id,
+        ]))->assertOk()->assertJsonCount(1, 'data.0.locations')
+            ->assertJsonPath('data.0.locations.0.name', 'Available')->assertJsonPath('data.0.locations.0.in_stock', 26);
         $this->assertCount(1, $ledgerQueries);
         $this->assertStringContainsString('sum(delta)', $ledgerQueries[0]);
         $this->assertStringContainsString('group by', $ledgerQueries[0]);

@@ -301,6 +301,26 @@ class PostgresWriteConcurrencyTest extends TestCase
         app(EventService::class)->delete($event);
     }
 
+    public function test_team_consumption_waits_for_status_change_and_rechecks_hired_status(): void
+    {
+        [$event, $user, $member] = $this->mealContext();
+        $pass = $event->passTypes()->create(['name' => 'Crew']);
+        $item = $event->entitlementItems()->create(['name' => 'Crew wristband']);
+        $location = $event->locations()->firstOrFail();
+        $item->adjustments()->create(['location_id' => $location->id, 'delta' => 2]);
+        $assignment = $member->passAssignments()->create(['pass_type_id' => $pass->id, 'person_id' => $member->person_id]);
+        $expected = $assignment->expectedEntitlements()->create(['entitlement_item_id' => $item->id]);
+        $expected->load('passAssignment.teamEngagement');
+        $results = $this->concurrently(
+            fn () => app(TeamEngagementService::class)->updateStatus($member, 'reviewing'),
+            fn () => app(EntitlementConsumeService::class)->consume($expected, $user, $location->id),
+        );
+        $this->assertSame(['committed', 'http_404'], array_column($results, 'status'), json_encode($results));
+        $this->assertSame(0, $expected->issuedEntitlement()->count());
+        $this->assertSame(2, app(EntitlementItemService::class)->balanceForLocation($item, $location->id));
+        app(EventService::class)->delete($event);
+    }
+
     private function mealContext(): array
     {
         $event = app(EventService::class)->create(['name' => 'Meal race', 'starts_on' => '2026-10-01', 'ends_on' => '2026-10-03', 'timezone' => 'UTC']);

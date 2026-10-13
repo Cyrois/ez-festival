@@ -268,8 +268,8 @@ class EventPermissionsTest extends TestCase
             $this->assertStringNotContainsString($privatePerson->email, $hidden->getContent());
             $this->assertStringNotContainsString($privatePerson->phone, $hidden->getContent());
             $this->get(route('check-in.index'))->assertInertia(fn (Assert $page) => $page
-                ->where('people.data.0.can_edit', $area === 'artists')
-                ->where('people.data.1.can_edit', $area === 'vendors'));
+                ->where('people.data', fn ($rows) => collect($rows)->firstWhere('type', 'artist')['can_edit'] === ($area === 'artists')
+                    && collect($rows)->firstWhere('type', 'vendor')['can_edit'] === ($area === 'vendors')));
         }
     }
 

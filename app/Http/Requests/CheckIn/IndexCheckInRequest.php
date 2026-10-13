@@ -24,7 +24,7 @@ class IndexCheckInRequest extends FormRequest
                 'integer',
                 Rule::exists('pass_types', 'id')->where('event_id', $eventId),
             ],
-            'status' => ['sometimes', Rule::in(['all', 'not_started', 'partial', 'complete'])],
+            'status' => ['sometimes', Rule::in(['all', 'not_started', 'partial', 'complete', 'incomplete'])],
             'search' => ['nullable', 'string', 'max:255'],
         ];
     }
