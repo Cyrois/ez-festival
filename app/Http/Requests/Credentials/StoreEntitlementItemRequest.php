@@ -11,7 +11,8 @@ class StoreEntitlementItemRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Gate::allows('credentials.entitlements.edit');
+        return Gate::allows('credentials.entitlements.edit')
+            && ((int) $this->input('opening_balance', 0) <= 0 || Gate::allows('credentials.stock.adjust'));
     }
 
     protected function prepareForValidation(): void
@@ -33,7 +34,7 @@ class StoreEntitlementItemRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'opening_balance' => ['required', 'integer', 'min:0', 'max:'.(Gate::allows('credentials.stock.adjust') ? 2147483647 : 0)],
+            'opening_balance' => ['required', 'integer', 'min:0', 'max:2147483647'],
             'location_id' => [
                 'nullable',
                 Rule::requiredIf(fn (): bool => (int) $this->input('opening_balance', 0) > 0),
