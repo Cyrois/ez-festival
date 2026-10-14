@@ -123,9 +123,16 @@ class CredentialsPermissionsTest extends TestCase
         $this->assertSame(0, $item->movements()->count());
         $this->post(route('credentials.entitlements.store', $this->event), [
             'name' => 'Unauthorized opening', 'opening_balance' => 1, 'location_id' => $location->id,
-        ])->assertSessionHasErrors('opening_balance');
+        ])->assertForbidden();
         $this->assertDatabaseMissing('entitlement_items', ['name' => 'Unauthorized opening']);
         $this->assertDatabaseCount('stock_movements', 0);
+        $this->post(route('credentials.entitlements.store', $this->event), [
+            'name' => 'Negative opening', 'opening_balance' => -1,
+        ])->assertSessionHasErrors('opening_balance');
+        $this->put(route('credentials.entitlements.update', [$this->event, $item]), [
+            'name' => 'Renamed zero stock', 'opening_balance' => 10, 'location_id' => $location->id,
+        ])->assertSessionHasNoErrors();
+        $this->assertSame(0, $item->movements()->count());
         $this->get(route('credentials.entitlements.show', $item, false).'?adjust=1&loc='.$location->id)
             ->assertInertia(fn (Assert $page) => $page->where('canEditItems', true)->where('canAdjustStock', false)
                 ->where('is_read_only', false)->where('open_adjust', false));
@@ -145,6 +152,9 @@ class CredentialsPermissionsTest extends TestCase
         $this->post(route('credentials.entitlements.store', $this->event), ['name' => 'Missing location', 'opening_balance' => 1])
             ->assertSessionHasErrors('location_id');
         $this->assertDatabaseMissing('entitlement_items', ['name' => 'Missing location']);
+        $this->post(route('credentials.entitlements.store', $this->event), [
+            'name' => 'Excessive opening', 'opening_balance' => 2147483648, 'location_id' => $location->id,
+        ])->assertSessionHasErrors('opening_balance');
         $this->put(route('credentials.entitlements.update', [$this->event, $item]), [
             'name' => 'Renamed', 'opening_balance' => 99,
         ])->assertSessionHasNoErrors();
