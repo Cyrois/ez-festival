@@ -7,11 +7,13 @@ import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
 import { LabelCombobox } from '../../components/ui/label-combobox';
-import { Select } from '../../components/ui/select';
+import { CustomDropdown } from '../../components/ui/custom-dropdown';
+import { Dialog } from '../../components/ui/dialog';
+import { toastFormErrors } from '../../lib/fieldError';
 import { Textarea } from '../../components/ui/textarea';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { useForm } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
 const props = defineProps({
@@ -37,7 +39,7 @@ const form = useForm({
         ]),
     ),
 });
-const { showFormError } = useFlashToast();
+const { showError, showFormError } = useFlashToast();
 const breadcrumbs = computed(() => [
     { label: trans('nav.credentials'), href: '/credentials/passes' },
     { label: trans('credentials.passes.title'), href: '/credentials/passes' },
@@ -48,6 +50,30 @@ const breadcrumbs = computed(() => [
     },
 ]);
 
+const deleteOpen = ref(false);
+const deleteForm = useForm({});
+const entitlementOptions = computed(() =>
+    props.entitlementItems.map((item) => ({
+        value: item.id,
+        title: item.name,
+    })),
+);
+const destroyPass = () => {
+    if (!props.pass) return;
+    deleteForm.delete(
+        `/events/${props.event.id}/credentials/passes/${props.pass.id}`,
+        {
+            onError: (errors) =>
+                toastFormErrors(deleteForm, errors, {
+                    showError,
+                    showFormError,
+                }),
+            onSuccess: () => {
+                deleteOpen.value = false;
+            },
+        },
+    );
+};
 const isEditing = computed(() => props.pass !== null);
 const pageTitle = computed(() =>
     isEditing.value
@@ -74,7 +100,10 @@ const removeEntitlement = (index) => {
 };
 
 const submit = () => {
-    const options = { onError: showFormError };
+    const options = {
+        onError: (errors) =>
+            toastFormErrors(form, errors, { showError, showFormError }),
+    };
 
     if (isEditing.value) {
         form.put(
@@ -94,8 +123,16 @@ const submit = () => {
         :breadcrumbs="breadcrumbs"
         compact-mobile-header
     >
-        <div class="w-full">
+        <div class="container mx-auto">
             <div class="mb-6">
+                <Button
+                    v-if="isEditing"
+                    variant="danger"
+                    class="float-right ml-4"
+                    :disabled="deleteForm.processing"
+                    @click="deleteOpen = true"
+                    >{{ $t('credentials.passes.actions.delete') }}</Button
+                >
                 <h1 class="m-0 text-2xl font-bold tracking-tight">
                     {{ pageTitle }}
                 </h1>
@@ -259,26 +296,24 @@ const submit = () => {
                                     :required="field.required"
                                 >
                                     <template #default="{ id, invalid }">
-                                        <Select
+                                        <CustomDropdown
                                             :id="id"
                                             v-model="
                                                 form.custom_fields[field.id]
                                             "
                                             :invalid="invalid"
-                                        >
-                                            <option value="">
-                                                {{
-                                                    $t('ui.select.placeholder')
-                                                }}
-                                            </option>
-                                            <option
-                                                v-for="option in field.options"
-                                                :key="option"
-                                                :value="option"
-                                            >
-                                                {{ option }}
-                                            </option>
-                                        </Select>
+                                            :items="
+                                                (field.options ?? []).map(
+                                                    (option) => ({
+                                                        value: option,
+                                                        title: option,
+                                                    }),
+                                                )
+                                            "
+                                            :placeholder="
+                                                $t('ui.select.placeholder')
+                                            "
+                                        />
                                     </template>
                                 </FormField>
                                 <FormField
@@ -325,23 +360,16 @@ const submit = () => {
                                 :key="`${itemId}-${index}`"
                                 class="flex items-center gap-2"
                             >
-                                <Select
+                                <CustomDropdown
                                     v-model="form.entitlement_item_ids[index]"
                                     class="flex-1"
+                                    :items="entitlementOptions"
                                     :aria-label="
                                         $t(
                                             'credentials.passes.entitlements.item',
                                         )
                                     "
-                                >
-                                    <option
-                                        v-for="item in entitlementItems"
-                                        :key="item.id"
-                                        :value="item.id"
-                                    >
-                                        {{ item.name }}
-                                    </option>
-                                </Select>
+                                />
                                 <Button
                                     type="button"
                                     size="sm"
@@ -420,5 +448,17 @@ const submit = () => {
                 </Card>
             </form>
         </div>
+        <Dialog
+            v-if="isEditing"
+            v-model:open="deleteOpen"
+            :title="$t('credentials.passes.delete.title')"
+            :description="
+                $t('credentials.passes.delete.description', { name: pass.name })
+            "
+            :confirm-label="$t('credentials.passes.actions.delete')"
+            :cancel-label="$t('ui.dialog.cancel')"
+            :busy="deleteForm.processing"
+            @confirm="destroyPass"
+        />
     </AppLayout>
 </template>

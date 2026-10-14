@@ -14,7 +14,6 @@ use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Gate;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -214,13 +213,12 @@ class PassTypesTest extends TestCase
             ->assertSessionHasErrors('pass_type');
     }
 
-    public function test_destroy_without_manage_credentials_is_unauthorized(): void
+    public function test_destroy_without_the_matching_credentials_permission_is_unauthorized(): void
     {
         [$user, $event] = $this->createEventContext();
         $passType = $event->passTypes()->create(['name' => 'Artist']);
 
         $this->grantRoleAccess($user);
-        Gate::define('manage-credentials', fn (): bool => false);
 
         $this->actingAs($user)
             ->delete(route('credentials.passes.destroy', [$event, $passType]))

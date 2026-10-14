@@ -11,7 +11,7 @@ class StoreEntitlementItemRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Gate::allows('manage-credentials');
+        return Gate::allows('credentials.entitlements.edit');
     }
 
     protected function prepareForValidation(): void
@@ -23,15 +23,20 @@ class StoreEntitlementItemRequest extends FormRequest
         if (! $this->filled('location_id')) {
             $this->merge(['location_id' => null]);
         }
+
+        if (! $this->has('opening_balance')) {
+            $this->merge(['opening_balance' => 0]);
+        }
     }
 
     public function rules(): array
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'opening_balance' => ['required', 'integer', 'min:0', 'max:2147483647'],
+            'opening_balance' => ['required', 'integer', 'min:0', 'max:'.(Gate::allows('credentials.stock.adjust') ? 2147483647 : 0)],
             'location_id' => [
                 'nullable',
+                Rule::requiredIf(fn (): bool => (int) $this->input('opening_balance', 0) > 0),
                 'integer',
                 Rule::exists('locations', 'id')->where('event_id', $this->route('event')->id),
             ],
@@ -44,12 +49,8 @@ class StoreEntitlementItemRequest extends FormRequest
         ];
     }
 
-    public function withValidator($validator): void
+    public function messages(): array
     {
-        $validator->after(function ($validator): void {
-            if ((int) $this->input('opening_balance', 0) > 0 && ! $this->filled('location_id')) {
-                $validator->errors()->add('location_id', __('credentials.entitlements.errors.location_required'));
-            }
-        });
+        return ['location_id.required' => __('credentials.entitlements.errors.location_required')];
     }
 }

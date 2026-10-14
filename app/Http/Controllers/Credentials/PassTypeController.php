@@ -32,7 +32,7 @@ class PassTypeController extends Controller
 
     public function index(): Response
     {
-        Gate::authorize('view-credentials');
+        Gate::authorize('credentials.passes.edit');
         $event = $this->eventContext->requireCurrent(request()->user());
 
         return Inertia::render('Credentials/Passes', [

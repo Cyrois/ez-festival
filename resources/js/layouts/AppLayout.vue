@@ -1,4 +1,5 @@
 <script setup>
+import { credentialsHome } from '../lib/credentialsNavigation';
 import { Toast } from '../components/ui/toast';
 import { Icon } from '../components/ui/icon';
 import SidebarCollapseButton from '../components/navigation/SidebarCollapseButton.vue';
@@ -173,6 +174,24 @@ const navItems = computed(() =>
         },
     ]
         .map((item) => {
+            if (item.key === 'credentials') {
+                const permissions = page.props.permissions ?? {};
+                const children = item.children.filter((child) => {
+                    if (child.key === 'credentials.products')
+                        return user.value?.is_admin;
+                    if (child.key === 'credentials.passes')
+                        return permissions['credentials.passes.edit'];
+                    return (
+                        permissions['credentials.entitlements.edit'] ||
+                        permissions['credentials.stock.adjust']
+                    );
+                });
+                return {
+                    ...item,
+                    children,
+                    href: credentialsHome(permissions),
+                };
+            }
             if (!['team', 'meals'].includes(item.key)) return item;
             const children = item.children.filter(
                 (child) =>
@@ -188,7 +207,7 @@ const navItems = computed(() =>
             return { ...item, children, href: children[0]?.href };
         })
         .filter((item) => {
-            if (['team', 'meals'].includes(item.key))
+            if (['team', 'meals', 'credentials'].includes(item.key))
                 return item.children.length > 0;
             const permission = {
                 artists: 'artists.view',
@@ -196,9 +215,7 @@ const navItems = computed(() =>
                 check_in: 'checkin.view',
                 patrons: 'patrons.view',
             }[item.key];
-            return item.key === 'credentials'
-                ? user.value?.is_admin
-                : !permission || page.props.permissions?.[permission];
+            return !permission || page.props.permissions?.[permission];
         }),
 );
 

@@ -1736,5 +1736,18 @@
     "inventory.errors.invalid_movement": "This stock movement is not valid.",
     "inventory.errors.issue_unavailable": "This issued entitlement does not match the stock item.",
     "inventory.errors.reason_required": "Enter a reason for removing stock.",
-    "inventory.notes.seed_opening": "Seeded opening balance"
+    "inventory.notes.seed_opening": "Seeded opening balance",
+    "permissions.groups.credentials": "Credentials",
+    "permissions.credentials.passes.edit.label": "Create passes",
+    "permissions.credentials.passes.edit.tooltip": "Create, edit and delete passes on Credentials > Passes.",
+    "permissions.credentials.entitlements.edit.label": "Create entitlements",
+    "permissions.credentials.entitlements.edit.tooltip": "Create, edit and delete entitlement items on Credentials > Entitlements.",
+    "permissions.credentials.stock.adjust.label": "Add and remove stock",
+    "permissions.credentials.stock.adjust.tooltip": "Add stock to a location, or remove it with a reason (lost, damaged, counted wrong), on an entitlement's page.",
+    "credentials.passes.actions.delete": "Delete pass",
+    "credentials.passes.delete.title": "Delete pass?",
+    "credentials.passes.delete.description": "Delete :name? Passes with assignments cannot be deleted.",
+    "credentials.entitlements.actions.delete": "Delete item",
+    "credentials.entitlements.delete.title": "Delete entitlement item?",
+    "credentials.entitlements.delete.description": "Delete :name? Items with stock, pass references or issued entitlements cannot be deleted."
 }

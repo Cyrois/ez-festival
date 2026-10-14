@@ -13,6 +13,7 @@ use App\Http\Controllers\CheckInController;
 use App\Http\Controllers\CheckInDataTableController;
 use App\Http\Controllers\CheckInEntitlementDataTableController;
 use App\Http\Controllers\Credentials\EntitlementItemController;
+use App\Http\Controllers\Credentials\IssuedEntitlementController;
 use App\Http\Controllers\Credentials\PassTypeController;
 use App\Http\Controllers\Credentials\ProductsController;
 use App\Http\Controllers\CurrentEventController;
@@ -241,6 +242,8 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             ->name('credentials.entitlements.show');
         Route::get('credentials/entitlements/{entitlementItem}/edit', [EntitlementItemController::class, 'edit'])
             ->name('credentials.entitlements.edit');
+        Route::get('credentials/entitlements/{entitlementItem}/issued', [IssuedEntitlementController::class, 'index'])
+            ->name('credentials.entitlements.issued');
         Route::post('events/{event}/credentials/entitlements', [EntitlementItemController::class, 'store'])
             ->middleware('event.writable')
             ->name('credentials.entitlements.store');

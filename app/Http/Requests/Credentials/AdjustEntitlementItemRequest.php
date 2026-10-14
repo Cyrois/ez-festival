@@ -10,7 +10,7 @@ class AdjustEntitlementItemRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Gate::allows('manage-credentials');
+        return Gate::allows('credentials.stock.adjust');
     }
 
     protected function prepareForValidation(): void
