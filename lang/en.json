@@ -1749,5 +1749,13 @@
     "credentials.passes.delete.description": "Delete :name? Passes with assignments cannot be deleted.",
     "credentials.entitlements.actions.delete": "Delete item",
     "credentials.entitlements.delete.title": "Delete entitlement item?",
-    "credentials.entitlements.delete.description": "Delete :name? Items with stock, pass references or issued entitlements cannot be deleted."
+    "credentials.entitlements.delete.description": "Delete :name? Items with stock, pass references or issued entitlements cannot be deleted.",
+    "permissions.groups.inventory": "Inventory",
+    "permissions.inventory.pass_shift.label": "Pass stock within my shift",
+    "permissions.inventory.pass_shift.tooltip": "Pass stock you hold to Team members on your current shift.",
+    "permissions.inventory.pass_group.label": "Pass stock within my group",
+    "permissions.inventory.pass_group.tooltip": "Pass stock you hold to Team members in your Team group.",
+    "permissions.inventory.manage.label": "Manage inventory",
+    "permissions.inventory.manage.tooltip": "Manage locations, give stock from a location to people, take stock back from anyone, and see everyone's holdings and inventory reports. Doesn't include creating items or adding or removing stock. Includes Pass stock within my shift and Pass stock within my group.",
+    "settings.locations.current_event": "Manage locations for :name, your current event."
 }

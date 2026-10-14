@@ -60,8 +60,9 @@ class AppServiceProvider extends ServiceProvider
             });
         }
         Gate::define('view-entitlements', fn (User $user, ?Event $event = null): bool => Gate::forUser($user)->any([
-            'credentials.entitlements.edit', 'credentials.stock.adjust',
+            'credentials.entitlements.edit', 'credentials.stock.adjust', 'inventory.manage',
         ], $event));
+        Gate::define('manage-event-locations', fn (User $user, ?Event $event = null): bool => Gate::forUser($user)->allows('inventory.manage', $event));
         foreach (['manage-global-team', 'manage-roles', 'manage-feature-flags', 'view-credentials', 'admin'] as $ability) {
             Gate::define($ability, fn (User $user): bool => $user->isAdmin());
         }

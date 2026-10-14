@@ -152,7 +152,12 @@ const isPersonalNavActive = (key) =>
                         </SidebarNavItem>
                     </nav>
                 </div>
-                <div v-if="page.props.auth.user?.is_admin">
+                <div
+                    v-if="
+                        page.props.auth.user?.is_admin ||
+                        page.props.permissions?.['inventory.manage']
+                    "
+                >
                     <p
                         class="m-0 mb-2 px-2 text-[11px] font-bold tracking-wide text-muted uppercase"
                     >

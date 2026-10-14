@@ -3,7 +3,7 @@ import SettingsLayout from '../../layouts/SettingsLayout.vue';
 import { Button } from '../ui/button';
 import { Icon } from '../ui/icon';
 import { Tabs, TabList, Tab } from '../ui/tabs';
-import { Link, router } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
@@ -22,8 +22,10 @@ const props = defineProps({
     },
 });
 
+const page = usePage();
+const isAdmin = computed(() => page.props.auth.user?.is_admin === true);
 const showPrimaryBanner = computed(
-    () => props.forPrimary || props.event.is_active,
+    () => isAdmin.value && (props.forPrimary || props.event.is_active),
 );
 
 const breadcrumbs = computed(() => [
@@ -33,12 +35,11 @@ const breadcrumbs = computed(() => [
     },
     {
         label: trans('nav.settings'),
-        href: '/settings/events',
+        href: isAdmin.value ? '/settings/events' : '/settings/locations',
     },
-    {
-        label: trans('settings.events.title'),
-        href: '/settings/events',
-    },
+    ...(isAdmin.value
+        ? [{ label: trans('settings.events.title'), href: '/settings/events' }]
+        : []),
     {
         label: props.event.name,
     },
@@ -67,6 +68,7 @@ const onTabChange = (value) => {
     >
         <div class="mb-2">
             <Button
+                v-if="isAdmin"
                 href="/settings/events"
                 variant="ghost"
                 size="sm"
@@ -83,7 +85,13 @@ const onTabChange = (value) => {
                 {{ event.name }}
             </h1>
             <p class="mt-1 mb-0 text-sm text-muted">
-                {{ $t('settings.events.edit_lead') }}
+                {{
+                    isAdmin
+                        ? $t('settings.events.edit_lead')
+                        : $t('settings.locations.current_event', {
+                              name: event.name,
+                          })
+                }}
             </p>
         </div>
 
@@ -122,6 +130,7 @@ const onTabChange = (value) => {
         </div>
 
         <Tabs
+            v-if="isAdmin"
             class="mb-6"
             :model-value="tab"
             @update:model-value="onTabChange"

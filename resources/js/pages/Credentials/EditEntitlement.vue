@@ -600,7 +600,10 @@ const formatWhen = (value) =>
                 >
                     {{ $t('credentials.entitlements.fields.location_missing') }}
                     <a
-                        v-if="page.props.auth?.user?.is_admin"
+                        v-if="
+                            page.props.auth?.user?.is_admin ||
+                            page.props.permissions?.['inventory.manage']
+                        "
                         href="/settings/locations"
                         class="text-secondary hover:underline"
                     >

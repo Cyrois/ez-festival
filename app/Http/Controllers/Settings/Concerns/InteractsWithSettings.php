@@ -6,9 +6,23 @@ use App\Http\Resources\EventResource;
 use App\Models\Event;
 use App\Models\User;
 use App\Support\Timezones;
+use Illuminate\Support\Facades\Gate;
 
 trait InteractsWithSettings
 {
+    protected function locationCapabilities(Event $event): array
+    {
+        $canManage = Gate::allows('manage-event-locations', $event) && ! $event->isLocked();
+        $isAdmin = request()->user()->isAdmin();
+
+        return [
+            'canAddLocations' => $canManage,
+            'canRenameLocations' => $canManage,
+            'canDeleteLocations' => $isAdmin && ! $event->isLocked(),
+            'canEditLocationTypes' => $isAdmin,
+        ];
+    }
+
     /**
      * @return list<string>
      */

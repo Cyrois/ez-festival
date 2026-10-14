@@ -10,6 +10,7 @@ use App\Http\Requests\Settings\UpdateEventLocationRequest;
 use App\Models\Event;
 use App\Models\Location;
 use App\Services\EventLocationService;
+use App\Support\EventContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -23,12 +24,17 @@ class EventLocationController extends Controller
 
     public function index(Request $request, Event $event): Response
     {
+        if (! $request->user()->isAdmin()) {
+            app(EventContext::class)->requireCurrentEvent($request->user(), $event);
+        }
+
         return Inertia::render('Settings/Events/Locations', [
             'event' => $this->eventPayload($event),
             'locations' => $event->locations()
                 ->orderBy('id')
                 ->get(['id', 'name', 'type']),
             'tab' => 'locations',
+            ...$this->locationCapabilities($event),
         ]);
     }
 

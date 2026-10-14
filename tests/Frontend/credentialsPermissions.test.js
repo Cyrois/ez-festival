@@ -176,6 +176,9 @@ test('actual sidebar filters Credentials children and chooses the first usable d
         [{ 'credentials.passes.edit': true }, false, ['Passes']],
         [{ 'credentials.entitlements.edit': true }, false, ['Entitlements']],
         [{ 'credentials.stock.adjust': true }, false, ['Entitlements']],
+        [{ 'inventory.manage': true }, false, ['Entitlements']],
+        [{ 'inventory.pass_shift': true }, false, []],
+        [{ 'inventory.pass_group': true }, false, []],
         [{ 'credentials.passes.edit': true, 'credentials.entitlements.edit': true, 'credentials.stock.adjust': true }, true, ['Products', 'Passes', 'Entitlements']],
     ]) {
         state.page.props.permissions = permissions;
@@ -183,10 +186,38 @@ test('actual sidebar filters Credentials children and chooses the first usable d
         const app = mount(Layout, { title: 'Test' });
         try {
             const nav = document.querySelector('aside nav');
+            const settings = [...nav.querySelectorAll('a')].find((link) => link.textContent.trim() === 'Settings');
+            assert.equal(Boolean(settings), admin || Boolean(permissions['inventory.manage']));
+            if (settings) assert.equal(settings.getAttribute('href'), admin ? '/settings/events' : '/settings/locations');
             for (const name of ['Products', 'Passes', 'Entitlements']) assert.equal(nav.textContent.includes(name), expected.includes(name));
             const parent = [...nav.querySelectorAll('a')].find((link) => link.textContent.includes('Credentials'));
             if (!expected.length) assert.equal(parent, undefined);
             else assert.equal(parent.getAttribute('href'), permissions['credentials.passes.edit'] ? '/credentials/passes' : '/credentials/entitlements');
         } finally { app.unmount(); }
     }
+});
+
+test('inventory manager item view cannot edit, adjust, delete, or open a deep-linked stock popup', async () => {
+    state.page.props.permissions = { 'inventory.manage': true };
+    state.page.props.auth.user.is_admin = false;
+    const app = mount(Item, { ...itemProps, canEditItems: false, canAdjustStock: false, open_adjust: true, adjust_location_id: 2 });
+    try {
+        assert.equal(state.breadcrumbs[1].href, '/credentials/entitlements');
+        assert.ok(document.querySelector('#entitlement-details input').disabled);
+        assert.ok(document.querySelector('[data-label-picker]').disabled);
+        assert.equal(document.querySelector('[form="entitlement-details"]'), null);
+        assert.equal(document.querySelector('[data-dialog]'), null);
+        assert.doesNotMatch(document.body.textContent, /Delete item|Adjust stock/);
+        assert.equal(document.querySelector('[data-server-side="true"]').dataset.ajax, itemProps.issued_log_url);
+        assert.deepEqual(state.calls, []);
+    } finally { app.unmount(); }
+});
+
+test('inventory managers who can adjust stock can reach Locations from an empty stock popup', async () => {
+    state.page.props.permissions = { 'inventory.manage': true, 'credentials.stock.adjust': true };
+    state.page.props.auth.user.is_admin = false;
+    const app = mount(Item, { ...itemProps, canEditItems: false, canAdjustStock: true, open_adjust: true });
+    try {
+        assert.ok(document.querySelector('[data-dialog] a[href="/settings/locations"]'));
+    } finally { app.unmount(); }
 });
