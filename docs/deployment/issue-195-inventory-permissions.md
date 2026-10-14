@@ -1,9 +1,9 @@
 # Inventory permissions (#195)
 
 This change is stacked on #193 / PR #214 (`codex/credentials-role-permissions`,
-initially `4a91ecc`, updated through `b6a6939`). Merge #214 first, then retarget
-and merge the #195 PR into `main` after Calvin's approval. No schema migration, permission backfill, deployment
-downtime, or temporary nullability is introduced.
+initially `4a91ecc`, updated through `391d98f`). Merge #214 first, then retarget
+and merge the #195 PR into `main` after Calvin's approval. No schema migration,
+permission backfill, deployment downtime, or temporary nullability is introduced.
 
 Roles gain independent `inventory.pass_shift` and `inventory.pass_group`
 permissions. `inventory.manage` includes both, but grants neither Check people
@@ -29,6 +29,14 @@ check and its original admin-only gate definition. The merge into #195 keeps
 that definition alongside the Inventory read and Locations gates, without
 granting additional role access. All 45 related regression tests, Pint,
 Prettier, and ESLint passed after this prerequisite update.
+
+The later #214 correction (`391d98f`) checks positive opening-stock permission
+in creation authorization, returning 403 without `credentials.stock.adjust`.
+Quantity validation uses the fixed integer/minimum-zero/maximum-2147483647
+range. Item updates independently authorize item editing and ignore stock
+fields. After merging this correction, all 65 affected Credentials,
+Entitlements, event/Inventory permissions, target, and Locations tests passed,
+as did Pint, formatting, and lint. The #195 feature scope is unchanged.
 
 ## Receiver and manager queries
 
