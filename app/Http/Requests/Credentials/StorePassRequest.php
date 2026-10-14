@@ -14,7 +14,7 @@ class StorePassRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Gate::allows('manage-credentials');
+        return Gate::allows('credentials.passes.edit');
     }
 
     protected function prepareForValidation(): void

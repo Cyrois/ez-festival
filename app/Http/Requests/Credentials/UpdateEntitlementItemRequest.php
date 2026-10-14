@@ -2,8 +2,15 @@
 
 namespace App\Http\Requests\Credentials;
 
+use Illuminate\Support\Facades\Gate;
+
 class UpdateEntitlementItemRequest extends StoreEntitlementItemRequest
 {
+    public function authorize(): bool
+    {
+        return Gate::allows('credentials.entitlements.edit');
+    }
+
     public function rules(): array
     {
         $rules = parent::rules();

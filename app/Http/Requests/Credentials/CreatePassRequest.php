@@ -9,7 +9,7 @@ class CreatePassRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Gate::allows('manage-credentials');
+        return Gate::allows('credentials.passes.edit');
     }
 
     public function rules(): array

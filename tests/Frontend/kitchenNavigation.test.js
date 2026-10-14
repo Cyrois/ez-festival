@@ -26,6 +26,7 @@ for (const name of ['Toast', 'Icon', 'SidebarCollapseButton', 'UserAccountContro
     source = source.replace(new RegExp(`import (?:\\{ ${name} \\}|${name}) from ['"].*?['"];?`), `const ${name} = { render: () => null };`);
 }
 source = source
+    .replace(/from ['"]\.\.\/lib\/credentialsNavigation['"]/, `from '${new URL('../../resources/js/lib/credentialsNavigation.js', import.meta.url).href}'`)
     .replace(/import SidebarNavItem from ['"].*?['"];?/, `import SidebarNavItem from '${sidebarItem}';`)
     .replace(/import \{ useInertiaErrorToast \} from ['"].*?['"];?/, 'const useInertiaErrorToast = () => {};')
     .replace(/import \{[^}]*\} from ['"]\.\.\/composables\/useSidebarCollapsed['"];?/, 'const useSidebarCollapsed = () => ref(globalThis.kitchenNavigationCollapsed); const shouldUseCompactSidebar = (collapsed, hovered) => collapsed && !hovered;')

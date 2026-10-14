@@ -59,7 +59,10 @@ class AppServiceProvider extends ServiceProvider
                 return app(EventAccessService::class)->allows($user, $permission, $event);
             });
         }
-        foreach (['manage-global-team', 'manage-roles', 'manage-feature-flags', 'view-credentials', 'manage-credentials', 'admin'] as $ability) {
+        Gate::define('view-entitlements', fn (User $user, ?Event $event = null): bool => Gate::forUser($user)->any([
+            'credentials.entitlements.edit', 'credentials.stock.adjust',
+        ], $event));
+        foreach (['manage-global-team', 'manage-roles', 'manage-feature-flags', 'view-credentials', 'admin'] as $ability) {
             Gate::define($ability, fn (User $user): bool => $user->isAdmin());
         }
     }

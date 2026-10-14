@@ -5,14 +5,11 @@ namespace App\Http\Controllers\Credentials;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Credentials\AdjustEntitlementItemRequest;
 use App\Http\Requests\Credentials\DestroyEntitlementItemRequest;
-use App\Http\Requests\Credentials\EditEntitlementItemRequest;
 use App\Http\Requests\Credentials\StoreEntitlementItemRequest;
 use App\Http\Requests\Credentials\UpdateEntitlementItemRequest;
 use App\Http\Resources\EntitlementItemResource;
-use App\Http\Resources\IssuedEntitlementResource;
 use App\Models\EntitlementItem;
 use App\Models\Event;
-use App\Models\IssuedEntitlement;
 use App\Services\EntitlementItemService;
 use App\Support\EventContext;
 use App\Support\LabelColors;
@@ -30,7 +27,7 @@ class EntitlementItemController extends Controller
 
     public function index(): Response
     {
-        Gate::authorize('view-credentials');
+        Gate::authorize('view-entitlements');
         $event = $this->eventContext->requireCurrent(request()->user());
 
         return Inertia::render('Credentials/Entitlements', [
@@ -40,22 +37,16 @@ class EntitlementItemController extends Controller
             'labels' => $event->entitlementItemLabels()->orderBy('name')->get(['id', 'name', 'color']),
             'labelColors' => LabelColors::ALL,
             'locations' => $event->locations()->orderBy('name')->get(['id', 'name']),
-            'canWrite' => ! $event->isLocked() && Gate::allows('manage-credentials'),
+            'canWrite' => ! $event->isLocked(),
+            'canEditItems' => Gate::allows('credentials.entitlements.edit', $event),
+            'canAdjustStock' => Gate::allows('credentials.stock.adjust', $event),
         ]);
     }
 
     public function show(EntitlementItem $entitlementItem): Response
     {
-        Gate::authorize('view-credentials');
+        Gate::authorize('view-entitlements');
         $event = $this->eventContext->requireCurrent(request()->user());
-        abort_unless($entitlementItem->event_id === $event->id, 404);
-
-        return Inertia::render('Credentials/EditEntitlement', $this->pageProps($event, $entitlementItem));
-    }
-
-    public function edit(EditEntitlementItemRequest $request, EntitlementItem $entitlementItem): Response
-    {
-        $event = $this->eventContext->requireCurrent($request->user());
         abort_unless($entitlementItem->event_id === $event->id, 404);
 
         return Inertia::render('Credentials/EditEntitlement', $this->pageProps($event, $entitlementItem));
@@ -79,7 +70,7 @@ class EntitlementItemController extends Controller
 
         return $this->redirectWithSuccess(
             'credentials.entitlements.toast.updated',
-            route('credentials.entitlements.edit', $entitlementItem),
+            route('credentials.entitlements.show', $entitlementItem),
         );
     }
 
@@ -102,7 +93,7 @@ class EntitlementItemController extends Controller
 
         return $this->redirectWithSuccess(
             'credentials.entitlements.toast.adjusted',
-            route('credentials.entitlements.edit', $entitlementItem),
+            route('credentials.entitlements.show', $entitlementItem),
         );
     }
 
@@ -148,13 +139,7 @@ class EntitlementItemController extends Controller
                 'issued' => $this->items->issuedCount($item),
             ],
             'locations' => $locations,
-            'issued_log' => IssuedEntitlementResource::collection(
-                IssuedEntitlement::query()
-                    ->where('entitlement_item_id', $item->id)
-                    ->with(['expectedEntitlement.passAssignment.passType', 'issuedBy'])
-                    ->latest('issued_at')
-                    ->get(),
-            )->resolve(),
+            'issued_log_url' => route('credentials.entitlements.issued', $item),
             'pass_usage' => $this->items->passLineUsage($item),
             'locations_for_adjust' => $eventLocations
                 ->map(fn ($location): array => [
@@ -165,8 +150,11 @@ class EntitlementItemController extends Controller
             'adjust_location_id' => $locations->contains('id', $requestedLocationId)
                 ? $requestedLocationId
                 : null,
-            'open_adjust' => request()->boolean('adjust') || $requestedLocationId > 0,
-            'is_read_only' => $event->isLocked() || ! Gate::allows('manage-credentials'),
+            'open_adjust' => ! $event->isLocked() && Gate::allows('credentials.stock.adjust', $event)
+                && (request()->boolean('adjust') || $requestedLocationId > 0),
+            'is_read_only' => $event->isLocked(),
+            'canEditItems' => Gate::allows('credentials.entitlements.edit', $event),
+            'canAdjustStock' => Gate::allows('credentials.stock.adjust', $event),
         ];
     }
 

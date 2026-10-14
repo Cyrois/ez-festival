@@ -13,7 +13,6 @@ use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Gate;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -101,7 +100,7 @@ class EntitlementItemsTest extends TestCase
         $this->put(route('credentials.entitlements.update', [$event, $item]), [
             'name' => 'Artist wristband',
             'label_ids' => [],
-        ])->assertRedirect(route('credentials.entitlements.edit', $item));
+        ])->assertRedirect(route('credentials.entitlements.show', $item));
         $this->get(route('credentials.entitlements'))->assertInertia(
             fn (Assert $page) => $page->where('items.0.name', 'Artist wristband'),
         );
@@ -110,7 +109,7 @@ class EntitlementItemsTest extends TestCase
             'location_id' => $location->id,
             'direction' => 'add',
             'quantity' => 4,
-        ])->assertRedirect(route('credentials.entitlements.edit', $item));
+        ])->assertRedirect(route('credentials.entitlements.show', $item));
         $this->get(route('credentials.entitlements'))->assertInertia(
             fn (Assert $page) => $page->where('items.0.balance', 4),
         );
@@ -120,7 +119,7 @@ class EntitlementItemsTest extends TestCase
             'direction' => 'remove',
             'reason' => 'Count correction',
             'quantity' => 4,
-        ])->assertRedirect(route('credentials.entitlements.edit', $item));
+        ])->assertRedirect(route('credentials.entitlements.show', $item));
         $this->delete(route('credentials.entitlements.destroy', [$event, $item]))
             ->assertRedirect(route('credentials.entitlements'));
         $this->get(route('credentials.entitlements'))->assertInertia(
@@ -128,7 +127,7 @@ class EntitlementItemsTest extends TestCase
         );
     }
 
-    public function test_edit_page_exposes_live_quantities_locations_usage_and_issued_log(): void
+    public function test_item_page_exposes_live_quantities_locations_usage_and_issued_log(): void
     {
         [$user, $event] = $this->createEventContext();
         $headquarters = $event->locations()->create(['name' => 'Headquarters']);
@@ -161,7 +160,7 @@ class EntitlementItemsTest extends TestCase
             'issued_at' => now(),
         ]);
 
-        $this->actingAs($user)->get(route('credentials.entitlements.edit', $item))->assertInertia(
+        $this->actingAs($user)->get(route('credentials.entitlements.show', $item))->assertInertia(
             fn (Assert $page) => $page
                 ->component('Credentials/EditEntitlement')
                 ->where('event.id', $event->id)
@@ -177,11 +176,15 @@ class EntitlementItemsTest extends TestCase
                 ->where('locations.2.in_stock', 0)
                 ->where('pass_usage.0.pass_type_name', 'Artist')
                 ->where('pass_usage.0.line_count', 2)
-                ->where('issued_log.0.pass_name', 'Artist')
-                ->where('issued_log.0.code', 'WH-4812')
-                ->where('issued_log.0.issued_by.name', $user->name)
+                ->where('issued_log_url', route('credentials.entitlements.issued', $item))
+                ->missing('issued_log')
                 ->where('is_read_only', false),
         );
+        $this->getJson(route('credentials.entitlements.issued', [
+            'entitlementItem' => $item, 'draw' => 1, 'start' => 0, 'length' => 25,
+        ]))->assertOk()->assertJsonPath('data.0.pass_name', 'Artist')
+            ->assertJsonPath('data.0.code', 'WH-4812')
+            ->assertJsonPath('data.0.issued_by.name', $user->name);
     }
 
     public function test_create_writes_an_opening_adjustment_and_uses_event_item_labels(): void
@@ -240,7 +243,7 @@ class EntitlementItemsTest extends TestCase
             'reason' => 'Count correction',
             'quantity' => 2,
             'reason' => 'Damaged',
-        ])->assertRedirect(route('credentials.entitlements.edit', $item));
+        ])->assertRedirect(route('credentials.entitlements.show', $item));
 
         $this->assertSame(1, app(EntitlementItemService::class)->balance($item));
         $this->actingAs($user)->post(route('credentials.entitlements.adjustments.store', [$event, $item]), [
@@ -282,7 +285,7 @@ class EntitlementItemsTest extends TestCase
             'direction' => 'add',
             'quantity' => 10,
             'reason' => 'Initial stock',
-        ])->assertRedirect(route('credentials.entitlements.edit', $item));
+        ])->assertRedirect(route('credentials.entitlements.show', $item));
 
         $this->assertDatabaseHas('stock_movements', [
             'entitlement_item_id' => $item->id,
@@ -374,7 +377,7 @@ class EntitlementItemsTest extends TestCase
         $item = $event->entitlementItems()->create(['name' => 'Guest wristband']);
 
         $this->actingAs($user)
-            ->get(route('credentials.entitlements.edit', $item).'?loc='.$location->id)
+            ->get(route('credentials.entitlements.show', $item).'?loc='.$location->id)
             ->assertInertia(
                 fn (Assert $page) => $page
                     ->where('adjust_location_id', $location->id)
@@ -393,20 +396,20 @@ class EntitlementItemsTest extends TestCase
         $this->actingAs($user)->put(route('credentials.entitlements.update', [$event, $item]), [
             'name' => 'Artist wristband',
             'label_ids' => [$label->id],
-        ])->assertRedirect(route('credentials.entitlements.edit', $item));
+        ])->assertRedirect(route('credentials.entitlements.show', $item));
 
         $this->assertSame('Artist wristband', $item->fresh()->name);
         $this->assertTrue($item->labels()->whereKey($label)->exists());
         $this->assertSame(10, app(EntitlementItemService::class)->balance($item));
     }
 
-    public function test_locked_event_edit_page_is_read_only(): void
+    public function test_locked_event_item_page_is_read_only(): void
     {
         [$user, $event] = $this->createEventContext();
         $item = $event->entitlementItems()->create(['name' => 'Guest wristband']);
         $event->lock();
 
-        $this->actingAs($user)->get(route('credentials.entitlements.edit', $item))->assertInertia(
+        $this->actingAs($user)->get(route('credentials.entitlements.show', $item))->assertInertia(
             fn (Assert $page) => $page
                 ->component('Credentials/EditEntitlement')
                 ->where('is_read_only', true),
@@ -427,7 +430,7 @@ class EntitlementItemsTest extends TestCase
         ])->assertForbidden();
     }
 
-    public function test_credentials_pages_are_admin_only(): void
+    public function test_credentials_pages_require_a_credentials_permission(): void
     {
         [$user, $event] = $this->createEventContext();
         $item = $event->entitlementItems()->create(['name' => 'Guest wristband']);
@@ -436,13 +439,12 @@ class EntitlementItemsTest extends TestCase
         $this->get(route('credentials.entitlements'))->assertForbidden();
     }
 
-    public function test_destroy_without_manage_credentials_is_unauthorized(): void
+    public function test_destroy_without_the_matching_credentials_permission_is_unauthorized(): void
     {
         [$user, $event] = $this->createEventContext();
         $item = $event->entitlementItems()->create(['name' => 'Guest wristband']);
 
         $this->grantRoleAccess($user);
-        Gate::define('manage-credentials', fn (): bool => false);
 
         $this->actingAs($user)
             ->delete(route('credentials.entitlements.destroy', [$event, $item]))
