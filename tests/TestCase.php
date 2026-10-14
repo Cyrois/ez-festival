@@ -2,6 +2,7 @@
 
 namespace Tests;
 
+use App\Enums\StockMovement as StockMovementType;
 use App\Models\EntitlementItem;
 use App\Models\Event;
 use App\Models\Location;
@@ -22,7 +23,7 @@ abstract class TestCase extends BaseTestCase
         return $item->movements()->create([
             'event_id' => $item->event_id,
             'quantity' => abs($delta),
-            'type' => $delta > 0 ? StockMovement::ADD : StockMovement::REMOVE,
+            'type' => $delta > 0 ? StockMovementType::Add : StockMovementType::Remove,
             'from_holder_id' => $delta < 0 ? $holder->id : null,
             'to_holder_id' => $delta > 0 ? $holder->id : null,
             'actor_user_id' => $actor?->id ?? User::query()->value('id'),

@@ -2,12 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Enums\StockMovement as StockMovementType;
 use App\Models\EntitlementItem;
 use App\Models\Event;
 use App\Models\ExpectedEntitlement;
 use App\Models\Person;
 use App\Models\StockHolder;
-use App\Models\StockMovement;
 use App\Models\User;
 use App\Services\EntitlementConsumeService;
 use App\Services\EntitlementItemService;
@@ -41,16 +41,16 @@ class StockMovementsTest extends TestCase
         [$event, $actor, $item, $location, $person] = $this->context();
         $stocks = app(StockMovementService::class);
         $recipient = $stocks->forPerson($event, Person::create(['name' => 'Recipient', 'email' => 'recipient@example.test']));
-        $stocks->move($item, StockMovement::ADD, 10, null, $location, $actor);
-        $stocks->move($item, StockMovement::PULL, 4, $location, $person, $actor);
-        $stocks->move($item, StockMovement::TRANSFER, 2, $person, $recipient, $actor);
-        $stocks->move($item, StockMovement::RETURN, 1, $recipient, $location, $actor);
-        $takeBack = $stocks->move($item, StockMovement::TAKE_BACK, 1, $recipient, $person, $actor, '  Leftovers  ');
-        $stocks->move($item, StockMovement::RETURN, 1, $person, $location, $actor);
+        $stocks->move($item, StockMovementType::Add, 10, null, $location, $actor);
+        $stocks->move($item, StockMovementType::Pull, 4, $location, $person, $actor);
+        $stocks->move($item, StockMovementType::Transfer, 2, $person, $recipient, $actor);
+        $stocks->move($item, StockMovementType::Return, 1, $recipient, $location, $actor);
+        $takeBack = $stocks->move($item, StockMovementType::TakeBack, 1, $recipient, $person, $actor, '  Leftovers  ');
+        $stocks->move($item, StockMovementType::Return, 1, $person, $location, $actor);
         $this->assertSame(10, $stocks->total($item));
-        $stocks->move($item, StockMovement::REMOVE, 2, $location, null, $actor, 'Damaged');
+        $stocks->move($item, StockMovementType::Remove, 2, $location, null, $actor, 'Damaged');
         $issue = $this->expected($event, $item)->issuedEntitlement()->create(['entitlement_item_id' => $item->id, 'location_id' => $location->location_id]);
-        $stocks->move($item, StockMovement::GIVE_OUT, 1, $location, null, $actor, issued: $issue);
+        $stocks->move($item, StockMovementType::GiveOut, 1, $location, null, $actor, issued: $issue);
 
         $this->assertSame(5, $stocks->balance($item, $location));
         $this->assertSame(2, $stocks->balance($item, $person));
@@ -59,7 +59,7 @@ class StockMovementsTest extends TestCase
         $this->assertSame('Leftovers', $takeBack->note);
         $this->assertSame($recipient->id, $takeBack->from_holder_id);
         $this->assertSame($actor->id, $takeBack->actor_user_id);
-        $this->assertEqualsCanonicalizing(StockMovement::TYPES, $item->movements()->distinct()->pluck('type')->all());
+        $this->assertEqualsCanonicalizing(StockMovementType::cases(), $item->movements()->distinct()->pluck('type')->all());
         $this->assertFalse(Schema::hasTable('entitlement_adjustments'));
     }
 
@@ -67,8 +67,8 @@ class StockMovementsTest extends TestCase
     {
         [$event, $actor, $item, $location, $holder] = $this->context();
         $stocks = app(StockMovementService::class);
-        $stocks->move($item, StockMovement::ADD, 50, null, $location, $actor);
-        $stocks->move($item, StockMovement::PULL, 50, $location, $holder, $actor);
+        $stocks->move($item, StockMovementType::Add, 50, null, $location, $actor);
+        $stocks->move($item, StockMovementType::Pull, 50, $location, $holder, $actor);
         $history = $item->movements()->orderBy('id')->get()->toArray();
         $this->assertFalse($actor->person->teamEngagements()->where('event_id', $event->id)->exists());
 
@@ -89,10 +89,10 @@ class StockMovementsTest extends TestCase
         [$otherEvent, , $otherItem, $otherLocation] = $this->context('Other event');
         $stocks = app(StockMovementService::class);
         $otherHolder = $stocks->forPerson($otherEvent, $actor->person);
-        $stocks->move($item, StockMovement::ADD, 5, null, $location, $actor);
-        $stocks->move($item, StockMovement::PULL, 5, $location, $holder, $actor);
-        $stocks->move($otherItem, StockMovement::ADD, 8, null, $otherLocation, $actor);
-        $stocks->move($otherItem, StockMovement::PULL, 3, $otherLocation, $otherHolder, $actor);
+        $stocks->move($item, StockMovementType::Add, 5, null, $location, $actor);
+        $stocks->move($item, StockMovementType::Pull, 5, $location, $holder, $actor);
+        $stocks->move($otherItem, StockMovementType::Add, 8, null, $otherLocation, $actor);
+        $stocks->move($otherItem, StockMovementType::Pull, 3, $otherLocation, $otherHolder, $actor);
         $this->assertNotSame($holder->id, $otherHolder->id);
 
         app(EventService::class)->delete($event);
@@ -108,12 +108,12 @@ class StockMovementsTest extends TestCase
     {
         [$event, $actor, $item, $location, $holder] = $this->context();
         $stocks = app(StockMovementService::class);
-        $stocks->move($item, StockMovement::ADD, 10, null, $location, $actor);
-        $stocks->move($item, StockMovement::PULL, 6, $location, $holder, $actor);
+        $stocks->move($item, StockMovementType::Add, 10, null, $location, $actor);
+        $stocks->move($item, StockMovementType::Pull, 6, $location, $holder, $actor);
         $this->actingAs($actor)->get(route('credentials.entitlements'))->assertInertia(fn (Assert $page) => $page->where('items.0.balance', 10));
         $this->get(route('credentials.entitlements.edit', $item))->assertInertia(fn (Assert $page) => $page
             ->where('stats.in_stock', 10)->where('locations.0.in_stock', 4)->has('locations', 1));
-        $stocks->move($item, StockMovement::REMOVE, 1, $location, null, $actor, 'Counted wrong');
+        $stocks->move($item, StockMovementType::Remove, 1, $location, null, $actor, 'Counted wrong');
         $this->get(route('credentials.entitlements'))->assertInertia(fn (Assert $page) => $page->where('items.0.balance', 9));
     }
 
@@ -127,7 +127,7 @@ class StockMovementsTest extends TestCase
             ])->assertUnprocessable()->assertJsonValidationErrors('reason');
         }
         try {
-            app(StockMovementService::class)->move($item, StockMovement::REMOVE, 1, $location, null, $actor);
+            app(StockMovementService::class)->move($item, StockMovementType::Remove, 1, $location, null, $actor);
             $this->fail('Removal without a reason must fail.');
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('reason', $exception->errors());
@@ -157,10 +157,10 @@ class StockMovementsTest extends TestCase
         $this->seedStock($item, $location->location, 2, $actor);
         $expected = $this->expected($event, $item);
         $issued = app(EntitlementConsumeService::class)->consume($expected, $actor, $location->location_id);
-        $this->assertDatabaseHas('stock_movements', ['type' => StockMovement::GIVE_OUT, 'quantity' => 1,
+        $this->assertDatabaseHas('stock_movements', ['type' => StockMovementType::GiveOut, 'quantity' => 1,
             'from_holder_id' => $location->id, 'to_holder_id' => null, 'issued_entitlement_id' => $issued->id, 'actor_user_id' => $actor->id]);
         try {
-            app(StockMovementService::class)->move($item, StockMovement::GIVE_OUT, 1, $location, null, $actor, issued: $issued);
+            app(StockMovementService::class)->move($item, StockMovementType::GiveOut, 1, $location, null, $actor, issued: $issued);
             $this->fail('An issue must debit stock only once.');
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('expected_entitlement', $exception->errors());
@@ -172,8 +172,8 @@ class StockMovementsTest extends TestCase
     {
         [$event, $actor, $item, $location, $person] = $this->context();
         $stocks = app(StockMovementService::class);
-        $stocks->move($item, StockMovement::ADD, 5, null, $location, $actor);
-        $stocks->move($item, StockMovement::PULL, 5, $location, $person, $actor);
+        $stocks->move($item, StockMovementType::Add, 5, null, $location, $actor);
+        $stocks->move($item, StockMovementType::Pull, 5, $location, $person, $actor);
         $this->actingAs($actor)->deleteJson(route('credentials.entitlements.destroy', [$event, $item]))
             ->assertUnprocessable()->assertJsonValidationErrors('item');
         try {
@@ -182,8 +182,8 @@ class StockMovementsTest extends TestCase
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('item', $exception->errors());
         }
-        $stocks->move($item, StockMovement::RETURN, 5, $person, $location, $actor);
-        $stocks->move($item, StockMovement::REMOVE, 5, $location, null, $actor, 'Retired item');
+        $stocks->move($item, StockMovementType::Return, 5, $person, $location, $actor);
+        $stocks->move($item, StockMovementType::Remove, 5, $location, null, $actor, 'Retired item');
         $this->delete(route('credentials.entitlements.destroy', [$event, $item]))->assertRedirect()->assertSessionHasNoErrors();
         $this->assertModelMissing($item);
         $this->assertDatabaseCount('stock_movements', 0);
@@ -193,8 +193,8 @@ class StockMovementsTest extends TestCase
     {
         [$event, $actor, $item, $holder] = $this->context();
         $stocks = app(StockMovementService::class);
-        $stocks->move($item, StockMovement::ADD, 1, null, $holder, $actor);
-        $stocks->move($item, StockMovement::REMOVE, 1, $holder, null, $actor, 'Damaged');
+        $stocks->move($item, StockMovementType::Add, 1, null, $holder, $actor);
+        $stocks->move($item, StockMovementType::Remove, 1, $holder, null, $actor, 'Damaged');
         $location = $holder->location;
         $this->actingAs($actor)->deleteJson(route('settings.events.locations.destroy', [$event, $location]))
             ->assertUnprocessable()->assertJsonValidationErrors('location');
@@ -219,7 +219,7 @@ class StockMovementsTest extends TestCase
     {
         [$event, $actor, $item, $holder] = $this->context();
         $event->lock();
-        foreach ([fn () => app(StockMovementService::class)->move($item, StockMovement::ADD, 1, null, $holder, $actor),
+        foreach ([fn () => app(StockMovementService::class)->move($item, StockMovementType::Add, 1, null, $holder, $actor),
             fn () => app(StockMovementService::class)->forPerson($event, $actor->person),
             fn () => app(StockMovementService::class)->forLocation($event, $holder->location_id)] as $write) {
             try {
@@ -237,13 +237,13 @@ class StockMovementsTest extends TestCase
         [$event, $actor, $item] = $this->context();
         [, , , $foreign] = $this->context('Foreign event');
         try {
-            app(StockMovementService::class)->move($item, StockMovement::ADD, 1, null, $foreign, $actor);
+            app(StockMovementService::class)->move($item, StockMovementType::Add, 1, null, $foreign, $actor);
             $this->fail('Foreign holders must be refused.');
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('holder', $exception->errors());
         }
         $this->assertDatabaseRejected(fn () => $item->movements()->create([
-            'event_id' => $event->id, 'quantity' => 1, 'type' => StockMovement::ADD, 'to_holder_id' => $foreign->id,
+            'event_id' => $event->id, 'quantity' => 1, 'type' => StockMovementType::Add, 'to_holder_id' => $foreign->id,
         ]));
     }
 
@@ -268,8 +268,8 @@ class StockMovementsTest extends TestCase
         [$event, , $item, $location, $person] = $this->context();
         $holders = ['location' => $location, 'person' => $person];
         $issue = $this->expected($event, $item)->issuedEntitlement()->create(['entitlement_item_id' => $item->id]);
-        $this->assertDatabaseRejected(fn () => $item->movements()->create([
-            'event_id' => $event->id, 'quantity' => $quantity, 'type' => $type,
+        $this->assertDatabaseRejected(fn () => DB::table('stock_movements')->insert([
+            'entitlement_item_id' => $item->id, 'event_id' => $event->id, 'quantity' => $quantity, 'type' => $type,
             'from_holder_id' => $from === null ? null : $holders[$from]->id,
             'to_holder_id' => $to === null ? null : $holders[$to]->id,
             'note' => $note, 'issued_entitlement_id' => $withIssue ? $issue->id : null,
@@ -313,10 +313,13 @@ class StockMovementsTest extends TestCase
         $otherItem = $event->entitlementItems()->create(['name' => 'Other item']);
         $issue = $this->expected($event, $otherItem)->issuedEntitlement()->create(['entitlement_item_id' => $otherItem->id]);
         $this->assertDatabaseRejected(fn () => $item->movements()->create(['event_id' => $event->id,
-            'type' => StockMovement::GIVE_OUT, 'quantity' => 1, 'from_holder_id' => $holder->id, 'issued_entitlement_id' => $issue->id]));
+            'type' => StockMovementType::GiveOut, 'quantity' => 1, 'from_holder_id' => $holder->id, 'issued_entitlement_id' => $issue->id]));
         $this->seedStock($item, $holder->location, 2, $actor);
         $issue = app(EntitlementConsumeService::class)->consume($this->expected($event, $item), $actor, $holder->location_id);
-        $movement = $item->movements()->where('type', StockMovement::GIVE_OUT)->sole();
+        $movement = $item->movements()->where('type', StockMovementType::GiveOut)->sole();
+        $this->assertSame(StockMovementType::GiveOut, $movement->type);
+        $this->assertSame('give_out', $movement->getRawOriginal('type'));
+        $this->assertSame('give_out', $movement->toArray()['type']);
         $this->assertDatabaseRejected(fn () => $item->movements()->create($movement->only('event_id', 'type', 'quantity', 'from_holder_id', 'issued_entitlement_id')));
         $this->assertDatabaseRejected(fn () => $issue->delete());
         $this->assertDatabaseRejected(fn () => $issue->update(['entitlement_item_id' => $otherItem->id]));
@@ -325,7 +328,7 @@ class StockMovementsTest extends TestCase
     public function test_movements_are_immutable_but_actor_deletion_preserves_history_and_balance(): void
     {
         [$event, $actor, $item, $holder] = $this->context();
-        $move = app(StockMovementService::class)->move($item, StockMovement::ADD, 2, null, $holder, $actor);
+        $move = app(StockMovementService::class)->move($item, StockMovementType::Add, 2, null, $holder, $actor);
         $this->assertDatabaseRejected(fn () => $move->update(['quantity' => 3]));
         $actor->delete();
         $this->assertNull($move->fresh()->actor_user_id);

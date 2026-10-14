@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
+use App\Enums\StockMovement as StockMovementType;
 use App\Models\Organization;
 use App\Models\PassType;
-use App\Models\StockMovement;
 use App\Models\User;
 use App\Services\StockMovementService;
 use Illuminate\Database\Seeder;
@@ -29,8 +29,8 @@ class TestCatalogSeeder extends Seeder
                     $stocks = app(StockMovementService::class);
                     $holder = $stocks->forLocation($event, $location->id);
                     $note = __('inventory.notes.seed_opening');
-                    if (! $item->movements()->where('type', StockMovement::ADD)->where('to_holder_id', $holder->id)->exists()) {
-                        $stocks->move($item, StockMovement::ADD, 100, null, $holder, $user, $note);
+                    if (! $item->movements()->where('type', StockMovementType::Add)->where('to_holder_id', $holder->id)->exists()) {
+                        $stocks->move($item, StockMovementType::Add, 100, null, $holder, $user, $note);
                     }
                 });
             }

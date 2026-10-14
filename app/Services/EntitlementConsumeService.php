@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
+use App\Enums\StockMovement as StockMovementType;
 use App\Models\Event;
 use App\Models\ExpectedEntitlement;
 use App\Models\IssuedEntitlement;
-use App\Models\StockMovement;
 use App\Models\TeamEngagement;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -51,7 +51,7 @@ class EntitlementConsumeService
             ]);
             $expected->update(['status' => ExpectedEntitlement::STATUS_CONSUMED]);
             $holder = $this->stocks->forLocation($event, $locationId);
-            $this->stocks->move($item, StockMovement::GIVE_OUT, 1, $holder, null, $actor, issued: $issued);
+            $this->stocks->move($item, StockMovementType::GiveOut, 1, $holder, null, $actor, issued: $issued);
 
             return $issued;
         }, 3);

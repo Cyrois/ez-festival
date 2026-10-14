@@ -16,6 +16,10 @@ Actor references may become null on account deletion, matching existing audit
 records; the movement and person holder remain. Other nullable fields express
 holder/movement types, not temporary incomplete data.
 
+Movement types use the string-backed `App\Enums\StockMovement` enum in services
+and the model cast. Stored string values are unchanged; this refactor needs no
+additional migration.
+
 Balances are SQL sums of incoming minus outgoing movements. The stock service
 locks the event first, rechecks the lock, then locks the item and affected
 holders in order before checking the source balance and writing. The ledger is
@@ -75,6 +79,8 @@ races for the last location/person unit and first holder creation.
   `shiftTimelineRoster.test.js` at line 658 omits `is_supervisor: false`.
 - Both failures reproduce on a clean `origin/main` snapshot. No unrelated
   product or test changes were made to mask them.
+- Enum refactor: 148 related SQLite tests and 65 PostgreSQL stock/concurrency,
+  seeder and migration tests passed, including enum reads and unchanged raw/serialized values.
 - Pint, Prettier, ESLint and the production frontend build passed.
 
 PostgreSQL verification used an isolated PostgreSQL 17 cluster and

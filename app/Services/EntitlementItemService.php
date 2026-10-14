@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
+use App\Enums\StockMovement as StockMovementType;
 use App\Models\EntitlementItem;
 use App\Models\EntitlementItemLabel;
 use App\Models\Event;
 use App\Models\ExpectedEntitlement;
-use App\Models\StockMovement;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -52,7 +52,7 @@ class EntitlementItemService
             $item = $event->entitlementItems()->create(['name' => $data['name']]);
 
             if ($opening > 0) {
-                $this->stocks->move($item, StockMovement::ADD, $opening, null,
+                $this->stocks->move($item, StockMovementType::Add, $opening, null,
                     $this->stocks->forLocation($event, (int) ($data['location_id'] ?? 0)), $actor);
             }
 
@@ -109,7 +109,7 @@ class EntitlementItemService
                 throw ValidationException::withMessages(['quantity' => __('inventory.errors.quantity_invalid')]);
             }
             $holder = $this->stocks->forLocation($event, $locationId);
-            $this->stocks->move($item, $delta < 0 ? StockMovement::REMOVE : StockMovement::ADD,
+            $this->stocks->move($item, $delta < 0 ? StockMovementType::Remove : StockMovementType::Add,
                 abs($delta), $delta < 0 ? $holder : null, $delta < 0 ? null : $holder, $actor, $reason);
         }, 3);
     }

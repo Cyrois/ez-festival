@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\StockMovement as StockMovementType;
 use App\Models\Artist;
 use App\Models\ArtistEngagement;
 use App\Models\Event;
@@ -9,7 +10,6 @@ use App\Models\EventPatron;
 use App\Models\ExpectedEntitlement;
 use App\Models\Person;
 use App\Models\StockHolder;
-use App\Models\StockMovement;
 use App\Models\User;
 use App\Services\EntitlementConsumeService;
 use App\Services\EntitlementItemService;
@@ -85,7 +85,7 @@ class PassAssignmentsTest extends TestCase
             'entitlement_item_id' => $item->id,
             'from_holder_id' => StockHolder::query()->where('event_id', $item->event_id)->where('location_id', $location->id)->value('id'),
             'quantity' => 1,
-            'type' => StockMovement::GIVE_OUT,
+            'type' => StockMovementType::GiveOut,
             'issued_entitlement_id' => $expected->issuedEntitlement->id,
             'actor_user_id' => $user->id,
         ]);

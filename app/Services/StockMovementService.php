@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\StockMovement as StockMovementType;
 use App\Models\EntitlementItem;
 use App\Models\Event;
 use App\Models\IssuedEntitlement;
@@ -43,7 +44,7 @@ class StockMovementService
 
     public function move(
         EntitlementItem $item,
-        string $type,
+        StockMovementType $type,
         int $quantity,
         ?StockHolder $from,
         ?StockHolder $to,
@@ -72,16 +73,15 @@ class StockMovementService
                 throw ValidationException::withMessages(['reason' => __('validation.max.string', ['attribute' => __('credentials.entitlements.fields.reason'), 'max' => 255])]);
             }
             $validShape = match ($type) {
-                StockMovement::ADD => $from === null && $to?->location_id !== null && $issued === null,
-                StockMovement::REMOVE => $from?->location_id !== null && $to === null && $issued === null,
-                StockMovement::GIVE_OUT => $from !== null && $to === null && $issued !== null && $quantity === 1,
-                StockMovement::PULL, StockMovement::RETURN, StockMovement::TRANSFER, StockMovement::TAKE_BACK => $from !== null && $to !== null && $from->id !== $to->id && $issued === null,
-                default => false,
+                StockMovementType::Add => $from === null && $to?->location_id !== null && $issued === null,
+                StockMovementType::Remove => $from?->location_id !== null && $to === null && $issued === null,
+                StockMovementType::GiveOut => $from !== null && $to === null && $issued !== null && $quantity === 1,
+                StockMovementType::Pull, StockMovementType::Return, StockMovementType::Transfer, StockMovementType::TakeBack => $from !== null && $to !== null && $from->id !== $to->id && $issued === null,
             };
             if (! $validShape) {
                 throw ValidationException::withMessages(['movement' => __('inventory.errors.invalid_movement')]);
             }
-            if ($type === StockMovement::REMOVE && ! filled($note)) {
+            if ($type === StockMovementType::Remove && ! filled($note)) {
                 throw ValidationException::withMessages(['reason' => __('inventory.errors.reason_required')]);
             }
             if ($issued !== null && ! IssuedEntitlement::query()->whereKey($issued->id)->where('entitlement_item_id', $item->id)->exists()) {

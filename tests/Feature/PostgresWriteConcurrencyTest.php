@@ -2,13 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Enums\StockMovement as StockMovementType;
 use App\Models\ArtistEngagement;
 use App\Models\Event;
 use App\Models\MealAssignment;
 use App\Models\Person;
 use App\Models\Role;
 use App\Models\StockHolder;
-use App\Models\StockMovement;
 use App\Models\TeamEngagement;
 use App\Models\User;
 use App\Services\EngagementPersonService;
@@ -332,12 +332,12 @@ class PostgresWriteConcurrencyTest extends TestCase
         $location = $stocks->forLocation($event, $event->locations()->create(['name' => 'Gate'])->id);
         $person = $stocks->forPerson($event, $actor->person);
         $recipient = $stocks->forPerson($event, Person::create(['name' => 'Receiver', 'email' => 'stock-race@example.test']));
-        $stocks->move($item, StockMovement::ADD, 1, null, $location, $actor);
-        $stocks->move($item, StockMovement::PULL, 1, $location, $person, $actor);
+        $stocks->move($item, StockMovementType::Add, 1, null, $location, $actor);
+        $stocks->move($item, StockMovementType::Pull, 1, $location, $person, $actor);
 
         $results = $this->concurrently(
-            fn () => app(StockMovementService::class)->move($item, StockMovement::RETURN, 1, $person, $location, $actor),
-            fn () => app(StockMovementService::class)->move($item, StockMovement::TRANSFER, 1, $person, $recipient, $actor),
+            fn () => app(StockMovementService::class)->move($item, StockMovementType::Return, 1, $person, $location, $actor),
+            fn () => app(StockMovementService::class)->move($item, StockMovementType::Transfer, 1, $person, $recipient, $actor),
         );
 
         $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
@@ -369,7 +369,7 @@ class PostgresWriteConcurrencyTest extends TestCase
         $this->assertSame(1, $first->issuedEntitlement()->count());
         $this->assertSame(0, $second->issuedEntitlement()->count());
         $this->assertSame('expected', $second->fresh()->status);
-        $this->assertSame(1, $item->movements()->where('type', StockMovement::GIVE_OUT)->count());
+        $this->assertSame(1, $item->movements()->where('type', StockMovementType::GiveOut)->count());
         $this->assertSame(0, app(StockMovementService::class)->total($item));
     }
 
