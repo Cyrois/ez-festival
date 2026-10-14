@@ -165,7 +165,7 @@
     "credentials.entitlements.details.pass_usage_item": ":name ×:count",
     "credentials.entitlements.stats.title": "Live quantities",
     "credentials.entitlements.stats.in_stock": "In stock",
-    "credentials.entitlements.stats.in_stock_hint": "Across locations · still available",
+    "credentials.entitlements.stats.in_stock_hint": "Across locations and people · still available",
     "credentials.entitlements.stats.expected": "Expected",
     "credentials.entitlements.stats.expected_hint": "Still owed from pass assignments",
     "credentials.entitlements.stats.issued": "Issued",
@@ -173,8 +173,7 @@
     "credentials.entitlements.locations.title": "Inventory",
     "credentials.entitlements.locations.lead": "In stock by location.",
     "credentials.entitlements.locations.empty": "No event locations are available.",
-    "credentials.entitlements.locations.hint": "In stock is the sum across locations (including any legacy unassigned inventory).",
-    "credentials.entitlements.locations.unassigned": "Unassigned",
+    "credentials.entitlements.locations.hint": "In stock includes inventory held at locations and by people.",
     "credentials.entitlements.locations.table.location": "Location",
     "credentials.entitlements.locations.table.in_stock": "In stock",
     "credentials.entitlements.locations.table.actions": "Actions",
@@ -1731,5 +1730,11 @@
     "team.scheduling.supervisor.helper": "Approves this shift's hours. Only one supervisor per shift.",
     "team.scheduling.supervisor.replace_hint": ":current is the supervisor now. Turning this on makes :next the supervisor instead.",
     "team.scheduling.supervisor.summary": "Supervisor: :name",
-    "team.scheduling.supervisor.errors.roster": "Choose one supervisor from the people remaining on this shift, or leave it without a supervisor."
+    "team.scheduling.supervisor.errors.roster": "Choose one supervisor from the people remaining on this shift, or leave it without a supervisor.",
+    "inventory.errors.holder_unavailable": "This stock holder is not available in this event.",
+    "inventory.errors.quantity_invalid": "Enter a whole quantity between 1 and 2147483647.",
+    "inventory.errors.invalid_movement": "This stock movement is not valid.",
+    "inventory.errors.issue_unavailable": "This issued entitlement does not match the stock item.",
+    "inventory.errors.reason_required": "Enter a reason for removing stock.",
+    "inventory.notes.seed_opening": "Seeded opening balance"
 }

@@ -255,3 +255,8 @@ These are recurring Codex mistakes on this repo. Treat them as hard stops — do
 
 - The default `composer test` suite uses in-memory SQLite.
 - Before a PR that changes migrations or queries, create the test database once with `createdb ez_festival_test`, then run `composer test:pgsql`. Override `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, or `DB_PASSWORD` in the shell when local PostgreSQL settings differ.
+
+## Inventory holders (Calvin, 2026-10-13, #194)
+
+- Stock belongs to a person within an event, or to a location. `stock_holders` uses exactly one of `person_id` / `location_id`; never Team engagement or admin account holder identities.
+- Joining the Team must leave the person's holder, balance, and movement history unchanged. Do not create a membership-related stock transfer or merge.

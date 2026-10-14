@@ -15,6 +15,7 @@ use App\Models\Vendor;
 use App\Models\VendorEngagement;
 use App\Queries\CheckInPeopleQuery;
 use App\Services\EntitlementConsumeService;
+use App\Services\EntitlementItemService;
 use App\Services\EventService;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -192,8 +193,8 @@ class TeamCheckInTest extends TestCase
             ->assertRedirect()->assertSessionHasNoErrors();
         $this->assertDatabaseHas('issued_entitlements', ['expected_entitlement_id' => $expected->id,
             'location_id' => $location->id, 'code' => 'TEAM-42', 'issued_by' => $user->id]);
-        $this->assertSame(1, (int) $expected->entitlementItem->adjustments()->where('location_id', $location->id)->sum('delta'));
-        $this->assertSame(4, (int) $expected->entitlementItem->adjustments()->where('location_id', $other->id)->sum('delta'));
+        $this->assertSame(1, (int) app(EntitlementItemService::class)->balanceForLocation($expected->entitlementItem, $location->id));
+        $this->assertSame(4, (int) app(EntitlementItemService::class)->balanceForLocation($expected->entitlementItem, $other->id));
         $this->post(route('check-in.issues.store', $expected), ['location_id' => $location->id])
             ->assertSessionHasErrors('expected_entitlement');
         $this->put(route('team.members.update', $member), [
@@ -498,7 +499,7 @@ class TeamCheckInTest extends TestCase
     private function stock(Event $event, ExpectedEntitlement $expected, int $quantity, string $name = 'Gate'): Location
     {
         $location = $event->locations()->create(['name' => $name]);
-        $expected->entitlementItem->adjustments()->create(['location_id' => $location->id, 'delta' => $quantity]);
+        $this->seedStock($expected->entitlementItem, $location, $quantity);
 
         return $location;
     }
