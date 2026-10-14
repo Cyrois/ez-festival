@@ -12,7 +12,7 @@ import { Dialog } from '../../components/ui/dialog';
 import { toastFormErrors } from '../../lib/fieldError';
 import { Textarea } from '../../components/ui/textarea';
 import { useFlashToast } from '../../composables/useFlashToast';
-import { useForm } from '@inertiajs/vue3';
+import { useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
@@ -25,6 +25,7 @@ const props = defineProps({
     pass: { type: Object, default: null },
 });
 
+const page = usePage();
 const form = useForm({
     name: props.pass?.name ?? '',
     max_assignments: props.pass?.max_assignments ?? '',
@@ -124,25 +125,26 @@ const submit = () => {
         compact-mobile-header
     >
         <div class="container mx-auto">
-            <div class="mb-6">
+            <div class="mb-6 flex items-start justify-between gap-4">
+                <div>
+                    <h1 class="m-0 text-2xl font-bold tracking-tight">
+                        {{ pageTitle }}
+                    </h1>
+                    <p class="mt-1 mb-0 text-sm leading-5 text-muted">
+                        {{
+                            isEditing
+                                ? $t('credentials.passes.edit_lead')
+                                : $t('credentials.passes.create_lead')
+                        }}
+                    </p>
+                </div>
                 <Button
                     v-if="isEditing"
                     variant="danger"
-                    class="float-right ml-4"
                     :disabled="deleteForm.processing"
                     @click="deleteOpen = true"
                     >{{ $t('credentials.passes.actions.delete') }}</Button
                 >
-                <h1 class="m-0 text-2xl font-bold tracking-tight">
-                    {{ pageTitle }}
-                </h1>
-                <p class="mt-1 mb-0 text-sm leading-5 text-muted">
-                    {{
-                        isEditing
-                            ? $t('credentials.passes.edit_lead')
-                            : $t('credentials.passes.create_lead')
-                    }}
-                </p>
             </div>
 
             <form @submit.prevent="submit">
@@ -404,7 +406,10 @@ const submit = () => {
                         </Button>
                     </section>
 
-                    <section class="mt-5 border-t border-line pt-5">
+                    <section
+                        v-if="page.props.auth?.user?.is_admin"
+                        class="mt-5 border-t border-line pt-5"
+                    >
                         <CardTitle>
                             {{ $t('credentials.passes.products.title') }}
                         </CardTitle>
