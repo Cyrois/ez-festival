@@ -1,8 +1,8 @@
 # Inventory permissions (#195)
 
 This change is stacked on #193 / PR #214 (`codex/credentials-role-permissions`,
-`4a91ecc`). Merge #214 first, then retarget and merge the #195 PR into `main`
-after Calvin's approval. No schema migration, permission backfill, deployment
+initially `4a91ecc`, updated through `b6a6939`). Merge #214 first, then retarget
+and merge the #195 PR into `main` after Calvin's approval. No schema migration, permission backfill, deployment
 downtime, or temporary nullability is introduced.
 
 Roles gain independent `inventory.pass_shift` and `inventory.pass_group`
@@ -23,6 +23,12 @@ and the paginated issued log through #193's `view-entitlements` ability. Item
 editing and stock adjustment still need their independent Credentials keys.
 Products and Passes do not become available through Manage inventory alone.
 Navigation and adjustment deep links respect these boundaries.
+
+The #214 follow-up preserves ProductsController's named `view-credentials`
+check and its original admin-only gate definition. The merge into #195 keeps
+that definition alongside the Inventory read and Locations gates, without
+granting additional role access. All 45 related regression tests, Pint,
+Prettier, and ESLint passed after this prerequisite update.
 
 ## Receiver and manager queries
 

@@ -11,7 +11,7 @@ class ProductsController extends Controller
 {
     public function index(): Response
     {
-        Gate::authorize('admin');
+        Gate::authorize('view-credentials');
 
         return Inertia::render('Credentials/Products');
     }
