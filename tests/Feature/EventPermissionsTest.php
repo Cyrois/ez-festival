@@ -166,7 +166,7 @@ class EventPermissionsTest extends TestCase
     {
         $this->grantAdminAccess($this->user);
         $this->get(route('settings.roles.create'))->assertInertia(fn (Assert $page) => $page
-            ->component('Settings/Roles/Create')->has('permissionGroups', 9)->has('permissionGroups.credentials', 3)->has('permissionGroups.team', 6)->has('permissionGroups.scheduling', 2)->has('permissionGroups.forms', 2)->has('permissionGroups.meals', 6));
+            ->component('Settings/Roles/Create')->has('permissionGroups', 10)->has('permissionGroups.inventory', 3)->has('permissionGroups.credentials', 3)->has('permissionGroups.team', 6)->has('permissionGroups.scheduling', 2)->has('permissionGroups.forms', 2)->has('permissionGroups.meals', 6));
         foreach ([[], ['invented.permission']] as $permissions) {
             $this->post(route('settings.roles.store'), ['name' => 'Invalid', 'permissions' => $permissions])->assertSessionHasErrors();
         }

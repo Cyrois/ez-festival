@@ -183,7 +183,8 @@ const navItems = computed(() =>
                         return permissions['credentials.passes.edit'];
                     return (
                         permissions['credentials.entitlements.edit'] ||
-                        permissions['credentials.stock.adjust']
+                        permissions['credentials.stock.adjust'] ||
+                        permissions['inventory.manage']
                     );
                 });
                 return {
@@ -223,6 +224,9 @@ const settingsActive = computed(
     () =>
         currentPath.value === '/settings' ||
         currentPath.value.startsWith('/settings/'),
+);
+const settingsHref = computed(() =>
+    user.value?.is_admin ? '/settings/events' : '/settings/locations',
 );
 
 const crumbItems = computed(() => {
@@ -483,8 +487,11 @@ const railClass = computed(() => {
                     </SidebarNavItem>
                 </template>
                 <SidebarNavItem
-                    v-if="user?.is_admin"
-                    href="/settings/events"
+                    v-if="
+                        user?.is_admin ||
+                        page.props.permissions?.['inventory.manage']
+                    "
+                    :href="settingsHref"
                     :active="settingsActive"
                     :icon="['fas', 'gear']"
                     :icon-only="sidebarCompact"
