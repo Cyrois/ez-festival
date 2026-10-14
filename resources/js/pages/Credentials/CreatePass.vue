@@ -23,6 +23,7 @@ const props = defineProps({
     entitlementItems: { type: Array, default: () => [] },
     customFields: { type: Array, default: () => [] },
     pass: { type: Object, default: null },
+    canWrite: { type: Boolean, default: false },
 });
 
 const page = usePage();
@@ -60,7 +61,7 @@ const entitlementOptions = computed(() =>
     })),
 );
 const destroyPass = () => {
-    if (!props.pass) return;
+    if (!props.pass || !props.canWrite) return;
     deleteForm.delete(
         `/events/${props.event.id}/credentials/passes/${props.pass.id}`,
         {
@@ -91,16 +92,18 @@ const labelError = computed(
 );
 
 const addEntitlement = () => {
-    if (props.entitlementItems[0]) {
+    if (props.canWrite && props.entitlementItems[0]) {
         form.entitlement_item_ids.push(props.entitlementItems[0].id);
     }
 };
 
 const removeEntitlement = (index) => {
+    if (!props.canWrite) return;
     form.entitlement_item_ids.splice(index, 1);
 };
 
 const submit = () => {
+    if (!props.canWrite) return;
     const options = {
         onError: (errors) =>
             toastFormErrors(form, errors, { showError, showFormError }),
@@ -139,7 +142,7 @@ const submit = () => {
                     </p>
                 </div>
                 <Button
-                    v-if="isEditing"
+                    v-if="isEditing && canWrite"
                     variant="danger"
                     :disabled="deleteForm.processing"
                     @click="deleteOpen = true"
@@ -147,6 +150,12 @@ const submit = () => {
                 >
             </div>
 
+            <p
+                v-if="!canWrite"
+                class="mb-5 rounded-lg border border-line bg-page p-3 text-sm text-muted"
+            >
+                {{ $t('credentials.passes.read_only') }}
+            </p>
             <form @submit.prevent="submit">
                 <Card class="p-5">
                     <section>
@@ -167,6 +176,7 @@ const submit = () => {
                                     :id="id"
                                     v-model="form.name"
                                     :invalid="invalid"
+                                    :disabled="!canWrite || form.processing"
                                     :placeholder="
                                         $t(
                                             'credentials.passes.fields.name_placeholder',
@@ -195,6 +205,7 @@ const submit = () => {
                                     :id="id"
                                     v-model="form.max_assignments"
                                     :invalid="invalid"
+                                    :disabled="!canWrite || form.processing"
                                     :placeholder="
                                         $t(
                                             'credentials.passes.fields.max_assignments_placeholder',
@@ -222,7 +233,7 @@ const submit = () => {
                                 :labels="labels"
                                 :colors="labelColors"
                                 :invalid="Boolean(labelError)"
-                                :disabled="form.processing"
+                                :disabled="!canWrite || form.processing"
                                 allow-create
                             />
                         </FormField>
@@ -267,6 +278,9 @@ const submit = () => {
                                                     : field.type
                                             "
                                             :invalid="invalid"
+                                            :disabled="
+                                                !canWrite || form.processing
+                                            "
                                             autocomplete="off"
                                         />
                                     </template>
@@ -286,6 +300,9 @@ const submit = () => {
                                                 form.custom_fields[field.id]
                                             "
                                             :invalid="invalid"
+                                            :disabled="
+                                                !canWrite || form.processing
+                                            "
                                         />
                                     </template>
                                 </FormField>
@@ -304,6 +321,9 @@ const submit = () => {
                                                 form.custom_fields[field.id]
                                             "
                                             :invalid="invalid"
+                                            :disabled="
+                                                !canWrite || form.processing
+                                            "
                                             :items="
                                                 (field.options ?? []).map(
                                                     (option) => ({
@@ -333,6 +353,9 @@ const submit = () => {
                                                 form.custom_fields[field.id]
                                             "
                                             :invalid="invalid"
+                                            :disabled="
+                                                !canWrite || form.processing
+                                            "
                                         />
                                     </template>
                                 </FormField>
@@ -366,6 +389,7 @@ const submit = () => {
                                     v-model="form.entitlement_item_ids[index]"
                                     class="flex-1"
                                     :items="entitlementOptions"
+                                    :disabled="!canWrite || form.processing"
                                     :aria-label="
                                         $t(
                                             'credentials.passes.entitlements.item',
@@ -373,6 +397,7 @@ const submit = () => {
                                     "
                                 />
                                 <Button
+                                    v-if="canWrite"
                                     type="button"
                                     size="sm"
                                     variant="ghost"
@@ -395,7 +420,7 @@ const submit = () => {
                             </p>
                         </div>
                         <Button
-                            v-if="entitlementItems.length > 0"
+                            v-if="canWrite && entitlementItems.length > 0"
                             type="button"
                             size="sm"
                             variant="secondary"
@@ -440,6 +465,7 @@ const submit = () => {
                             {{ $t('setup.actions.cancel') }}
                         </Button>
                         <Button
+                            v-if="canWrite"
                             type="submit"
                             :loading="form.processing"
                         >
@@ -454,7 +480,7 @@ const submit = () => {
             </form>
         </div>
         <Dialog
-            v-if="isEditing"
+            v-if="isEditing && canWrite"
             v-model:open="deleteOpen"
             :title="$t('credentials.passes.delete.title')"
             :description="

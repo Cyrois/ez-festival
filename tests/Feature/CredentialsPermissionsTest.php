@@ -79,7 +79,7 @@ class CredentialsPermissionsTest extends TestCase
             $this->get(route('credentials.passes.edit', $this->pass))->assertStatus($passes ? 200 : 403);
             $this->get(route('credentials.entitlements'))->assertStatus($items || $stock ? 200 : 403);
             $this->get(route('credentials.entitlements.show', $this->item))->assertStatus($items || $stock ? 200 : 403);
-            $this->get(route('credentials.entitlements.edit', $this->item))->assertStatus($items ? 200 : 403);
+            $this->get('/credentials/entitlements/'.$this->item->id.'/edit')->assertNotFound();
             $this->getJson(route('credentials.entitlements.issued', ['entitlementItem' => $this->item, 'draw' => 1, 'start' => 0, 'length' => 25]))->assertStatus($items || $stock ? 200 : 403);
             $this->get(route('credentials.products'))->assertForbidden();
             $this->get(route('settings.locations'))->assertForbidden();
@@ -100,7 +100,7 @@ class CredentialsPermissionsTest extends TestCase
     {
         $this->role->update(['permissions' => ['credentials.passes.edit']]);
         $this->get(route('credentials.passes.create'))->assertInertia(fn (Assert $page) => $page
-            ->where('entitlementItems.0.name', 'Wristband')->missing('entitlementItems.0.balance'));
+            ->where('canWrite', true)->where('entitlementItems.0.name', 'Wristband')->missing('entitlementItems.0.balance'));
         $this->post(route('credentials.passes.store', $this->event), [
             'name' => 'Guest', 'entitlement_item_ids' => [$this->item->id],
         ])->assertRedirect(route('credentials.passes'));
@@ -272,6 +272,9 @@ class CredentialsPermissionsTest extends TestCase
         foreach ([false, true] as $admin) {
             $this->user->forceFill(['is_admin' => $admin])->save();
             $this->get(route('credentials.passes'))->assertOk();
+            $this->get(route('credentials.passes.edit', $this->pass))->assertInertia(fn (Assert $page) => $page
+                ->component('Credentials/CreatePass')->where('canWrite', false));
+            $this->get(route('credentials.passes.create'))->assertForbidden();
             $this->get(route('credentials.entitlements.show', $this->item, false).'?adjust=1')->assertInertia(fn (Assert $page) => $page
                 ->where('is_read_only', true)->where('open_adjust', false));
             $this->post(route('credentials.passes.store', $this->event), ['name' => 'Forbidden'])->assertForbidden();

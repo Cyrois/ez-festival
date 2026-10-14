@@ -127,7 +127,7 @@ class EntitlementItemsTest extends TestCase
         );
     }
 
-    public function test_edit_page_exposes_live_quantities_locations_usage_and_issued_log(): void
+    public function test_item_page_exposes_live_quantities_locations_usage_and_issued_log(): void
     {
         [$user, $event] = $this->createEventContext();
         $headquarters = $event->locations()->create(['name' => 'Headquarters']);
@@ -160,7 +160,7 @@ class EntitlementItemsTest extends TestCase
             'issued_at' => now(),
         ]);
 
-        $this->actingAs($user)->get(route('credentials.entitlements.edit', $item))->assertInertia(
+        $this->actingAs($user)->get(route('credentials.entitlements.show', $item))->assertInertia(
             fn (Assert $page) => $page
                 ->component('Credentials/EditEntitlement')
                 ->where('event.id', $event->id)
@@ -377,7 +377,7 @@ class EntitlementItemsTest extends TestCase
         $item = $event->entitlementItems()->create(['name' => 'Guest wristband']);
 
         $this->actingAs($user)
-            ->get(route('credentials.entitlements.edit', $item).'?loc='.$location->id)
+            ->get(route('credentials.entitlements.show', $item).'?loc='.$location->id)
             ->assertInertia(
                 fn (Assert $page) => $page
                     ->where('adjust_location_id', $location->id)
@@ -403,13 +403,13 @@ class EntitlementItemsTest extends TestCase
         $this->assertSame(10, app(EntitlementItemService::class)->balance($item));
     }
 
-    public function test_locked_event_edit_page_is_read_only(): void
+    public function test_locked_event_item_page_is_read_only(): void
     {
         [$user, $event] = $this->createEventContext();
         $item = $event->entitlementItems()->create(['name' => 'Guest wristband']);
         $event->lock();
 
-        $this->actingAs($user)->get(route('credentials.entitlements.edit', $item))->assertInertia(
+        $this->actingAs($user)->get(route('credentials.entitlements.show', $item))->assertInertia(
             fn (Assert $page) => $page
                 ->component('Credentials/EditEntitlement')
                 ->where('is_read_only', true),

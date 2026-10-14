@@ -111,7 +111,7 @@ class StockMovementsTest extends TestCase
         $stocks->move($item, StockMovementType::Add, 10, null, $location, $actor);
         $stocks->move($item, StockMovementType::Pull, 6, $location, $holder, $actor);
         $this->actingAs($actor)->get(route('credentials.entitlements'))->assertInertia(fn (Assert $page) => $page->where('items.0.balance', 10));
-        $this->get(route('credentials.entitlements.edit', $item))->assertInertia(fn (Assert $page) => $page
+        $this->get(route('credentials.entitlements.show', $item))->assertInertia(fn (Assert $page) => $page
             ->where('stats.in_stock', 10)->where('locations.0.in_stock', 4)->has('locations', 1));
         $stocks->move($item, StockMovementType::Remove, 1, $location, null, $actor, 'Counted wrong');
         $this->get(route('credentials.entitlements'))->assertInertia(fn (Assert $page) => $page->where('items.0.balance', 9));

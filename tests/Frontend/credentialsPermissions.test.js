@@ -19,8 +19,8 @@ const button = { props: ['href', 'disabled', 'enabled'], setup: (props, { slots,
 const dialog = { props: ['open', 'title', 'busy', 'confirmLabel'], emits: ['confirm', 'accept'], setup: (props, { slots, emit }) => () => props.open ? h('section', { 'data-dialog': props.title }, [slots.default?.(), h('button', { 'data-confirm': '', disabled: props.busy, onClick: () => { emit('confirm'); emit('accept'); } }, props.confirmLabel ?? 'Confirm')]) : null };
 const form = (values) => {
     const keys = Object.keys(values);
-    const result = reactive({ ...structuredClone(values), processing: false, errors: {},
-        reset() { Object.assign(result, structuredClone(values)); }, clearErrors() { result.errors = {}; }, setError(key, value) { result.errors[key] = value; },
+    const result = reactive({ ...JSON.parse(JSON.stringify(values)), processing: false, errors: {},
+        reset() { Object.assign(result, JSON.parse(JSON.stringify(values))); }, clearErrors() { result.errors = {}; }, setError(key, value) { result.errors[key] = value; },
         post(url) { state.calls.push({ method: 'post', url, data: Object.fromEntries(keys.map((key) => [key, result[key]])) }); },
         put(url) { state.calls.push({ method: 'put', url }); }, delete(url) { state.calls.push({ method: 'delete', url }); },
     });
@@ -138,13 +138,35 @@ test('item-only and locked pages cannot open adjustments and delete requires con
 });
 
 test('pass delete uses a confirmation dialog and the existing destroy endpoint', async () => {
-    const app = mount(Pass, { event: { id: 3 }, pass: { id: 9, name: 'Artist', label_ids: [], entitlement_item_ids: [] }, labelColors: [] });
+    const app = mount(Pass, { event: { id: 3 }, pass: { id: 9, name: 'Artist', label_ids: [], entitlement_item_ids: [] }, labelColors: [], canWrite: true });
     try {
         assert.doesNotMatch(document.body.textContent, /Associated products/);
         clickText('Delete pass'); await nextTick();
         assert.equal(state.calls.length, 0);
         document.querySelector('[data-confirm]').click();
         assert.deepEqual(state.calls, [{ method: 'delete', url: '/events/3/credentials/passes/9' }]);
+    } finally { app.unmount(); }
+});
+
+test('locked pass form is read-only and drops delete/save controls after the event locks', async () => {
+    const props = reactive({ event: { id: 3 }, pass: { id: 9, name: 'Artist', label_ids: [], entitlement_item_ids: [8] }, labelColors: [], entitlementItems: [{ id: 8, name: 'Wristband' }], canWrite: true });
+    state.calls = []; state.forms = [];
+    const app = createApp({ setup: () => () => h(Pass, props) });
+    app.config.globalProperties.$t = translate;
+    app.mount(document.getElementById('app'));
+    try {
+        clickText('Delete pass'); await nextTick();
+        assert.ok(document.querySelector('[data-dialog]'));
+        props.canWrite = false;
+        await nextTick();
+        assert.equal(document.querySelector('[data-dialog]'), null);
+        assert.doesNotMatch(document.body.textContent, /Delete pass/);
+        assert.equal(document.querySelector('button[type="submit"]'), null);
+        assert.ok([...document.querySelectorAll('form input')].every((input) => input.disabled));
+        assert.equal(document.querySelector('a[href="/credentials/passes"]').textContent.trim(), 'Cancel');
+        assert.match(document.body.textContent, /This event is locked/);
+        document.querySelector('form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+        assert.equal(state.calls.length, 0);
     } finally { app.unmount(); }
 });
 

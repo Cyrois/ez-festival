@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Credentials;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Credentials\AdjustEntitlementItemRequest;
 use App\Http\Requests\Credentials\DestroyEntitlementItemRequest;
-use App\Http\Requests\Credentials\EditEntitlementItemRequest;
 use App\Http\Requests\Credentials\StoreEntitlementItemRequest;
 use App\Http\Requests\Credentials\UpdateEntitlementItemRequest;
 use App\Http\Resources\EntitlementItemResource;
@@ -48,14 +47,6 @@ class EntitlementItemController extends Controller
     {
         Gate::authorize('view-entitlements');
         $event = $this->eventContext->requireCurrent(request()->user());
-        abort_unless($entitlementItem->event_id === $event->id, 404);
-
-        return Inertia::render('Credentials/EditEntitlement', $this->pageProps($event, $entitlementItem));
-    }
-
-    public function edit(EditEntitlementItemRequest $request, EntitlementItem $entitlementItem): Response
-    {
-        $event = $this->eventContext->requireCurrent($request->user());
         abort_unless($entitlementItem->event_id === $event->id, 404);
 
         return Inertia::render('Credentials/EditEntitlement', $this->pageProps($event, $entitlementItem));

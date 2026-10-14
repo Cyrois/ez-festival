@@ -48,7 +48,6 @@ final class RoutePermissions
         'credentials.entitlements' => 'view-entitlements',
         'credentials.entitlements.show' => 'view-entitlements',
         'credentials.entitlements.issued' => 'view-entitlements',
-        'credentials.entitlements.edit' => 'credentials.entitlements.edit',
         'credentials.passes' => 'credentials.passes.edit',
         'credentials.passes.create' => 'credentials.passes.edit',
         'credentials.passes.edit' => 'credentials.passes.edit',
