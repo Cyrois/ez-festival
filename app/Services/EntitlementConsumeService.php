@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Event;
 use App\Models\ExpectedEntitlement;
 use App\Models\IssuedEntitlement;
+use App\Models\StockMovement;
 use App\Models\TeamEngagement;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -12,7 +13,7 @@ use Illuminate\Validation\ValidationException;
 
 class EntitlementConsumeService
 {
-    public function __construct(private readonly EntitlementItemService $items) {}
+    public function __construct(private readonly StockMovementService $stocks) {}
 
     public function consume(ExpectedEntitlement $expected, User $actor, int $locationId, ?string $code = null): IssuedEntitlement
     {
@@ -49,7 +50,8 @@ class EntitlementConsumeService
                 'issued_at' => now(),
             ]);
             $expected->update(['status' => ExpectedEntitlement::STATUS_CONSUMED]);
-            $this->items->adjust($item, $locationId, -1, null, $actor);
+            $holder = $this->stocks->forLocation($event, $locationId);
+            $this->stocks->move($item, StockMovement::GIVE_OUT, 1, $holder, null, $actor, issued: $issued);
 
             return $issued;
         }, 3);

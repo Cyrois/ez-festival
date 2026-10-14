@@ -16,10 +16,9 @@ class CheckInEntitlementResource extends JsonResource
             'name' => $this->entitlementItem->name,
             'source' => $this->passAssignment->passType->name,
             'status' => $issued ? 'issued' : 'pending',
-            'locations' => $this->entitlementItem->adjustments->filter(fn ($stock) => $stock->location !== null)
-                ->sortBy('location.name')->values()->map(fn ($stock): array => [
-                    'id' => $stock->location_id, 'name' => $stock->location->name, 'in_stock' => (int) $stock->balance,
-                ]),
+            'locations' => $this->stock_locations->map(fn ($stock): array => [
+                'id' => $stock->location_id, 'name' => $stock->name, 'in_stock' => (int) $stock->balance,
+            ])->values(),
             'issued' => $issued ? [
                 'location' => $issued->location?->name,
                 'code' => $issued->code,

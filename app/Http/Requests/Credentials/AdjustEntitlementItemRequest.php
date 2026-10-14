@@ -30,7 +30,7 @@ class AdjustEntitlementItemRequest extends FormRequest
             ],
             'direction' => ['required', Rule::in(['add', 'remove'])],
             'quantity' => ['required', 'integer', 'min:1', 'max:2147483647'],
-            'reason' => ['nullable', 'string', 'max:255'],
+            'reason' => ['required_if:direction,remove', 'nullable', 'string', 'max:255'],
         ];
     }
 }

@@ -135,16 +135,6 @@ class EntitlementItemController extends Controller
                 'name' => $location->name,
                 'in_stock' => $balances[$location->id] ?? 0,
             ]);
-        $hasUnassignedInventory = $item->adjustments()->whereNull('location_id')->exists();
-
-        if ($hasUnassignedInventory) {
-            $unassignedBalance = $this->items->balanceForLocation($item, null);
-            $locations->push([
-                'id' => null,
-                'name' => __('credentials.entitlements.locations.unassigned'),
-                'in_stock' => $unassignedBalance,
-            ]);
-        }
         $requestedLocationId = request()->integer('loc');
 
         return [

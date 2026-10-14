@@ -8,8 +8,11 @@ use App\Models\Event;
 use App\Models\EventPatron;
 use App\Models\ExpectedEntitlement;
 use App\Models\Person;
+use App\Models\StockHolder;
+use App\Models\StockMovement;
 use App\Models\User;
 use App\Services\EntitlementConsumeService;
+use App\Services\EntitlementItemService;
 use App\Services\PassAssignmentService;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -56,12 +59,12 @@ class PassAssignmentsTest extends TestCase
         ])->assertSessionHasErrors('quantity');
     }
 
-    public function test_consume_marks_expected_row_issued_and_writes_negative_adjustment(): void
+    public function test_consume_marks_expected_row_issued_and_writes_linked_give_out(): void
     {
         [$user, $event, $engagement] = $this->artistContext();
         $location = $event->locations()->create(['name' => 'Main stage']);
         $item = $event->entitlementItems()->create(['name' => 'Artist wristband']);
-        $item->adjustments()->create(['location_id' => $location->id, 'delta' => 1]);
+        $this->seedStock($item, $location, 1);
         $passType = $event->passTypes()->create(['name' => 'Artist']);
         $assignment = $engagement->passAssignments()->create(['pass_type_id' => $passType->id]);
         $expected = $assignment->expectedEntitlements()->create([
@@ -77,14 +80,16 @@ class PassAssignmentsTest extends TestCase
             'code' => 'RFID-1',
         ]);
         $this->assertSame(ExpectedEntitlement::STATUS_CONSUMED, $expected->fresh()->status);
-        $this->assertSame(0, $item->adjustments()->sum('delta'));
-        $this->assertDatabaseHas('entitlement_adjustments', [
+        $this->assertSame(0, app(EntitlementItemService::class)->balance($item));
+        $this->assertDatabaseHas('stock_movements', [
             'entitlement_item_id' => $item->id,
-            'location_id' => $location->id,
-            'delta' => -1,
-            'user_id' => $user->id,
+            'from_holder_id' => StockHolder::query()->where('event_id', $item->event_id)->where('location_id', $location->id)->value('id'),
+            'quantity' => 1,
+            'type' => StockMovement::GIVE_OUT,
+            'issued_entitlement_id' => $expected->issuedEntitlement->id,
+            'actor_user_id' => $user->id,
         ]);
-        $this->assertSame(0, $item->adjustments()->whereNull('location_id')->count());
+        $this->assertSame(0, StockHolder::query()->where('event_id', $item->event_id)->whereNotNull('person_id')->count());
     }
 
     public function test_consume_decrements_the_picked_location_without_unassigned_orphan(): void
@@ -92,7 +97,7 @@ class PassAssignmentsTest extends TestCase
         [$user, $event, $engagement] = $this->artistContext();
         $location = $event->locations()->create(['name' => 'Main stage']);
         $item = $event->entitlementItems()->create(['name' => 'Artist wristband']);
-        $item->adjustments()->create(['location_id' => $location->id, 'delta' => 10, 'user_id' => $user->id]);
+        $this->seedStock($item, $location, 10, $user);
         $passType = $event->passTypes()->create(['name' => 'Artist']);
         $assignment = $engagement->passAssignments()->create(['pass_type_id' => $passType->id]);
         $expected = $assignment->expectedEntitlements()->create([
@@ -102,9 +107,9 @@ class PassAssignmentsTest extends TestCase
 
         app(EntitlementConsumeService::class)->consume($expected, $user, $location->id);
 
-        $this->assertSame(9, (int) $item->adjustments()->where('location_id', $location->id)->sum('delta'));
-        $this->assertSame(0, $item->adjustments()->whereNull('location_id')->count());
-        $this->assertSame(9, (int) $item->adjustments()->sum('delta'));
+        $this->assertSame(9, (int) app(EntitlementItemService::class)->balanceForLocation($item, $location->id));
+        $this->assertSame(0, StockHolder::query()->where('event_id', $item->event_id)->whereNotNull('person_id')->count());
+        $this->assertSame(9, (int) app(EntitlementItemService::class)->balance($item));
     }
 
     public function test_assignment_with_issued_entitlement_cannot_be_removed(): void

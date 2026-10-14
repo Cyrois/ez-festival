@@ -8,8 +8,10 @@ use App\Models\IssuedEntitlement;
 use App\Models\MealAssignment;
 use App\Models\Organization;
 use App\Models\Role;
+use App\Models\StockMovement;
 use App\Models\User;
 use App\Services\MealAssignmentService;
+use App\Services\StockMovementService;
 use App\Support\OrganizationContext;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -218,6 +220,11 @@ class EventControllerTest extends TestCase
             'code' => 'EVENT-DELETE-TEST',
             'issued_by' => $user->id,
         ]);
+        $stocks = app(StockMovementService::class);
+        $locationHolder = $stocks->forLocation($event, $location->id);
+        $personHolder = $stocks->forPerson($event, $user->person);
+        $stocks->move($issued->entitlementItem, StockMovement::PULL, 3, $locationHolder, $personHolder, $user);
+        $stocks->move($issued->entitlementItem, StockMovement::GIVE_OUT, 1, $locationHolder, null, $user, issued: $issued);
         $shift = $event->shifts()->create([
             'location_id' => $location->id,
             'name' => 'Event teardown',
@@ -286,7 +293,8 @@ class EventControllerTest extends TestCase
         $this->assertModelMissing($shift);
         $this->assertDatabaseCount('pass_assignments', 0);
         $this->assertDatabaseCount('pass_type_entitlements', 0);
-        $this->assertDatabaseCount('entitlement_adjustments', 0);
+        $this->assertDatabaseCount('stock_movements', 0);
+        $this->assertDatabaseCount('stock_holders', 0);
         $this->assertDatabaseCount('expected_entitlements', 0);
         $this->assertDatabaseCount('team_engagements', 0);
     }

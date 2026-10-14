@@ -48,7 +48,7 @@ class FreshDatabaseMigrationTest extends TestCase
         $this->assertDatabaseCount('vendor_types', 3);
         $this->assertDatabaseCount('pass_assignments', 6);
         $this->assertDatabaseCount('expected_entitlements', 14);
-        $this->assertDatabaseCount('entitlement_adjustments', 9);
+        $this->assertDatabaseCount('stock_movements', 9);
         $this->assertDatabaseCount('team_engagements', 4);
     }
 }

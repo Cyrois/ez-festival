@@ -4,8 +4,11 @@ namespace Database\Seeders;
 
 use App\Models\Organization;
 use App\Models\PassType;
+use App\Models\StockMovement;
 use App\Models\User;
+use App\Services\StockMovementService;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class TestCatalogSeeder extends Seeder
 {
@@ -22,10 +25,14 @@ class TestCatalogSeeder extends Seeder
 
         foreach ($items as $item) {
             foreach ($locations as $location) {
-                $item->adjustments()->updateOrCreate(
-                    ['location_id' => $location->id, 'reason' => 'Seeded opening balance'],
-                    ['delta' => 100, 'user_id' => $user->id],
-                );
+                DB::transaction(function () use ($event, $item, $location, $user): void {
+                    $stocks = app(StockMovementService::class);
+                    $holder = $stocks->forLocation($event, $location->id);
+                    $note = __('inventory.notes.seed_opening');
+                    if (! $item->movements()->where('type', StockMovement::ADD)->where('to_holder_id', $holder->id)->exists()) {
+                        $stocks->move($item, StockMovement::ADD, 100, null, $holder, $user, $note);
+                    }
+                });
             }
         }
 

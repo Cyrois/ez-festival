@@ -354,7 +354,7 @@ const formatWhen = (value) =>
                     <TableBody>
                         <TableRow
                             v-for="location in locations"
-                            :key="location.id ?? 'unassigned'"
+                            :key="location.id"
                         >
                             <TableCell class="font-semibold">
                                 {{ location.name }}
@@ -583,6 +583,7 @@ const formatWhen = (value) =>
                 <FormField
                     :label="$t('credentials.entitlements.fields.reason')"
                     :error="adjustForm.errors.reason"
+                    :required="adjustForm.direction === 'remove'"
                 >
                     <template #default="{ id, invalid }">
                         <Textarea

@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
-use App\Models\EntitlementAdjustment;
 use App\Models\Event;
 use App\Models\IssuedEntitlement;
 use App\Models\Location;
+use App\Models\StockHolder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -39,7 +39,7 @@ class EventLocationService
             $event->ensureWritable();
             $location = $event->locations()->lockForUpdate()->findOrFail($location->id);
 
-            if (EntitlementAdjustment::query()->where('location_id', $location->id)->exists()
+            if (app(StockMovementService::class)->locationHasHistory($location)
                 || IssuedEntitlement::query()->where('location_id', $location->id)->exists()
                 || $location->shifts()->exists()) {
                 throw ValidationException::withMessages([
@@ -47,6 +47,7 @@ class EventLocationService
                 ]);
             }
 
+            StockHolder::query()->where('event_id', $event->id)->where('location_id', $location->id)->delete();
             $location->delete();
         }, 3);
     }

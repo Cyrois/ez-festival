@@ -4,6 +4,7 @@ namespace App\Queries;
 
 use App\Models\Event;
 use App\Models\ExpectedEntitlement;
+use App\Services\StockMovementService;
 use App\Support\SqlLike;
 
 class CheckInEntitlementsQuery
@@ -48,10 +49,15 @@ class CheckInEntitlementsQuery
         $rows = $query
             ->with([
                 'passAssignment.passType:id,name', 'issuedEntitlement.location:id,name', 'issuedEntitlement.issuedBy:id,name',
-                'entitlementItem.adjustments' => fn ($query) => $query->select('entitlement_item_id', 'location_id')
-                    ->selectRaw('SUM(delta) as balance')->whereNotNull('location_id')
-                    ->groupBy('entitlement_item_id', 'location_id')->havingRaw('SUM(delta) > 0')->with('location:id,name'),
+                'entitlementItem:id,name',
             ])->get();
+
+        $locations = app(StockMovementService::class)->locationBalancesQuery($event->id)
+            ->whereIn('stock_balances.entitlement_item_id', $rows->pluck('entitlement_item_id')->unique())
+            ->where('balance', '>', 0)->orderBy('l.name')->get()->groupBy('entitlement_item_id');
+        foreach ($rows as $row) {
+            $row->setAttribute('stock_locations', $locations->get($row->entitlement_item_id, collect()));
+        }
 
         return compact('total', 'filtered', 'rows');
     }

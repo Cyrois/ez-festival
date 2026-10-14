@@ -59,7 +59,7 @@ class DatabaseSeederTest extends TestCase
         $this->assertDatabaseCount('pass_types', 3);
         $this->assertDatabaseCount('entitlement_items', 3);
         $this->assertDatabaseCount('pass_type_entitlements', 7);
-        $this->assertDatabaseCount('entitlement_adjustments', 9);
+        $this->assertDatabaseCount('stock_movements', 9);
         $this->assertDatabaseCount('artists', 3);
         $this->assertDatabaseCount('artist_engagements', 3);
         $this->assertDatabaseCount('vendors', 3);
