@@ -30,6 +30,7 @@ class PrimaryEventSettingsController extends Controller
                 ->get(['id', 'name', 'type']),
             'tab' => 'locations',
             'forPrimary' => true,
+            ...$this->locationCapabilities($event),
         ]);
     }
 

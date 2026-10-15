@@ -1,10 +1,13 @@
 # Meals 7 (#175): meal report
 
 Meals Report (`/reports`) contains the Meals card. The page and CSV export
-(`/reports/meals/export`) use `meals.view`, including for locked events. Calvin's
-Oct 8 navigation correction places the link under Kitchen as “Report,” between
-Meals and Configure, using Kitchen's existing `meals.view` visibility gate.
-This slice adds no financial report or new permission.
+(`/reports/meals/export`) use `meals.report.view` after #191, including for locked
+events. Calvin's Oct 8 navigation correction places the link under Kitchen as
+“Report,” between Meals and Configure. Kitchen's children are filtered
+independently: Meals and Configure use `meals.view`, while Report uses
+`meals.report.view`. Kitchen stays
+visible when either permission is granted, and its parent links to the first
+visible child. This slice adds no financial report.
 
 Calvin's confirmed Oct 8 decisions supersede the ticket's earlier override
 formula and approve an aggregate-table exception: the whole current event uses
@@ -29,12 +32,16 @@ share the same report resource and columns. No report cache is introduced.
 
 ## Deployment
 
-No migration, backfill, new nullable fields or event-deletion changes. Deploy the
-matching backend and frontend build. Rollback consists of reverting this slice.
+No migration, backfill, new nullable fields or event-deletion changes. Calvin
+confirmed that #191 does not backfill existing roles: assign `meals.report.view`
+explicitly for report access. Existing `meals.view` alone no longer grants it.
+The seeders create an admin account and no permission-bearing roles; the admin
+retains report access through the existing bypass. Deploy the matching backend
+and frontend build. Rollback consists of reverting this slice.
 The CSV uses ISO dates, translated headings, and escaped text cells;
 spreadsheet formula prefixes in user-entered type names are escaped as text.
 
 Labour cost/Team hours (#69), money, and changes to meal assignment or claiming
-are intentionally out of scope. When #69 extends Reports, its page gate and
-sidebar visibility must accept any authorized report section; the meal export
-and Meals payload must continue to require meals.view independently.
+are intentionally out of scope. The meal report stays under Kitchen; Team hours
+lives under Team (#189). The meal report page, export and payload require
+`meals.report.view` independently of other Kitchen access.

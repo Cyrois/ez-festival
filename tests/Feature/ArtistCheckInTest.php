@@ -11,6 +11,7 @@ use App\Models\Person;
 use App\Models\User;
 use App\Models\Vendor;
 use App\Models\VendorEngagement;
+use App\Services\EntitlementItemService;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Gate;
@@ -52,7 +53,7 @@ class ArtistCheckInTest extends TestCase
             'person_id' => $zeroPerson->id,
         ]);
 
-        $this->actingAs($user)->get(route('check-in.index'))->assertInertia(fn (Assert $page) => $page
+        $this->actingAs($user)->get(route('check-in.index', ['status' => 'complete']))->assertInertia(fn (Assert $page) => $page
             ->component('CheckIn/Index')
             ->has('people.data', 2)
             ->where('people.data.0.name', $zeroPerson->name)
@@ -100,14 +101,15 @@ class ArtistCheckInTest extends TestCase
                 ->where('people.data.0.name', $vendorPerson->name)
                 ->where('people.data.0.type', 'vendor')
                 ->where('people.data.0.context', 'Cedar Craft Co')
-                ->where('filters.type', 'vendor'));
+                ->where('filters.type', 'vendor')
+                ->where('filters.status', 'incomplete'));
 
         foreach (['patron', 'team'] as $type) {
             $this->get(route('check-in.index', ['type' => $type]))
                 ->assertOk()
                 ->assertInertia(fn (Assert $page) => $page
                     ->component('CheckIn/Index')
-                    ->has('people.data', 0)
+                    ->has('people.data', $type === 'team' ? 1 : 0)
                     ->has('people.meta')
                     ->where('filters.type', $type));
         }
@@ -131,8 +133,8 @@ class ArtistCheckInTest extends TestCase
         $main = $event->locations()->create(['name' => 'Main stage']);
         $other = $event->locations()->create(['name' => 'Box office']);
         $item = $expected->entitlementItem;
-        $item->adjustments()->create(['location_id' => $main->id, 'delta' => 2, 'user_id' => $user->id]);
-        $item->adjustments()->create(['location_id' => $other->id, 'delta' => 4, 'user_id' => $user->id]);
+        $this->seedStock($item, $main, 2, $user);
+        $this->seedStock($item, $other, 4, $user);
 
         $this->actingAs($user)->post(route('check-in.issues.store', $expected), [
             'location_id' => $main->id,
@@ -146,8 +148,8 @@ class ArtistCheckInTest extends TestCase
             'issued_by' => $user->id,
         ]);
         $this->assertSame(ExpectedEntitlement::STATUS_CONSUMED, $expected->fresh()->status);
-        $this->assertSame(1, (int) $item->adjustments()->where('location_id', $main->id)->sum('delta'));
-        $this->assertSame(4, (int) $item->adjustments()->where('location_id', $other->id)->sum('delta'));
+        $this->assertSame(1, (int) app(EntitlementItemService::class)->balanceForLocation($item, $main->id));
+        $this->assertSame(4, (int) app(EntitlementItemService::class)->balanceForLocation($item, $other->id));
     }
 
     public function test_consume_page_lists_people_alphabetically_and_only_their_held_entitlements(): void
@@ -157,11 +159,7 @@ class ArtistCheckInTest extends TestCase
         $riley = Person::query()->create(['name' => 'Riley Quinn', 'email' => 'riley@example.com']);
         $engagement->people()->attach($riley);
         $location = $event->locations()->create(['name' => 'Main stage']);
-        $expected->entitlementItem->adjustments()->create([
-            'location_id' => $location->id,
-            'delta' => 2,
-            'user_id' => $user->id,
-        ]);
+        $this->seedStock($expected->entitlementItem, $location, 2, $user);
         $label = PassTypeLabel::query()->create(['name' => 'Wristband', 'color' => 'teal']);
         $expected->passAssignment->passType->labels()->attach($label);
         $unassigned = $engagement->passAssignments()->create([
@@ -180,8 +178,7 @@ class ArtistCheckInTest extends TestCase
             ->has('engagement.people', 2)
             ->where('engagement.people.0.name', $maya->name)
             ->where('engagement.people.0.expected', 1)
-            ->where('engagement.people.0.entitlements.0.status', 'pending')
-            ->where('engagement.people.0.entitlements.0.locations.0.name', 'Main stage')
+            ->missing('engagement.people.0.entitlements')
             ->where('engagement.people.0.pass_labels.0.name', 'Wristband')
             ->where('engagement.people.1.name', $riley->name)
             ->where('engagement.people.1.expected', 0));
@@ -192,11 +189,7 @@ class ArtistCheckInTest extends TestCase
         [$user, $event] = $this->context();
         [$engagement, $person, $expected] = $this->heldVendorEntitlement($event, 'Cedar Craft Co', 'Priya Nair');
         $location = $event->locations()->create(['name' => 'Vendor gate']);
-        $expected->entitlementItem->adjustments()->create([
-            'location_id' => $location->id,
-            'delta' => 2,
-            'user_id' => $user->id,
-        ]);
+        $this->seedStock($expected->entitlementItem, $location, 2, $user);
 
         $this->actingAs($user)
             ->get(route('check-in.vendors.show', [$engagement, 'person' => $person->id]))
@@ -205,7 +198,11 @@ class ArtistCheckInTest extends TestCase
                 ->where('engagement.name', 'Cedar Craft Co')
                 ->where('engagement.type', 'vendor')
                 ->where('selectedPersonId', $person->id)
-                ->where('engagement.people.0.entitlements.0.locations.0.name', 'Vendor gate'));
+                ->where('engagement.people.0.expected', 1));
+        $this->getJson(route('check-in.entitlements', [
+            'draw' => 1, 'start' => 0, 'length' => 25, 'type' => 'vendor',
+            'engagement_id' => $engagement->id, 'person_id' => $person->id,
+        ]))->assertOk()->assertJsonPath('data.0.locations.0.name', 'Vendor gate');
 
         $this->post(route('check-in.issues.store', $expected), [
             'location_id' => $location->id,
@@ -245,11 +242,7 @@ class ArtistCheckInTest extends TestCase
         [$user, $event] = $this->context();
         [$engagement, $person, $expected] = $this->heldEntitlement($event, 'River Hollow');
         $location = $event->locations()->create(['name' => 'Main stage']);
-        $expected->entitlementItem->adjustments()->create([
-            'location_id' => $location->id,
-            'delta' => 3,
-            'user_id' => $user->id,
-        ]);
+        $this->seedStock($expected->entitlementItem, $location, 3, $user);
 
         $engagement->people()->detach($person);
         $this->actingAs($user)->post(route('check-in.issues.store', $expected), [

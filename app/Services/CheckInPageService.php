@@ -3,6 +3,9 @@
 namespace App\Services;
 
 use App\Http\Requests\CheckIn\ViewCheckInRequest;
+use App\Http\Resources\MemberShiftResource;
+use App\Models\TeamEngagement;
+use App\Repositories\ShiftAssignmentRepository;
 use App\Support\EventContext;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -18,28 +21,39 @@ class CheckInPageService
     public function show(ViewCheckInRequest $request, Model $engagement, JsonResource $resource, string $relation): Response
     {
         $event = $this->eventContext->requireCurrent($request->user());
-        abort_unless($engagement->event_id === $event->id && $engagement->status === 'confirmed', 404);
+        $isTeam = $engagement instanceof TeamEngagement;
+        abort_unless($engagement->event_id === $event->id && $engagement->status === ($isTeam ? 'hired' : 'confirmed'), 404);
         $engagement->load([
             $relation,
-            'people' => fn ($query) => $query->orderBy('people.name'),
+            ...($isTeam ? ['person', 'group', 'role'] : ['people' => fn ($query) => $query->orderBy('people.name')]),
+            'passAssignments' => fn ($query) => $query
+                ->whereHas('passType', fn ($passes) => $passes->where('event_id', $event->id))
+                ->withCount([
+                    'expectedEntitlements' => fn ($expected) => $expected->whereHas('entitlementItem', fn ($items) => $items->where('event_id', $event->id)),
+                    'expectedEntitlements as issued_count' => fn ($expected) => $expected
+                        ->whereHas('entitlementItem', fn ($items) => $items->where('event_id', $event->id))->whereHas('issuedEntitlement'),
+                ]),
             'passAssignments.passType.labels',
-            // The check-in resource needs location balances, not ledger history.
-            'passAssignments.expectedEntitlements.entitlementItem.adjustments' => fn ($query) => $query
-                ->select('entitlement_item_id', 'location_id')
-                ->selectRaw('SUM(delta) as balance')
-                ->whereNotNull('location_id')
-                ->groupBy('entitlement_item_id', 'location_id')
-                ->havingRaw('SUM(delta) > 0')
-                ->with('location'),
-            'passAssignments.expectedEntitlements.issuedEntitlement.location',
         ]);
+        $people = $isTeam ? collect([$engagement->person]) : $engagement->people;
         $personId = $request->integer('person');
 
-        return Inertia::render('CheckIn/Show', [
+        $canViewShifts = $isTeam && Gate::allows('scheduling.view', $event);
+
+        return Inertia::render($isTeam ? 'CheckIn/Team' : 'CheckIn/Show', [
             'engagement' => $resource->resolve($request),
             'event' => $event->only('id', 'name', 'locked', 'timezone'),
             'canWrite' => ! $event->isLocked() && Gate::allows('checkin.edit', $event),
-            'selectedPersonId' => $engagement->people->contains('id', $personId) ? $personId : null,
+            'selectedPersonId' => $people->contains('id', $personId) ? $personId : null,
+            ...($isTeam ? [
+                'memberUrl' => Gate::allows('team.view', $event) ? route('team.members.show', $engagement) : null,
+                'canViewShifts' => $canViewShifts,
+                ...($canViewShifts ? [
+                    'checkInShifts' => MemberShiftResource::collection(
+                        app(ShiftAssignmentRepository::class)->recentAndUpcomingForMember($event, $engagement),
+                    )->resolve($request),
+                ] : []),
+            ] : []),
         ]);
     }
 }

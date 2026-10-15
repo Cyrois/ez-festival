@@ -7,11 +7,13 @@ import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
 import { LabelCombobox } from '../../components/ui/label-combobox';
-import { Select } from '../../components/ui/select';
+import { CustomDropdown } from '../../components/ui/custom-dropdown';
+import { Dialog } from '../../components/ui/dialog';
+import { toastFormErrors } from '../../lib/fieldError';
 import { Textarea } from '../../components/ui/textarea';
 import { useFlashToast } from '../../composables/useFlashToast';
-import { useForm } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { useForm, usePage } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
 const props = defineProps({
@@ -21,8 +23,10 @@ const props = defineProps({
     entitlementItems: { type: Array, default: () => [] },
     customFields: { type: Array, default: () => [] },
     pass: { type: Object, default: null },
+    canWrite: { type: Boolean, default: false },
 });
 
+const page = usePage();
 const form = useForm({
     name: props.pass?.name ?? '',
     max_assignments: props.pass?.max_assignments ?? '',
@@ -37,7 +41,7 @@ const form = useForm({
         ]),
     ),
 });
-const { showFormError } = useFlashToast();
+const { showError, showFormError } = useFlashToast();
 const breadcrumbs = computed(() => [
     { label: trans('nav.credentials'), href: '/credentials/passes' },
     { label: trans('credentials.passes.title'), href: '/credentials/passes' },
@@ -48,6 +52,30 @@ const breadcrumbs = computed(() => [
     },
 ]);
 
+const deleteOpen = ref(false);
+const deleteForm = useForm({});
+const entitlementOptions = computed(() =>
+    props.entitlementItems.map((item) => ({
+        value: item.id,
+        title: item.name,
+    })),
+);
+const destroyPass = () => {
+    if (!props.pass || !props.canWrite) return;
+    deleteForm.delete(
+        `/events/${props.event.id}/credentials/passes/${props.pass.id}`,
+        {
+            onError: (errors) =>
+                toastFormErrors(deleteForm, errors, {
+                    showError,
+                    showFormError,
+                }),
+            onSuccess: () => {
+                deleteOpen.value = false;
+            },
+        },
+    );
+};
 const isEditing = computed(() => props.pass !== null);
 const pageTitle = computed(() =>
     isEditing.value
@@ -64,17 +92,22 @@ const labelError = computed(
 );
 
 const addEntitlement = () => {
-    if (props.entitlementItems[0]) {
+    if (props.canWrite && props.entitlementItems[0]) {
         form.entitlement_item_ids.push(props.entitlementItems[0].id);
     }
 };
 
 const removeEntitlement = (index) => {
+    if (!props.canWrite) return;
     form.entitlement_item_ids.splice(index, 1);
 };
 
 const submit = () => {
-    const options = { onError: showFormError };
+    if (!props.canWrite) return;
+    const options = {
+        onError: (errors) =>
+            toastFormErrors(form, errors, { showError, showFormError }),
+    };
 
     if (isEditing.value) {
         form.put(
@@ -94,20 +127,35 @@ const submit = () => {
         :breadcrumbs="breadcrumbs"
         compact-mobile-header
     >
-        <div class="w-full">
-            <div class="mb-6">
-                <h1 class="m-0 text-2xl font-bold tracking-tight">
-                    {{ pageTitle }}
-                </h1>
-                <p class="mt-1 mb-0 text-sm leading-5 text-muted">
-                    {{
-                        isEditing
-                            ? $t('credentials.passes.edit_lead')
-                            : $t('credentials.passes.create_lead')
-                    }}
-                </p>
+        <div class="container mx-auto">
+            <div class="mb-6 flex items-start justify-between gap-4">
+                <div>
+                    <h1 class="m-0 text-2xl font-bold tracking-tight">
+                        {{ pageTitle }}
+                    </h1>
+                    <p class="mt-1 mb-0 text-sm leading-5 text-muted">
+                        {{
+                            isEditing
+                                ? $t('credentials.passes.edit_lead')
+                                : $t('credentials.passes.create_lead')
+                        }}
+                    </p>
+                </div>
+                <Button
+                    v-if="isEditing && canWrite"
+                    variant="danger"
+                    :disabled="deleteForm.processing"
+                    @click="deleteOpen = true"
+                    >{{ $t('credentials.passes.actions.delete') }}</Button
+                >
             </div>
 
+            <p
+                v-if="!canWrite"
+                class="mb-5 rounded-lg border border-line bg-page p-3 text-sm text-muted"
+            >
+                {{ $t('credentials.passes.read_only') }}
+            </p>
             <form @submit.prevent="submit">
                 <Card class="p-5">
                     <section>
@@ -128,6 +176,7 @@ const submit = () => {
                                     :id="id"
                                     v-model="form.name"
                                     :invalid="invalid"
+                                    :disabled="!canWrite || form.processing"
                                     :placeholder="
                                         $t(
                                             'credentials.passes.fields.name_placeholder',
@@ -156,6 +205,7 @@ const submit = () => {
                                     :id="id"
                                     v-model="form.max_assignments"
                                     :invalid="invalid"
+                                    :disabled="!canWrite || form.processing"
                                     :placeholder="
                                         $t(
                                             'credentials.passes.fields.max_assignments_placeholder',
@@ -183,7 +233,7 @@ const submit = () => {
                                 :labels="labels"
                                 :colors="labelColors"
                                 :invalid="Boolean(labelError)"
-                                :disabled="form.processing"
+                                :disabled="!canWrite || form.processing"
                                 allow-create
                             />
                         </FormField>
@@ -228,6 +278,9 @@ const submit = () => {
                                                     : field.type
                                             "
                                             :invalid="invalid"
+                                            :disabled="
+                                                !canWrite || form.processing
+                                            "
                                             autocomplete="off"
                                         />
                                     </template>
@@ -247,6 +300,9 @@ const submit = () => {
                                                 form.custom_fields[field.id]
                                             "
                                             :invalid="invalid"
+                                            :disabled="
+                                                !canWrite || form.processing
+                                            "
                                         />
                                     </template>
                                 </FormField>
@@ -259,26 +315,27 @@ const submit = () => {
                                     :required="field.required"
                                 >
                                     <template #default="{ id, invalid }">
-                                        <Select
+                                        <CustomDropdown
                                             :id="id"
                                             v-model="
                                                 form.custom_fields[field.id]
                                             "
                                             :invalid="invalid"
-                                        >
-                                            <option value="">
-                                                {{
-                                                    $t('ui.select.placeholder')
-                                                }}
-                                            </option>
-                                            <option
-                                                v-for="option in field.options"
-                                                :key="option"
-                                                :value="option"
-                                            >
-                                                {{ option }}
-                                            </option>
-                                        </Select>
+                                            :disabled="
+                                                !canWrite || form.processing
+                                            "
+                                            :items="
+                                                (field.options ?? []).map(
+                                                    (option) => ({
+                                                        value: option,
+                                                        title: option,
+                                                    }),
+                                                )
+                                            "
+                                            :placeholder="
+                                                $t('ui.select.placeholder')
+                                            "
+                                        />
                                     </template>
                                 </FormField>
                                 <FormField
@@ -296,6 +353,9 @@ const submit = () => {
                                                 form.custom_fields[field.id]
                                             "
                                             :invalid="invalid"
+                                            :disabled="
+                                                !canWrite || form.processing
+                                            "
                                         />
                                     </template>
                                 </FormField>
@@ -325,24 +385,19 @@ const submit = () => {
                                 :key="`${itemId}-${index}`"
                                 class="flex items-center gap-2"
                             >
-                                <Select
+                                <CustomDropdown
                                     v-model="form.entitlement_item_ids[index]"
                                     class="flex-1"
+                                    :items="entitlementOptions"
+                                    :disabled="!canWrite || form.processing"
                                     :aria-label="
                                         $t(
                                             'credentials.passes.entitlements.item',
                                         )
                                     "
-                                >
-                                    <option
-                                        v-for="item in entitlementItems"
-                                        :key="item.id"
-                                        :value="item.id"
-                                    >
-                                        {{ item.name }}
-                                    </option>
-                                </Select>
+                                />
                                 <Button
+                                    v-if="canWrite"
                                     type="button"
                                     size="sm"
                                     variant="ghost"
@@ -365,7 +420,7 @@ const submit = () => {
                             </p>
                         </div>
                         <Button
-                            v-if="entitlementItems.length > 0"
+                            v-if="canWrite && entitlementItems.length > 0"
                             type="button"
                             size="sm"
                             variant="secondary"
@@ -376,7 +431,10 @@ const submit = () => {
                         </Button>
                     </section>
 
-                    <section class="mt-5 border-t border-line pt-5">
+                    <section
+                        v-if="page.props.auth?.user?.is_admin"
+                        class="mt-5 border-t border-line pt-5"
+                    >
                         <CardTitle>
                             {{ $t('credentials.passes.products.title') }}
                         </CardTitle>
@@ -407,6 +465,7 @@ const submit = () => {
                             {{ $t('setup.actions.cancel') }}
                         </Button>
                         <Button
+                            v-if="canWrite"
                             type="submit"
                             :loading="form.processing"
                         >
@@ -420,5 +479,17 @@ const submit = () => {
                 </Card>
             </form>
         </div>
+        <Dialog
+            v-if="isEditing && canWrite"
+            v-model:open="deleteOpen"
+            :title="$t('credentials.passes.delete.title')"
+            :description="
+                $t('credentials.passes.delete.description', { name: pass.name })
+            "
+            :confirm-label="$t('credentials.passes.actions.delete')"
+            :cancel-label="$t('ui.dialog.cancel')"
+            :busy="deleteForm.processing"
+            @confirm="destroyPass"
+        />
     </AppLayout>
 </template>

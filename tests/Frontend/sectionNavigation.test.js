@@ -7,7 +7,7 @@ import { parse, compileScript } from '@vue/compiler-sfc';
 import { JSDOM } from 'jsdom';
 import { getAppNavigation, isNavigationItemActive } from '../../resources/js/lib/appNavigation.js';
 
-const allPermissions = Object.fromEntries(['team.view', 'scheduling.view', 'forms.view', 'meals.view', 'artists.view', 'vendors.view', 'patrons.view', 'checkin.view'].map((key) => [key, true]));
+const allPermissions = Object.fromEntries(['team.view', 'scheduling.view', 'forms.view', 'meals.view', 'artists.view', 'vendors.view', 'patrons.view', 'checkin.view', 'meals.report.view', 'credentials.passes.edit', 'credentials.entitlements.edit'].map((key) => [key, true]));
 const navigation = (options = {}) => getAppNavigation({ permissions: allPermissions, isAdmin: true, ...options });
 
 test('Team opens its first permitted page and omits inaccessible tabs', () => {
@@ -21,7 +21,7 @@ test('Team opens its first permitted page and omits inaccessible tabs', () => {
         assert.deepEqual(team.tabs.map((tab) => tab.key), keys);
     }
     assert.equal(navigation({ permissions: {} }).some((item) => item.key === 'team'), false);
-    assert.equal(navigation({ isAdmin: false }).some((item) => item.key === 'credentials'), false);
+    assert.equal(navigation({ isAdmin: false, permissions: {} }).some((item) => item.key === 'credentials'), false);
     assert.equal(navigation({ features: { team: false } }).find((item) => item.key === 'team').enabled, false);
 });
 

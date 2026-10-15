@@ -32,7 +32,7 @@ class PassTypeController extends Controller
 
     public function index(): Response
     {
-        Gate::authorize('view-credentials');
+        Gate::authorize('credentials.passes.edit');
         $event = $this->eventContext->requireCurrent(request()->user());
 
         return Inertia::render('Credentials/Passes', [
@@ -53,7 +53,7 @@ class PassTypeController extends Controller
 
     public function edit(EditPassRequest $request, PassType $passType): Response
     {
-        $event = $this->eventContext->requireWritable($request->user());
+        $event = $this->eventContext->requireCurrent($request->user());
         abort_unless($passType->event_id === $event->id, 404);
         $passType->load(['labels', 'customFieldValues.customField', 'entitlements']);
 
@@ -103,6 +103,7 @@ class PassTypeController extends Controller
     {
         return [
             'event' => $event->only('id', 'name'),
+            'canWrite' => ! $event->isLocked(),
             'labels' => PassTypeLabel::query()->orderBy('name')->get(['id', 'name', 'color']),
             'labelColors' => LabelColors::ALL,
             'entitlementItems' => $event->entitlementItems()->orderBy('name')->get(['id', 'name']),

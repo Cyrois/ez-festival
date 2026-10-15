@@ -10,6 +10,7 @@ use App\Models\TeamForm;
 use App\Models\User;
 use App\Models\Vendor;
 use App\Models\VendorEngagement;
+use App\Services\EntitlementItemService;
 use App\Services\EventLocationService;
 use App\Services\EventService;
 use App\Services\PassAssignmentService;
@@ -248,24 +249,24 @@ class DatabaseAuditRegressionTest extends TestCase
         $this->post(route('credentials.entitlements.store', $event), [...$payload, 'opening_balance' => 2147483647])
             ->assertRedirect()->assertSessionHasNoErrors();
         $item = $event->entitlementItems()->firstOrFail();
-        $this->assertSame(2147483647, $item->adjustments()->sole()->delta);
+        $this->assertSame(2147483647, $item->movements()->sole()->quantity);
         foreach (['add', 'remove'] as $direction) {
             $this->postJson(route('credentials.entitlements.adjustments.store', [$event, $item]), [
                 'location_id' => $location->id, 'direction' => $direction, 'quantity' => 2147483648,
             ])->assertUnprocessable()->assertJsonValidationErrors('quantity');
         }
-        $this->assertSame(1, $item->adjustments()->count());
+        $this->assertSame(1, $item->movements()->count());
         $this->post(route('credentials.entitlements.adjustments.store', [$event, $item]), [
-            'location_id' => $location->id, 'direction' => 'remove', 'quantity' => 2147483647,
+            'location_id' => $location->id, 'direction' => 'remove', 'quantity' => 2147483647, 'reason' => 'Count correction',
         ])->assertRedirect()->assertSessionHasNoErrors();
-        $this->assertSame(-2147483647, $item->adjustments()->orderByDesc('id')->firstOrFail()->delta);
-        $this->assertSame(0, (int) $item->adjustments()->sum('delta'));
+        $this->assertSame(2147483647, $item->movements()->orderByDesc('id')->firstOrFail()->quantity);
+        $this->assertSame(0, (int) app(EntitlementItemService::class)->balance($item));
         $this->post(route('credentials.entitlements.adjustments.store', [$event, $item]), [
             'location_id' => $location->id, 'direction' => 'add', 'quantity' => 2147483647,
         ])->assertRedirect()->assertSessionHasNoErrors();
-        $this->assertSame(2147483647, $item->adjustments()->orderByDesc('id')->firstOrFail()->delta);
-        $this->assertSame(3, $item->adjustments()->count());
-        $this->assertSame(2147483647, (int) $item->adjustments()->sum('delta'));
+        $this->assertSame(2147483647, $item->movements()->orderByDesc('id')->firstOrFail()->quantity);
+        $this->assertSame(3, $item->movements()->count());
+        $this->assertSame(2147483647, (int) app(EntitlementItemService::class)->balance($item));
     }
 
     public function test_team_event_queries_do_not_grow_with_the_number_of_members(): void
@@ -315,20 +316,21 @@ class DatabaseAuditRegressionTest extends TestCase
         $assignment->expectedEntitlements()->create(['entitlement_item_id' => $item->id]);
         $location = $event->locations()->create(['name' => 'Available']);
         $empty = $event->locations()->create(['name' => 'Empty']);
-        $item->adjustments()->createMany([
-            ['location_id' => $location->id, 'delta' => 30], ['location_id' => $location->id, 'delta' => -4],
-            ['location_id' => $empty->id, 'delta' => 2], ['location_id' => $empty->id, 'delta' => -2],
-        ]);
+        $this->seedStock($item, $location, 30);
+        $this->seedStock($item, $location, -4);
+        $this->seedStock($item, $empty, 2);
+        $this->seedStock($item, $empty, -2);
         $ledgerQueries = [];
         DB::listen(function ($query) use (&$ledgerQueries): void {
-            if (preg_match('/from ["`]entitlement_adjustments["`]/i', $query->sql)) {
+            if (preg_match('/from ["`]stock_movements["`]/i', $query->sql)) {
                 $ledgerQueries[] = strtolower($query->sql);
             }
         });
-        $this->actingAs($user)->get(route('check-in.show', $engagement))->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->has('engagement.people.0.entitlements.0.locations', 1)
-                ->where('engagement.people.0.entitlements.0.locations.0.name', 'Available')
-                ->where('engagement.people.0.entitlements.0.locations.0.in_stock', 26));
+        $this->actingAs($user)->getJson(route('check-in.entitlements', [
+            'draw' => 1, 'start' => 0, 'length' => 25, 'type' => 'artist',
+            'engagement_id' => $engagement->id, 'person_id' => $person->id,
+        ]))->assertOk()->assertJsonCount(1, 'data.0.locations')
+            ->assertJsonPath('data.0.locations.0.name', 'Available')->assertJsonPath('data.0.locations.0.in_stock', 26);
         $this->assertCount(1, $ledgerQueries);
         $this->assertStringContainsString('sum(delta)', $ledgerQueries[0]);
         $this->assertStringContainsString('group by', $ledgerQueries[0]);

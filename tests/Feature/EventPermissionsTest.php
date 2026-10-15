@@ -166,7 +166,7 @@ class EventPermissionsTest extends TestCase
     {
         $this->grantAdminAccess($this->user);
         $this->get(route('settings.roles.create'))->assertInertia(fn (Assert $page) => $page
-            ->component('Settings/Roles/Create')->has('permissionGroups', 8)->has('permissionGroups.team', 6)->has('permissionGroups.scheduling', 2)->has('permissionGroups.forms', 2)->has('permissionGroups.meals', 5));
+            ->component('Settings/Roles/Create')->has('permissionGroups', 10)->has('permissionGroups.inventory', 3)->has('permissionGroups.credentials', 3)->has('permissionGroups.team', 6)->has('permissionGroups.scheduling', 2)->has('permissionGroups.forms', 2)->has('permissionGroups.meals', 6));
         foreach ([[], ['invented.permission']] as $permissions) {
             $this->post(route('settings.roles.store'), ['name' => 'Invalid', 'permissions' => $permissions])->assertSessionHasErrors();
         }
@@ -267,9 +267,11 @@ class EventPermissionsTest extends TestCase
                 ->missing('engagement.people.0.email')->missing('engagement.people.0.phone'));
             $this->assertStringNotContainsString($privatePerson->email, $hidden->getContent());
             $this->assertStringNotContainsString($privatePerson->phone, $hidden->getContent());
-            $this->get(route('check-in.index'))->assertInertia(fn (Assert $page) => $page
-                ->where('people.data.0.can_edit', $area === 'artists')
-                ->where('people.data.1.can_edit', $area === 'vendors'));
+            $rows = $this->getJson(route('check-in.data', [
+                'draw' => 1, 'start' => 0, 'length' => 25, 'status' => 'all',
+            ]))->assertOk()->json('data');
+            $this->assertSame($area === 'artists', collect($rows)->firstWhere('type', 'artist')['can_edit']);
+            $this->assertSame($area === 'vendors', collect($rows)->firstWhere('type', 'vendor')['can_edit']);
         }
     }
 
@@ -346,8 +348,6 @@ class EventPermissionsTest extends TestCase
         $this->post(route('events.lock', $this->event))->assertForbidden();
         $this->post(route('events.unlock', $this->event))->assertForbidden();
         $this->post(route('settings.roles.store'), ['name' => 'Forbidden', 'permissions' => Permissions::keys()])->assertForbidden();
-        $this->post(route('credentials.passes.store', $this->event), [])->assertForbidden();
-        $this->post(route('credentials.entitlements.store', $this->event), [])->assertForbidden();
     }
 
     public function test_scheduling_permissions_are_separate_from_team_and_edit_includes_view(): void

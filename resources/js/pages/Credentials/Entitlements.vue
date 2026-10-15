@@ -7,7 +7,10 @@ import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
 import { LabelCombobox } from '../../components/ui/label-combobox';
 import { Popup } from '../../components/ui/popup';
-import { Select } from '../../components/ui/select';
+import { CustomDropdown } from '../../components/ui/custom-dropdown';
+import { useFlashToast } from '../../composables/useFlashToast';
+import { toastFormErrors } from '../../lib/fieldError';
+import { credentialsHome } from '../../lib/credentialsNavigation';
 import { Tag } from '../../components/ui/tag';
 import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
 import { Link, useForm, usePage } from '@inertiajs/vue3';
@@ -21,16 +24,28 @@ const props = defineProps({
     labelColors: { type: Array, default: () => [] },
     locations: { type: Array, default: () => [] },
     canWrite: { type: Boolean, default: false },
+    canEditItems: { type: Boolean, default: false },
+    canAdjustStock: { type: Boolean, default: false },
 });
 
 const page = usePage();
 const event = computed(() => page.props.activeEvent ?? {});
 const breadcrumbs = computed(() => [
     { label: trans('app.name'), href: '/dashboard' },
-    { label: trans('nav.credentials'), href: '/credentials/passes' },
+    {
+        label: trans('nav.credentials'),
+        href: credentialsHome(page.props.permissions),
+    },
     { label: trans('nav.credentials.entitlements') },
 ]);
 const addOpen = ref(false);
+const { showError, showFormError } = useFlashToast();
+const locationItems = computed(() =>
+    props.locations.map((location) => ({
+        value: location.id,
+        title: location.name,
+    })),
+);
 const selectedLabelIds = ref([]);
 const search = ref('');
 const table = ref(null);
@@ -66,7 +81,7 @@ const options = computed(() => ({
         navigateDataTableRow(
             row,
             item,
-            (record) => `/credentials/entitlements/${record.id}/edit`,
+            (record) => `/credentials/entitlements/${record.id}`,
         ),
     language: {
         emptyTable: trans('credentials.entitlements.items.empty'),
@@ -109,7 +124,10 @@ const openAdd = () => {
 };
 
 const createItem = () => {
+    if (!props.canWrite || !props.canEditItems) return;
     createForm.post(`/events/${event.value.id}/credentials/entitlements`, {
+        onError: (errors) =>
+            toastFormErrors(createForm, errors, { showError, showFormError }),
         preserveScroll: true,
         onSuccess: () => {
             addOpen.value = false;
@@ -149,7 +167,7 @@ const createItem = () => {
                         </p>
                     </div>
                     <Button
-                        v-if="canWrite"
+                        v-if="canWrite && canEditItems"
                         type="button"
                         class="min-h-10"
                         @click="openAdd"
@@ -234,7 +252,7 @@ const createItem = () => {
                     <template #actionsCell="{ rowData }">
                         <div class="flex items-center justify-end gap-2">
                             <Link
-                                :href="`/credentials/entitlements/${rowData.id}/edit`"
+                                :href="`/credentials/entitlements/${rowData.id}`"
                                 class="inline-flex text-muted hover:text-primary"
                                 :aria-label="
                                     $t('data_table.open', {
@@ -261,6 +279,7 @@ const createItem = () => {
         </div>
 
         <Popup
+            v-if="canWrite && canEditItems"
             v-model:open="addOpen"
             :title="$t('credentials.entitlements.add.title')"
             :description="$t('credentials.entitlements.add.lead')"
@@ -304,6 +323,7 @@ const createItem = () => {
                     />
                 </FormField>
                 <FormField
+                    v-if="canAdjustStock"
                     :label="
                         $t('credentials.entitlements.fields.opening_balance')
                     "
@@ -327,6 +347,7 @@ const createItem = () => {
                     </template>
                 </FormField>
                 <FormField
+                    v-if="canAdjustStock"
                     :label="$t('credentials.entitlements.fields.location')"
                     :error="createForm.errors.location_id"
                     :hint="
@@ -337,26 +358,22 @@ const createItem = () => {
                     :required="Number(createForm.opening_balance) > 0"
                 >
                     <template #default="{ id, invalid }">
-                        <Select
+                        <CustomDropdown
                             :id="id"
                             v-model="createForm.location_id"
+                            :items="locationItems"
                             :invalid="invalid"
-                        >
-                            <option value="">
-                                {{
-                                    $t(
-                                        'credentials.entitlements.fields.location_placeholder',
-                                    )
-                                }}
-                            </option>
-                            <option
-                                v-for="location in locations"
-                                :key="location.id"
-                                :value="location.id"
-                            >
-                                {{ location.name }}
-                            </option>
-                        </Select>
+                            :placeholder="
+                                $t(
+                                    'credentials.entitlements.fields.location_placeholder',
+                                )
+                            "
+                            :empty-text="
+                                $t(
+                                    'credentials.entitlements.fields.location_empty',
+                                )
+                            "
+                        />
                     </template>
                 </FormField>
             </div>

@@ -8,8 +8,7 @@ import { EmptyState } from '../../components/ui/empty-state';
 import { Icon } from '../../components/ui/icon';
 import { Tag } from '../../components/ui/tag';
 import PeopleRail from '../../components/check-in/PeopleRail.vue';
-import EntitlementRows from '../../components/check-in/EntitlementRows.vue';
-import EntitlementDetailsDialog from '../../components/check-in/EntitlementDetailsDialog.vue';
+import EntitlementTable from '../../components/check-in/EntitlementTable.vue';
 import ConsumeEntitlementDialog from '../../components/check-in/ConsumeEntitlementDialog.vue';
 import { trans } from 'laravel-vue-i18n';
 
@@ -25,9 +24,12 @@ const selectedId = ref(
         ? props.selectedPersonId
         : (props.engagement.people[0]?.id ?? null),
 );
-const details = ref(null);
 const consuming = ref(null);
-const readOnly = computed(() => !props.canWrite);
+const writeBlockedReason = computed(() =>
+    props.event.locked
+        ? trans('artists.check_in.locked')
+        : trans('check_in.needs_edit_permission'),
+);
 const person = computed(() =>
     props.engagement.people.find(({ id }) => id === selectedId.value),
 );
@@ -140,11 +142,16 @@ const breadcrumbs = computed(() => [
                             :color="label.color"
                         />
                     </div>
-                    <EntitlementRows
-                        v-if="person.entitlements.length"
-                        :entitlements="person.entitlements"
+                    <EntitlementTable
+                        v-if="person.expected > 0"
+                        :key="person.id"
+                        :type="engagement.type"
+                        :engagement-id="engagement.id"
+                        :person-id="person.id"
+                        :refresh-key="person.issued"
+                        :timezone="event.timezone"
                         :can-write="canWrite"
-                        @details="details = $event"
+                        :write-blocked-reason="writeBlockedReason"
                         @consume="consuming = $event"
                     />
                     <EmptyState
@@ -157,12 +164,6 @@ const breadcrumbs = computed(() => [
                 </section>
             </div>
         </div>
-        <EntitlementDetailsDialog
-            :open="Boolean(details)"
-            :entitlement="details"
-            :timezone="event.timezone"
-            @update:open="details = $event ? details : null"
-        />
         <ConsumeEntitlementDialog
             :open="Boolean(consuming)"
             :entitlement="consuming"
