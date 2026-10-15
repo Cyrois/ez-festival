@@ -1,16 +1,16 @@
 # Check-in Inventory (#196)
 
-Implemented locally on `codex/check-in-inventory`, based on `main` at `fc6fe6e`
-after #214 and #215 merged. No commit, push, PR or merge was requested.
+Implements #196 after #214 and #215, including the shared navbar merged from main.
+Publication branch: `codex/check-in-stock-holdings`.
 
 ## Behavior and confirmed decisions
 
-Check-in has People / My stock / Inventory tabs in the top navbar. My stock
+Check-in has Check-in / My stock / Inventory tabs in the top navbar. My stock
 opens `/check-in/my-stock` and requires Check people in. Inventory opens
 `/check-in/inventory` directly to the holdings view and requires Manage inventory,
 including on direct navigation. There are no nested My stock / Holdings tabs.
-View check-in alone retains the People page. Either Inventory pass permission and Manage
-inventory now include **Check people in and View check-in**, following Calvin's
+View check-in alone retains the Check-in page. Either Inventory pass permission
+and Manage inventory include **Check people in and View check-in**, following Calvin's
 confirmed change to #195's independent-permission rule. The Role editor displays
 both included checks; server permission expansion enforces the same grants for
 existing roles and direct role-save requests. Credentials write keys remain
@@ -89,8 +89,8 @@ error found while verifying People → Inventory navigation.
 
 ## Verification — October 14, 2026
 
-- Full SQLite: **787 passed, 24 PostgreSQL-only skips**, 10,866 assertions.
-- Full PostgreSQL: **811 passed**, 11,122 assertions, using isolated
+- Full SQLite: **790 passed, 24 PostgreSQL-only skips**, 10,987 assertions.
+- Full PostgreSQL: **814 passed**, 11,243 assertions, using isolated
   `inventory_196_test` on local PostgreSQL 17.
 - Concurrency tests use independent connections for competing Pulls/Returns,
   role revocation, and both arrival orders of Pull versus status, Global Team
@@ -103,11 +103,11 @@ error found while verifying People → Inventory navigation.
   quantity defaults, clean reopening, cancellation during remote loading,
   dropdown remote search/paging, DataTables' flat search request contract,
   escaped names and privacy translations without global injection.
-- Full frontend: **257 passed, 1 pre-existing failure**. The existing unrelated
+- Full frontend: **266 passed, 1 pre-existing failure**. The existing unrelated
   `shiftTimelineRoster.test.js:642` failure expects a staged-hours payload without
   `is_supervisor: false`, as documented on #214/#215. No roster implementation or
-  test was changed to hide it. All **14 focused Inventory/Check-in/dropdown tests**
-  passed.
+  test was changed to hide it. All **22 focused Inventory/Check-in/navigation tests**
+  passed, including independent pagination/search for the two holdings sections.
 - Pint, Prettier, ESLint, production build and diff whitespace checks passed.
 - Browser verification used disposable `inventory_196_preview`, synthetic users
   and a localhost-only preview. Pull/Return persisted the expected ledger actor,
