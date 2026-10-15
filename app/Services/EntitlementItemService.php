@@ -2,11 +2,12 @@
 
 namespace App\Services;
 
+use App\Enums\StockMovement as StockMovementType;
 use App\Models\EntitlementItem;
 use App\Models\EntitlementItemLabel;
 use App\Models\Event;
 use App\Models\ExpectedEntitlement;
-use App\Models\Location;
+use App\Models\IssuedEntitlement;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -15,6 +16,8 @@ use Illuminate\Validation\ValidationException;
 
 class EntitlementItemService
 {
+    public function __construct(private readonly StockMovementService $stocks) {}
+
     /** @return Collection<int, EntitlementItem> */
     public function list(Event $event): Collection
     {
@@ -22,7 +25,9 @@ class EntitlementItemService
             $this->listKey($event->id),
             fn (): array => $event->entitlementItems()
                 ->with('labels')
-                ->withSum('adjustments as balance', 'delta')
+                ->addSelect(['balance' => $this->stocks->entriesQuery($event->id)
+                    ->whereColumn('stock_entries.entitlement_item_id', 'entitlement_items.id')
+                    ->selectRaw('COALESCE(SUM(delta), 0)')])
                 ->orderBy('name')
                 ->get()->map(fn (EntitlementItem $item) => [
                     'attributes' => $item->getAttributes(),
@@ -41,14 +46,15 @@ class EntitlementItemService
             $event = Event::query()->lockForUpdate()->findOrFail($event->id);
             $event->ensureWritable();
 
+            $opening = (int) ($data['opening_balance'] ?? 0);
+            if ($opening < 0 || $opening > 2147483647) {
+                throw ValidationException::withMessages(['opening_balance' => __('inventory.errors.quantity_invalid')]);
+            }
             $item = $event->entitlementItems()->create(['name' => $data['name']]);
 
-            if (($data['opening_balance'] ?? 0) > 0) {
-                $item->adjustments()->create([
-                    'location_id' => $data['location_id'],
-                    'delta' => $data['opening_balance'],
-                    'user_id' => $actor->id,
-                ]);
+            if ($opening > 0) {
+                $this->stocks->move($item, StockMovementType::Add, $opening, null,
+                    $this->stocks->forLocation($event, (int) ($data['location_id'] ?? 0)), $actor);
             }
 
             $this->syncLabels($item, $data, $event);
@@ -96,44 +102,22 @@ class EntitlementItemService
 
     public function adjust(EntitlementItem $item, int $locationId, int $delta, ?string $reason, User $actor): void
     {
-        $eventId = $item->event_id;
-
         DB::transaction(function () use ($item, $locationId, $delta, $reason, $actor): void {
             $event = Event::query()->lockForUpdate()->findOrFail($item->event_id);
             $event->ensureWritable();
             $item = $event->entitlementItems()->lockForUpdate()->findOrFail($item->id);
-
-            $location = Location::query()
-                ->where('event_id', $event->id)
-                ->lockForUpdate()
-                ->find($locationId);
-
-            if ($location === null) {
-                throw ValidationException::withMessages([
-                    'location_id' => __('credentials.entitlements.errors.location_unavailable'),
-                ]);
+            if ($delta === 0 || $delta < -2147483647 || $delta > 2147483647) {
+                throw ValidationException::withMessages(['quantity' => __('inventory.errors.quantity_invalid')]);
             }
-
-            if ($this->balanceForLocation($item, $locationId) + $delta < 0) {
-                throw ValidationException::withMessages([
-                    'quantity' => __('credentials.entitlements.errors.insufficient_stock'),
-                ]);
-            }
-
-            $item->adjustments()->create([
-                'location_id' => $locationId,
-                'delta' => $delta,
-                'reason' => $reason,
-                'user_id' => $actor->id,
-            ]);
+            $holder = $this->stocks->forLocation($event, $locationId);
+            $this->stocks->move($item, $delta < 0 ? StockMovementType::Remove : StockMovementType::Add,
+                abs($delta), $delta < 0 ? $holder : null, $delta < 0 ? null : $holder, $actor, $reason);
         }, 3);
-
-        $this->forgetList($eventId);
     }
 
     public function balance(EntitlementItem $item): int
     {
-        return (int) $item->adjustments()->sum('delta');
+        return $this->stocks->total($item);
     }
 
     public function balanceTotal(EntitlementItem $item): int
@@ -141,30 +125,27 @@ class EntitlementItemService
         return $this->balance($item);
     }
 
-    public function balanceForLocation(EntitlementItem $item, ?int $locationId): int
+    public function balanceForLocation(EntitlementItem $item, int $locationId): int
     {
-        $adjustments = $item->adjustments();
-
-        if ($locationId === null) {
-            $adjustments->whereNull('location_id');
-        } else {
-            $adjustments->where('location_id', $locationId);
-        }
-
-        return (int) $adjustments->sum('delta');
+        return (int) $this->stocks->locationBalancesQuery($item->event_id)
+            ->where('stock_balances.entitlement_item_id', $item->id)->where('sh.location_id', $locationId)->first()?->balance;
     }
 
     /** @return array<int, int> */
     public function balanceByLocation(EntitlementItem $item): array
     {
-        return $item->adjustments()
-            ->whereNotNull('location_id')
-            ->select('location_id')
-            ->selectRaw('SUM(delta) as balance')
-            ->groupBy('location_id')
-            ->pluck('balance', 'location_id')
-            ->map(fn ($balance): int => (int) $balance)
-            ->all();
+        return $this->stocks->locationBalancesQuery($item->event_id)
+            ->where('stock_balances.entitlement_item_id', $item->id)->pluck('balance', 'location_id')
+            ->map(fn ($balance): int => (int) $balance)->all();
+    }
+
+    public function deletionBlocked(EntitlementItem $item): bool
+    {
+        return $item->passTypeEntitlements()->exists()
+            || $item->expectedEntitlements()->exists()
+            || $item->issuedEntitlements()->exists()
+            || $this->stocks->balancesQuery($item->event_id)->where('entitlement_item_id', $item->id)
+                ->havingRaw('SUM(delta) <> 0')->exists();
     }
 
     public function expectedCount(EntitlementItem $item): int
@@ -177,6 +158,18 @@ class EntitlementItemService
     public function issuedCount(EntitlementItem $item): int
     {
         return $item->issuedEntitlements()->count();
+    }
+
+    /** @return array{total: int, issues: Collection<int, IssuedEntitlement>} */
+    public function issuedLog(EntitlementItem $item, int $start, int $length): array
+    {
+        $query = $item->issuedEntitlements();
+        $total = $query->count();
+        $issues = $query->with(['expectedEntitlement.passAssignment.passType:id,name', 'issuedBy:id,name'])
+            ->latest('issued_at')->orderByDesc('id')
+            ->offset($start)->limit($length)->get();
+
+        return compact('total', 'issues');
     }
 
     /** @return array<int, array{pass_type_name: string, line_count: int}> */
@@ -205,10 +198,7 @@ class EntitlementItemService
             $event->ensureWritable();
             $item = $event->entitlementItems()->lockForUpdate()->findOrFail($item->id);
 
-            if ($item->passTypeEntitlements()->exists()
-                || $item->expectedEntitlements()->exists()
-                || $item->issuedEntitlements()->exists()
-                || $this->balance($item) !== 0) {
+            if ($this->deletionBlocked($item)) {
                 throw ValidationException::withMessages([
                     'item' => __('credentials.entitlements.errors.delete_blocked'),
                 ]);
@@ -222,11 +212,11 @@ class EntitlementItemService
 
     public function forgetList(int $eventId): void
     {
-        Cache::forget($this->listKey($eventId));
+        DB::afterCommit(fn () => Cache::forget($this->listKey($eventId)));
     }
 
     private function listKey(int $eventId): string
     {
-        return "lists.events.{$eventId}.entitlement-items.v2";
+        return "lists.events.{$eventId}.entitlement-items.v3";
     }
 }

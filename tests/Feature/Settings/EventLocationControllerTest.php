@@ -3,6 +3,7 @@
 namespace Tests\Feature\Settings;
 
 use App\Models\Event;
+use App\Models\StockHolder;
 use App\Models\User;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -18,7 +19,7 @@ class EventLocationControllerTest extends TestCase
         $this->withoutVite();
     }
 
-    public function test_user_can_delete_a_location_without_adjustments(): void
+    public function test_user_can_delete_a_location_without_stock_history(): void
     {
         [$user, $event] = $this->eventContext();
         $location = $event->locations()->create(['name' => 'Main stage']);
@@ -31,16 +32,12 @@ class EventLocationControllerTest extends TestCase
         $this->assertDatabaseMissing('locations', ['id' => $location->id]);
     }
 
-    public function test_deleting_a_location_with_adjustments_is_blocked(): void
+    public function test_deleting_a_location_with_stock_history_is_blocked(): void
     {
         [$user, $event] = $this->eventContext();
         $location = $event->locations()->create(['name' => 'Main stage']);
         $item = $event->entitlementItems()->create(['name' => 'Artist wristband']);
-        $item->adjustments()->create([
-            'location_id' => $location->id,
-            'delta' => 10,
-            'user_id' => $user->id,
-        ]);
+        $this->seedStock($item, $location, 10, $user);
 
         $this->actingAs($user)
             ->from(route('settings.events.locations', $event))
@@ -49,9 +46,9 @@ class EventLocationControllerTest extends TestCase
             ->assertSessionHasErrors('location');
 
         $this->assertDatabaseHas('locations', ['id' => $location->id]);
-        $this->assertDatabaseHas('entitlement_adjustments', [
+        $this->assertDatabaseHas('stock_movements', [
             'entitlement_item_id' => $item->id,
-            'location_id' => $location->id,
+            'to_holder_id' => StockHolder::query()->where('event_id', $item->event_id)->where('location_id', $location->id)->value('id'),
         ]);
     }
 

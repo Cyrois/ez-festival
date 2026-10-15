@@ -10,7 +10,7 @@ class AdjustEntitlementItemRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Gate::allows('manage-credentials');
+        return Gate::allows('credentials.stock.adjust');
     }
 
     protected function prepareForValidation(): void
@@ -30,7 +30,7 @@ class AdjustEntitlementItemRequest extends FormRequest
             ],
             'direction' => ['required', Rule::in(['add', 'remove'])],
             'quantity' => ['required', 'integer', 'min:1', 'max:2147483647'],
-            'reason' => ['nullable', 'string', 'max:255'],
+            'reason' => ['required_if:direction,remove', 'nullable', 'string', 'max:255'],
         ];
     }
 }

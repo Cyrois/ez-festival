@@ -55,7 +55,7 @@ class TeamPassAssignmentsTest extends TestCase
         $this->assertSame($engagement->id, $assignment->team_engagement_id);
         $this->assertSame($engagement->person_id, $assignment->person_id);
         $this->assertSame(2, $assignment->expectedEntitlements()->count());
-        $this->assertDatabaseCount('entitlement_adjustments', 0);
+        $this->assertDatabaseCount('stock_movements', 0);
     }
 
     public function test_pass_without_entitlement_lines_can_be_given_and_removed(): void

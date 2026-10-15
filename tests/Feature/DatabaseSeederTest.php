@@ -38,6 +38,9 @@ class DatabaseSeederTest extends TestCase
         $this->assertSame($event->id, $user->current_event_id);
         $this->assertTrue($user->is_admin);
         $this->assertTrue($user->person->can_log_in);
+        $this->withoutVite();
+        $this->actingAs($user)->get(route('reports.index'))->assertOk();
+        $this->get(route('reports.meals.export'))->assertOk();
         $teamEngagement = $user->person
             ->teamEngagements()
             ->whereBelongsTo($event)
@@ -56,7 +59,7 @@ class DatabaseSeederTest extends TestCase
         $this->assertDatabaseCount('pass_types', 3);
         $this->assertDatabaseCount('entitlement_items', 3);
         $this->assertDatabaseCount('pass_type_entitlements', 7);
-        $this->assertDatabaseCount('entitlement_adjustments', 9);
+        $this->assertDatabaseCount('stock_movements', 9);
         $this->assertDatabaseCount('artists', 3);
         $this->assertDatabaseCount('artist_engagements', 3);
         $this->assertDatabaseCount('vendors', 3);

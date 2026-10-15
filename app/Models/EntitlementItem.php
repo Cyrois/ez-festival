@@ -16,9 +16,9 @@ class EntitlementItem extends Model
         return $this->belongsTo(Event::class);
     }
 
-    public function adjustments(): HasMany
+    public function movements(): HasMany
     {
-        return $this->hasMany(EntitlementAdjustment::class);
+        return $this->hasMany(StockMovement::class);
     }
 
     public function labels(): BelongsToMany

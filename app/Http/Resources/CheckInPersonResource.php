@@ -20,7 +20,10 @@ class CheckInPersonResource extends JsonResource
                 'artist' => 'artists.personal_info', 'vendor' => 'vendors.personal_info', 'team' => 'team.personal_info', default => 'patrons.personal_info'
             }) ? ['subtitle' => $this->person_email] : ['personal_info_hidden' => true]),
             'type' => $this->type,
-            'context' => $this->context_name,
+            'context' => $this->type === 'team'
+                ? (collect([$this->group_name, $this->role_name])->filter()->implode(' | ') ?: __('check_in.types.team'))
+                : $this->context_name,
+            'has_pass' => (bool) $this->has_pass,
             'pass_name' => $this->pass_name ?? '',
             'issued' => $issued,
             'expected' => $expected,
@@ -32,6 +35,7 @@ class CheckInPersonResource extends JsonResource
     private function status(int $issued, int $expected): string
     {
         return match (true) {
+            ! (bool) $this->has_pass => 'no_pass',
             $expected === 0, $issued >= $expected => 'complete',
             $issued === 0 => 'not_started',
             default => 'partial',

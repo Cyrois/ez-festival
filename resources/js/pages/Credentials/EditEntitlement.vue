@@ -8,7 +8,10 @@ import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
 import { LabelCombobox } from '../../components/ui/label-combobox';
 import { Popup } from '../../components/ui/popup';
-import { Select } from '../../components/ui/select';
+import { DataTable } from '../../components/ui/data-table';
+import { Dialog } from '../../components/ui/dialog';
+import { credentialsHome } from '../../lib/credentialsNavigation';
+import { toastFormErrors } from '../../lib/fieldError';
 import { SegmentedControl } from '../../components/ui/segmented-control';
 import {
     Table,
@@ -20,7 +23,7 @@ import {
 } from '../../components/ui/table';
 import { Textarea } from '../../components/ui/textarea';
 import { useFlashToast } from '../../composables/useFlashToast';
-import { useForm } from '@inertiajs/vue3';
+import { useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
@@ -32,15 +35,22 @@ const props = defineProps({
     labelColors: { type: Array, default: () => [] },
     stats: { type: Object, required: true },
     locations: { type: Array, default: () => [] },
-    issued_log: { type: Array, default: () => [] },
+    issued_log_url: { type: String, required: true },
     pass_usage: { type: Array, default: () => [] },
     locations_for_adjust: { type: Array, default: () => [] },
     adjust_location_id: { type: Number, default: null },
     open_adjust: { type: Boolean, default: false },
     is_read_only: { type: Boolean, default: false },
+    canEditItems: { type: Boolean, default: false },
+    canAdjustStock: { type: Boolean, default: false },
 });
 /* eslint-enable vue/prop-name-casing */
 
+const page = usePage();
+const canEdit = computed(() => props.canEditItems && !props.is_read_only);
+const canAdjust = computed(() => props.canAdjustStock && !props.is_read_only);
+const deleteOpen = ref(false);
+const deleteForm = useForm({});
 const form = useForm({
     name: props.item.name,
     label_ids: props.item.labels.map((label) => label.id),
@@ -53,13 +63,15 @@ const adjustForm = useForm({
     reason: '',
 });
 const adjustOpen = ref(
-    !props.is_read_only &&
-        (props.open_adjust || props.adjust_location_id !== null),
+    canAdjust.value && (props.open_adjust || props.adjust_location_id !== null),
 );
-const { showFormError } = useFlashToast();
+const { showError, showFormError } = useFlashToast();
 const breadcrumbs = computed(() => [
     { label: trans('app.name'), href: '/dashboard' },
-    { label: trans('nav.credentials'), href: '/credentials/passes' },
+    {
+        label: trans('nav.credentials'),
+        href: credentialsHome(page.props.permissions),
+    },
     {
         label: trans('nav.credentials.entitlements'),
         href: '/credentials/entitlements',
@@ -127,13 +139,18 @@ const labelError = computed(
 );
 
 const submit = () => {
+    if (!canEdit.value) return;
     form.put(
         `/events/${props.event.id}/credentials/entitlements/${props.item.id}`,
-        { onError: showFormError },
+        {
+            onError: (errors) =>
+                toastFormErrors(form, errors, { showError, showFormError }),
+        },
     );
 };
 
 const openAdjust = (locationId = '') => {
+    if (!canAdjust.value) return;
     adjustForm.reset();
     adjustForm.clearErrors();
     adjustForm.location_id = locationId || '';
@@ -144,6 +161,7 @@ const openAdjust = (locationId = '') => {
 };
 
 const submitAdjustment = () => {
+    if (!canAdjust.value) return;
     if (adjustForm.location_id === '' || adjustForm.location_id === null) {
         adjustForm.setError(
             'location_id',
@@ -158,7 +176,11 @@ const submitAdjustment = () => {
         `/events/${props.event.id}/credentials/entitlements/${props.item.id}/adjustments`,
         {
             preserveScroll: true,
-            onError: showFormError,
+            onError: (errors) =>
+                toastFormErrors(adjustForm, errors, {
+                    showError,
+                    showFormError,
+                }),
             onSuccess: () => {
                 adjustOpen.value = false;
             },
@@ -166,6 +188,55 @@ const submitAdjustment = () => {
     );
 };
 
+const destroyItem = () => {
+    if (!canEdit.value) return;
+    deleteForm.delete(
+        `/events/${props.event.id}/credentials/entitlements/${props.item.id}`,
+        {
+            onError: (errors) =>
+                toastFormErrors(deleteForm, errors, {
+                    showError,
+                    showFormError,
+                }),
+            onSuccess: () => {
+                deleteOpen.value = false;
+            },
+        },
+    );
+};
+const issuedColumns = computed(() => [
+    {
+        data: 'when',
+        title: trans('credentials.entitlements.view.table.when'),
+        render: { display: '#whenCell' },
+    },
+    {
+        data: 'pass_name',
+        title: trans('credentials.entitlements.view.table.pass'),
+        render: { display: '#passCell' },
+    },
+    {
+        data: 'code',
+        title: trans('credentials.entitlements.view.table.code'),
+        render: { display: '#codeCell' },
+    },
+    {
+        data: 'issued_by',
+        title: trans('credentials.entitlements.view.table.issued_by'),
+        render: { display: '#issuerCell' },
+    },
+]);
+const issuedOptions = computed(() => ({
+    serverSide: true,
+    searching: false,
+    ordering: false,
+    lengthChange: false,
+    pageLength: 25,
+    layout: { topStart: null, topEnd: null },
+    language: {
+        emptyTable: trans('credentials.entitlements.view.issued_empty'),
+    },
+}));
 const formatWhen = (value) =>
     new Intl.DateTimeFormat(undefined, {
         dateStyle: 'medium',
@@ -181,9 +252,9 @@ const formatWhen = (value) =>
     >
         <div
             class="container mx-auto"
-            :class="is_read_only ? '' : 'pb-24'"
+            :class="canEdit ? 'pb-24' : ''"
         >
-            <div class="mb-5">
+            <div class="mb-5 flex items-start justify-between gap-4">
                 <div>
                     <h1 class="m-0 text-2xl font-bold tracking-tight">
                         {{ item.name }}
@@ -192,6 +263,13 @@ const formatWhen = (value) =>
                         {{ $t('credentials.entitlements.edit.lead') }}
                     </p>
                 </div>
+                <Button
+                    v-if="canEdit"
+                    variant="danger"
+                    :disabled="deleteForm.processing"
+                    @click="deleteOpen = true"
+                    >{{ $t('credentials.entitlements.actions.delete') }}</Button
+                >
             </div>
 
             <p
@@ -223,7 +301,7 @@ const formatWhen = (value) =>
                                 :id="id"
                                 v-model="form.name"
                                 :invalid="invalid"
-                                :disabled="is_read_only || form.processing"
+                                :disabled="!canEdit || form.processing"
                                 autocomplete="off"
                             />
                         </template>
@@ -240,7 +318,7 @@ const formatWhen = (value) =>
                             :labels="labels"
                             :colors="labelColors"
                             :invalid="Boolean(labelError)"
-                            :disabled="is_read_only || form.processing"
+                            :disabled="!canEdit || form.processing"
                             allow-create
                         />
                     </FormField>
@@ -321,7 +399,7 @@ const formatWhen = (value) =>
                         {{ $t('credentials.entitlements.locations.title') }}
                     </h2>
                     <Button
-                        v-if="!is_read_only"
+                        v-if="canAdjust"
                         type="button"
                         @click="openAdjust()"
                     >
@@ -354,7 +432,7 @@ const formatWhen = (value) =>
                     <TableBody>
                         <TableRow
                             v-for="location in locations"
-                            :key="location.id ?? 'unassigned'"
+                            :key="location.id"
                         >
                             <TableCell class="font-semibold">
                                 {{ location.name }}
@@ -364,7 +442,7 @@ const formatWhen = (value) =>
                             </TableCell>
                             <TableCell class="text-right">
                                 <Button
-                                    v-if="!is_read_only && location.id !== null"
+                                    v-if="canAdjust && location.id !== null"
                                     type="button"
                                     size="sm"
                                     variant="outline-secondary"
@@ -410,68 +488,39 @@ const formatWhen = (value) =>
                 <p class="mt-1 mb-3 text-sm text-muted">
                     {{ $t('credentials.entitlements.view.issued_lead') }}
                 </p>
-                <Table>
-                    <TableHeader>
-                        <TableRow variant="header">
-                            <TableHead>{{
-                                $t('credentials.entitlements.view.table.when')
-                            }}</TableHead>
-                            <TableHead>{{
-                                $t('credentials.entitlements.view.table.pass')
-                            }}</TableHead>
-                            <TableHead>{{
-                                $t('credentials.entitlements.view.table.code')
-                            }}</TableHead>
-                            <TableHead>{{
-                                $t(
-                                    'credentials.entitlements.view.table.issued_by',
-                                )
-                            }}</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        <TableRow
-                            v-for="issue in issued_log"
-                            :key="issue.id"
-                        >
-                            <TableCell>{{ formatWhen(issue.when) }}</TableCell>
-                            <TableCell>{{
-                                issue.pass_name ??
-                                $t('credentials.entitlements.view.not_recorded')
-                            }}</TableCell>
-                            <TableCell class="font-mono">{{
-                                issue.code ??
-                                $t('credentials.entitlements.view.not_recorded')
-                            }}</TableCell>
-                            <TableCell>{{
-                                issue.issued_by?.name ??
-                                $t('credentials.entitlements.view.not_recorded')
-                            }}</TableCell>
-                        </TableRow>
-                        <TableRow v-if="issued_log.length === 0">
-                            <TableCell
-                                colspan="4"
-                                class="py-8 text-center text-sm text-muted"
-                            >
-                                {{
-                                    $t(
-                                        'credentials.entitlements.view.issued_empty',
-                                    )
-                                }}
-                            </TableCell>
-                        </TableRow>
-                    </TableBody>
-                </Table>
+                <DataTable
+                    :ajax="issued_log_url"
+                    :columns="issuedColumns"
+                    :options="issuedOptions"
+                >
+                    <template #whenCell="{ cellData }">{{
+                        formatWhen(cellData)
+                    }}</template>
+                    <template #passCell="{ cellData }">{{
+                        cellData ??
+                        $t('credentials.entitlements.view.not_recorded')
+                    }}</template>
+                    <template #codeCell="{ cellData }"
+                        ><span class="font-mono">{{
+                            cellData ??
+                            $t('credentials.entitlements.view.not_recorded')
+                        }}</span></template
+                    >
+                    <template #issuerCell="{ cellData }">{{
+                        cellData?.name ??
+                        $t('credentials.entitlements.view.not_recorded')
+                    }}</template>
+                </DataTable>
                 <p class="mt-2 mb-0 text-xs text-muted">
                     {{ $t('credentials.entitlements.view.issued_hint') }}
                 </p>
             </section>
 
             <div
-                v-if="!is_read_only"
+                v-if="canEdit"
                 class="fixed right-0 bottom-0 left-0 z-30 border-t border-line bg-ground/95 py-3 backdrop-blur lg:left-[var(--app-sidebar-width)]"
             >
-                <div class="content-body container mx-auto">
+                <div class="container mx-auto px-4 md:px-6">
                     <div
                         class="mx-auto flex items-center justify-between gap-2"
                     >
@@ -494,7 +543,22 @@ const formatWhen = (value) =>
             </div>
         </div>
 
+        <Dialog
+            v-if="canEdit"
+            v-model:open="deleteOpen"
+            :title="$t('credentials.entitlements.delete.title')"
+            :description="
+                $t('credentials.entitlements.delete.description', {
+                    name: item.name,
+                })
+            "
+            :confirm-label="$t('credentials.entitlements.actions.delete')"
+            :cancel-label="$t('ui.dialog.cancel')"
+            :busy="deleteForm.processing"
+            @confirm="destroyItem"
+        />
         <Popup
+            v-if="canAdjust"
             v-model:open="adjustOpen"
             :title="$t('credentials.entitlements.adjust.title')"
             :description="$t('credentials.entitlements.adjust.lead')"
@@ -536,6 +600,10 @@ const formatWhen = (value) =>
                 >
                     {{ $t('credentials.entitlements.fields.location_missing') }}
                     <a
+                        v-if="
+                            page.props.auth?.user?.is_admin ||
+                            page.props.permissions?.['inventory.manage']
+                        "
                         href="/settings/locations"
                         class="text-secondary hover:underline"
                     >
@@ -583,6 +651,7 @@ const formatWhen = (value) =>
                 <FormField
                     :label="$t('credentials.entitlements.fields.reason')"
                     :error="adjustForm.errors.reason"
+                    :required="adjustForm.direction === 'remove'"
                 >
                     <template #default="{ id, invalid }">
                         <Textarea

@@ -60,12 +60,16 @@ class EventService
     public function lock(Event $event): void
     {
         DB::transaction(fn () => Event::query()->lockForUpdate()->findOrFail($event->id)->lock());
+        $this->entitlementItems->forgetList($event->id);
+        $this->passTypes->forgetList($event->id);
         $this->forgetList();
     }
 
     public function unlock(Event $event): void
     {
         DB::transaction(fn () => Event::query()->lockForUpdate()->findOrFail($event->id)->unlock());
+        $this->entitlementItems->forgetList($event->id);
+        $this->passTypes->forgetList($event->id);
         $this->forgetList();
     }
 
@@ -87,6 +91,8 @@ class EventService
                 ->select('id')
                 ->where('event_id', $event->id);
 
+            DB::table('stock_movements')->where('event_id', $event->id)->delete();
+
             DB::table('issued_entitlements')
                 ->where(fn ($query) => $query
                     ->whereIn('entitlement_item_id', $entitlementItemIds())
@@ -97,11 +103,7 @@ class EventService
                 ->whereIn('entitlement_item_id', $entitlementItemIds())
                 ->delete();
 
-            DB::table('entitlement_adjustments')
-                ->where(fn ($query) => $query
-                    ->whereIn('entitlement_item_id', $entitlementItemIds())
-                    ->orWhereIn('location_id', $locationIds()))
-                ->delete();
+            DB::table('stock_holders')->where('event_id', $event->id)->delete();
 
             DB::table('pass_type_entitlements')
                 ->where(fn ($query) => $query

@@ -68,7 +68,7 @@ onUnmounted(() => {
             :id="id"
             ref="content"
             role="tooltip"
-            class="pointer-events-none fixed z-50 w-64 max-w-[calc(100vw-1rem)] rounded-lg bg-charcoal px-3 py-2 text-xs text-white shadow-lg"
+            class="pointer-events-none fixed z-50 w-fit max-w-[calc(100vw-1rem)] rounded-lg bg-charcoal px-3 py-2 text-xs text-white shadow-lg"
             :style="position"
         >
             <slot name="content" />

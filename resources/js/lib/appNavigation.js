@@ -1,3 +1,5 @@
+import { credentialsHome } from './credentialsNavigation.js';
+
 export function getAppNavigation({
     features = {},
     permissions = {},
@@ -111,30 +113,43 @@ export function getAppNavigation({
         },
     ]
         .map((item) => {
-            if (item.key !== 'team') return item;
+            if (item.key === 'credentials') {
+                const tabs = item.tabs.filter((tab) => {
+                    if (tab.key === 'credentials.products') return isAdmin;
+                    if (tab.key === 'credentials.passes')
+                        return permissions['credentials.passes.edit'];
+                    return (
+                        permissions['credentials.entitlements.edit'] ||
+                        permissions['credentials.stock.adjust'] ||
+                        permissions['inventory.manage']
+                    );
+                });
+                return { ...item, tabs, href: credentialsHome(permissions) };
+            }
+            if (!['team', 'meals'].includes(item.key)) return item;
             const tabs = item.tabs.filter(
                 (child) =>
                     permissions?.[
                         {
                             'team.scheduling': 'scheduling.view',
                             'team.forms': 'forms.view',
-                        }[child.key] ?? 'team.view'
+                            'meals.report': 'meals.report.view',
+                        }[child.key] ??
+                            (item.key === 'meals' ? 'meals.view' : 'team.view')
                     ],
             );
             return { ...item, tabs, href: tabs[0]?.href };
         })
         .filter((item) => {
-            if (item.key === 'team') return item.tabs.length > 0;
+            if (['team', 'meals', 'credentials'].includes(item.key))
+                return item.tabs.length > 0;
             const permission = {
                 artists: 'artists.view',
                 vendors: 'vendors.view',
                 check_in: 'checkin.view',
                 patrons: 'patrons.view',
-                meals: 'meals.view',
             }[item.key];
-            return item.key === 'credentials'
-                ? isAdmin
-                : !permission || permissions?.[permission];
+            return !permission || permissions?.[permission];
         });
 }
 

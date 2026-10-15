@@ -12,6 +12,7 @@ use App\Models\ShiftMeal;
 use App\Models\TeamEngagement;
 use App\Models\User;
 use App\Queries\MealEntitlementQuery;
+use App\Queries\MealReportQuery;
 use App\Services\EventService;
 use App\Services\MealAssignmentService;
 use App\Services\MealClaimService;
@@ -257,28 +258,76 @@ class MealReportTest extends TestCase
         $this->assertStringNotContainsString('Dinner', $this->get(route('reports.meals.export'))->streamedContent());
     }
 
-    public function test_view_meals_is_sufficient_and_revocation_refuses_page_and_export(): void
+    public function test_kitchen_permissions_without_report_access_refuse_page_and_export_before_loading_data(): void
+    {
+        $this->mock(MealReportQuery::class)->shouldNotReceive('rows');
+        foreach (['meals.view', 'meals.edit', 'meals.claim', 'meals.override', 'meals.undo_claim'] as $permission) {
+            $this->grantRoleAccess($this->user, [$permission]);
+            $this->get(route('reports.index'))->assertForbidden();
+            $this->get(route('reports.meals.export'))->assertForbidden();
+            $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
+                ->where('permissions', fn ($permissions) => $permissions['meals.view'] && ! $permissions['meals.report.view'])
+                ->missing('meals'));
+        }
+    }
+
+    public function test_view_meal_report_alone_is_sufficient_and_revocation_refuses_page_and_export(): void
     {
         $this->meal('Friday lunch', '2026-10-02');
-        $this->grantRoleAccess($this->user, ['meals.view']);
+        $this->grantRoleAccess($this->user, ['meals.report.view']);
         $this->assertCount(1, $this->reportRows());
         $this->get(route('reports.meals.export'))->assertOk();
+        $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
+            ->where('permissions', fn ($permissions) => $permissions['meals.report.view'] && ! $permissions['meals.view'])
+            ->missing('meals'));
+        foreach (['meals.index', 'meals.settings', 'meals.data', 'meals.people.index', 'meals.types.index'] as $route) {
+            $this->get(route($route))->assertForbidden();
+        }
         $this->user->person->teamEngagements()->where('event_id', $this->event->id)->sole()->role->update(['permissions' => ['team.view']]);
         $this->get(route('reports.index'))->assertForbidden();
         $this->get(route('reports.meals.export'))->assertForbidden();
-        $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page->where('permissions', fn ($permissions) => $permissions['meals.view'] === false)->missing('meals'));
+        $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
+            ->where('permissions', fn ($permissions) => ! $permissions['meals.report.view'] && ! $permissions['meals.view'])
+            ->missing('meals'));
     }
 
     public function test_locked_event_is_readable_by_view_only_roles_and_admins(): void
     {
         $this->meal('Friday lunch', '2026-10-02');
         $this->event->lock();
-        $this->grantRoleAccess($this->user, ['meals.view']);
+        $this->grantRoleAccess($this->user, ['meals.report.view']);
         $this->assertCount(1, $this->reportRows());
         $this->get(route('reports.meals.export'))->assertOk();
         $this->grantAdminAccess($this->user);
         $this->assertCount(1, $this->reportRows());
         $this->get(route('reports.meals.export'))->assertOk();
+    }
+
+    public function test_report_permission_does_not_carry_between_events_or_survive_role_deactivation(): void
+    {
+        $this->grantRoleAccess($this->user, ['meals.report.view']);
+        $reportRole = $this->user->person->teamEngagements()->where('event_id', $this->event->id)->sole()->role;
+        $otherEvent = Event::create([
+            'name' => 'Other festival', 'starts_on' => '2026-11-01',
+            'ends_on' => '2026-11-02', 'timezone' => 'America/Vancouver',
+        ]);
+        $otherEvent->teamEngagements()->create([
+            'person_id' => $this->user->person_id,
+            'role_id' => Role::create(['name' => 'Other event viewer', 'permissions' => ['team.view']])->id,
+            'status' => 'hired', 'employment_type' => 'volunteer',
+        ]);
+
+        $this->get(route('reports.index'))->assertOk();
+        $this->user->setCurrentEvent($otherEvent);
+        $this->get(route('reports.index'))->assertForbidden();
+        $this->get(route('reports.meals.export'))->assertForbidden();
+
+        $this->user->setCurrentEvent($this->event);
+        $reportRole->update(['active' => false]);
+        $this->get(route('reports.index'))->assertForbidden();
+        $this->get(route('reports.meals.export'))->assertForbidden();
+        $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
+            ->where('permissions', fn ($permissions) => ! $permissions['meals.report.view']));
     }
 
     private function reportRows(): array

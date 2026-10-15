@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Enums\StockMovement as StockMovementType;
 use App\Models\ArtistEngagement;
 use App\Models\Event;
 use App\Models\MealAssignment;
 use App\Models\Person;
 use App\Models\Role;
+use App\Models\StockHolder;
 use App\Models\TeamEngagement;
 use App\Models\User;
 use App\Services\EngagementPersonService;
@@ -20,6 +22,7 @@ use App\Services\MealOverrideService;
 use App\Services\MealTypeService;
 use App\Services\PassAssignmentService;
 use App\Services\PassTypeService;
+use App\Services\StockMovementService;
 use App\Services\TeamEngagementService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
@@ -63,7 +66,7 @@ class PostgresWriteConcurrencyTest extends TestCase
         [$event, $user, $engagement] = $this->context();
         $location = $event->locations()->create(['name' => 'Gate']);
         $item = $event->entitlementItems()->create(['name' => 'Wristband']);
-        $item->adjustments()->create(['location_id' => $location->id, 'delta' => 2]);
+        $this->seedStock($item, $location, 2);
         $pass = $event->passTypes()->create(['name' => 'Artist']);
         $assignment = $engagement->passAssignments()->create(['pass_type_id' => $pass->id]);
         $expected = $assignment->expectedEntitlements()->create(['entitlement_item_id' => $item->id]);
@@ -82,7 +85,7 @@ class PostgresWriteConcurrencyTest extends TestCase
         [$event, $user, $engagement] = $this->context();
         $location = $event->locations()->create(['name' => 'Gate']);
         $item = $event->entitlementItems()->create(['name' => 'Wristband']);
-        $item->adjustments()->create(['location_id' => $location->id, 'delta' => 2]);
+        $this->seedStock($item, $location, 2);
         $pass = $event->passTypes()->create(['name' => 'Artist']);
         $assignment = $engagement->passAssignments()->create(['pass_type_id' => $pass->id]);
         $expected = $assignment->expectedEntitlements()->create(['entitlement_item_id' => $item->id]);
@@ -301,6 +304,86 @@ class PostgresWriteConcurrencyTest extends TestCase
         app(EventService::class)->delete($event);
     }
 
+    public function test_team_consumption_waits_for_status_change_and_rechecks_hired_status(): void
+    {
+        [$event, $user, $member] = $this->mealContext();
+        $pass = $event->passTypes()->create(['name' => 'Crew']);
+        $item = $event->entitlementItems()->create(['name' => 'Crew wristband']);
+        $location = $event->locations()->firstOrFail();
+        $this->seedStock($item, $location, 2);
+        $assignment = $member->passAssignments()->create(['pass_type_id' => $pass->id, 'person_id' => $member->person_id]);
+        $expected = $assignment->expectedEntitlements()->create(['entitlement_item_id' => $item->id]);
+        $expected->load('passAssignment.teamEngagement');
+        $results = $this->concurrently(
+            fn () => app(TeamEngagementService::class)->updateStatus($member, 'reviewing'),
+            fn () => app(EntitlementConsumeService::class)->consume($expected, $user, $location->id),
+        );
+        $this->assertSame(['committed', 'http_404'], array_column($results, 'status'), json_encode($results));
+        $this->assertSame(0, $expected->issuedEntitlement()->count());
+        $this->assertSame(2, app(EntitlementItemService::class)->balanceForLocation($item, $location->id));
+        app(EventService::class)->delete($event);
+    }
+
+    public function test_two_moves_cannot_overdraw_a_persons_last_unit(): void
+    {
+        [$event, $actor] = $this->context();
+        $stocks = app(StockMovementService::class);
+        $item = $event->entitlementItems()->create(['name' => 'Last wristband']);
+        $location = $stocks->forLocation($event, $event->locations()->create(['name' => 'Gate'])->id);
+        $person = $stocks->forPerson($event, $actor->person);
+        $recipient = $stocks->forPerson($event, Person::create(['name' => 'Receiver', 'email' => 'stock-race@example.test']));
+        $stocks->move($item, StockMovementType::Add, 1, null, $location, $actor);
+        $stocks->move($item, StockMovementType::Pull, 1, $location, $person, $actor);
+
+        $results = $this->concurrently(
+            fn () => app(StockMovementService::class)->move($item, StockMovementType::Return, 1, $person, $location, $actor),
+            fn () => app(StockMovementService::class)->move($item, StockMovementType::Transfer, 1, $person, $recipient, $actor),
+        );
+
+        $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+        $this->assertSame([true, true], array_column($results, 'holder_locked'));
+        $this->assertSame(0, $stocks->balance($item, $person));
+        $this->assertSame(0, $stocks->balance($item, $recipient));
+        $this->assertSame(1, $stocks->balance($item, $location));
+        $this->assertSame(1, $stocks->total($item));
+    }
+
+    public function test_two_entitlements_compete_for_the_last_location_unit(): void
+    {
+        [$event, $actor, $engagement] = $this->context();
+        $location = $event->locations()->create(['name' => 'Gate']);
+        $item = $event->entitlementItems()->create(['name' => 'Last wristband']);
+        $this->seedStock($item, $location, 1, $actor);
+        $pass = $event->passTypes()->create(['name' => 'Artist']);
+        $assignment = $engagement->passAssignments()->create(['pass_type_id' => $pass->id]);
+        $first = $assignment->expectedEntitlements()->create(['entitlement_item_id' => $item->id]);
+        $second = $assignment->expectedEntitlements()->create(['entitlement_item_id' => $item->id]);
+
+        $results = $this->concurrently(
+            fn () => app(EntitlementConsumeService::class)->consume($first, $actor, $location->id),
+            fn () => app(EntitlementConsumeService::class)->consume($second, $actor, $location->id),
+        );
+
+        $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+        $this->assertSame([true, true], array_column($results, 'holder_locked'));
+        $this->assertSame(1, $first->issuedEntitlement()->count());
+        $this->assertSame(0, $second->issuedEntitlement()->count());
+        $this->assertSame('expected', $second->fresh()->status);
+        $this->assertSame(1, $item->movements()->where('type', StockMovementType::GiveOut)->count());
+        $this->assertSame(0, app(StockMovementService::class)->total($item));
+    }
+
+    public function test_concurrent_first_use_creates_only_one_person_holder(): void
+    {
+        [$event, $actor] = $this->context();
+        $results = $this->concurrently(
+            fn () => app(StockMovementService::class)->forPerson($event, $actor->person),
+            fn () => app(StockMovementService::class)->forPerson($event, $actor->person),
+        );
+        $this->assertSame(['committed', 'committed'], array_column($results, 'status'), json_encode($results));
+        $this->assertSame(1, StockHolder::where('event_id', $event->id)->where('person_id', $actor->person_id)->count());
+    }
+
     private function mealContext(): array
     {
         $event = app(EventService::class)->create(['name' => 'Meal race', 'starts_on' => '2026-10-01', 'ends_on' => '2026-10-03', 'timezone' => 'UTC']);
@@ -334,7 +417,7 @@ class PostgresWriteConcurrencyTest extends TestCase
                 $pid = pcntl_fork();
                 $this->assertNotSame(-1, $pid);
                 if ($pid === 0) {
-                    $result = ['status' => 'error', 'first_lock' => null];
+                    $result = ['status' => 'error', 'first_lock' => null, 'holder_locked' => false];
                     try {
                         DB::statement("SET statement_timeout = '8s'");
                         if ($index === 1) {
@@ -350,6 +433,9 @@ class PostgresWriteConcurrencyTest extends TestCase
                         DB::listen(function ($query) use ($index, $barrier, &$result): void {
                             if (! str_contains(strtolower($query->sql), 'for update')) {
                                 return;
+                            }
+                            if (str_contains($query->sql, 'from "stock_holders"')) {
+                                $result['holder_locked'] = true;
                             }
                             if ($result['first_lock'] === null && preg_match('/from "([^"]+)"/', $query->sql, $matches)) {
                                 $result['first_lock'] = $matches[1];

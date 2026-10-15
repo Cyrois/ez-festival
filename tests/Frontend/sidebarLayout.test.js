@@ -54,7 +54,7 @@ test('settings remains in the main navigation above the collapse control', () =>
     const mainSidebarEnd = layout.indexOf('</aside>', mainSidebarStart);
     const mainSidebar = layout.slice(mainSidebarStart, mainSidebarEnd);
     const navEnd = mainSidebar.indexOf('</nav>');
-    const settingsLink = mainSidebar.indexOf('href="/settings/events"');
+    const settingsLink = mainSidebar.indexOf(':href="settingsHref"');
     const collapseControl = mainSidebar.indexOf('<SidebarCollapseButton');
 
     assert.notEqual(mainSidebarStart, -1);

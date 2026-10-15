@@ -29,11 +29,14 @@ const props = defineProps({
         type: String,
         default: 'locations',
     },
+    canAddLocations: { type: Boolean, default: false },
+    canRenameLocations: { type: Boolean, default: false },
+    canDeleteLocations: { type: Boolean, default: false },
+    canEditLocationTypes: { type: Boolean, default: false },
 });
 
 const { showFormError, showSuccess, showError } = useFlashToast();
 
-const canWrite = computed(() => !props.event.is_read_only);
 const showAdd = ref(false);
 const editingId = ref(null);
 const deleting = ref(null);
@@ -41,25 +44,30 @@ const deleteBusy = ref(false);
 
 const addForm = useForm({ name: '', type: '' });
 const editForm = useForm({ name: '', type: '' });
+const locationPayload = (data) =>
+    props.canEditLocationTypes ? data : { name: data.name };
 
 const submitAdd = () => {
-    if (!canWrite.value) {
+    if (!props.canAddLocations) {
         return;
     }
 
-    addForm.post(`/settings/events/${props.event.id}/locations`, {
-        preserveScroll: true,
-        onSuccess: () => {
-            addForm.reset();
-            showAdd.value = false;
-            showSuccess(trans('setup.toast.location_added'));
-        },
-        onError: (errors) =>
-            toastFormErrors(addForm, errors, { showError, showFormError }),
-    });
+    addForm
+        .transform(locationPayload)
+        .post(`/settings/events/${props.event.id}/locations`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                addForm.reset();
+                showAdd.value = false;
+                showSuccess(trans('setup.toast.location_added'));
+            },
+            onError: (errors) =>
+                toastFormErrors(addForm, errors, { showError, showFormError }),
+        });
 };
 
 const startEdit = (location) => {
+    if (!props.canRenameLocations) return;
     editingId.value = location.id;
     editForm.name = location.name;
     editForm.type = location.type ?? '';
@@ -67,13 +75,13 @@ const startEdit = (location) => {
 };
 
 const submitEdit = (location) => {
-    if (!canWrite.value) {
+    if (!props.canRenameLocations) {
         return;
     }
 
-    editForm.put(
-        `/settings/events/${props.event.id}/locations/${location.id}`,
-        {
+    editForm
+        .transform(locationPayload)
+        .put(`/settings/events/${props.event.id}/locations/${location.id}`, {
             preserveScroll: true,
             onSuccess: () => {
                 editingId.value = null;
@@ -84,17 +92,17 @@ const submitEdit = (location) => {
                     showError,
                     showFormError,
                 }),
-        },
-    );
+        });
 };
 
 const askDelete = (location) => {
+    if (!props.canDeleteLocations) return;
     deleting.value = location;
 };
 
 const confirmDelete = () => {
     const target = deleting.value;
-    if (!target || !canWrite.value) {
+    if (!target || !props.canDeleteLocations) {
         return;
     }
 
@@ -130,7 +138,7 @@ const deleteBody = computed(() => {
         :for-primary="forPrimary"
     >
         <div
-            v-if="canWrite"
+            v-if="canAddLocations"
             class="mb-4 flex justify-end"
         >
             <Button
@@ -148,7 +156,7 @@ const deleteBody = computed(() => {
         </div>
 
         <Card
-            v-if="showAdd && canWrite"
+            v-if="showAdd && canAddLocations"
             class="mb-4 p-4"
         >
             <form @submit.prevent="submitAdd">
@@ -172,6 +180,7 @@ const deleteBody = computed(() => {
                     </template>
                 </FormField>
                 <FormField
+                    v-if="canEditLocationTypes"
                     :label="$t('setup.locations.type')"
                     :error="fieldError(addForm, 'type')"
                     class="mb-4"
@@ -219,7 +228,7 @@ const deleteBody = computed(() => {
                 class="p-4"
             >
                 <form
-                    v-if="editingId === location.id && canWrite"
+                    v-if="editingId === location.id && canRenameLocations"
                     class="flex w-full flex-col gap-3"
                     @submit.prevent="submitEdit(location)"
                 >
@@ -238,6 +247,7 @@ const deleteBody = computed(() => {
                         </template>
                     </FormField>
                     <FormField
+                        v-if="canEditLocationTypes"
                         :label="$t('setup.locations.type')"
                         :error="fieldError(editForm, 'type')"
                     >
@@ -284,10 +294,11 @@ const deleteBody = computed(() => {
                         </div>
                     </div>
                     <div
-                        v-if="canWrite"
+                        v-if="canRenameLocations || canDeleteLocations"
                         class="flex shrink-0 items-center gap-1"
                     >
                         <Button
+                            v-if="canRenameLocations"
                             type="button"
                             variant="ghost"
                             size="icon"
@@ -300,6 +311,7 @@ const deleteBody = computed(() => {
                             />
                         </Button>
                         <Button
+                            v-if="canDeleteLocations"
                             type="button"
                             variant="outline-danger"
                             size="icon"
