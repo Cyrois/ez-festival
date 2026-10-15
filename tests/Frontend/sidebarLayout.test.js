@@ -97,7 +97,7 @@ test('top-level sidebar navigation stays vertically anchored during hover expans
     assert.match(layout, /<SectionNavigation[\s\S]*:section="currentSection"/);
     assert.doesNotMatch(layout, /:key="`collapsed-\$\{child\.key\}`"/);
     assert.match(sidebarNavItem, /lg:h-7 lg:min-h-7/);
-    assert.match(sidebarNavItem, /lg:h-8 lg:min-h-8/);
+    assert.match(sidebarNavItem, /lg:h-9 lg:min-h-9/);
     assert.match(sidebarNavItem, /truncate/);
     assert.match(sidebarNavItem, /whitespace-nowrap/);
 });
@@ -105,7 +105,7 @@ test('top-level sidebar navigation stays vertically anchored during hover expans
 test('settings navigation uses the reduced main sidebar row height on desktop', () => {
     assert.match(
         sidebarNavItem,
-        /if \(props\.density === 'settings'\) \{\s+return '[^']*lg:h-8 lg:min-h-8 lg:py-1\.5';\s+\}/,
+        /if \(props\.density === 'settings'\) \{\s+return '[^']*lg:h-9 lg:min-h-9 lg:py-2';\s+\}/,
     );
 });
 

@@ -11,7 +11,7 @@ import {
     shouldUseCompactSidebar,
     useSidebarCollapsed,
 } from '../composables/useSidebarCollapsed';
-import { Head, Link, usePage } from '@inertiajs/vue3';
+import { Head, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
@@ -79,14 +79,6 @@ const settingsActive = computed(
         currentPath.value === '/settings' ||
         currentPath.value.startsWith('/settings/'),
 );
-
-const crumbItems = computed(() => {
-    if (props.breadcrumbs.length > 0) {
-        return props.breadcrumbs;
-    }
-
-    return [{ label: props.title }];
-});
 
 const openNav = () => {
     navOpen.value = true;
@@ -302,9 +294,15 @@ const railClass = computed(() => {
                         size="sm"
                     />
                 </button>
+                <SectionNavigation
+                    v-if="currentSection"
+                    :section="currentSection"
+                    :url="page.url"
+                    class="min-w-0 flex-1 self-stretch"
+                />
                 <div
+                    v-else
                     class="flex min-w-0 flex-1 items-center justify-between gap-3 lg:hidden"
-                    :class="compactMobileHeader ? 'hidden' : ''"
                 >
                     <span class="truncate text-[15px] font-bold">
                         {{ $t('app.name') }}
@@ -316,81 +314,11 @@ const railClass = computed(() => {
                         {{ eventName }}
                     </span>
                 </div>
-                <nav
-                    data-unsaved-navigation
-                    class="hidden min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm text-muted lg:flex"
-                    :aria-label="$t('nav.breadcrumbs')"
-                >
-                    <template
-                        v-for="(crumb, index) in crumbItems"
-                        :key="`${crumb.label}-${index}`"
-                    >
-                        <span
-                            v-if="index > 0"
-                            class="hidden text-line sm:inline"
-                            aria-hidden="true"
-                        >
-                            /
-                        </span>
-                        <Link
-                            v-if="crumb.href"
-                            :href="crumb.href"
-                            class="hidden truncate font-medium text-muted no-underline hover:text-charcoal sm:inline"
-                        >
-                            {{ crumb.label }}
-                        </Link>
-                        <span
-                            v-else
-                            class="truncate font-semibold text-charcoal"
-                            aria-current="page"
-                        >
-                            {{ crumb.label }}
-                        </span>
-                    </template>
-                </nav>
-                <nav
-                    v-if="compactMobileHeader"
-                    data-unsaved-navigation
-                    class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm text-muted lg:hidden"
-                    :aria-label="$t('nav.breadcrumbs')"
-                >
-                    <template
-                        v-for="(crumb, index) in crumbItems"
-                        :key="`m-${crumb.label}-${index}`"
-                    >
-                        <span
-                            v-if="index > 0"
-                            class="text-line"
-                            aria-hidden="true"
-                        >
-                            /
-                        </span>
-                        <Link
-                            v-if="crumb.href"
-                            :href="crumb.href"
-                            class="truncate font-medium text-muted no-underline hover:text-charcoal"
-                        >
-                            {{ crumb.label }}
-                        </Link>
-                        <span
-                            v-else
-                            class="truncate font-semibold text-charcoal"
-                            aria-current="page"
-                        >
-                            {{ crumb.label }}
-                        </span>
-                    </template>
-                </nav>
                 <UserAccountControls :user="user" />
             </header>
 
             <main class="content-body flex-1 py-6 md:py-8">
                 <div class="container mx-auto">
-                    <SectionNavigation
-                        v-if="currentSection"
-                        :section="currentSection"
-                        :url="page.url"
-                    />
                     <slot />
                 </div>
             </main>

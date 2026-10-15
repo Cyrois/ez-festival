@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Requests\Team\IndexTeamAdvancementRequest;
 use App\Models\Event;
 use App\Models\Group;
 use App\Models\Person;
@@ -89,6 +90,66 @@ class TeamAdvancementTest extends TestCase
                     ->has('engagements.data', 25)
                     ->where('engagements.meta.total', 26),
             );
+    }
+
+    public function test_advancement_restores_the_last_view_from_a_cookie_with_correct_pagination(): void
+    {
+        [$user, $event] = $this->userWithCompletedSetup();
+        foreach (range(1, 26) as $number) {
+            $this->engagement($event, "Member {$number}");
+        }
+
+        $this->actingAs($user)
+            ->withCookie(IndexTeamAdvancementRequest::VIEW_COOKIE, 'list')
+            ->get(route('team.advancement'))
+            ->assertCookie(IndexTeamAdvancementRequest::VIEW_COOKIE, 'list')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('filters.view', 'list')
+                ->has('engagements.data', 25)
+                ->where('engagements.meta.total', 26));
+
+        $this->withCookie(IndexTeamAdvancementRequest::VIEW_COOKIE, 'columns')
+            ->get(route('team.advancement'))
+            ->assertCookie(IndexTeamAdvancementRequest::VIEW_COOKIE, 'columns')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('filters.view', 'columns')
+                ->has('engagements.data', 26));
+    }
+
+    public function test_switching_views_replaces_the_remembered_preference(): void
+    {
+        [$user] = $this->userWithCompletedSetup();
+
+        foreach (['list' => 'columns', 'columns' => 'list'] as $remembered => $selected) {
+            $response = $this->actingAs($user)
+                ->withCookie(IndexTeamAdvancementRequest::VIEW_COOKIE, $remembered)
+                ->get(route('team.advancement', ['view' => $selected]))
+                ->assertCookie(IndexTeamAdvancementRequest::VIEW_COOKIE, $selected)
+                ->assertInertia(fn (Assert $page) => $page->where('filters.view', $selected));
+
+            $cookie = $response->getCookie(IndexTeamAdvancementRequest::VIEW_COOKIE);
+            $this->assertGreaterThan(now()->addMonths(11)->getTimestamp(), $cookie->getExpiresTime());
+            $this->assertTrue($cookie->isHttpOnly());
+
+            $this->withCookie(IndexTeamAdvancementRequest::VIEW_COOKIE, $cookie->getValue())
+                ->get(route('team.advancement'))
+                ->assertInertia(fn (Assert $page) => $page->where('filters.view', $selected));
+        }
+    }
+
+    public function test_invalid_remembered_view_falls_back_to_columns_but_invalid_input_is_rejected(): void
+    {
+        [$user] = $this->userWithCompletedSetup();
+
+        $this->actingAs($user)
+            ->withCookie(IndexTeamAdvancementRequest::VIEW_COOKIE, 'invalid')
+            ->get(route('team.advancement'))
+            ->assertCookie(IndexTeamAdvancementRequest::VIEW_COOKIE, 'columns')
+            ->assertInertia(fn (Assert $page) => $page->where('filters.view', 'columns'));
+
+        $this->getJson(route('team.advancement', ['view' => 'invalid']))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('view');
     }
 
     public function test_staff_can_add_a_paid_member_to_the_pipeline(): void

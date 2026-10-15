@@ -7,6 +7,7 @@ use App\Http\Requests\Team\IndexTeamAdvancementRequest;
 use App\Http\Resources\TeamEngagementResource;
 use App\Models\TeamEngagement;
 use App\Repositories\TeamEngagementRepository;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -22,6 +23,8 @@ class AdvancementController extends Controller
         $search = trim($filters['search'] ?? '');
         $employmentTypes = $filters['employment_types'] ?? [];
         $view = $filters['view'] ?? 'columns';
+
+        Cookie::queue(IndexTeamAdvancementRequest::VIEW_COOKIE, $view, 60 * 24 * 365);
 
         $engagements = $view === 'columns'
             ? $this->engagements->all($event, $search, $employmentTypes)

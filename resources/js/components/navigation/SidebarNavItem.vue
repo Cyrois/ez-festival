@@ -52,10 +52,10 @@ const densityClass = computed(() => {
     }
 
     if (props.density === 'settings') {
-        return 'min-h-11 gap-2 px-2 py-2.5 text-[13px] lg:h-8 lg:min-h-8 lg:py-1.5';
+        return 'min-h-11 gap-2 px-2 py-2.5 text-[13px] lg:h-9 lg:min-h-9 lg:py-2';
     }
 
-    return 'min-h-11 gap-2.5 px-3 py-2.5 text-[13px] lg:h-8 lg:min-h-8 lg:py-1.5';
+    return 'min-h-11 gap-2.5 px-3 py-2.5 text-[13px] lg:h-9 lg:min-h-9 lg:py-2';
 });
 
 const stateClass = computed(() => {
@@ -75,9 +75,10 @@ const stateClass = computed(() => {
 
 const classes = computed(() =>
     cn(
-        'inline-flex w-full items-center overflow-hidden rounded-lg font-semibold no-underline transition-[padding,gap,background-color,color] duration-200 ease-in-out',
+        'inline-flex w-full items-center overflow-hidden rounded-lg font-semibold no-underline transition-[padding,gap,background-color,color] duration-200 ease-in-out xl:h-9.5 xl:min-h-9.5 xl:py-2',
         densityClass.value,
-        props.iconOnly && 'lg:justify-center lg:gap-0 lg:px-0',
+        props.iconOnly &&
+            'lg:w-9 lg:self-center lg:justify-center lg:gap-0 lg:px-0 xl:w-9.5',
         stateClass.value,
         props.class,
     ),
@@ -97,6 +98,7 @@ const classes = computed(() =>
             :name="icon"
             size="sm"
             fixed-width
+            class="lg:text-sm xl:text-[15px]"
             :class="iconDesktopOnly ? 'hidden lg:inline-block' : ''"
         />
         <span
