@@ -1,9 +1,9 @@
 # Inventory permissions (#195)
 
-This change is stacked on #193 / PR #214 (`codex/credentials-role-permissions`,
-initially `4a91ecc`, updated through `391d98f`). Merge #214 first, then retarget
-and merge the #195 PR into `main` after Calvin's approval. No schema migration,
-permission backfill, deployment downtime, or temporary nullability is introduced.
+This change was implemented in PR #215 after #193 / PR #214. Both are merged
+into `main`, including the final Credentials review correction (`e424d78`).
+No schema migration, permission backfill, deployment downtime, or temporary
+nullability is introduced.
 
 Roles gain independent `inventory.pass_shift` and `inventory.pass_group`
 permissions. `inventory.manage` includes both, but grants neither Check people
@@ -37,6 +37,13 @@ range. Item updates independently authorize item editing and ignore stock
 fields. After merging this correction, all 65 affected Credentials,
 Entitlements, event/Inventory permissions, target, and Locations tests passed,
 as did Pint, formatting, and lint. The #195 feature scope is unchanged.
+
+The final #214 review correction (`e424d78`) removed the duplicate Entitlements
+edit route, moved issued-log reads into the Entitlement service, and preserved
+read-only Pass views for locked events. The Inventory regression test now
+asserts that the old named route is absent and its former URL returns 404.
+The combined full SQLite and PostgreSQL suites passed with this assertion.
+This follow-up changes only the test and these deployment notes.
 
 ## Receiver and manager queries
 
@@ -76,10 +83,10 @@ holder fallback, credential creation change, or permission migration.
 
 ## Verification
 
-- Full SQLite suite: 773 passed, 19 PostgreSQL-only skips, 10,552 assertions.
-- Full PostgreSQL suite: all 792 passed, 10,731 assertions, including existing
+- Full SQLite suite: 773 passed, 19 PostgreSQL-only skips, 10,579 assertions.
+- Full PostgreSQL suite: all 792 passed, 10,758 assertions, including existing
   concurrency tests; isolated PostgreSQL 17 UTF-8 `inventory_195_test`.
-- Full frontend suite: 248 passed; one pre-existing failure in
+- Full frontend suite: 249 passed; one pre-existing failure in
   `shiftTimelineRoster.test.js:658` expects a payload without
   `is_supervisor: false`. The same failure is documented on the #214 base.
 - Focused inventory/permissions/location/Credentials tests: 45 passed.
