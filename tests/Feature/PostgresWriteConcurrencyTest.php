@@ -16,12 +16,14 @@ use App\Services\EntitlementConsumeService;
 use App\Services\EntitlementItemService;
 use App\Services\EventService;
 use App\Services\GlobalTeamService;
+use App\Services\InventoryMovementService;
 use App\Services\MealAssignmentService;
 use App\Services\MealClaimService;
 use App\Services\MealOverrideService;
 use App\Services\MealTypeService;
 use App\Services\PassAssignmentService;
 use App\Services\PassTypeService;
+use App\Services\RoleService;
 use App\Services\StockMovementService;
 use App\Services\TeamEngagementService;
 use Illuminate\Database\Eloquent\Collection;
@@ -141,6 +143,127 @@ class PostgresWriteConcurrencyTest extends TestCase
         $this->assertSame(['committed', 'committed'], array_column($results, 'status'), json_encode($results));
         $this->assertSame('events', $results[1]['first_lock']);
         $this->assertSame('Global Edit', $person->fresh()->name);
+    }
+
+    public function test_inventory_pulls_competing_for_last_units_are_atomic(): void
+    {
+        [$event, $actor] = $this->context();
+        $this->grantAdminAccess($actor);
+        $location = $event->locations()->create(['name' => 'Stock gate']);
+        $item = $event->entitlementItems()->create(['name' => 'Last pull']);
+        $this->seedStock($item, $location, 1, $actor);
+        $data = ['location_id' => $location->id, 'entitlement_item_id' => $item->id,
+            'person_id' => $actor->person_id, 'quantity' => 1];
+        $results = $this->concurrently(
+            fn () => app(InventoryMovementService::class)->pull($event, $actor, $data),
+            fn () => app(InventoryMovementService::class)->pull($event, $actor, $data),
+        );
+        $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+        $this->assertSame(['events', 'events'], array_column($results, 'first_lock'));
+        $this->assertSame(1, $item->movements()->where('type', 'pull')->count());
+        $this->assertSame(0, app(StockMovementService::class)->balance($item, StockHolder::where('location_id', $location->id)->sole()));
+    }
+
+    public function test_inventory_returns_competing_for_last_unit_are_atomic(): void
+    {
+        [$event, $actor] = $this->context();
+        $this->grantAdminAccess($actor);
+        $location = $event->locations()->create(['name' => 'Stock gate']);
+        $item = $event->entitlementItems()->create(['name' => 'Last return']);
+        $this->seedStock($item, $location, 1, $actor);
+        $data = ['location_id' => $location->id, 'entitlement_item_id' => $item->id,
+            'person_id' => $actor->person_id, 'quantity' => 1];
+        app(InventoryMovementService::class)->pull($event, $actor, $data);
+        $results = $this->concurrently(
+            fn () => app(InventoryMovementService::class)->returnStock($event, $actor, $data),
+            fn () => app(InventoryMovementService::class)->returnStock($event, $actor, $data),
+        );
+        $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+        $this->assertSame(1, $item->movements()->where('type', 'return')->count());
+        $this->assertSame(0, app(StockMovementService::class)->balance($item, StockHolder::where('person_id', $actor->person_id)->sole()));
+    }
+
+    public function test_inventory_pull_prevents_concurrent_unhiring_and_unhiring_prevents_a_later_pull(): void
+    {
+        foreach ([true, false] as $pullFirst) {
+            [$event, $actor] = $this->context();
+            $this->grantAdminAccess($actor);
+            $recipient = User::factory()->create();
+            $role = Role::create(['name' => 'Receiver '.$recipient->id, 'permissions' => ['checkin.edit']]);
+            $member = TeamEngagement::create(['event_id' => $event->id, 'person_id' => $recipient->person_id,
+                'role_id' => $role->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+            $location = $event->locations()->create(['name' => 'Gate']);
+            $item = $event->entitlementItems()->create(['name' => 'Wristband']);
+            $this->seedStock($item, $location, 1, $actor);
+            $data = ['location_id' => $location->id, 'entitlement_item_id' => $item->id, 'person_id' => $recipient->person_id, 'quantity' => 1];
+            $pull = fn () => app(InventoryMovementService::class)->pull($event, $actor, $data);
+            $remove = fn () => app(TeamEngagementService::class)->updateStatus($member, 'declined');
+            $results = $this->concurrently($pullFirst ? $pull : $remove, $pullFirst ? $remove : $pull);
+            $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+            $this->assertSame($pullFirst ? 'hired' : 'declined', $member->fresh()->status);
+            $this->assertSame($pullFirst ? 1 : 0, $item->movements()->where('type', 'pull')->count());
+        }
+    }
+
+    public function test_inventory_pull_observes_role_revocation_committed_while_waiting(): void
+    {
+        [$event, $actor] = $this->context();
+        $this->grantAdminAccess($actor);
+        $recipient = User::factory()->create();
+        $role = Role::create(['name' => 'Receiver', 'permissions' => ['checkin.edit']]);
+        TeamEngagement::create(['event_id' => $event->id, 'person_id' => $recipient->person_id,
+            'role_id' => $role->id, 'status' => 'hired']);
+        $location = $event->locations()->create(['name' => 'Gate']);
+        $item = $event->entitlementItems()->create(['name' => 'Wristband']);
+        $this->seedStock($item, $location, 1, $actor);
+        $data = ['location_id' => $location->id, 'entitlement_item_id' => $item->id, 'person_id' => $recipient->person_id, 'quantity' => 1];
+        $results = $this->concurrently(
+            fn () => DB::transaction(function () use ($event, $role): void {
+                Event::whereKey($event->id)->lockForUpdate()->firstOrFail();
+                app(RoleService::class)->setActive($role, false);
+            }),
+            fn () => app(InventoryMovementService::class)->pull($event, $actor, $data),
+        );
+        $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+        $this->assertSame(0, $item->movements()->where('type', 'pull')->count());
+    }
+
+    public function test_inventory_pull_and_global_access_removal_cannot_strand_stock(): void
+    {
+        foreach (['admin', 'event_role'] as $kind) {
+            foreach ([true, false] as $pullFirst) {
+                [$event, $actor] = $this->context();
+                $this->grantAdminAccess($actor);
+                $recipient = User::factory()->create();
+                $roleId = null;
+                if ($kind === 'admin') {
+                    $this->grantAdminAccess($recipient);
+                } else {
+                    $roleId = Role::create(['name' => 'Receiver '.$recipient->id, 'permissions' => ['checkin.edit']])->id;
+                    TeamEngagement::create(['event_id' => $event->id, 'person_id' => $recipient->person_id,
+                        'role_id' => $roleId, 'status' => 'hired']);
+                }
+                $location = $event->locations()->create(['name' => 'Gate']);
+                $item = $event->entitlementItems()->create(['name' => 'Wristband']);
+                $this->seedStock($item, $location, 1, $actor);
+                $pullData = ['location_id' => $location->id, 'entitlement_item_id' => $item->id,
+                    'person_id' => $recipient->person_id, 'quantity' => 1];
+                $change = ['name' => $recipient->name, 'can_log_in' => true,
+                    'event_access' => [['event_id' => $event->id, 'role_id' => null]],
+                    ...($kind === 'admin' ? ['is_admin' => false] : [])];
+                $pull = fn () => app(InventoryMovementService::class)->pull($event, $actor, $pullData);
+                $remove = fn () => app(GlobalTeamService::class)->update($recipient->person, $change, $actor);
+                $results = $this->concurrently($pullFirst ? $pull : $remove, $pullFirst ? $remove : $pull);
+                $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+                $this->assertSame($pullFirst ? 1 : 0, $item->movements()->where('type', 'pull')->count());
+                if ($kind === 'admin') {
+                    $this->assertSame($pullFirst, $recipient->fresh()->is_admin);
+                } else {
+                    $this->assertSame($pullFirst ? $roleId : null, TeamEngagement::where('event_id', $event->id)
+                        ->where('person_id', $recipient->person_id)->sole()->role_id);
+                }
+            }
+        }
     }
 
     private function context(): array

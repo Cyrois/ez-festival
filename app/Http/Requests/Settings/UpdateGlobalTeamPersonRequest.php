@@ -4,6 +4,7 @@ namespace App\Http\Requests\Settings;
 
 use App\Models\Event;
 use App\Services\GlobalTeamService;
+use App\Services\HeldStockGuard;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -50,6 +51,13 @@ class UpdateGlobalTeamPersonRequest extends FormRequest
             }
 
             $this->validateAdminChange($validator);
+            foreach ($this->input('event_access') as $index => $access) {
+                if (($access['role_id'] ?? null) === null
+                    && $this->route('person')->teamEngagements()->where('event_id', $access['event_id'])->whereNotNull('role_id')->exists()
+                    && app(HeldStockGuard::class)->hasStock($this->route('person')->id, (int) $access['event_id'])) {
+                    $validator->errors()->add("event_access.{$index}.role_id", __('inventory.errors.stock_remains'));
+                }
+            }
 
             if ($this->boolean('can_log_in')) {
                 return;

@@ -1,20 +1,21 @@
 <script setup>
 import { Icon } from '../ui/icon';
+import { trans } from 'laravel-vue-i18n';
 </script>
 <template>
     <span
         class="inline-flex items-center gap-2 text-xs text-muted"
-        :title="$t('permissions.hidden')"
+        :title="trans('permissions.hidden')"
     >
         <span
             aria-hidden="true"
             class="blur-sm select-none"
-            >{{ $t('permissions.placeholder') }}</span
+            >{{ trans('permissions.placeholder') }}</span
         >
         <Icon
             :name="['fas', 'lock']"
             size="sm"
         />
-        <span>{{ $t('permissions.hidden') }}</span>
+        <span>{{ trans('permissions.hidden') }}</span>
     </span>
 </template>

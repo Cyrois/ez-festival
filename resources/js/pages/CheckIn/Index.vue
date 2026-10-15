@@ -10,12 +10,14 @@ import { Button } from '../../components/ui/button';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
 import { Select } from '../../components/ui/select';
+import { Tabs, TabList, Tab, TabPanel } from '../../components/ui/tabs';
 import { Tooltip } from '../../components/ui/tooltip';
 import { DataTable } from '../../components/ui/data-table';
 import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
 import { checkInQuery } from './filters';
 
 const props = defineProps({
+    canInventory: { type: Boolean, default: false },
     passes: { type: Array, required: true },
     filters: { type: Object, required: true },
     event: { type: Object, required: true },
@@ -138,159 +140,202 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer));
                 {{ $t('check_in.lead') }}
             </p>
 
-            <div class="mb-3 flex flex-wrap items-center gap-2">
-                <span class="mr-1 text-xs font-bold text-muted">
-                    {{ $t('check_in.filters.type') }}
-                </span>
-                <Button
-                    v-for="value in types"
-                    :key="value"
-                    size="sm"
-                    :variant="type === value ? 'outline-secondary' : 'outline'"
-                    class="rounded-full font-normal"
-                    @click="type = value"
-                >
-                    {{ $t(`check_in.types.${value}`) }}
-                </Button>
-                <label class="ml-2 text-xs font-bold text-muted">
-                    {{ $t('check_in.filters.pass') }}
-                </label>
-                <div class="w-44">
-                    <Select
-                        v-model="pass"
-                        :aria-label="$t('check_in.filters.pass')"
-                    >
-                        <option value="">
-                            {{ $t('check_in.filters.all_passes') }}
-                        </option>
-                        <option
-                            v-for="passType in passes"
-                            :key="passType.id"
-                            :value="passType.id"
-                        >
-                            {{ passType.name }}
-                        </option>
-                    </Select>
-                </div>
-                <div
-                    class="ml-2 flex items-center gap-2"
-                    role="group"
-                    :aria-label="$t('check_in.columns.status')"
-                >
-                    <span class="mr-1 text-xs font-bold text-muted">
-                        {{ $t('check_in.columns.status') }}
-                    </span>
-                    <Button
-                        v-for="value in statuses"
-                        :key="value"
-                        size="sm"
-                        :variant="
-                            status === value ? 'outline-secondary' : 'outline'
-                        "
-                        :aria-pressed="status === value"
-                        class="rounded-full font-normal"
-                        @click="status = value"
-                    >
-                        {{ $t(`check_in.status.${value}`) }}
-                    </Button>
-                </div>
-            </div>
-
-            <div class="mb-3 flex flex-wrap items-center gap-2">
-                <form
-                    class="relative min-w-64 flex-1"
-                    @submit.prevent="applyFilters"
-                >
-                    <Icon
-                        :name="['fas', 'magnifying-glass']"
-                        class="pointer-events-none absolute top-3 left-3 z-10 text-muted"
-                        size="sm"
-                    />
-                    <Input
-                        v-model="search"
-                        type="search"
-                        class="pl-9"
-                        :placeholder="$t('check_in.filters.search_placeholder')"
-                        :aria-label="$t('check_in.filters.search_placeholder')"
-                    />
-                </form>
-            </div>
-
-            <DataTable
-                :key="JSON.stringify(filters)"
-                :ajax="tableAjax"
-                :columns="columns"
-                :options="tableOptions"
+            <Tabs
+                model-value="people"
+                @update:model-value="
+                    (tab) =>
+                        tab === 'inventory' && router.get('/check-in/inventory')
+                "
             >
-                <template #personCell="{ rowData }">
-                    <div class="flex min-w-44 items-center gap-2.5">
-                        <Avatar
-                            :name="rowData.name"
+                <TabList
+                    v-if="canInventory"
+                    class="mb-5"
+                    :aria-label="$t('check_in.title')"
+                >
+                    <Tab value="people">{{ $t('inventory.people') }}</Tab>
+                    <Tab value="inventory">{{ $t('inventory.title') }}</Tab>
+                </TabList>
+                <TabPanel
+                    value="people"
+                    class="pt-0"
+                >
+                    <div class="mb-3 flex flex-wrap items-center gap-2">
+                        <span class="mr-1 text-xs font-bold text-muted">
+                            {{ $t('check_in.filters.type') }}
+                        </span>
+                        <Button
+                            v-for="value in types"
+                            :key="value"
                             size="sm"
-                        />
-                        <div>
-                            <div class="flex items-center gap-2">
-                                <Link
-                                    :href="checkInHref(rowData)"
-                                    class="block font-bold text-charcoal no-underline hover:text-primary"
+                            :variant="
+                                type === value ? 'outline-secondary' : 'outline'
+                            "
+                            class="rounded-full font-normal"
+                            @click="type = value"
+                        >
+                            {{ $t(`check_in.types.${value}`) }}
+                        </Button>
+                        <label class="ml-2 text-xs font-bold text-muted">
+                            {{ $t('check_in.filters.pass') }}
+                        </label>
+                        <div class="w-44">
+                            <Select
+                                v-model="pass"
+                                :aria-label="$t('check_in.filters.pass')"
+                            >
+                                <option value="">
+                                    {{ $t('check_in.filters.all_passes') }}
+                                </option>
+                                <option
+                                    v-for="passType in passes"
+                                    :key="passType.id"
+                                    :value="passType.id"
                                 >
-                                    {{ rowData.name }}
-                                </Link>
-                            </div>
-                            <span class="block text-xs text-muted">
-                                <HiddenPersonalInfo
-                                    v-if="rowData.personal_info_hidden"
-                                />
-                                <span v-else>{{ rowData.subtitle }}</span>
+                                    {{ passType.name }}
+                                </option>
+                            </Select>
+                        </div>
+                        <div
+                            class="ml-2 flex items-center gap-2"
+                            role="group"
+                            :aria-label="$t('check_in.columns.status')"
+                        >
+                            <span class="mr-1 text-xs font-bold text-muted">
+                                {{ $t('check_in.columns.status') }}
                             </span>
+                            <Button
+                                v-for="value in statuses"
+                                :key="value"
+                                size="sm"
+                                :variant="
+                                    status === value
+                                        ? 'outline-secondary'
+                                        : 'outline'
+                                "
+                                :aria-pressed="status === value"
+                                class="rounded-full font-normal"
+                                @click="status = value"
+                            >
+                                {{ $t(`check_in.status.${value}`) }}
+                            </Button>
                         </div>
                     </div>
-                </template>
-                <template #passCell="{ rowData }">
-                    <span
-                        v-if="rowData.type === 'team' && !rowData.has_pass"
-                        class="inline-flex"
-                        @click.stop
-                    >
-                        <Tooltip :label="$t('check_in.no_pass')">
+
+                    <div class="mb-3 flex flex-wrap items-center gap-2">
+                        <form
+                            class="relative min-w-64 flex-1"
+                            @submit.prevent="applyFilters"
+                        >
                             <Icon
-                                :name="['fas', 'triangle-exclamation']"
-                                class="text-warning"
-                                size="lg"
+                                :name="['fas', 'magnifying-glass']"
+                                class="pointer-events-none absolute top-3 left-3 z-10 text-muted"
+                                size="sm"
                             />
-                            <template #content>{{
-                                $t('check_in.no_pass')
-                            }}</template>
-                        </Tooltip>
-                    </span>
-                    <span v-else>{{ rowData.pass_name }}</span>
-                </template>
-                <template #statusCell="{ rowData }">
-                    <Badge
-                        :variant="statusVariants[rowData.check_in_status]"
-                        pill
-                        class="uppercase"
+                            <Input
+                                v-model="search"
+                                type="search"
+                                class="pl-9"
+                                :placeholder="
+                                    $t('check_in.filters.search_placeholder')
+                                "
+                                :aria-label="
+                                    $t('check_in.filters.search_placeholder')
+                                "
+                            />
+                        </form>
+                    </div>
+
+                    <DataTable
+                        :key="JSON.stringify(filters)"
+                        :ajax="tableAjax"
+                        :columns="columns"
+                        :options="tableOptions"
                     >
-                        {{ $t(`check_in.status.${rowData.check_in_status}`) }}
-                    </Badge>
-                </template>
-                <template #openCell="{ rowData }">
-                    <Link
-                        :href="checkInHref(rowData)"
-                        class="inline-flex text-muted hover:text-primary"
-                        :aria-label="
-                            rowData.check_in_status === 'complete'
-                                ? $t('check_in.actions.view')
-                                : $t('check_in.actions.check_in')
-                        "
-                    >
-                        <Icon
-                            :name="['fas', 'chevron-right']"
-                            size="sm"
-                        />
-                    </Link>
-                </template>
-            </DataTable>
+                        <template #personCell="{ rowData }">
+                            <div class="flex min-w-44 items-center gap-2.5">
+                                <Avatar
+                                    :name="rowData.name"
+                                    size="sm"
+                                />
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <Link
+                                            :href="checkInHref(rowData)"
+                                            class="block font-bold text-charcoal no-underline hover:text-primary"
+                                        >
+                                            {{ rowData.name }}
+                                        </Link>
+                                    </div>
+                                    <span class="block text-xs text-muted">
+                                        <HiddenPersonalInfo
+                                            v-if="rowData.personal_info_hidden"
+                                        />
+                                        <span v-else>{{
+                                            rowData.subtitle
+                                        }}</span>
+                                    </span>
+                                </div>
+                            </div>
+                        </template>
+                        <template #passCell="{ rowData }">
+                            <span
+                                v-if="
+                                    rowData.type === 'team' && !rowData.has_pass
+                                "
+                                class="inline-flex"
+                                @click.stop
+                            >
+                                <Tooltip :label="$t('check_in.no_pass')">
+                                    <Icon
+                                        :name="['fas', 'triangle-exclamation']"
+                                        class="text-warning"
+                                        size="lg"
+                                    />
+                                    <template #content>{{
+                                        $t('check_in.no_pass')
+                                    }}</template>
+                                </Tooltip>
+                            </span>
+                            <span v-else>{{ rowData.pass_name }}</span>
+                        </template>
+                        <template #statusCell="{ rowData }">
+                            <Badge
+                                :variant="
+                                    statusVariants[rowData.check_in_status]
+                                "
+                                pill
+                                class="uppercase"
+                            >
+                                {{
+                                    $t(
+                                        `check_in.status.${rowData.check_in_status}`,
+                                    )
+                                }}
+                            </Badge>
+                        </template>
+                        <template #openCell="{ rowData }">
+                            <Link
+                                :href="checkInHref(rowData)"
+                                class="inline-flex text-muted hover:text-primary"
+                                :aria-label="
+                                    rowData.check_in_status === 'complete'
+                                        ? $t('check_in.actions.view')
+                                        : $t('check_in.actions.check_in')
+                                "
+                            >
+                                <Icon
+                                    :name="['fas', 'chevron-right']"
+                                    size="sm"
+                                />
+                            </Link>
+                        </template>
+                    </DataTable>
+                </TabPanel>
+                <TabPanel
+                    v-if="canInventory"
+                    value="inventory"
+                />
+            </Tabs>
         </div>
     </AppLayout>
 </template>

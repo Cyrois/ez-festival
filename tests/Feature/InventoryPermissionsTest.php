@@ -42,17 +42,17 @@ class InventoryPermissionsTest extends TestCase
         $this->actingAs($this->user);
     }
 
-    public function test_inventory_role_permissions_are_independent_and_manage_includes_both_passes_only(): void
+    public function test_inventory_permissions_include_both_checkin_keys_without_credentials_writes(): void
     {
-        $this->assertSame(['inventory.pass_shift'], Permissions::expand(['inventory.pass_shift']));
-        $this->assertSame(['inventory.pass_group'], Permissions::expand(['inventory.pass_group']));
-        $this->assertSame(['inventory.manage', 'inventory.pass_shift', 'inventory.pass_group'], Permissions::expand(['inventory.manage']));
+        $this->assertSame(['inventory.pass_shift', 'checkin.edit', 'checkin.view'], Permissions::expand(['inventory.pass_shift']));
+        $this->assertSame(['inventory.pass_group', 'checkin.edit', 'checkin.view'], Permissions::expand(['inventory.pass_group']));
+        $this->assertSame(['inventory.manage', 'inventory.pass_shift', 'inventory.pass_group', 'checkin.edit', 'checkin.view'], Permissions::expand(['inventory.manage']));
         $this->assertSame(['checkin.edit', 'checkin.view'], Permissions::expand(['checkin.edit']));
         $this->assertSame('Check people in', __('permissions.checkin.edit.label'));
         $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
             ->where('permissions', fn ($permissions) => $permissions['inventory.manage']
                 && $permissions['inventory.pass_shift'] && $permissions['inventory.pass_group']
-                && ! $permissions['checkin.edit'] && ! $permissions['credentials.stock.adjust']
+                && $permissions['checkin.edit'] && $permissions['checkin.view'] && ! $permissions['credentials.stock.adjust']
                 && ! isset($permissions['inventory.handle'])));
 
         $this->grantAdminAccess($this->user);
@@ -60,7 +60,7 @@ class InventoryPermissionsTest extends TestCase
             ->has('permissionGroups.inventory', 3)->where('permissionGroups.inventory.0.label', 'Pass stock within my shift')
             ->where('permissionGroups.inventory.1.label', 'Pass stock within my group')
             ->where('permissionGroups.inventory.2.label', 'Manage inventory')
-            ->where('permissionGroups.inventory.2.includes', ['inventory.pass_shift', 'inventory.pass_group']));
+            ->where('permissionGroups.inventory.2.includes', ['inventory.pass_shift', 'inventory.pass_group', 'checkin.edit', 'checkin.view']));
         foreach (['inventory.pass_shift', 'inventory.pass_group', 'inventory.manage'] as $key) {
             $this->post(route('settings.roles.store'), ['name' => $key, 'permissions' => [$key]])->assertSessionHasNoErrors();
             $role = Role::where('name', $key)->sole();
@@ -83,7 +83,7 @@ class InventoryPermissionsTest extends TestCase
                 ->where('canEditItems', false)->where('canAdjustStock', false)->where('open_adjust', false));
         $this->getJson(route('credentials.entitlements.issued', $item).'?'.http_build_query(['draw' => 1, 'start' => 0, 'length' => 10]))
             ->assertOk()->assertJsonCount(0, 'data');
-        $this->get(route('credentials.entitlements.edit', $item))->assertForbidden();
+        $this->get('/credentials/entitlements/'.$item->id.'/edit')->assertNotFound();
         $this->post(route('credentials.entitlements.store', $this->event), ['name' => 'Forbidden'])->assertForbidden();
         $this->put(route('credentials.entitlements.update', [$this->event, $item]), ['name' => 'Forbidden'])->assertForbidden();
         $this->delete(route('credentials.entitlements.destroy', [$this->event, $item]))->assertForbidden();
@@ -215,7 +215,7 @@ class InventoryPermissionsTest extends TestCase
             ->where('activeEvent.id', $other->id)->where('permissions', fn ($permissions) => ! $permissions['inventory.manage']));
     }
 
-    public function test_inventory_permissions_do_not_allow_consuming_artist_vendor_or_team_entitlements(): void
+    public function test_inventory_permissions_enable_checkin_on_artist_vendor_and_team_pages(): void
     {
         $person = Person::create(['name' => 'Receiver', 'email' => 'receiver@example.test']);
         $artist = ArtistEngagement::create(['event_id' => $this->event->id,
@@ -232,14 +232,14 @@ class InventoryPermissionsTest extends TestCase
         foreach (['inventory.manage', 'inventory.pass_shift', 'inventory.pass_group'] as $permission) {
             $this->role->update(['permissions' => [$permission, 'checkin.view']]);
             foreach ($targets as [$engagement, $route]) {
-                $this->get(route($route, $engagement))->assertInertia(fn (Assert $page) => $page->where('canWrite', false));
+                $this->get(route($route, $engagement))->assertInertia(fn (Assert $page) => $page->where('canWrite', true));
             }
         }
         foreach ($targets as [$engagement, $route]) {
             $field = $engagement instanceof ArtistEngagement ? 'artist_engagement_id' : ($engagement instanceof VendorEngagement ? 'vendor_engagement_id' : 'team_engagement_id');
             $assignment = $pass->assignments()->create([$field => $engagement->id, 'person_id' => $person->id]);
             $expected = $assignment->expectedEntitlements()->create(['entitlement_item_id' => $item->id, 'status' => 'expected']);
-            $this->post(route('check-in.issues.store', $expected), ['location_id' => $location->id])->assertForbidden();
+            $this->post(route('check-in.issues.store', $expected), [])->assertSessionHasErrors('location_id');
         }
         $this->role->update(['permissions' => ['checkin.edit']]);
         foreach ($targets as [$engagement, $route]) {

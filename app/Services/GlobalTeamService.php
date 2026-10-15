@@ -65,6 +65,11 @@ class GlobalTeamService
             return __('settings.team.admin.own_disabled');
         }
 
+        if (! $isAdmin && $target?->is_admin && $target->person_id !== null
+            && app(HeldStockGuard::class)->hasStock($target->person_id)) {
+            return __('inventory.errors.stock_remains');
+        }
+
         return null;
     }
 
@@ -137,7 +142,7 @@ class GlobalTeamService
     public function update(Person $person, array $data, User $actor): ?bool
     {
         $loginChange = DB::transaction(function () use ($person, $data, $actor): ?string {
-            $events = $this->lockEvents($data['event_access']);
+            $events = Event::query()->orderBy('id')->lockForUpdate()->get();
             if (array_key_exists('is_admin', $data)) {
                 User::query()
                     ->where('is_admin', true)
@@ -198,6 +203,7 @@ class GlobalTeamService
                 }
 
                 if ($roleId === null) {
+                    app(HeldStockGuard::class)->ensureClear($person->id, $event->id, "event_access.{$index}.role_id");
                     $engagement?->update(['role_id' => null]);
 
                     continue;

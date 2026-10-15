@@ -44,6 +44,7 @@ class CheckInController extends Controller
 
         return Inertia::render('CheckIn/Index', [
             'people' => CheckInPersonResource::collection($people),
+            'canInventory' => $request->user()->can('checkin.edit', $event),
             'passes' => $event->passTypes()->orderBy('name')->get(['id', 'name']),
             'filters' => [
                 'type' => $type,

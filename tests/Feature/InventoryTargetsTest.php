@@ -32,7 +32,7 @@ class InventoryTargetsTest extends TestCase
         $checkin = $this->member(['checkin.edit']);
         $manager = $this->member(['inventory.manage']);
         $admin = $this->grantAdminAccess(User::factory()->create());
-        foreach ([['checkin.view'], ['inventory.pass_shift'], ['inventory.pass_group'], ['credentials.stock.adjust'], []] as $permissions) {
+        foreach ([['checkin.view'], ['credentials.stock.adjust'], []] as $permissions) {
             $excluded = $this->member($permissions);
             $this->assertFalse($this->targets->canReceive($this->event, $excluded->person_id));
         }
@@ -43,6 +43,9 @@ class InventoryTargetsTest extends TestCase
         }
         $this->assertTrue($this->targets->receivers($this->event)->where('p.id', $manager->person_id)->exists());
         $this->assertFalse($this->targets->receivers($this->event, $manager->person_id)->where('p.id', $manager->person_id)->exists());
+        foreach (['inventory.pass_shift', 'inventory.pass_group'] as $key) {
+            $this->assertTrue($this->targets->canReceive($this->event, $this->member([$key])->person_id));
+        }
     }
 
     public function test_targets_require_hired_current_event_membership_active_roles_login_and_an_account(): void
@@ -104,7 +107,7 @@ class InventoryTargetsTest extends TestCase
         $this->assertTrue($this->targets->canReceive($this->event, $user->person_id));
         $this->assertFalse($this->targets->isManagerTarget($this->event, $user->person_id, Person::create(['name' => 'Actor', 'email' => 'actor@example.test'])->id));
         $role->update(['permissions' => ['inventory.pass_group']]);
-        $this->assertFalse($this->targets->canReceive($this->event, $user->person_id));
+        $this->assertTrue($this->targets->canReceive($this->event, $user->person_id));
         $role->update(['permissions' => ['inventory.manage'], 'active' => false]);
         $this->assertFalse($this->targets->canReceive($this->event, $user->person_id));
         $role->update(['active' => true]);

@@ -70,15 +70,21 @@ class TeamEngagementService
             }
 
             $access = app(EventAccessService::class);
-            if (array_key_exists('role_id', $data) && (string) $data['role_id'] !== (string) $engagement->role_id) {
-                if (! $access->canAssignRole($user, $engagement, Role::find($data['role_id']))) {
-                    throw ValidationException::withMessages(['role_id' => __('permissions.forbidden')]);
-                }
-                $engagement->update(['role_id' => $data['role_id']]);
+            $roleChanged = array_key_exists('role_id', $data) && (string) $data['role_id'] !== (string) $engagement->role_id;
+            if ($roleChanged && ! $access->canAssignRole($user, $engagement, Role::find($data['role_id']))) {
+                throw ValidationException::withMessages(['role_id' => __('permissions.forbidden')]);
             }
             if (! $access->allows($user, 'team.edit', $event)
                 && array_intersect(array_keys($data), ['name', 'email', 'phone', 'status', 'employment_type', 'hourly_pay', 'group_id', 'pass_assignments']) !== []) {
                 throw ValidationException::withMessages(['member' => __('permissions.forbidden')]);
+            }
+            $stockField = app(HeldStockGuard::class)->teamChangeField($engagement, $data);
+            if ($stockField !== null) {
+                app(HeldStockGuard::class)->ensureClear($engagement->person_id, $event->id, $stockField);
+            }
+
+            if ($roleChanged) {
+                $engagement->update(['role_id' => $data['role_id']]);
             }
             $wasHired = $engagement->status === 'hired';
             if ($access->allows($user, 'team.edit', $event)) {
@@ -170,6 +176,10 @@ class TeamEngagementService
             $event = Event::query()->lockForUpdate()->findOrFail($engagement->event_id);
             $event->ensureWritable();
 
+            $engagement = TeamEngagement::query()->lockForUpdate()->findOrFail($engagement->id);
+            if ($engagement->status === 'hired' && $status !== 'hired') {
+                app(HeldStockGuard::class)->ensureClear($engagement->person_id, $event->id, 'status');
+            }
             $engagement->update(['status' => $status]);
         });
     }

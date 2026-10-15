@@ -1,5 +1,13 @@
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, useAttrs } from 'vue';
+import {
+    computed,
+    nextTick,
+    onMounted,
+    onUnmounted,
+    ref,
+    useAttrs,
+    watch,
+} from 'vue';
 import { trans } from 'laravel-vue-i18n';
 import { Input } from '../input';
 import { cn } from '../../../lib/utils';
@@ -17,6 +25,9 @@ const props = defineProps({
         type: [String, Number, Array],
         default: '',
     },
+    remote: { type: Boolean, default: false },
+    loading: { type: Boolean, default: false },
+    hasMore: { type: Boolean, default: false },
     multiple: { type: Boolean, default: false },
     showSelected: { type: Boolean, default: true },
     matchTriggerWidth: { type: Boolean, default: false },
@@ -51,15 +62,24 @@ const props = defineProps({
     },
 });
 
-const emit = defineEmits(['update:modelValue', 'action']);
+const emit = defineEmits([
+    'update:modelValue',
+    'action',
+    'search',
+    'load-more',
+]);
 
 const attrs = useAttrs();
 const root = ref(null);
 const menu = ref(null);
 const searchInput = ref(null);
 const query = ref('');
-const searchable = computed(() => props.items.length >= 5);
+const searchable = computed(() => props.remote || props.items.length >= 5);
+watch(query, (value) => {
+    if (props.remote) emit('search', value);
+});
 const filteredItems = computed(() => {
+    if (props.remote) return props.items;
     const search = searchable.value
         ? query.value.trim().toLocaleLowerCase()
         : '';
@@ -456,6 +476,7 @@ onUnmounted(() => {
                     >
                 </button>
                 <div
+                    :aria-busy="loading"
                     class="min-h-0 overflow-y-auto"
                     role="listbox"
                     :aria-multiselectable="multiple ? 'true' : undefined"
@@ -563,6 +584,21 @@ onUnmounted(() => {
                         }}
                     </p>
                 </div>
+                <button
+                    v-if="remote && hasMore"
+                    type="button"
+                    class="shrink-0 border-t border-line px-3 py-2 text-left text-sm text-primary"
+                    :disabled="loading"
+                    @click="emit('load-more')"
+                >
+                    {{
+                        trans(
+                            loading
+                                ? 'data_table.loading'
+                                : 'dropdown.load_more',
+                        )
+                    }}
+                </button>
                 <p
                     v-if="footer"
                     class="m-0 shrink-0 border-t border-line px-3 py-2 text-xs text-muted"
