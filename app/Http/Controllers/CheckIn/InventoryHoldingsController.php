@@ -16,7 +16,7 @@ class InventoryHoldingsController extends Controller
     {
         $event = $context->requireCurrent($request->user());
         $filters = $request->validated();
-        $total = (clone $query->holdings($event))->getCountForPagination();
+        $total = (clone $query->holdings($event, ['holder_type' => $filters['holder_type'] ?? null]))->getCountForPagination();
         $builder = $query->holdings($event, $filters);
         $filtered = (clone $builder)->getCountForPagination();
         $rows = $builder->offset($filters['start'] ?? 0)->limit($filters['length'] ?? 25)->get();

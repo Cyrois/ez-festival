@@ -148,8 +148,9 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::get('check-in/entitlements', [CheckInEntitlementDataTableController::class, 'index'])->name('check-in.entitlements');
         Route::get('check-in/data', [CheckInDataTableController::class, 'index'])->name('check-in.data');
         Route::get('check-in', [CheckInController::class, 'index'])->name('check-in.index');
+        Route::get('check-in/my-stock', [InventoryController::class, 'index'])->name('check-in.my-stock');
         Route::prefix('check-in/inventory')->name('check-in.inventory.')->group(function () {
-            Route::get('/', [InventoryController::class, 'index'])->name('index');
+            Route::get('/', [InventoryController::class, 'index'])->middleware('can:inventory.manage')->name('index');
             Route::get('stock', [InventoryController::class, 'show'])->name('stock');
             Route::get('movements', [InventoryController::class, 'show'])->name('movements');
             Route::get('holdings', [InventoryHoldingsController::class, 'index'])->name('holdings');

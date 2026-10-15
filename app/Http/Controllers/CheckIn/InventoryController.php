@@ -23,6 +23,7 @@ class InventoryController extends Controller
         $canOperate = ! $event->isLocked() && $targets->canReceive($event, $request->user()->person_id);
 
         return Inertia::render('CheckIn/Inventory', [
+            'view' => $request->routeIs('check-in.my-stock') ? 'mine' : 'holdings',
             'event' => $event->only('id', 'name', 'locked', 'timezone'),
             'canManage' => $canManage,
             'ownItems' => $holder === null ? [] : $query->items($event->id, $holder->id)->get()->map(fn ($item) => [

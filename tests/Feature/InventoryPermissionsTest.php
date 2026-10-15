@@ -83,6 +83,7 @@ class InventoryPermissionsTest extends TestCase
                 ->where('canEditItems', false)->where('canAdjustStock', false)->where('open_adjust', false));
         $this->getJson(route('credentials.entitlements.issued', $item).'?'.http_build_query(['draw' => 1, 'start' => 0, 'length' => 10]))
             ->assertOk()->assertJsonCount(0, 'data');
+        $this->assertFalse(app('router')->has('credentials.entitlements.edit'));
         $this->get('/credentials/entitlements/'.$item->id.'/edit')->assertNotFound();
         $this->post(route('credentials.entitlements.store', $this->event), ['name' => 'Forbidden'])->assertForbidden();
         $this->put(route('credentials.entitlements.update', [$this->event, $item]), ['name' => 'Forbidden'])->assertForbidden();

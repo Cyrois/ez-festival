@@ -88,18 +88,16 @@ test('a collapsed desktop sidebar expands while hovered', () => {
     );
 });
 
-test('sidebar navigation stays vertically anchored during hover expansion', () => {
+test('top-level sidebar navigation stays vertically anchored during hover expansion', () => {
     assert.match(
         layout,
         /flex shrink-0 items-center justify-between[^"\n]*lg:h-16 lg:py-0/,
     );
-    assert.match(
-        layout,
-        /ml-5 space-y-1 border-l border-line pl-3 transition-/,
-    );
+    assert.doesNotMatch(layout, /v-for="child|density="sub"|item\.children/);
+    assert.match(layout, /<SectionNavigation[\s\S]*:section="currentSection"/);
     assert.doesNotMatch(layout, /:key="`collapsed-\$\{child\.key\}`"/);
     assert.match(sidebarNavItem, /lg:h-7 lg:min-h-7/);
-    assert.match(sidebarNavItem, /lg:h-8 lg:min-h-8/);
+    assert.match(sidebarNavItem, /lg:h-9 lg:min-h-9/);
     assert.match(sidebarNavItem, /truncate/);
     assert.match(sidebarNavItem, /whitespace-nowrap/);
 });
@@ -107,7 +105,7 @@ test('sidebar navigation stays vertically anchored during hover expansion', () =
 test('settings navigation uses the reduced main sidebar row height on desktop', () => {
     assert.match(
         sidebarNavItem,
-        /if \(props\.density === 'settings'\) \{\s+return '[^']*lg:h-8 lg:min-h-8 lg:py-1\.5';\s+\}/,
+        /if \(props\.density === 'settings'\) \{\s+return '[^']*lg:h-9 lg:min-h-9 lg:py-2';\s+\}/,
     );
 });
 

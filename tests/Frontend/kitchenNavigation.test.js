@@ -21,33 +21,43 @@ const sidebarItem = encode(compile('../../resources/js/components/navigation/Sid
     .replace(/import \{ Link \} from ['"].*?['"];?/, 'const Link = "a";')
     .replace(/import \{ Icon \} from ['"].*?['"];?/, 'const Icon = { render: () => null };')
     .replace(/from ['"]\.\.\/\.\.\/lib\/utils['"]/, `from '${new URL('../../resources/js/lib/utils.js', import.meta.url).href}'`));
+const compileTab = (name) => encode(compile(`../../resources/js/components/ui/tabs/${name}.vue`)
+    .replace(/import \{ Link \} from ['"].*?['"];?/, 'const Link = "a";')
+    .replace(/from ['"][^'"]*lib\/utils['"]/, `from '${new URL('../../resources/js/lib/utils.js', import.meta.url).href}'`)
+    .replace(/from ['"]\.\/tabsContext['"]/, `from '${new URL('../../resources/js/components/ui/tabs/tabsContext.js', import.meta.url).href}'`));
+const appNavigationUrl = new URL('../../resources/js/lib/appNavigation.js', import.meta.url).href;
+const sectionNavigation = encode(compile('../../resources/js/components/navigation/SectionNavigation.vue')
+    .replace(/import \{ Tab, TabList, Tabs \} from ['"].*?['"];?/, `import Tab from '${compileTab('Tab')}'; import TabList from '${compileTab('TabList')}'; import Tabs from '${compileTab('Tabs')}';`)
+    .replace(/from ['"]\.\.\/\.\.\/lib\/appNavigation['"]/, `from '${appNavigationUrl}'`));
 let source = compile('../../resources/js/layouts/AppLayout.vue');
 for (const name of ['Toast', 'Icon', 'SidebarCollapseButton', 'UserAccountControls']) {
     source = source.replace(new RegExp(`import (?:\\{ ${name} \\}|${name}) from ['"].*?['"];?`), `const ${name} = { render: () => null };`);
 }
 source = source
-    .replace(/from ['"]\.\.\/lib\/credentialsNavigation['"]/, `from '${new URL('../../resources/js/lib/credentialsNavigation.js', import.meta.url).href}'`)
+    .replace(/from ['"]\.\.\/lib\/appNavigation['"]/, `from '${appNavigationUrl}'`)
+    .replace(/import SectionNavigation from ['"].*?['"];?/, `import SectionNavigation from '${sectionNavigation}';`)
     .replace(/import SidebarNavItem from ['"].*?['"];?/, `import SidebarNavItem from '${sidebarItem}';`)
     .replace(/import \{ useInertiaErrorToast \} from ['"].*?['"];?/, 'const useInertiaErrorToast = () => {};')
     .replace(/import \{[^}]*\} from ['"]\.\.\/composables\/useSidebarCollapsed['"];?/, 'const useSidebarCollapsed = () => ref(globalThis.kitchenNavigationCollapsed); const shouldUseCompactSidebar = (collapsed, hovered) => collapsed && !hovered;')
-    .replace(/import \{ Head, Link, usePage \} from ['"].*?['"];?/, 'const Head = { render: () => null }; const Link = "a"; const usePage = () => globalThis.kitchenNavigationPage;');
+    .replace(/import \{ Head, usePage \} from ['"].*?['"];?/, 'const Head = { render: () => null }; const usePage = () => globalThis.kitchenNavigationPage;');
 const { default: AppLayout } = await import(encode(source));
 
-const navigation = async (permissions, collapsed = false, isAdmin = false) => {
+const navigation = async (permissions, collapsed = false, isAdmin = false, url = permissions['meals.report.view'] ? '/reports' : '/meals') => {
     globalThis.kitchenNavigationCollapsed = collapsed;
     globalThis.kitchenNavigationPage = {
-        url: '/reports',
+        url,
         props: { permissions, auth: { user: { name: 'Reader', is_admin: isAdmin } } },
     };
     const app = createSSRApp({ render: () => h(AppLayout, { title: 'Report' }) });
     app.config.globalProperties.$t = (key) => locale[key] ?? key;
     const dom = new JSDOM(await renderToString(app));
     try {
-        return [...dom.window.document.querySelectorAll('aside nav a')].map((link) => ({
+        const links = (selector) => [...dom.window.document.querySelectorAll(selector)].map((link) => ({
             label: link.textContent.trim(),
             href: link.getAttribute('href'),
             current: link.getAttribute('aria-current'),
         }));
+        return { sidebar: links('aside nav a'), tabs: links('header nav a') };
     } finally {
         dom.window.close();
     }
@@ -56,16 +66,19 @@ const navigation = async (permissions, collapsed = false, isAdmin = false) => {
 for (const collapsed of [false, true]) {
     test(`Kitchen navigation respects independent report access (collapsed: ${collapsed})`, async () => {
         for (const [viewMeals, viewReport] of [[false, false], [true, false], [false, true], [true, true]]) {
-            const links = await navigation({ 'meals.view': viewMeals, 'meals.report.view': viewReport }, collapsed);
-            const kitchen = links.find((link) => link.label === locale['nav.meals']);
+            const { sidebar, tabs } = await navigation({ 'meals.view': viewMeals, 'meals.report.view': viewReport }, collapsed);
+            const kitchen = sidebar.find((link) => link.label === locale['nav.meals']);
             assert.equal(Boolean(kitchen), viewMeals || viewReport);
             if (kitchen) {
                 assert.equal(kitchen.href, viewMeals ? '/meals' : '/reports');
-                assert.equal(kitchen.current, viewReport ? 'page' : null);
+                assert.equal(kitchen.current, 'page');
             }
-            assert.equal(links.some((link) => link.label === locale['nav.meals.index']), viewMeals);
-            assert.equal(links.some((link) => link.href === '/meals/settings'), viewMeals);
-            const report = links.find((link) => link.label === locale['nav.meals.report']);
+            for (const key of ['nav.meals.index', 'nav.meals.report', 'nav.meals.settings']) {
+                assert.equal(sidebar.some((link) => link.label === locale[key]), false);
+            }
+            assert.equal(tabs.some((link) => link.label === locale['nav.meals.index']), viewMeals);
+            assert.equal(tabs.some((link) => link.href === '/meals/settings'), viewMeals);
+            const report = tabs.find((link) => link.label === locale['nav.meals.report']);
             assert.equal(Boolean(report), viewReport);
             if (report) {
                 assert.equal(report.href, '/reports');
@@ -75,9 +88,33 @@ for (const collapsed of [false, true]) {
     });
 }
 
-test('admins see every Kitchen child through their shared permission map', async () => {
-    const links = await navigation({ 'meals.view': true, 'meals.report.view': true }, false, true);
-    for (const key of ['nav.meals', 'nav.meals.index', 'nav.meals.report', 'nav.meals.settings']) {
-        assert.ok(links.some((link) => link.label === locale[key]));
+test('admins see every Kitchen tab through their shared permission map', async () => {
+    const { sidebar, tabs } = await navigation({ 'meals.view': true, 'meals.report.view': true }, false, true);
+    assert.ok(sidebar.some((link) => link.label === locale['nav.meals']));
+    for (const key of ['nav.meals.index', 'nav.meals.report', 'nav.meals.settings']) {
+        assert.ok(tabs.some((link) => link.label === locale[key]));
     }
 });
+
+for (const collapsed of [false, true]) {
+    test(`Check-in header tabs respect Inventory access (collapsed: ${collapsed})`, async () => {
+        for (const [permissions, url, labels, active] of [
+            [{}, '/dashboard', [], null],
+            [{ 'checkin.view': true }, '/check-in', ['Check-in'], '/check-in'],
+            [{ 'checkin.view': true, 'checkin.edit': true }, '/check-in/team/12?person=53', ['Check-in', 'My stock'], '/check-in'],
+            [{ 'checkin.view': true, 'checkin.edit': true }, '/check-in/my-stock', ['Check-in', 'My stock'], '/check-in/my-stock'],
+            [{ 'checkin.view': true, 'checkin.edit': true, 'inventory.manage': true }, '/check-in/inventory', ['Check-in', 'My stock', 'Inventory'], '/check-in/inventory'],
+        ]) {
+            const { sidebar, tabs } = await navigation(permissions, collapsed, false, url);
+            const checkIn = sidebar.find((link) => link.label === locale['nav.check_in']);
+            assert.equal(Boolean(checkIn), Boolean(permissions['checkin.view']));
+            assert.equal(sidebar.some((link) => ['My stock', 'Inventory'].includes(link.label)), false);
+            assert.deepEqual(tabs.map((link) => link.label), labels);
+            assert.deepEqual(tabs.filter((link) => link.current === 'page').map((link) => link.href), active ? [active] : []);
+            if (checkIn) {
+                assert.equal(checkIn.href, '/check-in');
+                assert.equal(checkIn.current, 'page');
+            }
+        }
+    });
+}

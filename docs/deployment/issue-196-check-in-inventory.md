@@ -5,8 +5,11 @@ after #214 and #215 merged. No commit, push, PR or merge was requested.
 
 ## Behavior and confirmed decisions
 
-Check-in has People / Inventory tabs. View check-in alone retains the People
-page without the Inventory tab. Either Inventory pass permission and Manage
+Check-in has People / My stock / Inventory tabs in the top navbar. My stock
+opens `/check-in/my-stock` and requires Check people in. Inventory opens
+`/check-in/inventory` directly to the holdings view and requires Manage inventory,
+including on direct navigation. There are no nested My stock / Holdings tabs.
+View check-in alone retains the People page. Either Inventory pass permission and Manage
 inventory now include **Check people in and View check-in**, following Calvin's
 confirmed change to #195's independent-permission rule. The Role editor displays
 both included checks; server permission expansion enforces the same grants for
@@ -19,8 +22,9 @@ or movement history. Manager-only JSON routes separately enforce authorization.
 The actor is recorded separately from giver and receiver, and give-out receiver
 names resolve through the linked issued entitlement. Names render as text.
 
-Managers see Holdings with locations before people, item/type filters, literal
-person-name search, per-item counts and **Total · all items**. Calvin approved
+Managers see separate **People** and **Locations / storage** sections, in that
+order, with independent item filters and server pagination. People also has literal
+person-name search. Both show per-item counts and **Total · all items**. Calvin approved
 positive-stock holders only, all-item totals even when filtering an item, and
 reuse of shared UI with holder details in a dialog. Zero-stock holders disappear
 from this list without deleting history. Inactive holders retain their stock and

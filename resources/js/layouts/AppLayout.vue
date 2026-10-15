@@ -1,16 +1,17 @@
 <script setup>
-import { credentialsHome } from '../lib/credentialsNavigation';
 import { Toast } from '../components/ui/toast';
 import { Icon } from '../components/ui/icon';
 import SidebarCollapseButton from '../components/navigation/SidebarCollapseButton.vue';
 import SidebarNavItem from '../components/navigation/SidebarNavItem.vue';
+import SectionNavigation from '../components/navigation/SectionNavigation.vue';
+import { getAppNavigation, isNavigationItemActive } from '../lib/appNavigation';
 import UserAccountControls from '../components/navigation/UserAccountControls.vue';
 import { useInertiaErrorToast } from '../composables/useInertiaErrorToast';
 import {
     shouldUseCompactSidebar,
     useSidebarCollapsed,
 } from '../composables/useSidebarCollapsed';
-import { Head, Link, usePage } from '@inertiajs/vue3';
+import { Head, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
@@ -56,168 +57,21 @@ const currentPath = computed(() => page.url.split('?')[0]);
 const features = computed(() => page.props.features ?? {});
 
 const navItems = computed(() =>
-    [
-        {
-            key: 'home',
-            href: '/dashboard',
-            icon: ['fas', 'house'],
-            enabled: true,
-        },
-        {
-            key: 'check_in',
-            href: '/check-in',
-            icon: ['fas', 'clipboard-check'],
-            enabled: true,
-        },
-        {
-            key: 'artists',
-            href: '/artists/advancing',
-            icon: ['fas', 'music'],
-            enabled: true,
-        },
-        {
-            key: 'vendors',
-            href: '/vendors/advancing',
-            icon: ['fas', 'store'],
-            enabled: true,
-        },
-        {
-            key: 'patrons',
-            href: '/patrons',
-            icon: ['fas', 'address-book'],
-            enabled: features.value.patrons ?? true,
-        },
-        {
-            key: 'team',
-            href: '/team/advancement',
-            icon: ['fas', 'users'],
-            enabled: features.value.team ?? true,
-            children: [
-                {
-                    key: 'team.advancement',
-                    href: '/team/advancement',
-                    icon: ['fas', 'list'],
-                    enabled: true,
-                },
-                {
-                    key: 'team.scheduling',
-                    href: '/team/scheduling',
-                    icon: ['fas', 'calendar-days'],
-                    enabled: true,
-                },
-                {
-                    key: 'team.forms',
-                    href: '/team/forms',
-                    icon: ['fas', 'clipboard-check'],
-                    enabled: true,
-                },
-                {
-                    key: 'team.configure',
-                    href: '/team/configure',
-                    icon: ['fas', 'gear'],
-                    enabled: true,
-                },
-            ],
-        },
-        {
-            key: 'credentials',
-            href: '/credentials/passes',
-            icon: ['fas', 'id-card'],
-            enabled: true,
-            children: [
-                {
-                    key: 'credentials.products',
-                    href: null,
-                    icon: ['fas', 'store'],
-                    enabled: false,
-                },
-                {
-                    key: 'credentials.passes',
-                    href: '/credentials/passes',
-                    icon: ['fas', 'id-card'],
-                    enabled: true,
-                },
-                {
-                    key: 'credentials.entitlements',
-                    href: '/credentials/entitlements',
-                    icon: ['fas', 'lock-open'],
-                    enabled: true,
-                },
-            ],
-        },
-        {
-            key: 'meals',
-            href: '/meals',
-            icon: ['fas', 'utensils'],
-            enabled: true,
-            children: [
-                {
-                    key: 'meals.index',
-                    href: '/meals',
-                    icon: ['fas', 'utensils'],
-                    enabled: true,
-                    exact: true,
-                },
-                {
-                    key: 'meals.report',
-                    href: '/reports',
-                    icon: ['fas', 'chart-column'],
-                    enabled: true,
-                },
-                {
-                    key: 'meals.settings',
-                    href: '/meals/settings',
-                    icon: ['fas', 'list'],
-                    enabled: true,
-                },
-            ],
-        },
-    ]
-        .map((item) => {
-            if (item.key === 'credentials') {
-                const permissions = page.props.permissions ?? {};
-                const children = item.children.filter((child) => {
-                    if (child.key === 'credentials.products')
-                        return user.value?.is_admin;
-                    if (child.key === 'credentials.passes')
-                        return permissions['credentials.passes.edit'];
-                    return (
-                        permissions['credentials.entitlements.edit'] ||
-                        permissions['credentials.stock.adjust'] ||
-                        permissions['inventory.manage']
-                    );
-                });
-                return {
-                    ...item,
-                    children,
-                    href: credentialsHome(permissions),
-                };
-            }
-            if (!['team', 'meals'].includes(item.key)) return item;
-            const children = item.children.filter(
-                (child) =>
-                    page.props.permissions?.[
-                        {
-                            'team.scheduling': 'scheduling.view',
-                            'team.forms': 'forms.view',
-                            'meals.report': 'meals.report.view',
-                        }[child.key] ??
-                            (item.key === 'meals' ? 'meals.view' : 'team.view')
-                    ],
-            );
-            return { ...item, children, href: children[0]?.href };
-        })
-        .filter((item) => {
-            if (['team', 'meals', 'credentials'].includes(item.key))
-                return item.children.length > 0;
-            const permission = {
-                artists: 'artists.view',
-                vendors: 'vendors.view',
-                check_in: 'checkin.view',
-                patrons: 'patrons.view',
-            }[item.key];
-            return !permission || page.props.permissions?.[permission];
-        }),
+    getAppNavigation({
+        features: features.value,
+        permissions: page.props.permissions,
+        isAdmin: user.value?.is_admin,
+    }),
+);
+const currentSection = computed(() =>
+    props.settingsNav
+        ? null
+        : navItems.value.find(
+              (item) =>
+                  item.enabled &&
+                  item.tabs &&
+                  isNavigationItemActive(item, page.url),
+          ),
 );
 
 const settingsActive = computed(
@@ -228,43 +82,6 @@ const settingsActive = computed(
 const settingsHref = computed(() =>
     user.value?.is_admin ? '/settings/events' : '/settings/locations',
 );
-
-const crumbItems = computed(() => {
-    if (props.breadcrumbs.length > 0) {
-        return props.breadcrumbs;
-    }
-
-    return [{ label: props.title }];
-});
-
-const isActive = (href) => {
-    if (!href) {
-        return false;
-    }
-
-    if (href === '/artists/advancing') {
-        return (
-            currentPath.value === href ||
-            currentPath.value === '/artists/create' ||
-            currentPath.value.startsWith('/artists/engagements/')
-        );
-    }
-
-    if (href === '/vendors/advancing') {
-        return (
-            currentPath.value === href ||
-            currentPath.value === '/vendors/create' ||
-            currentPath.value.startsWith('/vendors/engagements/')
-        );
-    }
-
-    return (
-        currentPath.value === href || currentPath.value.startsWith(`${href}/`)
-    );
-};
-
-const isChildActive = (child) =>
-    child.exact ? currentPath.value === child.href : isActive(child.href);
 
 const openNav = () => {
     navOpen.value = true;
@@ -381,111 +198,26 @@ const railClass = computed(() => {
                 data-unsaved-navigation
                 class="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 py-3"
             >
-                <template
+                <SidebarNavItem
                     v-for="item in navItems"
                     :key="item.key"
+                    :href="item.enabled ? item.href : undefined"
+                    :enabled="item.enabled"
+                    :active="isNavigationItemActive(item, page.url)"
+                    :icon="item.icon"
+                    :icon-only="sidebarCompact"
+                    :aria-label="
+                        sidebarCompact ? $t(`nav.${item.key}`) : undefined
+                    "
+                    :title="sidebarCompact ? $t(`nav.${item.key}`) : undefined"
+                    :aria-current="
+                        item.enabled && isNavigationItemActive(item, page.url)
+                            ? 'page'
+                            : undefined
+                    "
                 >
-                    <div
-                        v-if="item.children"
-                        class="space-y-1"
-                    >
-                        <SidebarNavItem
-                            :href="
-                                item.enabled && item.href
-                                    ? item.href
-                                    : undefined
-                            "
-                            :enabled="item.enabled"
-                            :active="
-                                isActive(item.href) ||
-                                item.children.some((child) =>
-                                    isActive(child.href),
-                                )
-                            "
-                            :icon="item.icon"
-                            :icon-only="sidebarCompact"
-                            :aria-label="
-                                sidebarCompact
-                                    ? $t(`nav.${item.key}`)
-                                    : undefined
-                            "
-                            :title="
-                                sidebarCompact
-                                    ? $t(`nav.${item.key}`)
-                                    : undefined
-                            "
-                            :aria-current="
-                                item.enabled &&
-                                (isActive(item.href) ||
-                                    item.children.some((child) =>
-                                        isActive(child.href),
-                                    ))
-                                    ? 'page'
-                                    : undefined
-                            "
-                        >
-                            {{ $t(`nav.${item.key}`) }}
-                        </SidebarNavItem>
-                        <div
-                            class="ml-5 space-y-1 border-l border-line pl-3 transition-[margin,padding,border-color] duration-200 ease-in-out"
-                            :class="
-                                sidebarCompact
-                                    ? 'lg:ml-0 lg:border-transparent lg:pl-0'
-                                    : ''
-                            "
-                        >
-                            <SidebarNavItem
-                                v-for="child in item.children"
-                                :key="child.key"
-                                :href="child.enabled ? child.href : undefined"
-                                :enabled="child.enabled"
-                                :active="isChildActive(child)"
-                                :icon="sidebarCompact ? child.icon : null"
-                                :icon-desktop-only="sidebarCompact"
-                                :icon-only="sidebarCompact"
-                                density="sub"
-                                :aria-label="
-                                    sidebarCompact
-                                        ? $t(`nav.${child.key}`)
-                                        : undefined
-                                "
-                                :title="
-                                    sidebarCompact
-                                        ? $t(`nav.${child.key}`)
-                                        : undefined
-                                "
-                                :aria-current="
-                                    child.enabled && isChildActive(child)
-                                        ? 'page'
-                                        : undefined
-                                "
-                            >
-                                {{ $t(`nav.${child.key}`) }}
-                            </SidebarNavItem>
-                        </div>
-                    </div>
-                    <SidebarNavItem
-                        v-else
-                        :href="item.enabled ? item.href : undefined"
-                        :enabled="item.enabled"
-                        :active="isActive(item.href)"
-                        :icon="item.icon"
-                        :icon-only="sidebarCompact"
-                        :aria-label="
-                            sidebarCompact ? $t(`nav.${item.key}`) : undefined
-                        "
-                        :title="
-                            sidebarCompact ? $t(`nav.${item.key}`) : undefined
-                        "
-                        :aria-current="
-                            item.enabled && isActive(item.href)
-                                ? 'page'
-                                : undefined
-                        "
-                    >
-                        {{ $t(`nav.${item.key}`) }}
-                    </SidebarNavItem>
-                </template>
+                    {{ $t(`nav.${item.key}`) }}
+                </SidebarNavItem>
                 <SidebarNavItem
                     v-if="
                         user?.is_admin ||
@@ -568,9 +300,15 @@ const railClass = computed(() => {
                         size="sm"
                     />
                 </button>
+                <SectionNavigation
+                    v-if="currentSection"
+                    :section="currentSection"
+                    :url="page.url"
+                    class="min-w-0 flex-1 self-stretch"
+                />
                 <div
+                    v-else
                     class="flex min-w-0 flex-1 items-center justify-between gap-3 lg:hidden"
-                    :class="compactMobileHeader ? 'hidden' : ''"
                 >
                     <span class="truncate text-[15px] font-bold">
                         {{ $t('app.name') }}
@@ -582,71 +320,6 @@ const railClass = computed(() => {
                         {{ eventName }}
                     </span>
                 </div>
-                <nav
-                    data-unsaved-navigation
-                    class="hidden min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm text-muted lg:flex"
-                    :aria-label="$t('nav.breadcrumbs')"
-                >
-                    <template
-                        v-for="(crumb, index) in crumbItems"
-                        :key="`${crumb.label}-${index}`"
-                    >
-                        <span
-                            v-if="index > 0"
-                            class="hidden text-line sm:inline"
-                            aria-hidden="true"
-                        >
-                            /
-                        </span>
-                        <Link
-                            v-if="crumb.href"
-                            :href="crumb.href"
-                            class="hidden truncate font-medium text-muted no-underline hover:text-charcoal sm:inline"
-                        >
-                            {{ crumb.label }}
-                        </Link>
-                        <span
-                            v-else
-                            class="truncate font-semibold text-charcoal"
-                            aria-current="page"
-                        >
-                            {{ crumb.label }}
-                        </span>
-                    </template>
-                </nav>
-                <nav
-                    v-if="compactMobileHeader"
-                    data-unsaved-navigation
-                    class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm text-muted lg:hidden"
-                    :aria-label="$t('nav.breadcrumbs')"
-                >
-                    <template
-                        v-for="(crumb, index) in crumbItems"
-                        :key="`m-${crumb.label}-${index}`"
-                    >
-                        <span
-                            v-if="index > 0"
-                            class="text-line"
-                            aria-hidden="true"
-                        >
-                            /
-                        </span>
-                        <Link
-                            v-if="crumb.href"
-                            :href="crumb.href"
-                            class="truncate font-medium text-muted no-underline hover:text-charcoal"
-                        >
-                            {{ crumb.label }}
-                        </Link>
-                        <span
-                            v-else
-                            class="truncate font-semibold text-charcoal"
-                            aria-current="page"
-                        >
-                            {{ crumb.label }}
-                        </span>
-                    </template>
-                </nav>
                 <UserAccountControls :user="user" />
             </header>
 

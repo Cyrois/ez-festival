@@ -35,7 +35,7 @@ export function useUnsavedNavigation(isDirty) {
         )
             return;
 
-        // Only sidebar and breadcrumb clicks opt into the warning. Cancel,
+        // Sidebar, section navigation and breadcrumb clicks opt into the warning. Cancel,
         // browser history, and other page links keep their normal behavior.
         event.preventDefault();
         event.stopPropagation();

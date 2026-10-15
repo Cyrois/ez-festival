@@ -17,16 +17,15 @@ defineEmits(['toggle']);
 </script>
 
 <template>
-    <div class="hidden shrink-0 border-t border-line p-2 lg:block">
+    <div
+        class="hidden shrink-0 border-t border-line p-2 lg:flex"
+        :class="compact ? 'justify-center' : 'justify-start'"
+    >
         <Button
             variant="ghost"
             size="sm"
-            class="w-full overflow-hidden text-muted transition-[padding,gap,color,background-color] duration-200 ease-in-out hover:text-charcoal"
-            :class="
-                compact
-                    ? 'justify-center gap-0 px-0'
-                    : 'justify-start gap-2 px-3'
-            "
+            class="shrink-0 gap-0 p-0 text-muted transition-colors hover:text-charcoal lg:size-9 lg:min-h-9 xl:h-9.5 xl:min-h-9.5"
+            :class="collapsed ? 'xl:w-9.5' : 'xl:w-[3em]'"
             :aria-label="
                 collapsed
                     ? $t('nav.expand_sidebar')
@@ -44,17 +43,8 @@ defineEmits(['toggle']);
                 :name="['fas', collapsed ? 'chevron-right' : 'chevron-left']"
                 size="sm"
                 fixed-width
+                class="lg:text-sm xl:text-[15px]"
             />
-            <span
-                class="overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-150 ease-out"
-                :class="compact ? 'max-w-0 opacity-0' : 'max-w-48 opacity-100'"
-            >
-                {{
-                    collapsed
-                        ? $t('nav.expand_sidebar')
-                        : $t('nav.collapse_sidebar')
-                }}
-            </span>
         </Button>
     </div>
 </template>

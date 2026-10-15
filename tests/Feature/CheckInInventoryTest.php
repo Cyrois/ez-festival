@@ -55,15 +55,22 @@ class CheckInInventoryTest extends TestCase
     {
         foreach (['checkin.edit', 'inventory.pass_shift', 'inventory.pass_group', 'inventory.manage'] as $key) {
             $viewer = $this->member([$key]);
-            $this->actingAs($viewer)->get(route('check-in.index'))->assertInertia(fn (Assert $p) => $p->where('canInventory', true));
-            $this->get(route('check-in.inventory.index'))->assertInertia(fn (Assert $p) => $p
-                ->component('CheckIn/Inventory')->where('canManage', $key === 'inventory.manage')->has('ownItems', 0));
+            $this->actingAs($viewer)->get(route('check-in.index'))->assertInertia(fn (Assert $p) => $p->where('permissions', fn ($permissions) => $permissions['checkin.edit']));
+            $this->get(route('check-in.my-stock'))->assertInertia(fn (Assert $p) => $p
+                ->component('CheckIn/Inventory')->where('view', 'mine')->where('canManage', $key === 'inventory.manage')->has('ownItems', 0));
+            if ($key === 'inventory.manage') {
+                $this->get(route('check-in.inventory.index'))->assertInertia(fn (Assert $p) => $p
+                    ->component('CheckIn/Inventory')->where('view', 'holdings'));
+            } else {
+                $this->get(route('check-in.inventory.index'))->assertForbidden();
+            }
             $this->getJson(route('check-in.inventory.stock'))->assertOk()->assertJsonCount(0, 'data');
             $this->getJson(route('check-in.inventory.movements'))->assertOk()->assertJsonCount(0, 'data');
             $this->assertDatabaseMissing('stock_holders', ['person_id' => $viewer->person_id]);
         }
         $viewer = $this->member(['checkin.view']);
-        $this->actingAs($viewer)->get(route('check-in.index'))->assertInertia(fn (Assert $p) => $p->where('canInventory', false));
+        $this->actingAs($viewer)->get(route('check-in.index'))->assertInertia(fn (Assert $p) => $p->where('permissions', fn ($permissions) => ! $permissions['checkin.edit']));
+        $this->get(route('check-in.my-stock'))->assertForbidden();
         $this->get(route('check-in.inventory.index'))->assertForbidden();
     }
 
@@ -88,8 +95,8 @@ class CheckInInventoryTest extends TestCase
         $this->pull($this->receiver, 3);
         $this->pull($this->manager, 2);
         $otherHolder = StockHolder::where('person_id', $this->manager->person_id)->sole();
-        $this->actingAs($this->receiver)->get(route('check-in.inventory.index'))->assertInertia(fn (Assert $p) => $p
-            ->where('canManage', false)->has('ownItems', 1)->where('ownItems.0.balance', 3)->missing('holdings'));
+        $this->actingAs($this->receiver)->get(route('check-in.my-stock'))->assertInertia(fn (Assert $p) => $p
+            ->where('view', 'mine')->where('canManage', false)->has('ownItems', 1)->where('ownItems.0.balance', 3)->missing('holdings'));
         $this->getJson(route('check-in.inventory.stock', ['holder_id' => $otherHolder->id]))
             ->assertOk()->assertJsonPath('data.0.balance', 3);
         $this->getJson(route('check-in.inventory.movements'))->assertOk()->assertJsonCount(1, 'data')
@@ -116,7 +123,13 @@ class CheckInInventoryTest extends TestCase
         $this->getJson(route('check-in.inventory.holdings'))->assertOk()->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.holder_type', 'location')->assertJsonPath('data.1.total', 7);
         $this->getJson(route('check-in.inventory.holdings', ['item' => $this->item->id, 'holder_type' => 'person']))
-            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.total', 7)->assertJsonCount(2, 'data.0.items');
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.total', 7)->assertJsonCount(2, 'data.0.items')
+            ->assertJsonPath('recordsTotal', 1)->assertJsonPath('data.0.holder_type', 'person');
+        $this->getJson(route('check-in.inventory.holdings', ['holder_type' => 'location']))
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.holder_type', 'location')
+            ->assertJsonPath('recordsTotal', 1);
+        $this->getJson(route('check-in.inventory.holdings', ['holder_type' => 'person', 'search' => 'Not found']))
+            ->assertOk()->assertJsonCount(0, 'data')->assertJsonPath('recordsTotal', 1)->assertJsonPath('recordsFiltered', 0);
         $this->receiver->person()->update(['name' => '100%_name!']);
         $this->getJson(route('check-in.inventory.holdings', ['search' => '%_']))->assertOk()->assertJsonCount(1, 'data');
         $this->getJson(route('check-in.inventory.holdings', ['search' => 'Not found']))->assertJsonCount(0, 'data');
@@ -132,6 +145,10 @@ class CheckInInventoryTest extends TestCase
         }
         $this->getJson(route('check-in.inventory.holdings', ['start' => 25, 'length' => 10]))
             ->assertOk()->assertJsonCount(4, 'data')->assertJsonPath('recordsTotal', 29);
+        $this->getJson(route('check-in.inventory.holdings', ['holder_type' => 'person', 'start' => 25, 'length' => 10]))
+            ->assertOk()->assertJsonCount(3, 'data')->assertJsonPath('recordsTotal', 28);
+        $this->getJson(route('check-in.inventory.holdings', ['holder_type' => 'location', 'start' => 0, 'length' => 25]))
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('recordsTotal', 1);
         $response = $this->getJson(route('check-in.inventory.receivers', ['search' => 'Receiver', 'page' => 2]))
             ->assertOk()->assertJsonCount(3, 'data');
         $this->assertSame(['id', 'name'], array_keys($response->json('data.0')));
@@ -195,6 +212,7 @@ class CheckInInventoryTest extends TestCase
         $this->teamMember($this->receiver)->role->update(['permissions' => ['checkin.view']]);
         $this->getJson(route('check-in.inventory.holdings'))->assertOk()->assertJsonPath('data.1.inactive', true);
         $this->actingAs($this->receiver)->put(route('check-in.inventory.returns.update', $this->event), $this->pullData())->assertForbidden();
+        $this->get(route('check-in.my-stock'))->assertForbidden();
         $this->get(route('check-in.inventory.index'))->assertForbidden();
         $this->assertSame(3, $this->balance($this->receiver));
     }

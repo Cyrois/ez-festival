@@ -459,7 +459,7 @@ onUnmounted(() => {
         <div class="container mx-auto flex max-w-none flex-col gap-5">
             <header class="flex flex-wrap items-center justify-between gap-4">
                 <h1 class="m-0 text-2xl font-bold text-charcoal">
-                    {{ $t('nav.meals') }}
+                    {{ $t('meals.title') }}
                 </h1>
                 <Button
                     href="/meals/settings"
