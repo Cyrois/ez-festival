@@ -8,6 +8,10 @@ const props = defineProps({
         type: [String, Number],
         default: '',
     },
+    navigation: {
+        type: Boolean,
+        default: false,
+    },
     class: {
         type: [String, Object, Array],
         default: '',
@@ -28,6 +32,7 @@ provide(
         value: props.modelValue,
         setValue,
         instanceId,
+        navigation: props.navigation,
     })),
 );
 

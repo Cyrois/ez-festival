@@ -37,7 +37,8 @@ const ui = (name) => {
     if (name === 'Icon') return { render: () => null };
     return box(name === 'CardTitle' ? 'h2' : 'div');
 };
-globalThis.credentialsTest = { state, box, button, form, ui, translate, ref };
+const sectionNavigation = { props: ['section'], setup: (props) => () => h('nav', props.section.tabs.map((tab) => h(button, { href: tab.href, enabled: tab.enabled }, () => translate(`nav.${tab.key}`)))) };
+globalThis.credentialsTest = { state, box, button, form, ui, translate, ref, sectionNavigation };
 const compile = async (path, layout = false) => {
     const { descriptor } = parse(readFileSync(new URL(`../../resources/js/${path}`, import.meta.url), 'utf8'));
     let source = compileScript(descriptor, { id: path, inlineTemplate: true }).content
@@ -58,6 +59,8 @@ const compile = async (path, layout = false) => {
         .replace(/import AppLayout from ['"][^'"]+['"];?/, 'const AppLayout = { inheritAttrs: false, props: ["breadcrumbs"], setup: (props, { slots }) => () => { globalThis.credentialsTest.state.breadcrumbs = props.breadcrumbs; return slots.default?.(); } };');
     if (layout) {
         source = source
+            .replace(/from ['"]\.\.\/lib\/appNavigation['"]/, `from '${new URL('../../resources/js/lib/appNavigation.js', import.meta.url).href}'`)
+            .replace(/import SectionNavigation from ['"][^'"]+['"];?/, 'const SectionNavigation = globalThis.credentialsTest.sectionNavigation;')
             .replace(/import ([A-Za-z]+) from ['"][^'"]+['"];?/g, (_, name) => `const ${name} = globalThis.credentialsTest.${name === 'SidebarNavItem' ? 'button' : 'box()'};`)
             .replace(/import \{ useInertiaErrorToast \} from ['"][^'"]+['"];?/, 'const useInertiaErrorToast = () => {};')
             .replace(/import \{[^}]+\} from ['"][^'"]*useSidebarCollapsed['"];?/, 'const useSidebarCollapsed = () => globalThis.credentialsTest.ref(false); const shouldUseCompactSidebar = () => false;');
@@ -170,7 +173,7 @@ test('locked pass form is read-only and drops delete/save controls after the eve
     } finally { app.unmount(); }
 });
 
-test('actual sidebar filters Credentials children and chooses the first usable destination', async () => {
+test('Credentials sidebar destination and header tabs respect independent permissions', async () => {
     for (const [permissions, admin, expected] of [
         [{}, false, []],
         [{ 'credentials.passes.edit': true }, false, ['Passes']],
@@ -183,13 +186,18 @@ test('actual sidebar filters Credentials children and chooses the first usable d
     ]) {
         state.page.props.permissions = permissions;
         state.page.props.auth.user.is_admin = admin;
+        state.page.url = permissions['credentials.passes.edit'] ? '/credentials/passes' : '/credentials/entitlements';
         const app = mount(Layout, { title: 'Test' });
         try {
             const nav = document.querySelector('aside nav');
             const settings = [...nav.querySelectorAll('a')].find((link) => link.textContent.trim() === 'Settings');
             assert.equal(Boolean(settings), admin || Boolean(permissions['inventory.manage']));
             if (settings) assert.equal(settings.getAttribute('href'), admin ? '/settings/events' : '/settings/locations');
-            for (const name of ['Products', 'Passes', 'Entitlements']) assert.equal(nav.textContent.includes(name), expected.includes(name));
+            const header = document.querySelector('header');
+            for (const name of ['Products', 'Passes', 'Entitlements']) {
+                assert.equal(nav.textContent.includes(name), false);
+                assert.equal(header.textContent.includes(name), expected.includes(name));
+            }
             const parent = [...nav.querySelectorAll('a')].find((link) => link.textContent.includes('Credentials'));
             if (!expected.length) assert.equal(parent, undefined);
             else assert.equal(parent.getAttribute('href'), permissions['credentials.passes.edit'] ? '/credentials/passes' : '/credentials/entitlements');
