@@ -266,6 +266,32 @@ class PostgresWriteConcurrencyTest extends TestCase
         }
     }
 
+    public function test_global_team_saves_do_not_wait_on_unsubmitted_events_when_admin_is_unchanged(): void
+    {
+        foreach ([null, false, true] as $adminFlag) {
+            [$event, $actor] = $this->context();
+            $this->grantAdminAccess($actor);
+            $person = User::factory()->create()->person;
+            if ($adminFlag === true) {
+                $this->grantAdminAccess($person->user);
+            }
+            $unrelated = Event::create(['name' => 'Unrelated event', 'starts_on' => '2027-06-01',
+                'ends_on' => '2027-06-03', 'timezone' => 'UTC']);
+            $data = ['name' => 'Updated name', 'can_log_in' => true,
+                'event_access' => [['event_id' => $event->id, 'role_id' => null]],
+                ...($adminFlag !== null ? ['is_admin' => $adminFlag] : [])];
+            $results = $this->concurrently(
+                fn () => DB::transaction(fn () => Event::whereKey($unrelated->id)->lockForUpdate()->firstOrFail()),
+                function () use ($person, $data, $actor): void {
+                    DB::statement("SET lock_timeout = '200ms'");
+                    app(GlobalTeamService::class)->update($person, $data, $actor);
+                },
+            );
+            $this->assertSame(['committed', 'committed'], array_column($results, 'status'), json_encode($results));
+            $this->assertSame('Updated name', $person->fresh()->name);
+        }
+    }
+
     private function context(): array
     {
         $event = Event::create(['name' => 'Concurrent Event', 'starts_on' => '2027-06-01', 'ends_on' => '2027-06-03', 'timezone' => 'UTC']);

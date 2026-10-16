@@ -141,16 +141,12 @@ class GlobalTeamService
     /** @param array<string, mixed> $data */
     public function update(Person $person, array $data, User $actor): ?bool
     {
-        $loginChange = DB::transaction(function () use ($person, $data, $actor): ?string {
-            $events = Event::query()->orderBy('id')->lockForUpdate()->get();
-            if (array_key_exists('is_admin', $data)) {
-                User::query()
-                    ->where('is_admin', true)
-                    ->orderBy('id')
-                    ->lockForUpdate()
-                    ->get(['id']);
-            }
-
+        $lockAllEvents = array_key_exists('is_admin', $data) && ! $data['is_admin']
+            && $person->user()->where('is_admin', true)->exists();
+        $update = function () use ($person, $data, $actor, &$lockAllEvents): ?string {
+            $events = $lockAllEvents
+                ? Event::query()->orderBy('id')->lockForUpdate()->get()
+                : $this->lockEvents($data['event_access']);
             $person = Person::query()->lockForUpdate()->findOrFail($person->id);
             $target = User::query()
                 ->where('person_id', $person->id)
@@ -160,6 +156,12 @@ class GlobalTeamService
             $willBeAdmin = array_key_exists('is_admin', $data)
                 ? (bool) $data['is_admin']
                 : $wasAdmin;
+
+            if ($wasAdmin && ! $willBeAdmin && ! $lockAllEvents) {
+                // Release the person/user locks before acquiring the wider event
+                // set, then re-read admin state inside the new transaction.
+                return 'retry_with_all_events';
+            }
 
             $wasEnabled = $person->can_log_in;
             $person->update([
@@ -247,7 +249,12 @@ class GlobalTeamService
             }
 
             return $person->can_log_in ? 'enabled' : 'disabled';
-        });
+        };
+        $loginChange = DB::transaction($update);
+        if ($loginChange === 'retry_with_all_events') {
+            $lockAllEvents = true;
+            $loginChange = DB::transaction($update);
+        }
 
         $person->refresh();
         if ($loginChange === 'disabled') {

@@ -59,9 +59,11 @@ Team, with request errors and service-level checks. Unauthorized edits fail thei
 permission checks before exposing stock-removal errors.
 
 Turning Admin off is blocked by that Person's holdings at **any** event, including
-locked and non-current events. Global Team locks the event set before stock and
-identity changes so a simultaneous Pull cannot bypass removal protection. The
-existing own-admin and last-admin rules remain. Once stock is cleared, ordinary
+locked and non-current events. Global Team normally locks only the submitted
+events. Admin removal locks every event before re-reading admin state and
+checking stock. If a concurrent promotion changes the required lock scope, the
+update retries from the event locks before writing. A simultaneous Pull cannot
+bypass removal protection. The existing own-admin and last-admin rules remain. Once stock is cleared, ordinary
 status/access/admin changes can proceed; history alone does not block them.
 
 Person holders remain stable through joining Team. No stock moves or merges
@@ -115,6 +117,13 @@ error found while verifying People → Inventory navigation.
   states rendered correctly; the holder dialog fit 390px with no horizontal
   overflow. No application database was migrated or changed.
 
-Screenshots are local verification artifacts in `/private/tmp/inventory-196-*.jpg`.
-The local implementation spec in `docs/specs/issue-196-check-in-inventory.md`
-records Calvin's confirmed decisions and initial investigation evidence.
+## Review follow-up — October 15, 2026
+
+Global Team saves no longer lock unrelated events when Admin is unchanged. A
+PostgreSQL concurrency regression covers saves with Admin omitted, false, and
+true while another transaction locks an unsubmitted event. Existing concurrent
+Pull versus event-access/admin removal checks still pass. The role-to-None
+stock guard remains, as confirmed in the review.
+
+Validation: 67 relevant SQLite tests and 92 PostgreSQL tests passed. Unused holder
+type translations and references to local-only artifacts were removed.
