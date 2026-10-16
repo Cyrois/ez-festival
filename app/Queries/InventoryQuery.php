@@ -66,6 +66,7 @@ class InventoryQuery
         return array_map(fn ($row) => [
             'id' => (int) $row->id, 'name' => $row->name,
             'holder_type' => $row->location_id !== null ? 'location' : 'person',
+            'person_id' => $row->person_id === null ? null : (int) $row->person_id,
             'total' => (int) $row->total,
             'inactive' => $row->person_id !== null && ! in_array($row->person_id, $eligible),
             'items' => ($balances[$row->id] ?? collect())->map(fn ($item) => [

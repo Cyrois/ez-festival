@@ -2,25 +2,30 @@
 
 namespace App\Http\Requests\CheckIn;
 
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\Gate;
+use App\Queries\InventoryTargetsQuery;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
-class ReturnStockRequest extends FormRequest
+class ReturnStockRequest extends StockMovementRequest
 {
-    public function authorize(): bool
-    {
-        return Gate::allows('checkin.edit');
-    }
-
     public function rules(): array
     {
         $eventId = $this->route('event')->id;
 
         return [
-            'location_id' => ['required', 'integer', Rule::exists('locations', 'id')->where('event_id', $eventId)],
-            'entitlement_item_id' => ['required', 'integer', Rule::exists('entitlement_items', 'id')->where('event_id', $eventId)],
-            'quantity' => ['required', 'integer', 'between:1,2147483647'],
+            ...parent::rules(),
+            'location_id' => ['nullable', 'required_without:person_id', 'prohibits:person_id', 'integer', Rule::exists('locations', 'id')->where('event_id', $eventId)],
+            'person_id' => ['nullable', 'required_without:location_id', 'prohibits:location_id', 'integer', 'exists:people,id'],
         ];
+    }
+
+    public function after(): array
+    {
+        return [function (Validator $validator): void {
+            if ($validator->errors()->isEmpty() && $this->filled('person_id')
+                && ! app(InventoryTargetsQuery::class)->isManagerTarget($this->route('event'), $this->integer('person_id'), $this->user()->person_id)) {
+                $validator->errors()->add('person_id', __('inventory.errors.manager_unavailable'));
+            }
+        }];
     }
 }

@@ -174,6 +174,7 @@ class PostgresWriteConcurrencyTest extends TestCase
         $data = ['location_id' => $location->id, 'entitlement_item_id' => $item->id,
             'person_id' => $actor->person_id, 'quantity' => 1];
         app(InventoryMovementService::class)->pull($event, $actor, $data);
+        unset($data['person_id']);
         $results = $this->concurrently(
             fn () => app(InventoryMovementService::class)->returnStock($event, $actor, $data),
             fn () => app(InventoryMovementService::class)->returnStock($event, $actor, $data),
@@ -299,6 +300,98 @@ class PostgresWriteConcurrencyTest extends TestCase
         $engagement = ArtistEngagement::factory()->for($event)->create(['status' => 'confirmed']);
 
         return [$event, $user, $engagement];
+    }
+
+    public function test_inventory_pass_and_take_back_competing_for_last_person_unit_are_atomic(): void
+    {
+        [$event, $manager, $source, $target, $item, $holder] = $this->personMovementContext();
+        $results = $this->concurrently(
+            fn () => app(InventoryMovementService::class)->passStock($event, $source, [
+                'person_id' => $target->person_id, 'entitlement_item_id' => $item->id, 'quantity' => 1,
+            ]),
+            fn () => app(InventoryMovementService::class)->takeBack($event, $manager, $holder, [
+                'destination' => 'me', 'entitlement_item_id' => $item->id, 'quantity' => 1,
+            ]),
+        );
+        $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+        $this->assertSame(['events', 'events'], array_column($results, 'first_lock'));
+        $this->assertSame([true, true], array_column($results, 'holder_locked'));
+        $this->assertSame(0, app(StockMovementService::class)->balance($item, $holder));
+        $this->assertSame(1, $item->movements()->whereIn('type', ['transfer', 'take_back'])->count());
+    }
+
+    public function test_inventory_return_to_manager_and_pass_competing_for_last_unit_are_atomic(): void
+    {
+        [$event, $manager, $source, $target, $item, $holder] = $this->personMovementContext();
+        $results = $this->concurrently(
+            fn () => app(InventoryMovementService::class)->returnStock($event, $source, [
+                'person_id' => $manager->person_id, 'entitlement_item_id' => $item->id, 'quantity' => 1,
+            ]),
+            fn () => app(InventoryMovementService::class)->passStock($event, $source, [
+                'person_id' => $target->person_id, 'entitlement_item_id' => $item->id, 'quantity' => 1,
+            ]),
+        );
+        $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+        $this->assertSame(0, app(StockMovementService::class)->balance($item, $holder));
+        $this->assertSame(1, $item->movements()->whereIn('type', ['return', 'transfer'])->count());
+    }
+
+    public function test_inventory_pass_rechecks_group_membership_after_waiting_for_event_lock(): void
+    {
+        [$event, , $source, $target, $item] = $this->personMovementContext();
+        $member = TeamEngagement::where('event_id', $event->id)->where('person_id', $target->person_id)->sole();
+        $results = $this->concurrently(
+            fn () => DB::transaction(function () use ($event, $member): void {
+                Event::whereKey($event->id)->lockForUpdate()->firstOrFail();
+                $member->update(['group_id' => null]);
+            }),
+            fn () => app(InventoryMovementService::class)->passStock($event, $source, [
+                'person_id' => $target->person_id, 'entitlement_item_id' => $item->id, 'quantity' => 1,
+            ]),
+        );
+        $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+        $this->assertSame(0, $item->movements()->where('type', 'transfer')->count());
+    }
+
+    public function test_inventory_manager_return_and_take_back_recheck_revoked_receiver_grants(): void
+    {
+        foreach (['return', 'take_back'] as $type) {
+            [$event, $manager, $source, $target, $item, $holder] = $this->personMovementContext();
+            $receiver = $type === 'return' ? $manager : $target;
+            $role = TeamEngagement::where('event_id', $event->id)->where('person_id', $receiver->person_id)->sole()->role;
+            $results = $this->concurrently(
+                fn () => DB::transaction(function () use ($event, $role, $type): void {
+                    Event::whereKey($event->id)->lockForUpdate()->firstOrFail();
+                    app(RoleService::class)->update($role, $role->name, $type === 'return' ? ['checkin.edit'] : ['checkin.view']);
+                }),
+                fn () => $type === 'return'
+                    ? app(InventoryMovementService::class)->returnStock($event, $source, ['person_id' => $receiver->person_id, 'entitlement_item_id' => $item->id, 'quantity' => 1])
+                    : app(InventoryMovementService::class)->takeBack($event, $manager, $holder, ['destination' => 'person', 'person_id' => $receiver->person_id, 'entitlement_item_id' => $item->id, 'quantity' => 1]),
+            );
+            $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+            $this->assertSame(0, $item->movements()->where('type', $type)->count());
+        }
+    }
+
+    private function personMovementContext(): array
+    {
+        [$event, $manager] = $this->context();
+        $role = Role::create(['name' => 'Inventory manager '.$event->id, 'permissions' => ['inventory.manage']]);
+        TeamEngagement::create(['event_id' => $event->id, 'person_id' => $manager->person_id, 'role_id' => $role->id, 'status' => 'hired']);
+        $group = $event->groups()->create(['name' => 'Handover']);
+        $source = User::factory()->create();
+        $target = User::factory()->create();
+        foreach ([$source, $target] as $user) {
+            $memberRole = Role::create(['name' => 'Crew '.$user->id, 'permissions' => ['inventory.pass_group']]);
+            TeamEngagement::create(['event_id' => $event->id, 'person_id' => $user->person_id, 'role_id' => $memberRole->id, 'status' => 'hired', 'group_id' => $group->id]);
+        }
+        $location = $event->locations()->create(['name' => 'Gate']);
+        $item = $event->entitlementItems()->create(['name' => 'Last person unit']);
+        $this->seedStock($item, $location, 1, $manager);
+        app(InventoryMovementService::class)->pull($event, $manager, ['location_id' => $location->id, 'person_id' => $source->person_id, 'entitlement_item_id' => $item->id, 'quantity' => 1]);
+        $holder = StockHolder::where('event_id', $event->id)->where('person_id', $source->person_id)->sole();
+
+        return [$event, $manager, $source, $target, $item, $holder];
     }
 
     public function test_concurrent_meal_type_windows_return_a_validation_conflict(): void

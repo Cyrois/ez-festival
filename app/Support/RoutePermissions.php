@@ -50,6 +50,10 @@ final class RoutePermissions
         'check-in.inventory.availability' => 'inventory.manage',
         'check-in.inventory.pulls.store' => 'inventory.manage',
         'check-in.inventory.returns.update' => 'checkin.edit',
+        'check-in.inventory.move-receivers' => 'checkin.edit',
+        'check-in.inventory.holders.receivers' => 'inventory.manage',
+        'check-in.inventory.transfers.store' => 'pass-inventory-stock',
+        'check-in.inventory.take-backs.store' => 'inventory.manage',
 
         'check-in.data' => 'checkin.view',
         'check-in.entitlements' => 'checkin.view',

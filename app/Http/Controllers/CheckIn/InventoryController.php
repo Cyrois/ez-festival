@@ -29,8 +29,10 @@ class InventoryController extends Controller
             'ownItems' => $holder === null ? [] : $query->items($event->id, $holder->id)->get()->map(fn ($item) => [
                 'id' => (int) $item->id, 'name' => $item->name, 'balance' => (int) $item->balance,
             ]),
-            'canReturn' => $canOperate,
+            'canMove' => $canOperate,
             'canPull' => $canManage && $canOperate,
+            'canTakeBack' => $canManage && $canOperate,
+            'ownPersonId' => $request->user()->person_id,
             'items' => $canManage ? $event->entitlementItems()->orderBy('name')->get(['id', 'name'])
                 : ($holder === null ? [] : $query->items($event->id, $holder->id)->get(['i.id', 'i.name'])),
             'locations' => $event->locations()->orderBy('name')->get(['id', 'name']),

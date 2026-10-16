@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\StockMovement;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -16,6 +17,8 @@ class StockMovementResource extends JsonResource
             'receiver' => $this->toHolder?->person?->name ?? $this->toHolder?->location?->name
                 ?? $this->issuedEntitlement?->expectedEntitlement?->passAssignment?->person?->name,
             'recorded_by' => $this->actor?->name,
+            'taken_from_me' => $this->type === StockMovement::TakeBack
+                && $this->fromHolder?->person_id === $request->user()->person_id,
         ];
     }
 }

@@ -5,6 +5,8 @@ import { trans } from 'laravel-vue-i18n';
 import { Dialog } from '../ui/dialog';
 import { FormField } from '../ui/form-field';
 import { Input } from '../ui/input';
+import { Textarea } from '../ui/textarea';
+import { Radio } from '../ui/radio';
 import { CustomDropdown } from '../ui/custom-dropdown';
 import { useFlashToast } from '../../composables/useFlashToast';
 
@@ -15,6 +17,8 @@ const props = defineProps({
     items: { type: Array, required: true },
     ownItems: { type: Array, required: true },
     locations: { type: Array, required: true },
+    holder: { type: Object, default: null },
+    ownPersonId: { type: Number, default: null },
 });
 const emit = defineEmits(['update:open', 'saved']);
 const emptyMovement = () => ({
@@ -22,6 +26,8 @@ const emptyMovement = () => ({
     person_id: '',
     entitlement_item_id: '',
     quantity: 1,
+    destination: 'me',
+    note: '',
 });
 const form = useForm(emptyMovement());
 const confirm = ref(false);
@@ -38,6 +44,27 @@ let receiverTimer;
 let receiverRequest = 0;
 let availabilityRequest = 0;
 const pull = computed(() => props.mode === 'pull');
+const moving = computed(() => props.mode === 'move');
+const takeBack = computed(() => props.mode === 'take_back');
+const sourceItems = computed(() =>
+    takeBack.value ? (props.holder?.items ?? []) : props.ownItems,
+);
+const title = computed(() =>
+    trans(
+        pull.value
+            ? 'inventory.pull'
+            : takeBack.value
+              ? 'inventory.take_back'
+              : 'inventory.move',
+    ),
+);
+const receiverEndpoint = computed(() =>
+    moving.value
+        ? '/check-in/inventory/move-receivers'
+        : takeBack.value
+          ? `/check-in/inventory/holders/${props.holder?.id}/receivers`
+          : '/check-in/inventory/receivers',
+);
 const choices = computed(() =>
     pull.value
         ? props.items.filter((item) =>
@@ -48,10 +75,20 @@ const choices = computed(() =>
                       balance.balance > 0,
               ),
           )
-        : props.ownItems,
+        : sourceItems.value,
 );
 const itemOptions = computed(() =>
-    choices.value.map((item) => ({ value: item.id, title: item.name })),
+    choices.value.map((item) => ({
+        value: item.id,
+        title: item.name,
+        ...(!pull.value
+            ? {
+                  description: trans('inventory.held_count', {
+                      count: item.balance,
+                  }),
+              }
+            : {}),
+    })),
 );
 const locationOptions = computed(() =>
     props.locations
@@ -73,7 +110,7 @@ const available = computed(() =>
                       stock.location_id === form.location_id &&
                       stock.entitlement_item_id === form.entitlement_item_id,
               )?.balance ?? 0)
-            : (props.ownItems.find(
+            : (sourceItems.value.find(
                   (item) => item.id === form.entitlement_item_id,
               )?.balance ?? 0),
     ),
@@ -84,28 +121,106 @@ const receiverOptions = computed(() => {
         !receivers.value.some((person) => person.id === receiver.value.id)
             ? [receiver.value, ...receivers.value]
             : receivers.value;
-    return rows.map((person) => ({ value: person.id, title: person.name }));
+    return rows.map((person) => ({
+        value: person.id,
+        title: person.name,
+        avatar: person.name,
+        group: person.is_manager
+            ? trans('inventory.managers')
+            : person.on_shift
+              ? trans('inventory.on_shift')
+              : person.in_group
+                ? trans('inventory.in_group')
+                : moving.value
+                  ? trans('inventory.people')
+                  : undefined,
+    }));
 });
+const moveOptions = computed(() => [
+    ...locationOptions.value
+        .filter((item) =>
+            item.title
+                .toLocaleLowerCase()
+                .includes(receiverSearch.value.trim().toLocaleLowerCase()),
+        )
+        .map((item) => ({
+            ...item,
+            value: `location:${item.value}`,
+            group: trans('inventory.locations_storage'),
+        })),
+    ...receiverOptions.value.map((item) => ({
+        ...item,
+        value: `person:${item.value}`,
+    })),
+]);
+const moveTarget = computed({
+    get: () =>
+        form.person_id
+            ? `person:${form.person_id}`
+            : form.location_id
+              ? `location:${form.location_id}`
+              : '',
+    set: (value) => {
+        const [kind, id] = String(value).split(':');
+        form.location_id = kind === 'location' ? Number(id) : '';
+        form.person_id = kind === 'person' ? Number(id) : '';
+    },
+});
+const destinationReady = computed(() =>
+    pull.value
+        ? form.location_id && form.person_id
+        : moving.value
+          ? form.location_id || form.person_id
+          : takeBack.value
+            ? form.destination === 'me'
+                ? props.holder?.person_id !== props.ownPersonId
+                : form.destination === 'location'
+                  ? form.location_id
+                  : form.person_id
+            : form.person_id,
+);
 const ready = computed(
     () =>
-        form.location_id &&
+        destinationReady.value &&
         form.entitlement_item_id &&
-        (!pull.value || form.person_id) &&
         Number.isInteger(Number(form.quantity)) &&
         Number(form.quantity) >= 1 &&
         Number(form.quantity) <= available.value,
 );
 const description = computed(() =>
-    trans(pull.value ? 'inventory.confirm_pull' : 'inventory.confirm_return', {
-        quantity: form.quantity,
-        item:
-            props.items.find((item) => item.id === form.entitlement_item_id)
-                ?.name ?? '',
-        location:
-            props.locations.find((location) => location.id === form.location_id)
-                ?.name ?? '',
-        person: receiver.value?.name ?? '',
-    }),
+    trans(
+        pull.value
+            ? 'inventory.confirm_pull'
+            : takeBack.value
+              ? 'inventory.confirm_take_back'
+              : 'inventory.confirm_move',
+        {
+            quantity: form.quantity,
+            item:
+                choices.value.find(
+                    (item) => item.id === form.entitlement_item_id,
+                )?.name ?? '',
+            location:
+                props.locations.find(
+                    (location) => location.id === form.location_id,
+                )?.name ?? '',
+            person: receiver.value?.name ?? '',
+            holder: props.holder?.name ?? '',
+            destination: moving.value
+                ? form.person_id
+                    ? (receiver.value?.name ?? '')
+                    : (props.locations.find(
+                          (location) => location.id === form.location_id,
+                      )?.name ?? '')
+                : form.destination === 'me'
+                  ? trans('inventory.me')
+                  : form.destination === 'location'
+                    ? (props.locations.find(
+                          (location) => location.id === form.location_id,
+                      )?.name ?? '')
+                    : (receiver.value?.name ?? ''),
+        },
+    ),
 );
 const loadReceivers = async (append = false) => {
     const requestId = ++receiverRequest;
@@ -113,7 +228,7 @@ const loadReceivers = async (append = false) => {
     const page = append ? receiverPage.value + 1 : 1;
     try {
         const response = await fetch(
-            `/check-in/inventory/receivers?${new URLSearchParams({ search: receiverSearch.value, page })}`,
+            `${receiverEndpoint.value}?${new URLSearchParams({ search: receiverSearch.value, page })}`,
             { headers: { Accept: 'application/json' } },
         );
         if (!response.ok) throw new Error();
@@ -173,10 +288,8 @@ watch(
         receivers.value = [];
         receiverSearch.value = '';
         availability.value = [];
-        if (pull.value) {
-            loadAvailability();
-            loadReceivers();
-        }
+        if (pull.value) loadAvailability();
+        loadReceivers();
     },
 );
 watch(
@@ -188,8 +301,20 @@ watch(
 watch(
     () => form.entitlement_item_id,
     () => {
-        if (!pull.value)
-            form.quantity = form.entitlement_item_id ? available.value : 1;
+        if (!pull.value) {
+            form.quantity =
+                takeBack.value && form.entitlement_item_id
+                    ? available.value
+                    : 1;
+        }
+    },
+);
+watch(
+    () => form.destination,
+    () => {
+        form.location_id = '';
+        form.person_id = '';
+        receiver.value = null;
     },
 );
 watch(
@@ -218,7 +343,9 @@ const submit = () => {
                 trans(
                     pull.value
                         ? 'inventory.toast.pulled'
-                        : 'inventory.toast.returned',
+                        : takeBack.value
+                          ? 'inventory.toast.taken_back'
+                          : 'inventory.toast.moved',
                 ),
             );
             emit('update:open', false);
@@ -228,13 +355,28 @@ const submit = () => {
             confirm.value = false;
             showFormError(errors);
             if (pull.value) loadAvailability();
+            if (errors.person_id) {
+                form.person_id = '';
+                receiver.value = null;
+                loadReceivers();
+            }
         },
     };
     if (pull.value)
         form.post(`/events/${props.eventId}/check-in/inventory/pulls`, options);
-    else
+    else if (moving.value && (form.location_id || receiver.value?.is_manager))
         form.put(
             `/events/${props.eventId}/check-in/inventory/returns`,
+            options,
+        );
+    else if (takeBack.value)
+        form.post(
+            `/events/${props.eventId}/check-in/inventory/holders/${props.holder.id}/take-backs`,
+            options,
+        );
+    else
+        form.post(
+            `/events/${props.eventId}/check-in/inventory/transfers`,
             options,
         );
 };
@@ -243,8 +385,18 @@ const submit = () => {
 <template>
     <Dialog
         :open="open"
-        :title="$t(pull ? 'inventory.pull' : 'inventory.return')"
-        :description="confirm ? description : ''"
+        :title="title"
+        :description="
+            confirm
+                ? description
+                : takeBack
+                  ? $t('inventory.take_back_description', {
+                        name: holder?.name ?? '',
+                    })
+                  : moving
+                    ? $t('inventory.move_description')
+                    : ''
+        "
         :confirm-label="$t(confirm ? 'inventory.confirm' : 'inventory.review')"
         :confirm-disabled="!ready || availabilityLoading"
         :busy="form.processing"
@@ -258,6 +410,7 @@ const submit = () => {
             class="mt-4 space-y-4"
         >
             <FormField
+                v-if="pull"
                 v-slot="{ id, invalid }"
                 :label="$t('inventory.columns.location')"
                 :error="form.errors.location_id"
@@ -330,6 +483,116 @@ const submit = () => {
                     min="1"
                     :max="available"
                     step="1"
+                />
+            </FormField>
+            <FormField
+                v-if="moving"
+                v-slot="{ id, invalid }"
+                :label="$t('inventory.move_to')"
+                :error="form.errors.person_id || form.errors.location_id"
+                required
+            >
+                <CustomDropdown
+                    :id="id"
+                    v-model="moveTarget"
+                    :items="moveOptions"
+                    :invalid="invalid"
+                    :disabled="form.processing"
+                    :loading="receiverLoading"
+                    :has-more="receiverHasMore"
+                    :placeholder="$t('inventory.choose_move_target')"
+                    remote
+                    @search="searchReceivers"
+                    @load-more="loadReceivers(true)"
+                />
+            </FormField>
+            <fieldset
+                v-if="takeBack"
+                class="flex flex-col gap-3"
+            >
+                <legend class="mb-2 text-sm font-medium">
+                    {{ $t('inventory.where_it_goes') }}
+                </legend>
+                <Radio
+                    v-model="form.destination"
+                    value="me"
+                    name="inventory-destination"
+                    :label="$t('inventory.me')"
+                    :disabled="
+                        form.processing || holder?.person_id === ownPersonId
+                    "
+                />
+                <Radio
+                    v-model="form.destination"
+                    value="location"
+                    name="inventory-destination"
+                    :label="$t('inventory.a_location')"
+                    :disabled="form.processing"
+                />
+                <Radio
+                    v-model="form.destination"
+                    value="person"
+                    name="inventory-destination"
+                    :label="$t('inventory.another_person')"
+                    :disabled="form.processing"
+                />
+                <p
+                    v-if="form.errors.destination"
+                    class="text-sm text-danger"
+                >
+                    {{ form.errors.destination }}
+                </p>
+            </fieldset>
+            <FormField
+                v-if="takeBack && form.destination === 'location'"
+                v-slot="{ id, invalid }"
+                :label="$t('inventory.columns.location')"
+                :error="form.errors.location_id"
+                required
+            >
+                <CustomDropdown
+                    :id="id"
+                    v-model="form.location_id"
+                    :items="locationOptions"
+                    :invalid="invalid"
+                    :disabled="form.processing"
+                    :placeholder="$t('inventory.choose_location')"
+                />
+            </FormField>
+            <FormField
+                v-if="takeBack && form.destination === 'person'"
+                v-slot="{ id, invalid }"
+                :label="$t('inventory.columns.person')"
+                :error="form.errors.person_id"
+                required
+            >
+                <CustomDropdown
+                    :id="id"
+                    v-model="form.person_id"
+                    :items="receiverOptions"
+                    :invalid="invalid"
+                    :disabled="form.processing"
+                    :loading="receiverLoading"
+                    :has-more="receiverHasMore"
+                    :placeholder="$t('inventory.choose_person')"
+                    :empty-text="$t('inventory.no_receivers')"
+                    remote
+                    @search="searchReceivers"
+                    @load-more="loadReceivers(true)"
+                />
+            </FormField>
+            <FormField
+                v-if="takeBack"
+                v-slot="{ id, invalid }"
+                :label="$t('inventory.note_optional')"
+                :error="form.errors.note"
+            >
+                <Textarea
+                    :id="id"
+                    v-model="form.note"
+                    :invalid="invalid"
+                    :disabled="form.processing"
+                    maxlength="255"
                 />
             </FormField>
         </div>

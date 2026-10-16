@@ -14,14 +14,17 @@ const props = defineProps({
     view: { type: String, required: true },
     canManage: { type: Boolean, default: false },
     canPull: { type: Boolean, default: false },
-    canReturn: { type: Boolean, default: false },
+    canMove: { type: Boolean, default: false },
+    canTakeBack: { type: Boolean, default: false },
+    ownPersonId: { type: Number, default: null },
     items: { type: Array, required: true },
     ownItems: { type: Array, required: true },
     locations: { type: Array, required: true },
 });
 const holder = ref(null);
+const movementHolder = ref(null);
 const movementOpen = ref(false);
-const mode = ref('return');
+const mode = ref('move');
 const version = ref(0);
 const pageTitle = computed(() =>
     trans(props.view === 'mine' ? 'inventory.my_stock' : 'inventory.title'),
@@ -33,6 +36,8 @@ const breadcrumbs = computed(() => [
 ]);
 const openMovement = (value) => {
     mode.value = value;
+    movementHolder.value = value === 'take_back' ? holder.value : null;
+    if (value === 'take_back') holder.value = null;
     movementOpen.value = true;
 };
 const saved = () => {
@@ -66,14 +71,14 @@ const saved = () => {
                         <CardTitle>{{ $t('inventory.my_stock') }}</CardTitle>
                         <Button
                             :disabled="
-                                !canReturn || !ownItems.length || event.locked
+                                !canMove || !ownItems.length || event.locked
                             "
-                            @click="openMovement('return')"
-                            >{{ $t('inventory.return') }}</Button
+                            @click="openMovement('move')"
+                            >{{ $t('inventory.move') }}</Button
                         >
                     </div>
                     <p
-                        v-if="!canReturn && !event.locked && ownItems.length"
+                        v-if="!canMove && !event.locked && ownItems.length"
                         class="text-sm text-muted"
                     >
                         {{ $t('inventory.inactive_waiting') }}
@@ -140,6 +145,14 @@ const saved = () => {
                     >
                         {{ $t('inventory.inactive_waiting') }}
                     </p>
+                    <Button
+                        v-if="holder.holder_type === 'person'"
+                        :disabled="
+                            !canTakeBack || event.locked || !holder.total
+                        "
+                        @click="openMovement('take_back')"
+                        >{{ $t('inventory.take_back') }}</Button
+                    >
                     <InventoryStockTable
                         :key="`${holder.id}-stock-${version}`"
                         :endpoint="`/check-in/inventory/holders/${holder.id}/stock`"
@@ -160,6 +173,8 @@ const saved = () => {
                 :items="items"
                 :own-items="ownItems"
                 :locations="locations"
+                :holder="movementHolder"
+                :own-person-id="ownPersonId"
                 @saved="saved"
             />
         </div>

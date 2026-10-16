@@ -96,7 +96,12 @@ const formatWhen = (value) =>
             formatWhen(rowData.when)
         }}</template>
         <template #typeCell="{ rowData }">{{
-            $t(`inventory.movements.${rowData.type}`)
+            rowData.taken_from_me
+                ? $t('inventory.taken_back_by', {
+                      name:
+                          rowData.recorded_by ?? $t('inventory.deleted_actor'),
+                  })
+                : $t(`inventory.movements.${rowData.type}`)
         }}</template>
     </DataTable>
 </template>
