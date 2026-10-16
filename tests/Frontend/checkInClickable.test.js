@@ -40,8 +40,12 @@ const button = compile('../../resources/js/components/ui/button/Button.vue', [
     [/import \{ cn \} from ['"].*?['"];?/, 'const cn = (...values) => values.filter(Boolean).join(" ");'],
     [/import \{ buttonVariants \} from ['"].*?['"];?/, 'const buttonVariants = () => "";'],
 ]);
+const hiddenInfo = compile('../../resources/js/components/people/HiddenPersonalInfo.vue', [
+    [/import \{ trans \} from ['"].*?['"];?/, 'const trans = globalThis.checkInTranslate;'],
+    [/import \{ Icon \} from ['"].*?['"];?/, 'const Icon = globalThis.checkInBox("i");'],
+]);
 const page = compile('../../resources/js/pages/CheckIn/Index.vue', [
-    [/import HiddenPersonalInfo from ['"].*?['"];?/, 'const HiddenPersonalInfo = globalThis.checkInBox("span");'],
+    [/import HiddenPersonalInfo from ['"].*?['"];?/, `import HiddenPersonalInfo from '${hiddenInfo}';`],
     [/import \{ Link, router \} from ['"].*?['"];?/, 'const Link = "a", router = globalThis.checkInRouter;'],
     [/import \{ trans \} from ['"].*?['"];?/, 'const trans = globalThis.checkInTranslate;'],
     [/import AppLayout from ['"].*?['"];?/, 'const AppLayout = globalThis.checkInBox("main");'],
@@ -131,3 +135,119 @@ test(`${type} rows navigate without Edit passes; has pass: ${hasPass}`, async ()
 });
 
 }
+
+const stockTableUrl = compile('../../resources/js/components/check-in/InventoryStockTable.vue', [
+    [/import \{ trans \} from ['"].*?['"];?/, 'const trans = globalThis.checkInTranslate;'],
+    [/import \{ DataTable \} from ['"].*?['"];?/, `import DataTable from '${dataTable}';`],
+]);
+const { default: InventoryStockTable } = await import(stockTableUrl);
+test('Inventory tables send a validated flat search and escape item names', async () => {
+    const originalXhr = globalThis.XMLHttpRequest;
+    const requests = [];
+    globalThis.XMLHttpRequest = class {
+        open(method, url) { this.url = new URL(url, 'http://localhost'); }
+        setRequestHeader() {}
+        abort() {}
+        send() {
+            requests.push(Object.fromEntries(this.url.searchParams));
+            setTimeout(() => {
+                this.readyState = 4; this.status = 200;
+                this.responseText = JSON.stringify({ draw: Number(this.url.searchParams.get('draw')), recordsTotal: 1, recordsFiltered: 1,
+                    data: [{ id: 2, name: '<img src=x onerror="alert(1)">Wristband', balance: 12 }] });
+                this.onreadystatechange();
+            }, 0);
+        }
+    };
+    const app = createApp(InventoryStockTable, { endpoint: '/check-in/inventory/stock', timezone: 'America/Vancouver' });
+    app.config.globalProperties.$t = translate;
+    try {
+        app.mount('#app'); await new Promise((resolve) => setTimeout(resolve, 35)); await nextTick();
+        assert.equal(requests[0].search, '');
+        assert.equal(requests[0]['search[value]'], undefined);
+        assert.equal(requests[0].length, '25');
+        assert.match(document.querySelector('tbody').textContent, /Wristband/);
+        assert.equal(document.querySelector('tbody img'), null);
+    } finally { app.unmount(); globalThis.XMLHttpRequest = originalXhr; }
+});
+
+
+test('hidden personal info renders inside detached DataTable slots without global translation injection', async () => {
+    const { default: HiddenPersonalInfo } = await import(hiddenInfo);
+    const app = createApp(HiddenPersonalInfo);
+    try {
+        app.mount('#app'); await nextTick();
+        assert.match(document.querySelector('#app').textContent, /Hidden for your role/);
+        assert.equal(document.querySelector('#app span[title]').title, translate('permissions.hidden'));
+    } finally { app.unmount(); }
+});
+
+const holdingsInput = compile('../../resources/js/components/ui/input/Input.vue', [
+    [/import \{ cn \} from ['"].*?['"];?/, 'const cn = (...values) => values.filter(Boolean).join(" ");'],
+]);
+globalThis.checkInActivate = (await import('../../resources/js/lib/dataTableRowNavigation.js')).activateDataTableRow;
+globalThis.holdingsDropdown = {
+    props: ['modelValue', 'items'], emits: ['update:modelValue'],
+    setup: (props, { emit }) => () => h('select', { value: props.modelValue, onChange: (event) => emit('update:modelValue', event.target.value) }, props.items.map((item) => h('option', { value: item.value }, item.title))),
+};
+const holdingsSectionUrl = compile('../../resources/js/components/check-in/InventoryHoldingsSection.vue', [
+    [/import \{ trans \} from ['"].*?['"];?/, 'const trans = globalThis.checkInTranslate;'],
+    [/import \{ Card, CardTitle \} from ['"].*?['"];?/, 'const Card = globalThis.checkInBox("section"), CardTitle = globalThis.checkInBox("h2");'],
+    ...['Badge', 'Icon'].map((name) => [new RegExp(`import \\{ ${name} \\} from ['"].*?['"];?`), `const ${name} = globalThis.checkInBox("span");`]),
+    [/import \{ Input \} from ['"].*?['"];?/, `import Input from '${holdingsInput}';`],
+    [/import \{ CustomDropdown \} from ['"].*?['"];?/, 'const CustomDropdown = globalThis.holdingsDropdown;'],
+    [/import \{ DataTable \} from ['"].*?['"];?/, `import DataTable from '${dataTable}';`],
+    [/import \{ activateDataTableRow \} from ['"].*?['"];?/, 'const activateDataTableRow = globalThis.checkInActivate;'],
+]);
+const { default: HoldingsSection } = await import(holdingsSectionUrl);
+
+test('People and Locations / storage independently filter and paginate their holdings', async () => {
+    const requests = [], selected = [];
+    const originalXhr = globalThis.XMLHttpRequest;
+    globalThis.XMLHttpRequest = class {
+        open(method, url) { this.url = new URL(url, 'http://localhost'); }
+        setRequestHeader() {}
+        abort() {}
+        send() {
+            const data = Object.fromEntries(this.url.searchParams);
+            requests.push(data);
+            setTimeout(() => {
+                this.readyState = 4; this.status = 200;
+                this.responseText = JSON.stringify({ draw: Number(data.draw), recordsTotal: 30, recordsFiltered: 30, data: [{
+                    id: data.holder_type === 'person' ? 8 : 9, name: data.holder_type === 'person' ? 'Riley' : 'Main Gate', holder_type: data.holder_type,
+                    total: 7, inactive: false, items: [{ id: 1, name: 'Wristband', balance: 7 }],
+                }] });
+                this.onreadystatechange();
+            }, 0);
+        }
+    };
+    const app = createApp({ render: () => h('div', ['person', 'location'].map((holderType) => h(HoldingsSection, { holderType, items: [{ id: 1, name: 'Wristband' }], onSelectHolder: (holder) => selected.push(holder) }))) });
+    app.config.globalProperties.$t = translate;
+    const settle = async () => { await new Promise((resolve) => setTimeout(resolve, 35)); await nextTick(); };
+    try {
+        app.mount('#app'); await settle();
+        const sections = [...document.querySelectorAll('section')];
+        assert.deepEqual(sections.map((section) => section.querySelector('h2').textContent), ['People', 'Locations / storage']);
+        assert.deepEqual(requests.map((request) => request.holder_type), ['person', 'location']);
+        assert.ok(requests.every((request) => request.length === '25'));
+        assert.equal(sections[1].querySelector('input'), null);
+        const locationRequests = () => requests.filter((request) => request.holder_type === 'location');
+        const next = sections[0].querySelector('.dt-paging-button.next');
+        next.click(); await settle();
+        assert.equal(requests.at(-1).holder_type, 'person');
+        assert.equal(requests.at(-1).start, '25');
+        assert.equal(locationRequests().length, 1);
+        const input = sections[0].querySelector('input');
+        input.value = 'Riley'; input.dispatchEvent(new window.Event('input', { bubbles: true })); await settle();
+        assert.equal(requests.at(-1).search, 'Riley');
+        assert.equal(requests.at(-1).start, '0');
+        assert.equal(locationRequests().length, 1);
+        const item = sections[1].querySelector('select');
+        item.value = '1'; item.dispatchEvent(new window.Event('change', { bubbles: true })); await settle();
+        assert.equal(requests.at(-1).holder_type, 'location');
+        assert.equal(requests.at(-1).item, '1');
+        assert.equal(requests.at(-1).search, '');
+        sections[0].querySelector('tr[data-row-link] td').click();
+        sections[1].querySelector('tbody button').click();
+        assert.deepEqual(selected.map((holder) => holder.name), ['Riley', 'Main Gate']);
+    } finally { app.unmount(); globalThis.XMLHttpRequest = originalXhr; }
+});

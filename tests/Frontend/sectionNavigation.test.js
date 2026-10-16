@@ -7,7 +7,7 @@ import { parse, compileScript } from '@vue/compiler-sfc';
 import { JSDOM } from 'jsdom';
 import { getAppNavigation, isNavigationItemActive } from '../../resources/js/lib/appNavigation.js';
 
-const allPermissions = Object.fromEntries(['team.view', 'scheduling.view', 'forms.view', 'meals.view', 'meals.report.view', 'credentials.passes.edit', 'credentials.entitlements.edit', 'artists.view', 'vendors.view', 'patrons.view', 'checkin.view'].map((key) => [key, true]));
+const allPermissions = Object.fromEntries(['team.view', 'scheduling.view', 'forms.view', 'meals.view', 'meals.report.view', 'credentials.passes.edit', 'credentials.entitlements.edit', 'artists.view', 'vendors.view', 'patrons.view', 'checkin.view', 'checkin.edit', 'inventory.manage'].map((key) => [key, true]));
 const navigation = (options = {}) => getAppNavigation({ permissions: allPermissions, isAdmin: true, ...options });
 
 test('Team opens its first permitted page and omits inaccessible tabs', () => {
@@ -26,6 +26,12 @@ test('Team opens its first permitted page and omits inaccessible tabs', () => {
 
 test('detail and edit routes keep exactly one section tab selected', () => {
     const cases = [
+        ['/check-in?status=complete', 'check_in', 'check_in.people'],
+        ['/check-in/artists/12?person=53', 'check_in', 'check_in.people'],
+        ['/check-in/team/12', 'check_in', 'check_in.people'],
+        ['/check-in/my-stock', 'check_in', 'check_in.my_stock'],
+        ['/check-in/inventory', 'check_in', 'check_in.inventory'],
+        ['/check-in/inventory/holders/53/stock', 'check_in', 'check_in.inventory'],
         ['/team/members/create', 'team', 'team.advancement'],
         ['/team/members/53?tab=shifts', 'team', 'team.advancement'],
         ['/team/shifts/12/copy?return_tab=schedule', 'team', 'team.scheduling'],

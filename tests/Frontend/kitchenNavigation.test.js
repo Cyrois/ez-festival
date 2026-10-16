@@ -42,10 +42,10 @@ source = source
     .replace(/import \{ Head, usePage \} from ['"].*?['"];?/, 'const Head = { render: () => null }; const usePage = () => globalThis.kitchenNavigationPage;');
 const { default: AppLayout } = await import(encode(source));
 
-const navigation = async (permissions, collapsed = false, isAdmin = false) => {
+const navigation = async (permissions, collapsed = false, isAdmin = false, url = permissions['meals.report.view'] ? '/reports' : '/meals') => {
     globalThis.kitchenNavigationCollapsed = collapsed;
     globalThis.kitchenNavigationPage = {
-        url: permissions['meals.report.view'] ? '/reports' : '/meals',
+        url,
         props: { permissions, auth: { user: { name: 'Reader', is_admin: isAdmin } } },
     };
     const app = createSSRApp({ render: () => h(AppLayout, { title: 'Report' }) });
@@ -95,3 +95,26 @@ test('admins see every Kitchen tab through their shared permission map', async (
         assert.ok(tabs.some((link) => link.label === locale[key]));
     }
 });
+
+for (const collapsed of [false, true]) {
+    test(`Check-in header tabs respect Inventory access (collapsed: ${collapsed})`, async () => {
+        for (const [permissions, url, labels, active] of [
+            [{}, '/dashboard', [], null],
+            [{ 'checkin.view': true }, '/check-in', ['Check-in'], '/check-in'],
+            [{ 'checkin.view': true, 'checkin.edit': true }, '/check-in/team/12?person=53', ['Check-in', 'My stock'], '/check-in'],
+            [{ 'checkin.view': true, 'checkin.edit': true }, '/check-in/my-stock', ['Check-in', 'My stock'], '/check-in/my-stock'],
+            [{ 'checkin.view': true, 'checkin.edit': true, 'inventory.manage': true }, '/check-in/inventory', ['Check-in', 'My stock', 'Inventory'], '/check-in/inventory'],
+        ]) {
+            const { sidebar, tabs } = await navigation(permissions, collapsed, false, url);
+            const checkIn = sidebar.find((link) => link.label === locale['nav.check_in']);
+            assert.equal(Boolean(checkIn), Boolean(permissions['checkin.view']));
+            assert.equal(sidebar.some((link) => ['My stock', 'Inventory'].includes(link.label)), false);
+            assert.deepEqual(tabs.map((link) => link.label), labels);
+            assert.deepEqual(tabs.filter((link) => link.current === 'page').map((link) => link.href), active ? [active] : []);
+            if (checkIn) {
+                assert.equal(checkIn.href, '/check-in');
+                assert.equal(checkIn.current, 'page');
+            }
+        }
+    });
+}

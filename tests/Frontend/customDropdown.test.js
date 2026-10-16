@@ -194,3 +194,27 @@ test('dialog search stays in the teleported menu and keyboard navigation skips d
         app.unmount();
     }
 });
+
+test('remote search keeps server results and exposes paged loading even with fewer than five options', async () => {
+    const searches = [], pages = [];
+    const loading = ref(false);
+    const app = createApp({ setup: () => () => h(CustomDropdown, {
+        remote: true, hasMore: true, loading: loading.value,
+        items: [{ value: 1, title: 'Server result' }],
+        onSearch: (value) => searches.push(value),
+        'onLoad-more': () => pages.push(true),
+    }) });
+    app.mount(document.getElementById('app'));
+    try {
+        document.querySelector('button').click(); await tick();
+        assert.ok(document.querySelector('input'), 'Remote search must not depend on current page size');
+        await search('Morgan');
+        assert.deepEqual(searches, ['Morgan']);
+        assert.equal(document.querySelectorAll('[role="option"]').length, 1, 'Do not locally filter a server result page');
+        const more = [...document.querySelectorAll('button')].find((button) => button.textContent.trim() === 'dropdown.load_more');
+        assert.ok(more); more.click(); await tick();
+        assert.equal(pages.length, 1);
+        loading.value = true; await tick();
+        assert.equal(more.disabled, true);
+    } finally { app.unmount(); }
+});

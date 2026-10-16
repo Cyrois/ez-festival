@@ -17,6 +17,24 @@ export function getAppNavigation({
             href: '/check-in',
             icon: ['fas', 'clipboard-check'],
             enabled: true,
+            tabs: [
+                {
+                    key: 'check_in.people',
+                    href: '/check-in',
+                    enabled: true,
+                    exclude: ['/check-in/my-stock', '/check-in/inventory'],
+                },
+                {
+                    key: 'check_in.my_stock',
+                    href: '/check-in/my-stock',
+                    enabled: true,
+                },
+                {
+                    key: 'check_in.inventory',
+                    href: '/check-in/inventory',
+                    enabled: true,
+                },
+            ],
         },
         {
             key: 'artists',
@@ -113,6 +131,20 @@ export function getAppNavigation({
         },
     ]
         .map((item) => {
+            if (item.key === 'check_in') {
+                return {
+                    ...item,
+                    tabs: item.tabs.filter(
+                        (tab) =>
+                            tab.key === 'check_in.people' ||
+                            permissions[
+                                tab.key === 'check_in.inventory'
+                                    ? 'inventory.manage'
+                                    : 'checkin.edit'
+                            ],
+                    ),
+                };
+            }
             if (item.key === 'credentials') {
                 const tabs = item.tabs.filter((tab) => {
                     if (tab.key === 'credentials.products') return isAdmin;

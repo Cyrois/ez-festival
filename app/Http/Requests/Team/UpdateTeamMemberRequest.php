@@ -5,6 +5,7 @@ namespace App\Http\Requests\Team;
 use App\Http\Requests\Team\Concerns\TeamMemberRules;
 use App\Models\Role;
 use App\Services\EventAccessService;
+use App\Services\HeldStockGuard;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -84,6 +85,13 @@ class UpdateTeamMemberRequest extends FormRequest
                 if ($roleId !== (int) $engagement->role_id
                     && ! Role::query()->whereKey($roleId)->where('active', true)->exists()) {
                     $validator->errors()->add('role_id', __('settings.team.validation.role_unavailable'));
+                }
+            }
+
+            if ($validator->errors()->isEmpty()) {
+                $field = app(HeldStockGuard::class)->teamChangeField($engagement, $this->all());
+                if ($field !== null && app(HeldStockGuard::class)->hasStock($engagement->person_id, $engagement->event_id)) {
+                    $validator->errors()->add($field, __('inventory.errors.stock_remains'));
                 }
             }
 
