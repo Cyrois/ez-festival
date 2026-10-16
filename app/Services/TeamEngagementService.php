@@ -70,6 +70,13 @@ class TeamEngagementService
             }
 
             $access = app(EventAccessService::class);
+            if (! $user->isAdmin()
+                && ($engagement->role_id !== null || ($data['role_id'] ?? null) !== null)
+                && isset($data['email'])
+                && $this->people->normalizeEmail($data['email']) !== $engagement->person->email) {
+                throw ValidationException::withMessages(['email' => __('permissions.forbidden')]);
+            }
+
             if (array_key_exists('role_id', $data) && (string) $data['role_id'] !== (string) $engagement->role_id) {
                 if (! $access->canAssignRole($user, $engagement, Role::find($data['role_id']))) {
                     throw ValidationException::withMessages(['role_id' => __('permissions.forbidden')]);
