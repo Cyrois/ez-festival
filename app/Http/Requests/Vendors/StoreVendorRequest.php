@@ -38,7 +38,12 @@ class StoreVendorRequest extends FormRequest
         $fields = $this->customFields();
 
         $validator->after(function ($validator) use ($fields): void {
-            $providedIds = array_map('intval', array_keys($this->input('custom_fields', [])));
+            $values = $this->input('custom_fields') ?? [];
+            if (! is_array($values)) {
+                return;
+            }
+
+            $providedIds = array_map('intval', array_keys($values));
             $knownIds = $fields->pluck('id')->all();
 
             if (array_diff($providedIds, $knownIds) !== []) {
