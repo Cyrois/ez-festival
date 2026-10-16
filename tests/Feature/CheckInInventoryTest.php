@@ -162,6 +162,7 @@ class CheckInInventoryTest extends TestCase
         foreach ([2, 3] as $quantity) {
             $data = $this->pullData($this->manager, $quantity);
             $data['location_id'] = $destination->id;
+            unset($data['person_id']);
             $this->put(route('check-in.inventory.returns.update', $this->event), $data)->assertSessionHasNoErrors()->assertRedirect();
             $movement = StockMovement::latest('id')->first();
             $this->assertSame(MovementType::Return, $movement->type);
@@ -238,7 +239,9 @@ class CheckInInventoryTest extends TestCase
         $foreignHolder = app(StockMovementService::class)->forPerson($foreign, $this->receiver->person);
         $this->getJson(route('check-in.inventory.holders.stock', $foreignHolder))->assertNotFound();
         $this->getJson(route('check-in.inventory.availability'))->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.balance', 8);
-        $this->actingAs($this->receiver)->put(route('check-in.inventory.returns.update', $this->event), $this->pullData(quantity: 1))->assertSessionHasNoErrors();
+        $return = $this->pullData(quantity: 1);
+        unset($return['person_id']);
+        $this->actingAs($this->receiver)->put(route('check-in.inventory.returns.update', $this->event), $return)->assertSessionHasNoErrors();
         $this->getJson(route('check-in.inventory.movements', ['start' => 0, 'length' => 1]))
             ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('recordsTotal', 2)->assertJsonPath('data.0.type', 'return');
     }
@@ -322,7 +325,7 @@ class CheckInInventoryTest extends TestCase
     {
         $this->teamMember($this->manager)->update(['status' => 'applied']);
         $this->get(route('check-in.inventory.index'))->assertInertia(fn (Assert $p) => $p
-            ->where('canManage', true)->where('canPull', false)->where('canReturn', false));
+            ->where('canManage', true)->where('canPull', false)->where('canMove', false));
         $this->post(route('check-in.inventory.pulls.store', $this->event), $this->pullData())->assertForbidden();
         $this->assertDatabaseCount('stock_movements', 1);
     }

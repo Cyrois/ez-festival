@@ -63,6 +63,7 @@ class AppServiceProvider extends ServiceProvider
             'credentials.entitlements.edit', 'credentials.stock.adjust', 'inventory.manage',
         ], $event));
         Gate::define('manage-event-locations', fn (User $user, ?Event $event = null): bool => Gate::forUser($user)->allows('inventory.manage', $event));
+        Gate::define('pass-inventory-stock', fn (User $user, ?Event $event = null): bool => Gate::forUser($user)->allows('inventory.pass_shift', $event) || Gate::forUser($user)->allows('inventory.pass_group', $event));
         foreach (['manage-global-team', 'manage-roles', 'manage-feature-flags', 'view-credentials', 'admin'] as $ability) {
             Gate::define($ability, fn (User $user): bool => $user->isAdmin());
         }

@@ -4,9 +4,10 @@ namespace App\Http\Requests\CheckIn;
 
 use App\Queries\InventoryTargetsQuery;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
-class PullStockRequest extends ReturnStockRequest
+class PullStockRequest extends StockMovementRequest
 {
     public function authorize(): bool
     {
@@ -15,7 +16,10 @@ class PullStockRequest extends ReturnStockRequest
 
     public function rules(): array
     {
-        return [...parent::rules(), 'person_id' => ['required', 'integer', 'exists:people,id']];
+        return [...parent::rules(),
+            'location_id' => ['required', 'integer', Rule::exists('locations', 'id')->where('event_id', $this->route('event')->id)],
+            'person_id' => ['required', 'integer', 'exists:people,id'],
+        ];
     }
 
     public function after(): array
