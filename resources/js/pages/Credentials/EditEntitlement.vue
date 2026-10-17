@@ -1,4 +1,7 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
+import { returnFormOptions } from '../../lib/returnNavigation';
+import { BackLink } from '../../components/ui/back-link';
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Button } from '../../components/ui/button';
 import { Card, CardTitle } from '../../components/ui/card';
@@ -26,6 +29,8 @@ import { useFlashToast } from '../../composables/useFlashToast';
 import { useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+
+const { returnUrl } = useReturnNavigation();
 
 /* eslint-disable vue/prop-name-casing -- Inertia payload follows the locked server contract. */
 const props = defineProps({
@@ -138,14 +143,16 @@ const labelError = computed(
         '',
 );
 
-const submit = () => {
+const submit = (afterSave) => {
     if (!canEdit.value) return;
     form.put(
-        `/events/${props.event.id}/credentials/entitlements/${props.item.id}`,
-        {
+        returnUrl(
+            `/events/${props.event.id}/credentials/entitlements/${props.item.id}`,
+        ),
+        returnFormOptions(form, afterSave, {
             onError: (errors) =>
                 toastFormErrors(form, errors, { showError, showFormError }),
-        },
+        }),
     );
 };
 
@@ -173,7 +180,9 @@ const submitAdjustment = () => {
     }
 
     adjustForm.post(
-        `/events/${props.event.id}/credentials/entitlements/${props.item.id}/adjustments`,
+        returnUrl(
+            `/events/${props.event.id}/credentials/entitlements/${props.item.id}/adjustments`,
+        ),
         {
             preserveScroll: true,
             onError: (errors) =>
@@ -191,7 +200,9 @@ const submitAdjustment = () => {
 const destroyItem = () => {
     if (!canEdit.value) return;
     deleteForm.delete(
-        `/events/${props.event.id}/credentials/entitlements/${props.item.id}`,
+        returnUrl(
+            `/events/${props.event.id}/credentials/entitlements/${props.item.id}`,
+        ),
         {
             onError: (errors) =>
                 toastFormErrors(deleteForm, errors, {
@@ -254,6 +265,12 @@ const formatWhen = (value) =>
             class="container mx-auto"
             :class="canEdit ? 'pb-24' : ''"
         >
+            <BackLink
+                href="/credentials/entitlements"
+                :page="$t('credentials.entitlements.title')"
+                :form="form"
+                @save="submit"
+            />
             <div class="mb-5 flex items-start justify-between gap-4">
                 <div>
                     <h1 class="m-0 text-2xl font-bold tracking-tight">

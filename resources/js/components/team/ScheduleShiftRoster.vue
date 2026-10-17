@@ -1,4 +1,5 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
 import { computed, ref } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { Avatar } from '../ui/avatar';
@@ -14,6 +15,8 @@ import {
     scheduleShiftHref,
     scheduleShiftIsFilled,
 } from '../../lib/scheduleTimeline';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     shift: { type: Object, required: true },
@@ -33,12 +36,14 @@ const visible = computed(() =>
 const interval = computed(() => scheduleInterval(props.shift, props.date));
 const tokens = computed(() => labelTokens[props.shift.color ?? 'teal']);
 const href = computed(() =>
-    scheduleShiftHref(
-        props.shift.id,
-        props.date,
-        'schedule',
-        props.locationId,
-        'location_shifts',
+    returnUrl(
+        scheduleShiftHref(
+            props.shift.id,
+            props.date,
+            'schedule',
+            props.locationId,
+            'location_shifts',
+        ),
     ),
 );
 const hours = (value) =>

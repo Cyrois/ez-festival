@@ -1,4 +1,6 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
+import { useLandingState } from '../../composables/useLandingState';
 import { Button } from '../ui/button';
 import { Card, CardTitle } from '../ui/card';
 import { DataTable } from '../ui/data-table';
@@ -11,6 +13,8 @@ import { mealDateLabel, mealNextDayLabel } from '../../lib/mealDates';
 import { useForm } from '@inertiajs/vue3';
 import { computed, nextTick, ref } from 'vue';
 import { getActiveLanguage, trans } from 'laravel-vue-i18n';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     event: { type: Object, required: true },
@@ -61,7 +65,9 @@ const columns = computed(() => [
         render: { display: '#actionsCell' },
     },
 ]);
+const landingState = useLandingState('meals');
 const tableOptions = computed(() => ({
+    ...landingState,
     serverSide: true,
     searching: false,
     ordering: false,
@@ -124,7 +130,7 @@ defineExpose({ reload });
                 :aria-label="!canWrite ? disabledReason : undefined"
             >
                 <Button
-                    href="/meals/settings/meals/create"
+                    :href="returnUrl('/meals/settings/meals/create')"
                     :disabled="!canWrite"
                 >
                     <Icon
@@ -213,7 +219,11 @@ defineExpose({ reload });
                         "
                     >
                         <Button
-                            :href="`/meals/settings/meals/${rowData.id}/edit`"
+                            :href="
+                                returnUrl(
+                                    `/meals/settings/meals/${rowData.id}/edit`,
+                                )
+                            "
                             variant="outline-secondary"
                             size="icon"
                             :disabled="

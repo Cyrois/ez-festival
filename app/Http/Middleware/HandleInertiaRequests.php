@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Services\EventAccessService;
 use App\Services\FeatureFlagService;
 use App\Support\OrganizationContext;
+use App\Support\ReturnNavigation;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -48,6 +49,7 @@ class HandleInertiaRequests extends Middleware
 
         return [
             ...parent::share($request),
+            'returnNavigation' => fn () => ReturnNavigation::forRequest($request),
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'success_title' => fn () => $request->session()->get('success_title'),

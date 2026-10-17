@@ -1,4 +1,7 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
+import { returnFormOptions } from '../../lib/returnNavigation';
+import { BackLink } from '../../components/ui/back-link';
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -10,6 +13,8 @@ import { useFlashToast } from '../../composables/useFlashToast';
 import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     event: { type: Object, required: true },
@@ -38,8 +43,11 @@ const labelError = computed(
         )?.[1] ||
         '',
 );
-const submit = () =>
-    form.post(`/events/${props.event.id}/artists`, { onError: showFormError });
+const submit = (afterSave) =>
+    form.post(
+        returnUrl(`/events/${props.event.id}/artists`),
+        returnFormOptions(form, afterSave, { onError: showFormError }),
+    );
 </script>
 
 <template>
@@ -48,6 +56,12 @@ const submit = () =>
         :breadcrumbs="breadcrumbs"
     >
         <div class="container mx-auto">
+            <BackLink
+                href="/artists/advancing"
+                :page="$t('nav.artists')"
+                :form="form"
+                @save="submit"
+            />
             <div class="mb-6">
                 <h1 class="m-0 text-2xl font-bold tracking-tight">
                     {{ $t('artists.add') }}

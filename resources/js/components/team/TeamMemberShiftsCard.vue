@@ -1,4 +1,5 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
 import { computed, onUnmounted } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { getActiveLanguage, trans } from 'laravel-vue-i18n';
@@ -9,6 +10,8 @@ import { useFlashToast } from '../../composables/useFlashToast';
 import { scheduleDateLabel } from '../../lib/scheduleTimeline';
 import { memberShiftTimeLabel } from '../../lib/memberShifts';
 import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     memberId: { type: Number, required: true },
@@ -112,10 +115,8 @@ const options = computed(() => ({
     ],
     createdRow: (row, assignment) => {
         if (checkIn.value) return;
-        navigateDataTableRow(
-            row,
-            assignment,
-            (item) => `/team/shifts/${item.shift_id}`,
+        navigateDataTableRow(row, assignment, (item) =>
+            returnUrl(`/team/shifts/${item.shift_id}`),
         );
     },
     language: {
@@ -172,7 +173,7 @@ const options = computed(() => ({
                 </template>
                 <template #openCell="{ rowData }">
                     <Link
-                        :href="`/team/shifts/${rowData.shift_id}`"
+                        :href="returnUrl(`/team/shifts/${rowData.shift_id}`)"
                         class="inline-flex text-muted hover:text-primary"
                         :aria-label="
                             $t('data_table.open', {

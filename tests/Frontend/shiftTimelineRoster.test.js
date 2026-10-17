@@ -7,7 +7,8 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { JSDOM } from 'jsdom';
-import { parse, compileScript } from '@vue/compiler-sfc';
+import { compileScript } from '@vue/compiler-sfc';
+import { parseWithReturnNavigation as parse } from './helpers/returnNavigation.js';
 import * as timeline from '../../resources/js/lib/scheduleTimeline.js';
 import * as breakHelpers from '../../resources/js/lib/shiftBreaks.js';
 import * as slotHelpers from '../../resources/js/lib/shiftRoleSlots.js';
@@ -655,7 +656,7 @@ test('Edit hours with overlaps disabled keeps validation and staged hours withou
         assert.equal(requests.length, 0);
         assert.doesNotMatch(document.body.textContent, /Other|Overlap|preview_loading|preview_failed|preview_retry/);
         document.querySelector('#save').click();
-        assert.deepEqual(changes[0], { hours_mode: 'custom', starts_at: form.starts_at, ends_at: form.ends_at, breaks: [], overlaps: [], other_shifts: [] });
+        assert.deepEqual(changes[0], { hours_mode: 'custom', starts_at: form.starts_at, ends_at: form.ends_at, breaks: [], overlaps: [], other_shifts: [], is_supervisor: false });
         form.ends_at = '2026-10-03T01:00';
         await nextTick();
         assert.equal(document.querySelector('#save').disabled, true);

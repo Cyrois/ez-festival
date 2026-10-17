@@ -1,4 +1,5 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -13,6 +14,8 @@ import { Link, router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 import { formColumns } from './formColumns';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     forms: { type: Object, required: true },
@@ -45,7 +48,7 @@ const tableOptions = computed(() => ({
     },
     columnDefs: [{ targets: 3, className: 'text-right' }],
     createdRow: (row, teamForm) =>
-        navigateDataTableRow(row, teamForm, (item) => item.edit_url),
+        navigateDataTableRow(row, teamForm, (item) => returnUrl(item.edit_url)),
 }));
 
 const filterOptions = computed(() => [
@@ -95,7 +98,7 @@ const copyLink = async (url) => {
                     </p>
                 </div>
                 <Button
-                    href="/team/forms/create"
+                    :href="returnUrl('/team/forms/create')"
                     :disabled="!canWrite"
                     :title="
                         !canWrite ? $t('permissions.no_add.forms') : undefined
@@ -160,7 +163,7 @@ const copyLink = async (url) => {
                         class="inline-flex"
                     >
                         <Button
-                            :href="rowData.preview_url"
+                            :href="returnUrl(rowData.preview_url)"
                             target="_blank"
                             rel="noopener noreferrer"
                             variant="ghost"
@@ -172,7 +175,7 @@ const copyLink = async (url) => {
                 </template>
                 <template #openCell="{ rowData }">
                     <Link
-                        :href="rowData.edit_url"
+                        :href="returnUrl(rowData.edit_url)"
                         class="inline-flex text-muted hover:text-primary"
                         :aria-label="
                             $t('data_table.open', { name: rowData.name })
@@ -199,7 +202,7 @@ const copyLink = async (url) => {
             >
                 <Button
                     v-if="!search && !status"
-                    href="/team/forms/create"
+                    :href="returnUrl('/team/forms/create')"
                     :disabled="!canWrite"
                     :title="
                         !canWrite ? $t('permissions.no_add.forms') : undefined

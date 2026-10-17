@@ -1,4 +1,6 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
+import { useLandingState } from '../../composables/useLandingState';
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Avatar } from '../../components/ui/avatar';
 import { Badge } from '../../components/ui/badge';
@@ -13,6 +15,8 @@ import { Link } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 import { vendorColumns } from './vendorColumns';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     vendors: { type: Object, required: true },
@@ -59,7 +63,21 @@ const typeOptions = computed(() => [
     },
     ...props.vendorTypes.map((type) => ({ value: type.id, title: type.name })),
 ]);
+const landingState = useLandingState(
+    'vendors',
+    { search, selectedType },
+    () => {
+        table.value?.filterRows(
+            'vendorType',
+            selectedType.value === ''
+                ? null
+                : (vendor) => vendor.vendor_type_id === selectedType.value,
+            false,
+        );
+    },
+);
 const options = computed(() => ({
+    ...landingState,
     lengthChange: false,
     layout: {
         topStart: null,
@@ -69,10 +87,8 @@ const options = computed(() => ({
     order: [[0, 'asc']],
     columnDefs: [{ targets: 3, className: 'text-right' }],
     createdRow: (row, vendor) =>
-        navigateDataTableRow(
-            row,
-            vendor,
-            (item) => `/vendors/engagements/${item.id}`,
+        navigateDataTableRow(row, vendor, (item) =>
+            returnUrl(`/vendors/engagements/${item.id}`),
         ),
     paging: false,
     language: {
@@ -111,7 +127,7 @@ watch(selectedType, (value) => {
                 </div>
                 <Button
                     v-if="event && !event.locked"
-                    href="/vendors/create"
+                    :href="returnUrl('/vendors/create')"
                     :disabled="
                         event.locked || !$page.props.permissions['vendors.edit']
                     "
@@ -193,7 +209,11 @@ watch(selectedType, (value) => {
                                 size="sm"
                             />
                             <Link
-                                :href="`/vendors/engagements/${vendor.id}`"
+                                :href="
+                                    returnUrl(
+                                        `/vendors/engagements/${vendor.id}`,
+                                    )
+                                "
                                 class="font-semibold text-charcoal"
                             >
                                 {{ vendor.name }}
@@ -235,7 +255,11 @@ watch(selectedType, (value) => {
                     >
                         <template #vendorCell="{ rowData }">
                             <Link
-                                :href="`/vendors/engagements/${rowData.id}`"
+                                :href="
+                                    returnUrl(
+                                        `/vendors/engagements/${rowData.id}`,
+                                    )
+                                "
                                 class="flex items-center gap-3 font-semibold text-charcoal no-underline hover:text-primary hover:underline"
                             >
                                 <Avatar
@@ -260,7 +284,11 @@ watch(selectedType, (value) => {
                         </template>
                         <template #openCell="{ rowData }">
                             <Link
-                                :href="`/vendors/engagements/${rowData.id}`"
+                                :href="
+                                    returnUrl(
+                                        `/vendors/engagements/${rowData.id}`,
+                                    )
+                                "
                                 class="inline-flex text-muted hover:text-primary"
                                 :aria-label="
                                     $t('data_table.open', {

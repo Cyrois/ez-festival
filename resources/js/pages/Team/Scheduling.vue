@@ -1,4 +1,6 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
+import { useLandingState } from '../../composables/useLandingState';
 import { Button } from '../../components/ui/button';
 import { DataTable } from '../../components/ui/data-table';
 import { EmptyState } from '../../components/ui/empty-state';
@@ -24,6 +26,8 @@ import {
 } from '../../lib/scheduleTimeline';
 import { trans } from 'laravel-vue-i18n';
 import { shiftColumns } from './shiftColumns';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     event: { type: Object, required: true },
@@ -111,18 +115,22 @@ watch(
 const createShift = (selection) => {
     if (!canWrite.value) return;
     router.get(
-        scheduleCreateHref(
-            selectedDate.value,
-            'schedule',
-            selection,
-            selectedLocation.value,
-            scheduleView.value,
+        returnUrl(
+            scheduleCreateHref(
+                selectedDate.value,
+                'schedule',
+                selection,
+                selectedLocation.value,
+                scheduleView.value,
+            ),
         ),
     );
 };
 const canWrite = computed(() => props.canManage && !props.event.is_locked);
 const columns = computed(() => shiftColumns(trans));
+const landingState = useLandingState('scheduling');
 const tableOptions = computed(() => ({
+    ...landingState,
     lengthChange: false,
     order: [[2, 'asc']],
     pageLength: 25,
@@ -133,12 +141,14 @@ const tableOptions = computed(() => ({
     ],
     createdRow: (row, shift) =>
         navigateDataTableRow(row, shift, (item) =>
-            scheduleShiftHref(
-                item.id,
-                selectedDate.value,
-                'list',
-                selectedLocation.value,
-                scheduleView.value,
+            returnUrl(
+                scheduleShiftHref(
+                    item.id,
+                    selectedDate.value,
+                    'list',
+                    selectedLocation.value,
+                    scheduleView.value,
+                ),
             ),
         ),
     language: {
@@ -204,12 +214,14 @@ const formatDateTime = (value) =>
                     class="w-full sm:w-auto"
                     :disabled="!canWrite || locations.length === 0"
                     :href="
-                        scheduleCreateHref(
-                            selectedDate,
-                            activeTab,
-                            null,
-                            selectedLocation,
-                            scheduleView,
+                        returnUrl(
+                            scheduleCreateHref(
+                                selectedDate,
+                                activeTab,
+                                null,
+                                selectedLocation,
+                                scheduleView,
+                            ),
                         )
                     "
                 >
@@ -350,12 +362,14 @@ const formatDateTime = (value) =>
                         <template #nameCell="{ rowData }">
                             <Link
                                 :href="
-                                    scheduleShiftHref(
-                                        rowData.id,
-                                        selectedDate,
-                                        'list',
-                                        selectedLocation,
-                                        scheduleView,
+                                    returnUrl(
+                                        scheduleShiftHref(
+                                            rowData.id,
+                                            selectedDate,
+                                            'list',
+                                            selectedLocation,
+                                            scheduleView,
+                                        ),
                                     )
                                 "
                                 class="cursor-pointer font-semibold text-charcoal no-underline hover:text-primary hover:underline"
@@ -420,12 +434,14 @@ const formatDateTime = (value) =>
                         <template #openCell="{ rowData }">
                             <Link
                                 :href="
-                                    scheduleShiftHref(
-                                        rowData.id,
-                                        selectedDate,
-                                        'list',
-                                        selectedLocation,
-                                        scheduleView,
+                                    returnUrl(
+                                        scheduleShiftHref(
+                                            rowData.id,
+                                            selectedDate,
+                                            'list',
+                                            selectedLocation,
+                                            scheduleView,
+                                        ),
                                     )
                                 "
                                 class="inline-flex text-muted hover:text-primary"

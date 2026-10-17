@@ -1,4 +1,7 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
+import { returnFormOptions } from '../../lib/returnNavigation';
+import { BackLink } from '../../components/ui/back-link';
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Button } from '../../components/ui/button';
 import { Card, CardTitle } from '../../components/ui/card';
@@ -15,6 +18,8 @@ import { useFlashToast } from '../../composables/useFlashToast';
 import { useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     event: { type: Object, required: true },
@@ -63,7 +68,9 @@ const entitlementOptions = computed(() =>
 const destroyPass = () => {
     if (!props.pass || !props.canWrite) return;
     deleteForm.delete(
-        `/events/${props.event.id}/credentials/passes/${props.pass.id}`,
+        returnUrl(
+            `/events/${props.event.id}/credentials/passes/${props.pass.id}`,
+        ),
         {
             onError: (errors) =>
                 toastFormErrors(deleteForm, errors, {
@@ -102,22 +109,27 @@ const removeEntitlement = (index) => {
     form.entitlement_item_ids.splice(index, 1);
 };
 
-const submit = () => {
+const submit = (afterSave) => {
     if (!props.canWrite) return;
-    const options = {
+    const options = returnFormOptions(form, afterSave, {
         onError: (errors) =>
             toastFormErrors(form, errors, { showError, showFormError }),
-    };
+    });
 
     if (isEditing.value) {
         form.put(
-            `/events/${props.event.id}/credentials/passes/${props.pass.id}`,
+            returnUrl(
+                `/events/${props.event.id}/credentials/passes/${props.pass.id}`,
+            ),
             options,
         );
         return;
     }
 
-    form.post(`/events/${props.event.id}/credentials/passes`, options);
+    form.post(
+        returnUrl(`/events/${props.event.id}/credentials/passes`),
+        options,
+    );
 };
 </script>
 
@@ -128,6 +140,12 @@ const submit = () => {
         compact-mobile-header
     >
         <div class="container mx-auto">
+            <BackLink
+                href="/credentials/passes"
+                :page="$t('credentials.passes.title')"
+                :form="form"
+                @save="submit"
+            />
             <div class="mb-6 flex items-start justify-between gap-4">
                 <div>
                     <h1 class="m-0 text-2xl font-bold tracking-tight">

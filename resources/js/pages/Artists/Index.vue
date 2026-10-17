@@ -1,4 +1,5 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
 import AppLayout from '../../layouts/AppLayout.vue';
 import AdvancementViewToggle from '../../components/advancement/AdvancementViewToggle.vue';
 import ArtistBoardCard from '../../components/artists/ArtistBoardCard.vue';
@@ -19,6 +20,8 @@ import { Link, usePage } from '@inertiajs/vue3';
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 import { artistColumns } from './artistColumns';
+
+const { returnUrl } = useReturnNavigation();
 
 const page = usePage();
 const props = defineProps({
@@ -59,10 +62,8 @@ const listOptions = computed(() => ({
     },
     columnDefs: [{ targets: 5, className: 'text-right' }],
     createdRow: (row, engagement) =>
-        navigateDataTableRow(
-            row,
-            engagement,
-            (item) => `/artists/engagements/${item.id}`,
+        navigateDataTableRow(row, engagement, (item) =>
+            returnUrl(`/artists/engagements/${item.id}`),
         ),
     language: {
         emptyTable: trans(
@@ -151,7 +152,7 @@ const updateViewMode = (value) => {
                 </div>
                 <Button
                     v-if="event && !event.locked"
-                    href="/artists/create"
+                    :href="returnUrl('/artists/create')"
                     :disabled="
                         event.locked || !$page.props.permissions['artists.edit']
                     "
@@ -304,7 +305,11 @@ const updateViewMode = (value) => {
                                     />
                                     <div class="min-w-0">
                                         <Link
-                                            :href="`/artists/engagements/${engagement.id}`"
+                                            :href="
+                                                returnUrl(
+                                                    `/artists/engagements/${engagement.id}`,
+                                                )
+                                            "
                                             class="font-semibold break-words text-charcoal no-underline hover:text-primary hover:underline"
                                         >
                                             {{ engagement.name }}
@@ -376,7 +381,11 @@ const updateViewMode = (value) => {
                         >
                             <template #artistCell="{ rowData }">
                                 <Link
-                                    :href="`/artists/engagements/${rowData.id}`"
+                                    :href="
+                                        returnUrl(
+                                            `/artists/engagements/${rowData.id}`,
+                                        )
+                                    "
                                     class="flex min-w-56 items-center gap-3 font-semibold text-charcoal no-underline hover:text-primary hover:underline"
                                 >
                                     <Avatar
@@ -426,7 +435,11 @@ const updateViewMode = (value) => {
                             </template>
                             <template #openCell="{ rowData }">
                                 <Link
-                                    :href="`/artists/engagements/${rowData.id}`"
+                                    :href="
+                                        returnUrl(
+                                            `/artists/engagements/${rowData.id}`,
+                                        )
+                                    "
                                     class="inline-flex text-muted hover:text-primary"
                                     :aria-label="
                                         $t('data_table.open', {

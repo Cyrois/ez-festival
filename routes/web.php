@@ -33,6 +33,7 @@ use App\Http\Controllers\Kitchen\MealClaimController;
 use App\Http\Controllers\Kitchen\MealController;
 use App\Http\Controllers\Kitchen\MealOverrideController;
 use App\Http\Controllers\Kitchen\MealTypeController;
+use App\Http\Controllers\LegacyArtistCheckInController;
 use App\Http\Controllers\PassAssignmentController;
 use App\Http\Controllers\PatronController;
 use App\Http\Controllers\Reports\MealReportExportController;
@@ -75,6 +76,7 @@ use App\Http\Controllers\UiKitController;
 use App\Http\Controllers\VendorCheckInController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\VendorEngagementPersonController;
+use App\Http\Middleware\HandleReturnNavigation;
 use App\Models\ExpectedEntitlement;
 use App\Support\PostLoginRedirect;
 use App\Support\RoutePermissions;
@@ -116,7 +118,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::get('ui', UiKitController::class)->name('ui');
     }
 
-    Route::middleware(['organization', 'setup.complete', 'login.access', 'event.access'])->group(function () {
+    Route::middleware(['organization', 'setup.complete', 'login.access', 'event.access', HandleReturnNavigation::class])->group(function () {
         Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('reports/meals/export', [MealReportExportController::class, 'index'])->name('reports.meals.export');
         Route::get('meals', [KitchenController::class, 'index'])->name('meals.index');
@@ -181,7 +183,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
 
         Route::get('artists/advancing', [ArtistController::class, 'index'])->name('artists.index');
         Route::redirect('artists/check-in', '/check-in')->name('artists.check-in');
-        Route::redirect('artists/check-in/{engagement}', '/check-in/artists/{engagement}')->name('artists.check-in.show');
+        Route::get('artists/check-in/{engagement}', [LegacyArtistCheckInController::class, 'show'])->name('artists.check-in.show');
         Route::post('artists/check-in/expected-entitlements/{expectedEntitlement}/issues', function (ExpectedEntitlement $expectedEntitlement) {
             return redirect()->route('check-in.issues.store', $expectedEntitlement, 307);
         })->name('artists.check-in.issues.store');

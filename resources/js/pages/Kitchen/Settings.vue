@@ -1,4 +1,5 @@
 <script setup>
+import { useLandingState } from '../../composables/useLandingState';
 import AppLayout from '../../layouts/AppLayout.vue';
 import MealsCard from '../../components/kitchen/MealsCard.vue';
 import { Button } from '../../components/ui/button';
@@ -68,7 +69,11 @@ const columns = computed(() => [
         render: { display: '#actionsCell' },
     },
 ]);
+const landingState = useLandingState('meal-types', { search }, () =>
+    table.value?.search(search.value, false),
+);
 const tableOptions = computed(() => ({
+    ...landingState,
     serverSide: true,
     lengthChange: false,
     pageLength: 25,

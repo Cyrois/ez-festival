@@ -1,4 +1,5 @@
 <script setup>
+import { BackLink } from '../../components/ui/back-link';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { CustomDropdown } from '../../components/ui/custom-dropdown';
@@ -71,6 +72,11 @@ const submit = () => {
             >
                 {{ $t('team.forms.public.preview_notice') }}
             </div>
+            <BackLink
+                v-if="preview"
+                href="/team/forms"
+                :page="$t('nav.team.forms')"
+            />
             <header class="text-center">
                 <div
                     class="mx-auto mb-4 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-sm font-bold text-white"

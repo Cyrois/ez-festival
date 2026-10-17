@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '../../layouts/AppLayout.vue';
+import { BackLink } from '../../components/ui/back-link';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -69,6 +70,10 @@ const readOnlyMessage = computed(() => {
             {{ readOnlyMessage }}
         </div>
 
+        <BackLink
+            href="/events"
+            :page="$t('events.title')"
+        />
         <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
             <div>
                 <div class="mb-2 flex flex-wrap items-center gap-2">
@@ -97,14 +102,6 @@ const readOnlyMessage = computed(() => {
                         {{ $t('events.status.past') }}
                     </Badge>
                 </div>
-                <Button
-                    href="/events"
-                    variant="ghost"
-                    size="sm"
-                    class="px-0"
-                >
-                    {{ $t('events.back_to_list') }}
-                </Button>
             </div>
             <Button
                 v-if="$page.props.auth.user.is_admin && !event.is_locked"

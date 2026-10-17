@@ -1,4 +1,5 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
 import { computed, onMounted, onUnmounted, ref, useId } from 'vue';
 import { CardTitle } from '../ui/card';
 import { Avatar } from '../ui/avatar';
@@ -35,6 +36,8 @@ import { wallMinutes } from '../../lib/shiftBreaks';
 import { mealsForAssignment } from '../../lib/shiftMeals';
 import { translatedPersonalBreak } from '../../lib/personalBreaks';
 import { trans } from 'laravel-vue-i18n';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     shift: { type: Object, required: true },
@@ -543,7 +546,9 @@ const resizeKey = (event, assignment, edge) => {
                                 <div class="flex items-center gap-1.5">
                                     <a
                                         v-if="row.assignment?.member_url"
-                                        :href="row.assignment.member_url"
+                                        :href="
+                                            returnUrl(row.assignment.member_url)
+                                        "
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         class="cursor-pointer truncate text-sm font-semibold hover:text-primary hover:underline focus-visible:text-primary focus-visible:underline"

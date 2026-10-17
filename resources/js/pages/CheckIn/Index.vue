@@ -1,4 +1,6 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
+import { useLandingState } from '../../composables/useLandingState';
 import HiddenPersonalInfo from '../../components/people/HiddenPersonalInfo.vue';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
@@ -14,6 +16,8 @@ import { Tooltip } from '../../components/ui/tooltip';
 import { DataTable } from '../../components/ui/data-table';
 import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
 import { checkInQuery } from './filters';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     passes: { type: Array, required: true },
@@ -40,7 +44,9 @@ const breadcrumbs = computed(() => [
     { label: trans('check_in.title') },
 ]);
 const checkInHref = (person) =>
-    `/check-in/${person.type}s/${person.engagement_id}?person=${person.person_id}`;
+    returnUrl(
+        `/check-in/${person.type}s/${person.engagement_id}?person=${person.person_id}`,
+    );
 const columns = computed(() => [
     {
         data: 'name',
@@ -67,7 +73,9 @@ const columns = computed(() => [
         render: { display: '#openCell' },
     },
 ]);
+const landingState = useLandingState('check-in');
 const tableOptions = computed(() => ({
+    ...landingState,
     serverSide: true,
     ordering: false,
     lengthChange: false,

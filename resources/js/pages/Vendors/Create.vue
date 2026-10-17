@@ -1,4 +1,7 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
+import { returnFormOptions } from '../../lib/returnNavigation';
+import { BackLink } from '../../components/ui/back-link';
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Button } from '../../components/ui/button';
 import { Card, CardTitle } from '../../components/ui/card';
@@ -11,6 +14,8 @@ import { useFlashToast } from '../../composables/useFlashToast';
 import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     event: { type: Object, required: true },
@@ -36,8 +41,11 @@ const breadcrumbs = computed(() => [
     { label: trans('vendors.add') },
 ]);
 
-const submit = () =>
-    form.post(`/events/${props.event.id}/vendors`, { onError: showFormError });
+const submit = (afterSave) =>
+    form.post(
+        returnUrl(`/events/${props.event.id}/vendors`),
+        returnFormOptions(form, afterSave, { onError: showFormError }),
+    );
 </script>
 
 <template>
@@ -46,6 +54,12 @@ const submit = () =>
         :breadcrumbs="breadcrumbs"
     >
         <div class="w-full">
+            <BackLink
+                href="/vendors/advancing"
+                :page="$t('vendors.title')"
+                :form="form"
+                @save="submit"
+            />
             <div class="mb-6">
                 <h1 class="m-0 text-2xl font-bold tracking-tight">
                     {{ $t('vendors.add') }}

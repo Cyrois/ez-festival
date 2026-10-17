@@ -1,4 +1,6 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
+import { useLandingState } from '../../composables/useLandingState';
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Button } from '../../components/ui/button';
 import { DataTable } from '../../components/ui/data-table';
@@ -17,6 +19,8 @@ import { Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 import { entitlementColumns } from './entitlementColumns';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     items: { type: Array, default: () => [] },
@@ -65,7 +69,18 @@ const createLabelError = computed(
         '',
 );
 const columns = computed(() => entitlementColumns(trans));
+const landingState = useLandingState(
+    'entitlements',
+    { search, selectedLabelIds },
+    () =>
+        table.value?.filterRows(
+            'entitlementFilters',
+            hasFilters.value ? matchesFilters : null,
+            false,
+        ),
+);
 const options = computed(() => ({
+    ...landingState,
     lengthChange: false,
     pageLength: 25,
     order: [[0, 'asc']],
@@ -78,10 +93,8 @@ const options = computed(() => ({
         { targets: 3, className: 'text-right' },
     ],
     createdRow: (row, item) =>
-        navigateDataTableRow(
-            row,
-            item,
-            (record) => `/credentials/entitlements/${record.id}`,
+        navigateDataTableRow(row, item, (record) =>
+            returnUrl(`/credentials/entitlements/${record.id}`),
         ),
     language: {
         emptyTable: trans('credentials.entitlements.items.empty'),
@@ -252,7 +265,11 @@ const createItem = () => {
                     <template #actionsCell="{ rowData }">
                         <div class="flex items-center justify-end gap-2">
                             <Link
-                                :href="`/credentials/entitlements/${rowData.id}`"
+                                :href="
+                                    returnUrl(
+                                        `/credentials/entitlements/${rowData.id}`,
+                                    )
+                                "
                                 class="inline-flex text-muted hover:text-primary"
                                 :aria-label="
                                     $t('data_table.open', {

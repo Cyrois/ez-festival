@@ -1,11 +1,13 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
 import SettingsLayout from '../../layouts/SettingsLayout.vue';
-import { Button } from '../ui/button';
-import { Icon } from '../ui/icon';
+import { BackLink } from '../ui/back-link';
 import { Tabs, TabList, Tab } from '../ui/tabs';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     event: {
@@ -20,7 +22,9 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    form: { type: Object, default: null },
 });
+const emit = defineEmits(['save']);
 
 const page = usePage();
 const isAdmin = computed(() => page.props.auth.user?.is_admin === true);
@@ -57,7 +61,7 @@ const onTabChange = (value) => {
     if (!href || value === props.tab) {
         return;
     }
-    router.get(href, {}, { preserveScroll: true });
+    router.get(returnUrl(href), {}, { preserveScroll: true });
 };
 </script>
 
@@ -67,20 +71,14 @@ const onTabChange = (value) => {
         :breadcrumbs="breadcrumbs"
     >
         <div class="mb-2">
-            <Button
+            <BackLink
                 v-if="isAdmin"
                 href="/settings/events"
-                variant="ghost"
-                size="sm"
-                class="mb-3 px-2.5"
-            >
-                <Icon
-                    :name="['fas', 'arrow-left']"
-                    size="sm"
-                    class="mr-1.5"
-                />
-                {{ $t('settings.events.back') }}
-            </Button>
+                :page="$t('settings.events.title')"
+                restrict-context
+                :form="form"
+                @save="emit('save', $event)"
+            />
             <h1 class="m-0 text-2xl font-bold tracking-tight">
                 {{ event.name }}
             </h1>
