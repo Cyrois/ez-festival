@@ -33,7 +33,6 @@ use App\Http\Controllers\Kitchen\MealClaimController;
 use App\Http\Controllers\Kitchen\MealController;
 use App\Http\Controllers\Kitchen\MealOverrideController;
 use App\Http\Controllers\Kitchen\MealTypeController;
-use App\Http\Controllers\LegacyArtistCheckInController;
 use App\Http\Controllers\PassAssignmentController;
 use App\Http\Controllers\PatronController;
 use App\Http\Controllers\Reports\MealReportExportController;
@@ -77,7 +76,6 @@ use App\Http\Controllers\VendorCheckInController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\VendorEngagementPersonController;
 use App\Http\Middleware\HandleReturnNavigation;
-use App\Models\ExpectedEntitlement;
 use App\Support\PostLoginRedirect;
 use App\Support\RoutePermissions;
 use Illuminate\Support\Facades\Route;
@@ -182,11 +180,6 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             ->middleware('event.writable')->name('check-in.issues.store');
 
         Route::get('artists/advancing', [ArtistController::class, 'index'])->name('artists.index');
-        Route::redirect('artists/check-in', '/check-in')->name('artists.check-in');
-        Route::get('artists/check-in/{engagement}', [LegacyArtistCheckInController::class, 'show'])->name('artists.check-in.show');
-        Route::post('artists/check-in/expected-entitlements/{expectedEntitlement}/issues', function (ExpectedEntitlement $expectedEntitlement) {
-            return redirect()->route('check-in.issues.store', $expectedEntitlement, 307);
-        })->name('artists.check-in.issues.store');
         Route::get('artists/create', [ArtistController::class, 'create'])->name('artists.create');
         Route::get('artists/engagements/{engagement}', [ArtistController::class, 'view'])->name('artists.view');
         Route::put('artists/engagements/{engagement}', [ArtistController::class, 'update'])
@@ -288,7 +281,6 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
 
         Route::redirect('vendors', '/vendors/advancing')->name('vendors.index');
         Route::get('vendors/advancing', [VendorController::class, 'index'])->name('vendors.advancing');
-        Route::redirect('vendors/check-in', '/check-in?type=vendor')->name('vendors.check-in');
         Route::get('vendors/engagements/{engagement}', [VendorController::class, 'view'])->name('vendors.view');
         Route::put('vendors/engagements/{engagement}', [VendorController::class, 'update'])
             ->middleware('event.writable')->name('vendors.update');

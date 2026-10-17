@@ -29,9 +29,9 @@ const navigation = computed(() =>
         v-bind="$attrs"
         :href="navigation?.href ?? href"
         :disabled="form?.processing"
-        variant="ghost"
+        variant="link"
         size="sm"
-        class="mb-3 self-start px-2.5"
+        class="mb-3 self-start px-0"
         data-unsaved-navigation
     >
         <Icon

@@ -77,15 +77,6 @@ class ReturnNavigationTest extends TestCase
         $this->get(route('team.forms.public.show', $form->slug))->assertInertia(fn (Assert $page) => $page->where('preview', false)->where('returnNavigation', null));
     }
 
-    public function test_legacy_check_in_retains_person_and_return_context(): void
-    {
-        $artist = ArtistEngagement::factory()->for($this->event)->create();
-        $origin = '/check-in?type=artist&restore=1';
-        $person = Person::create(['name' => 'Contact', 'email' => 'contact@example.test']);
-        $this->get(route('artists.check-in.show', ['engagement' => $artist, 'person' => $person->id, 'return_to' => $origin]))
-            ->assertRedirect(route('check-in.show', ['engagement' => $artist, 'person' => $person->id, 'return_to' => $origin]));
-    }
-
     public function test_unsafe_context_is_rejected_by_the_form_request_before_a_write(): void
     {
         foreach (['https://example.test/check-in', '//example.test/check-in', '/check-in#x', '/check-in?return_to=/settings/team', '/check-in?event_id=3', '/check-in?search[x][y]=value', '/settings/team/1', ['/check-in']] as $origin) {
