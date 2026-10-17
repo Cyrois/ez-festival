@@ -66,38 +66,44 @@ class PostgresWriteConcurrencyTest extends TestCase
     public function test_consumption_and_stock_adjustment_serialize_without_lost_inventory(): void
     {
         [$event, $user, $engagement] = $this->context();
+        $this->grantAdminAccess($user);
+        $engagement->people()->attach($user->person_id);
         $location = $event->locations()->create(['name' => 'Gate']);
         $item = $event->entitlementItems()->create(['name' => 'Wristband']);
-        $this->seedStock($item, $location, 2);
+        $this->seedHeldStock($item, $location, 2, $user);
         $pass = $event->passTypes()->create(['name' => 'Artist']);
-        $assignment = $engagement->passAssignments()->create(['pass_type_id' => $pass->id]);
+        $assignment = $engagement->passAssignments()->create(['pass_type_id' => $pass->id, 'person_id' => $user->person_id]);
         $expected = $assignment->expectedEntitlements()->create(['entitlement_item_id' => $item->id]);
         $results = $this->concurrently(
-            fn () => app(EntitlementConsumeService::class)->consume($expected, $user, $location->id),
+            fn () => app(EntitlementConsumeService::class)->consume($expected, $user),
             fn () => app(EntitlementItemService::class)->adjust($item, $location->id, 3, null, $user),
         );
         $this->assertSame(['committed', 'committed'], array_column($results, 'status'), json_encode($results));
         $this->assertSame('events', $results[1]['first_lock']);
-        $this->assertSame(4, app(EntitlementItemService::class)->balanceForLocation($item, $location->id));
+        $this->assertSame(3, app(EntitlementItemService::class)->balanceForLocation($item, $location->id));
         $this->assertSame(1, $expected->issuedEntitlement()->count());
+        app(EventService::class)->delete($event);
     }
 
     public function test_duplicate_consumption_is_a_controlled_conflict(): void
     {
         [$event, $user, $engagement] = $this->context();
+        $this->grantAdminAccess($user);
+        $engagement->people()->attach($user->person_id);
         $location = $event->locations()->create(['name' => 'Gate']);
         $item = $event->entitlementItems()->create(['name' => 'Wristband']);
-        $this->seedStock($item, $location, 2);
+        $this->seedHeldStock($item, $location, 2, $user);
         $pass = $event->passTypes()->create(['name' => 'Artist']);
-        $assignment = $engagement->passAssignments()->create(['pass_type_id' => $pass->id]);
+        $assignment = $engagement->passAssignments()->create(['pass_type_id' => $pass->id, 'person_id' => $user->person_id]);
         $expected = $assignment->expectedEntitlements()->create(['entitlement_item_id' => $item->id]);
         $results = $this->concurrently(
-            fn () => app(EntitlementConsumeService::class)->consume($expected, $user, $location->id),
-            fn () => app(EntitlementConsumeService::class)->consume($expected, $user, $location->id),
+            fn () => app(EntitlementConsumeService::class)->consume($expected, $user),
+            fn () => app(EntitlementConsumeService::class)->consume($expected, $user),
         );
         $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
         $this->assertSame(1, $expected->issuedEntitlement()->count());
-        $this->assertSame(1, app(EntitlementItemService::class)->balanceForLocation($item, $location->id));
+        $this->assertSame(0, app(EntitlementItemService::class)->balanceForLocation($item, $location->id));
+        app(EventService::class)->delete($event);
     }
 
     public function test_settings_update_observes_an_event_lock_committed_after_model_loading(): void
@@ -552,17 +558,17 @@ class PostgresWriteConcurrencyTest extends TestCase
         $pass = $event->passTypes()->create(['name' => 'Crew']);
         $item = $event->entitlementItems()->create(['name' => 'Crew wristband']);
         $location = $event->locations()->firstOrFail();
-        $this->seedStock($item, $location, 2);
+        $this->seedHeldStock($item, $location, 2, $user);
         $assignment = $member->passAssignments()->create(['pass_type_id' => $pass->id, 'person_id' => $member->person_id]);
         $expected = $assignment->expectedEntitlements()->create(['entitlement_item_id' => $item->id]);
         $expected->load('passAssignment.teamEngagement');
         $results = $this->concurrently(
             fn () => app(TeamEngagementService::class)->updateStatus($member, 'reviewing'),
-            fn () => app(EntitlementConsumeService::class)->consume($expected, $user, $location->id),
+            fn () => app(EntitlementConsumeService::class)->consume($expected, $user),
         );
         $this->assertSame(['committed', 'http_404'], array_column($results, 'status'), json_encode($results));
         $this->assertSame(0, $expected->issuedEntitlement()->count());
-        $this->assertSame(2, app(EntitlementItemService::class)->balanceForLocation($item, $location->id));
+        $this->assertSame(0, app(EntitlementItemService::class)->balanceForLocation($item, $location->id));
         app(EventService::class)->delete($event);
     }
 
@@ -590,20 +596,22 @@ class PostgresWriteConcurrencyTest extends TestCase
         $this->assertSame(1, $stocks->total($item));
     }
 
-    public function test_two_entitlements_compete_for_the_last_location_unit(): void
+    public function test_two_entitlements_compete_for_the_last_person_unit(): void
     {
         [$event, $actor, $engagement] = $this->context();
+        $this->grantAdminAccess($actor);
+        $engagement->people()->attach($actor->person_id);
         $location = $event->locations()->create(['name' => 'Gate']);
         $item = $event->entitlementItems()->create(['name' => 'Last wristband']);
-        $this->seedStock($item, $location, 1, $actor);
+        $this->seedHeldStock($item, $location, 1, $actor);
         $pass = $event->passTypes()->create(['name' => 'Artist']);
-        $assignment = $engagement->passAssignments()->create(['pass_type_id' => $pass->id]);
+        $assignment = $engagement->passAssignments()->create(['pass_type_id' => $pass->id, 'person_id' => $actor->person_id]);
         $first = $assignment->expectedEntitlements()->create(['entitlement_item_id' => $item->id]);
         $second = $assignment->expectedEntitlements()->create(['entitlement_item_id' => $item->id]);
 
         $results = $this->concurrently(
-            fn () => app(EntitlementConsumeService::class)->consume($first, $actor, $location->id),
-            fn () => app(EntitlementConsumeService::class)->consume($second, $actor, $location->id),
+            fn () => app(EntitlementConsumeService::class)->consume($first, $actor),
+            fn () => app(EntitlementConsumeService::class)->consume($second, $actor),
         );
 
         $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
@@ -613,6 +621,7 @@ class PostgresWriteConcurrencyTest extends TestCase
         $this->assertSame('expected', $second->fresh()->status);
         $this->assertSame(1, $item->movements()->where('type', StockMovementType::GiveOut)->count());
         $this->assertSame(0, app(StockMovementService::class)->total($item));
+        app(EventService::class)->delete($event);
     }
 
     public function test_concurrent_first_use_creates_only_one_person_holder(): void
@@ -624,6 +633,59 @@ class PostgresWriteConcurrencyTest extends TestCase
         );
         $this->assertSame(['committed', 'committed'], array_column($results, 'status'), json_encode($results));
         $this->assertSame(1, StockHolder::where('event_id', $event->id)->where('person_id', $actor->person_id)->count());
+    }
+
+    public function test_consume_and_return_competing_for_last_unit_are_atomic_in_both_orders(): void
+    {
+        foreach ([true, false] as $consumeFirst) {
+            [$event, $actor, $engagement] = $this->context();
+            $this->grantAdminAccess($actor);
+            $engagement->people()->attach($actor->person_id);
+            $location = $event->locations()->create(['name' => 'Gate']);
+            $item = $event->entitlementItems()->create(['name' => 'Last wristband']);
+            $holder = $this->seedHeldStock($item, $location, 1, $actor);
+            $pass = $event->passTypes()->create(['name' => 'Artist']);
+            $assignment = $engagement->passAssignments()->create(['pass_type_id' => $pass->id, 'person_id' => $actor->person_id]);
+            $expected = $assignment->expectedEntitlements()->create(['entitlement_item_id' => $item->id]);
+            $consume = fn () => app(EntitlementConsumeService::class)->consume($expected, $actor);
+            $return = fn () => app(InventoryMovementService::class)->returnStock($event, $actor, [
+                'entitlement_item_id' => $item->id, 'location_id' => $location->id, 'quantity' => 1,
+            ]);
+            $results = $this->concurrently($consumeFirst ? $consume : $return, $consumeFirst ? $return : $consume);
+            $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+            $this->assertSame([true, true], array_column($results, 'holder_locked'));
+            $this->assertSame(0, app(StockMovementService::class)->balance($item, $holder));
+            $this->assertSame($consumeFirst ? 1 : 0, $expected->issuedEntitlement()->count());
+            $this->assertSame($consumeFirst ? 'consumed' : 'expected', $expected->fresh()->status);
+            app(EventService::class)->delete($event);
+        }
+    }
+
+    public function test_consume_rechecks_permissions_revoked_while_waiting_for_event_lock(): void
+    {
+        [$event, $actor, $engagement] = $this->context();
+        $this->grantAdminAccess($actor);
+        $engagement->people()->attach($actor->person_id);
+        $this->grantRoleAccess($actor, ['checkin.edit']);
+        $role = $event->teamEngagements()->where('person_id', $actor->person_id)->sole()->role;
+        $location = $event->locations()->create(['name' => 'Gate']);
+        $item = $event->entitlementItems()->create(['name' => 'Wristband']);
+        $holder = $this->seedHeldStock($item, $location, 1, $actor);
+        $pass = $event->passTypes()->create(['name' => 'Artist']);
+        $assignment = $engagement->passAssignments()->create(['pass_type_id' => $pass->id, 'person_id' => $actor->person_id]);
+        $expected = $assignment->expectedEntitlements()->create(['entitlement_item_id' => $item->id]);
+        $results = $this->concurrently(
+            fn () => DB::transaction(function () use ($event, $role): void {
+                Event::whereKey($event->id)->lockForUpdate()->firstOrFail();
+                app(RoleService::class)->update($role, $role->name, ['checkin.view']);
+            }),
+            fn () => app(EntitlementConsumeService::class)->consume($expected, $actor),
+        );
+        $this->assertSame(['committed', 'http_403'], array_column($results, 'status'), json_encode($results));
+        $this->assertSame(1, app(StockMovementService::class)->balance($item, $holder));
+        $this->assertSame(0, $expected->issuedEntitlement()->count());
+        $this->assertSame('expected', $expected->fresh()->status);
+        app(EventService::class)->delete($event);
     }
 
     private function mealContext(): array

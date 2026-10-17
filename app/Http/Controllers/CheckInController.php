@@ -69,7 +69,7 @@ class CheckInController extends Controller
         $this->eventContext->requireCurrentEvent($request->user(), $engagement->event, writable: true);
         abort_unless($isTeam ? $engagement->person_id === $assignment->person_id : $engagement->people->contains('id', $assignment->person_id), 404);
         $data = $request->validated();
-        $consume->consume($expectedEntitlement, $request->user(), (int) $data['location_id'], $data['code'] ?? null);
+        $consume->consume($expectedEntitlement, $request->user(), $data['code'] ?? null);
 
         return back()->with('success', __('check_in.toast.consumed'));
     }

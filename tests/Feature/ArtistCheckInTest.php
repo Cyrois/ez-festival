@@ -8,10 +8,12 @@ use App\Models\Event;
 use App\Models\ExpectedEntitlement;
 use App\Models\PassTypeLabel;
 use App\Models\Person;
+use App\Models\StockHolder;
 use App\Models\User;
 use App\Models\Vendor;
 use App\Models\VendorEngagement;
 use App\Services\EntitlementItemService;
+use App\Services\StockMovementService;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Gate;
@@ -115,29 +117,28 @@ class ArtistCheckInTest extends TestCase
         }
     }
 
-    public function test_consume_records_location_and_decrements_only_that_location(): void
+    public function test_consume_debits_own_holder_and_leaves_locations_unchanged(): void
     {
         [$user, $event] = $this->context();
         [$engagement, , $expected] = $this->heldEntitlement($event, 'River Hollow');
         $main = $event->locations()->create(['name' => 'Main stage']);
         $other = $event->locations()->create(['name' => 'Box office']);
         $item = $expected->entitlementItem;
-        $this->seedStock($item, $main, 2, $user);
+        $this->seedHeldStock($item, $main, 2, $user);
         $this->seedStock($item, $other, 4, $user);
 
         $this->actingAs($user)->post(route('check-in.issues.store', $expected), [
-            'location_id' => $main->id,
             'code' => ' AW-10482 ',
         ])->assertRedirect()->assertSessionHas('success');
 
         $this->assertDatabaseHas('issued_entitlements', [
             'expected_entitlement_id' => $expected->id,
-            'location_id' => $main->id,
             'code' => 'AW-10482',
             'issued_by' => $user->id,
         ]);
         $this->assertSame(ExpectedEntitlement::STATUS_CONSUMED, $expected->fresh()->status);
-        $this->assertSame(1, (int) app(EntitlementItemService::class)->balanceForLocation($item, $main->id));
+        $this->assertSame(0, (int) app(EntitlementItemService::class)->balanceForLocation($item, $main->id));
+        $this->assertSame(1, app(StockMovementService::class)->balance($item, StockHolder::where('person_id', $user->person_id)->sole()));
         $this->assertSame(4, (int) app(EntitlementItemService::class)->balanceForLocation($item, $other->id));
     }
 
@@ -148,7 +149,7 @@ class ArtistCheckInTest extends TestCase
         $riley = Person::query()->create(['name' => 'Riley Quinn', 'email' => 'riley@example.com']);
         $engagement->people()->attach($riley);
         $location = $event->locations()->create(['name' => 'Main stage']);
-        $this->seedStock($expected->entitlementItem, $location, 2, $user);
+        $this->seedHeldStock($expected->entitlementItem, $location, 2, $user);
         $label = PassTypeLabel::query()->create(['name' => 'Wristband', 'color' => 'teal']);
         $expected->passAssignment->passType->labels()->attach($label);
         $unassigned = $engagement->passAssignments()->create([
@@ -178,7 +179,7 @@ class ArtistCheckInTest extends TestCase
         [$user, $event] = $this->context();
         [$engagement, $person, $expected] = $this->heldVendorEntitlement($event, 'Cedar Craft Co', 'Priya Nair');
         $location = $event->locations()->create(['name' => 'Vendor gate']);
-        $this->seedStock($expected->entitlementItem, $location, 2, $user);
+        $this->seedHeldStock($expected->entitlementItem, $location, 2, $user);
 
         $this->actingAs($user)
             ->get(route('check-in.vendors.show', [$engagement, 'person' => $person->id]))
@@ -191,15 +192,13 @@ class ArtistCheckInTest extends TestCase
         $this->getJson(route('check-in.entitlements', [
             'draw' => 1, 'start' => 0, 'length' => 25, 'type' => 'vendor',
             'engagement_id' => $engagement->id, 'person_id' => $person->id,
-        ]))->assertOk()->assertJsonPath('data.0.locations.0.name', 'Vendor gate');
+        ]))->assertOk()->assertJsonPath('data.0.own_stock', 2)->assertJsonMissingPath('data.0.locations');
 
         $this->post(route('check-in.issues.store', $expected), [
-            'location_id' => $location->id,
         ])->assertRedirect()->assertSessionHas('success');
 
         $this->assertDatabaseHas('issued_entitlements', [
             'expected_entitlement_id' => $expected->id,
-            'location_id' => $location->id,
             'issued_by' => $user->id,
         ]);
     }
@@ -231,11 +230,10 @@ class ArtistCheckInTest extends TestCase
         [$user, $event] = $this->context();
         [$engagement, $person, $expected] = $this->heldEntitlement($event, 'River Hollow');
         $location = $event->locations()->create(['name' => 'Main stage']);
-        $this->seedStock($expected->entitlementItem, $location, 3, $user);
+        $this->seedHeldStock($expected->entitlementItem, $location, 3, $user);
 
         $engagement->people()->detach($person);
         $this->actingAs($user)->post(route('check-in.issues.store', $expected), [
-            'location_id' => $location->id,
         ])->assertNotFound();
         $engagement->people()->attach($person, ['is_primary' => true]);
 
@@ -257,21 +255,17 @@ class ArtistCheckInTest extends TestCase
         ]);
 
         $this->post(route('check-in.issues.store', $otherExpected), [
-            'location_id' => $location->id,
         ])->assertNotFound();
 
         $engagement->update(['status' => 'idea']);
         $this->post(route('check-in.issues.store', $expected), [
-            'location_id' => $location->id,
         ])->assertNotFound();
         $engagement->update(['status' => 'confirmed']);
 
         $this->post(route('check-in.issues.store', $expected), [
-            'location_id' => $location->id,
         ])->assertRedirect()->assertSessionHas('success');
 
         $this->post(route('check-in.issues.store', $expected), [
-            'location_id' => $location->id,
         ])->assertSessionHasErrors('expected_entitlement');
     }
 
@@ -282,10 +276,9 @@ class ArtistCheckInTest extends TestCase
         $location = $event->locations()->create(['name' => 'Empty']);
 
         $this->actingAs($user)->post(route('check-in.issues.store', $expected), [])
-            ->assertSessionHasErrors('location_id');
+            ->assertSessionHasErrors('quantity');
 
         $this->post(route('check-in.issues.store', $expected), [
-            'location_id' => $location->id,
         ])->assertSessionHasErrors('quantity');
 
         $otherLocation = $this->event('Other')->locations()->create(['name' => 'Other']);
@@ -295,7 +288,6 @@ class ArtistCheckInTest extends TestCase
 
         $event->lock();
         $this->post(route('check-in.issues.store', $expected), [
-            'location_id' => $location->id,
         ])->assertForbidden();
 
         $this->get(route('check-in.show', ArtistEngagement::query()->first()))
@@ -318,7 +310,6 @@ class ArtistCheckInTest extends TestCase
         $this->grantRoleAccess($user);
         Gate::define('checkin.edit', fn (): bool => false);
         $this->post(route('check-in.issues.store', $expected), [
-            'location_id' => $location->id,
         ])->assertForbidden();
     }
 

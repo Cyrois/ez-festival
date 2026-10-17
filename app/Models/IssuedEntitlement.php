@@ -5,8 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['expected_entitlement_id', 'entitlement_item_id', 'location_id', 'code', 'issued_by', 'issued_at'])]
+#[Fillable(['expected_entitlement_id', 'entitlement_item_id', 'code', 'issued_by', 'issued_at'])]
 class IssuedEntitlement extends Model
 {
     public const CREATED_AT = null;
@@ -28,9 +29,9 @@ class IssuedEntitlement extends Model
         return $this->belongsTo(EntitlementItem::class);
     }
 
-    public function location(): BelongsTo
+    public function giveOutMovement(): HasOne
     {
-        return $this->belongsTo(Location::class);
+        return $this->hasOne(StockMovement::class);
     }
 
     public function issuedBy(): BelongsTo

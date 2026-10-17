@@ -26,7 +26,7 @@ class IndexCheckInEntitlementsRequest extends FormRequest
             'search.value' => ['sometimes', 'nullable', 'string', 'max:255'],
             'order' => ['sometimes', 'array', 'max:1'],
             'order.0' => ['sometimes', 'array'],
-            'order.0.column' => ['sometimes', 'integer', 'between:0,4'],
+            'order.0.column' => ['sometimes', 'integer', 'between:0,6'],
             'order.0.dir' => ['sometimes', Rule::in(['asc', 'desc'])],
         ];
     }
