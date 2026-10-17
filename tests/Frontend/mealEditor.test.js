@@ -1,3 +1,4 @@
+import { labelImports, desktopLabelEnvironment } from './helpers/entitlementLabels.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -11,6 +12,7 @@ const dom = new JSDOM('<div id="app"></div>');
 for (const key of ['window', 'document', 'Element', 'HTMLElement', 'SVGElement', 'Node']) {
     globalThis[key] = dom.window[key];
 }
+desktopLabelEnvironment();
 const { createApp, reactive, nextTick } = await import('vue');
 const require = createRequire(import.meta.url);
 const locale = JSON.parse(readFileSync(new URL('../../lang/en.json', import.meta.url), 'utf8'));
@@ -24,6 +26,7 @@ const compile = async (path, replacements = []) => {
         .replace(/import \{ cn \} from ['"].*?['"];?/, 'const cn = (...values) => values.filter(Boolean).join(" ");')
         .replace(/import \{ (?:getActiveLanguage, )?trans \} from ['"]laravel-vue-i18n['"];?/, 'const trans = globalThis.mealTestTranslate; const getActiveLanguage = () => "en";')
         .replace(/import \{ Icon \} from ['"].*?['"];?/, 'const Icon = { render: () => null };');
+    source = source.replace(...labelImports);
     for (const [pattern, replacement] of replacements) source = source.replace(pattern, replacement);
     return `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
 };

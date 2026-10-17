@@ -1,3 +1,4 @@
+import { labelImports, desktopLabelEnvironment } from './helpers/entitlementLabels.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -17,6 +18,7 @@ for (const key of [
 ]) {
     globalThis[key] = dom.window[key];
 }
+desktopLabelEnvironment();
 const { createApp, h, ref, nextTick } = await import('vue');
 const require = createRequire(import.meta.url);
 const vueUrl = pathToFileURL(require.resolve('vue')).href;
@@ -30,6 +32,7 @@ const compile = async (path, replacements = []) => {
             /import \{ cn \} from ['"].*?['"];?/,
             'const cn = (...values) => values.filter(Boolean).join(" ");',
         );
+    source = source.replace(...labelImports);
     for (const [pattern, replacement] of replacements)
         source = source.replace(pattern, replacement);
     return `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
@@ -217,4 +220,52 @@ test('remote search keeps server results and exposes paged loading even with few
         loading.value = true; await tick();
         assert.equal(more.disabled, true);
     } finally { app.unmount(); }
+});
+
+test('labelled item pickers keep overflow actions independent of selection and preserve keyboard access', async () => {
+    const originalMedia = window.matchMedia;
+    const originalRect = HTMLElement.prototype.getBoundingClientRect;
+    globalThis.getComputedStyle = window.getComputedStyle;
+    window.matchMedia = () => ({ matches: true, addEventListener() {}, removeEventListener() {} });
+    HTMLElement.prototype.getBoundingClientRect = function () {
+        const width = this.hasAttribute('data-entitlement-labels') ? 110
+            : this.hasAttribute('data-label-measure') ? 75
+            : this.hasAttribute('data-chip-measure') ? 28 : 200;
+        return { width, height: 100, top: 20, bottom: 120, left: 20, right: width + 20 };
+    };
+    const { app, items, selected } = mount(2);
+    items.value = [{ value: 2, title: 'Wristband', labels: [
+        { id: 1, name: 'Backstage', color: 'rose' },
+        { id: 2, name: 'Crew', color: 'teal' },
+        { id: 3, name: 'VIP', color: 'violet' },
+    ] }, { value: 3, title: 'Unlabelled', labels: [] }];
+    await tick();
+    try {
+        assert.equal(document.querySelectorAll('button button').length, 0);
+        const chosenChip = document.querySelector('button[aria-controls]') ?? document.querySelector('button[aria-label="2 more labels: Crew, VIP"]');
+        chosenChip.click(); await tick();
+        const close = document.querySelector('[popover] button');
+        assert.equal(document.activeElement, close);
+        assert.equal(selected.value, 2);
+        close.click(); await tick();
+        assert.equal(document.activeElement, chosenChip);
+        const trigger = document.querySelector('button[aria-label="Wristband"]');
+        await key(trigger, 'Enter');
+        const optionChip = document.querySelectorAll('button[aria-label="2 more labels: Crew, VIP"]')[1];
+        optionChip.click(); await tick();
+        assert.equal(selected.value, 2);
+        assert.equal(trigger.getAttribute('aria-expanded'), 'true');
+        const popup = document.querySelector('[popover]');
+        await key(popup.querySelector('button'), 'Escape');
+        assert.equal(trigger.getAttribute('aria-expanded'), 'true');
+        const option = document.querySelector('[data-dropdown-option][aria-label="Unlabelled"]');
+        await key(option, 'Enter');
+        assert.equal(selected.value, 3);
+        assert.equal(document.querySelector('[data-dropdown-option]'), null);
+        assert.equal(document.querySelectorAll('button button').length, 0);
+    } finally {
+        app.unmount();
+        window.matchMedia = originalMedia;
+        HTMLElement.prototype.getBoundingClientRect = originalRect;
+    }
 });

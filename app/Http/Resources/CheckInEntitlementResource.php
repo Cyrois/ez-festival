@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\EntitlementLabels;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -14,6 +15,7 @@ class CheckInEntitlementResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->entitlementItem->name,
+            'labels' => EntitlementLabels::ordered($this->entitlementItem->labels),
             'source' => $this->passAssignment->passType->name,
             'status' => $issued ? 'issued' : 'pending',
             'locations' => $this->stock_locations->map(fn ($stock): array => [

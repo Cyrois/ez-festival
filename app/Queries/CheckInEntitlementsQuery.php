@@ -50,6 +50,7 @@ class CheckInEntitlementsQuery
             ->with([
                 'passAssignment.passType:id,name', 'issuedEntitlement.location:id,name', 'issuedEntitlement.issuedBy:id,name',
                 'entitlementItem:id,name',
+                'entitlementItem.labels' => fn ($labels) => $labels->where('event_id', $event->id)->select('entitlement_item_labels.id', 'name', 'color'),
             ])->get();
 
         $locations = app(StockMovementService::class)->locationBalancesQuery($event->id)

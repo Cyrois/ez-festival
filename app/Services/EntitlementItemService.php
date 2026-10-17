@@ -217,6 +217,6 @@ class EntitlementItemService
 
     private function listKey(int $eventId): string
     {
-        return "lists.events.{$eventId}.entitlement-items.v3";
+        return "lists.events.{$eventId}.entitlement-items.v4";
     }
 }

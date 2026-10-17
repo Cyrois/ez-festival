@@ -1,3 +1,4 @@
+import { labelImports, desktopLabelEnvironment } from './helpers/entitlementLabels.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -27,6 +28,7 @@ for (const key of [
     'Node',
 ])
     globalThis[key] = dom.window[key];
+desktopLabelEnvironment();
 const { createApp, h, ref, nextTick } = await import('vue');
 const require = createRequire(import.meta.url);
 const vueUrl = pathToFileURL(require.resolve('vue')).href;
@@ -56,6 +58,7 @@ const compile = async (path, replacements = []) => {
             /import \{ Icon \} from ['"].*?['"];?/,
             'const Icon = { render: () => null };',
         );
+    source = source.replace(...labelImports);
     for (const [pattern, replacement] of replacements)
         source = source.replace(pattern, replacement);
     return `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;

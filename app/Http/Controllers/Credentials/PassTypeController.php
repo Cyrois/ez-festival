@@ -8,6 +8,7 @@ use App\Http\Requests\Credentials\DestroyPassRequest;
 use App\Http\Requests\Credentials\EditPassRequest;
 use App\Http\Requests\Credentials\StorePassRequest;
 use App\Http\Requests\Credentials\UpdatePassRequest;
+use App\Http\Resources\EntitlementItemOptionResource;
 use App\Http\Resources\PassTypeResource;
 use App\Models\CustomField;
 use App\Models\Event;
@@ -106,7 +107,7 @@ class PassTypeController extends Controller
             'canWrite' => ! $event->isLocked(),
             'labels' => PassTypeLabel::query()->orderBy('name')->get(['id', 'name', 'color']),
             'labelColors' => LabelColors::ALL,
-            'entitlementItems' => $event->entitlementItems()->orderBy('name')->get(['id', 'name']),
+            'entitlementItems' => EntitlementItemOptionResource::collection($event->entitlementItems()->with(['labels' => fn ($labels) => $labels->where('event_id', $event->id)->select('entitlement_item_labels.id', 'name', 'color')])->orderBy('name')->get(['id', 'name']))->resolve(),
             'customFields' => CustomField::query()
                 ->forTarget(CustomField::TARGET_PASS)
                 ->where('active', true)

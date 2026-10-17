@@ -1,3 +1,4 @@
+import { labelImports, desktopLabelEnvironment } from './helpers/entitlementLabels.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -10,6 +11,7 @@ const dom = new JSDOM('<div id="app"></div>', { url: 'http://localhost' });
 for (const key of ['window', 'document', 'Element', 'HTMLElement', 'SVGElement', 'Node', 'Option', 'DocumentFragment', 'getComputedStyle']) globalThis[key] = dom.window[key];
 Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true });
 window.performance.getEntriesByType = () => [];
+desktopLabelEnvironment();
 const { createApp, h, nextTick } = await import('vue');
 const { router } = await import('@inertiajs/vue3');
 const require = createRequire(import.meta.url);
@@ -25,6 +27,7 @@ globalThis.checkInQuery = (await import('../../resources/js/pages/CheckIn/filter
 const compile = (path, replacements) => {
     const { descriptor } = parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
     let source = compileScript(descriptor, { id: path, inlineTemplate: true }).content.replaceAll(/from ['"]vue['"]/g, `from '${pathToFileURL(require.resolve('vue')).href}'`);
+    source = source.replace(...labelImports);
     for (const [pattern, replacement] of replacements) source = source.replace(pattern, replacement);
     return `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
 };

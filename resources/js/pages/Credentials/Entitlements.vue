@@ -11,7 +11,7 @@ import { CustomDropdown } from '../../components/ui/custom-dropdown';
 import { useFlashToast } from '../../composables/useFlashToast';
 import { toastFormErrors } from '../../lib/fieldError';
 import { credentialsHome } from '../../lib/credentialsNavigation';
-import { Tag } from '../../components/ui/tag';
+import { EntitlementLabels } from '../../components/ui/entitlement-labels';
 import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
 import { Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
@@ -74,6 +74,7 @@ const options = computed(() => ({
         topEnd: null,
     },
     columnDefs: [
+        { targets: 1, className: 'max-md:hidden!' },
         { targets: 2, className: 'text-right font-semibold tabular-nums' },
         { targets: 3, className: 'text-right' },
     ],
@@ -233,21 +234,32 @@ const createItem = () => {
                     :data="items"
                     :options="options"
                 >
-                    <template #labelsCell="{ cellData }">
-                        <div class="flex flex-wrap gap-1.5">
-                            <Tag
-                                v-for="label in cellData"
-                                :key="label.id"
-                                :name="label.name"
-                                :color="label.color"
+                    <template #nameCell="{ rowData }">
+                        <span class="block">{{ rowData.name }}</span>
+                        <span class="mt-1.5 block md:hidden">
+                            <EntitlementLabels
+                                v-if="rowData.labels.length"
+                                :labels="rowData.labels"
+                                :item-name="rowData.name"
                             />
                             <span
-                                v-if="!cellData.length"
+                                v-else
                                 class="text-muted"
+                                >{{ $t('data_table.empty_value') }}</span
                             >
-                                {{ $t('data_table.empty_value') }}
-                            </span>
-                        </div>
+                        </span>
+                    </template>
+                    <template #labelsCell="{ rowData }">
+                        <EntitlementLabels
+                            v-if="rowData.labels.length"
+                            :labels="rowData.labels"
+                            :item-name="rowData.name"
+                        />
+                        <span
+                            v-else
+                            class="text-muted"
+                            >{{ $t('data_table.empty_value') }}</span
+                        >
                     </template>
                     <template #actionsCell="{ rowData }">
                         <div class="flex items-center justify-end gap-2">

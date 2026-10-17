@@ -1,3 +1,4 @@
+import { labelImports, desktopLabelEnvironment } from './helpers/entitlementLabels.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -8,6 +9,7 @@ import { JSDOM } from 'jsdom';
 
 const dom = new JSDOM('<div id="app"></div>', { url: 'http://localhost' });
 for (const key of ['window', 'document', 'Element', 'HTMLElement', 'SVGElement', 'Node']) globalThis[key] = dom.window[key];
+desktopLabelEnvironment();
 const { createApp, h, ref, reactive, nextTick } = await import('vue');
 const require = createRequire(import.meta.url);
 const translations = JSON.parse(readFileSync(new URL('../../lang/en.json', import.meta.url), 'utf8'));
@@ -47,6 +49,7 @@ let source = compileScript(descriptor, { id: path, inlineTemplate: true }).conte
 for (const name of ['useForm', 'trans', 'Dialog', 'FormField', 'Input', 'Textarea', 'Radio', 'CustomDropdown', 'useFlashToast']) {
     source = source.replace(new RegExp(`import \\{ ${name} \\} from ['"].*?['"];?`), `const ${name} = globalThis.inventoryTest.${name};`);
 }
+source = source.replace(...labelImports);
 const { default: Component } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 const tick = async () => { await nextTick(); await nextTick(); };
 const mount = async (mode, extra = {}) => {

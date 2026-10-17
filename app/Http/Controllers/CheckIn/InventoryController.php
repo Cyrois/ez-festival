@@ -4,6 +4,7 @@ namespace App\Http\Controllers\CheckIn;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CheckIn\InventoryRequest;
+use App\Http\Resources\EntitlementItemOptionResource;
 use App\Http\Resources\InventoryDataTableResource;
 use App\Http\Resources\StockMovementResource;
 use App\Models\StockHolder;
@@ -26,15 +27,13 @@ class InventoryController extends Controller
             'view' => $request->routeIs('check-in.my-stock') ? 'mine' : 'holdings',
             'event' => $event->only('id', 'name', 'locked', 'timezone'),
             'canManage' => $canManage,
-            'ownItems' => $holder === null ? [] : $query->items($event->id, $holder->id)->get()->map(fn ($item) => [
-                'id' => (int) $item->id, 'name' => $item->name, 'balance' => (int) $item->balance,
-            ]),
+            'ownItems' => $holder === null ? [] : $query->itemRows($event->id, $query->items($event->id, $holder->id)->get()),
             'canMove' => $canOperate,
             'canPull' => $canManage && $canOperate,
             'canTakeBack' => $canManage && $canOperate,
             'ownPersonId' => $request->user()->person_id,
-            'items' => $canManage ? $event->entitlementItems()->orderBy('name')->get(['id', 'name'])
-                : ($holder === null ? [] : $query->items($event->id, $holder->id)->get(['i.id', 'i.name'])),
+            'items' => $canManage ? EntitlementItemOptionResource::collection($event->entitlementItems()->with(['labels' => fn ($labels) => $labels->where('event_id', $event->id)->select('entitlement_item_labels.id', 'name', 'color')])->orderBy('name')->get(['id', 'name']))->resolve()
+                : ($holder === null ? [] : $query->itemRows($event->id, $query->items($event->id, $holder->id)->get())),
             'locations' => $event->locations()->orderBy('name')->get(['id', 'name']),
         ]);
     }
@@ -54,8 +53,6 @@ class InventoryController extends Controller
         }
 
         return new InventoryDataTableResource(['draw' => (int) ($filters['draw'] ?? 0), 'total' => $total, 'filtered' => $total,
-            'rows' => $history ? StockMovementResource::collection($rows) : $rows->map(fn ($row) => [
-                'id' => (int) $row->id, 'name' => $row->name, 'balance' => (int) $row->balance,
-            ])]);
+            'rows' => $history ? StockMovementResource::collection($rows) : $query->itemRows($event->id, $rows)]);
     }
 }

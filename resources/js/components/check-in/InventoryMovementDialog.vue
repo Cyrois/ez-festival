@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import { Dialog } from '../ui/dialog';
+import { EntitlementItemName } from '../ui/entitlement-labels';
 import { FormField } from '../ui/form-field';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
@@ -81,6 +82,7 @@ const itemOptions = computed(() =>
     choices.value.map((item) => ({
         value: item.id,
         title: item.name,
+        labels: item.labels ?? [],
         ...(!pull.value
             ? {
                   description: trans('inventory.held_count', {
@@ -186,6 +188,9 @@ const ready = computed(
         Number.isInteger(Number(form.quantity)) &&
         Number(form.quantity) >= 1 &&
         Number(form.quantity) <= available.value,
+);
+const selectedItem = computed(() =>
+    choices.value.find((item) => item.id === form.entitlement_item_id),
 );
 const description = computed(() =>
     trans(
@@ -405,6 +410,12 @@ const submit = () => {
         @update:open="$emit('update:open', $event)"
         @confirm="submit"
     >
+        <EntitlementItemName
+            v-if="confirm && selectedItem"
+            :name="selectedItem.name"
+            :labels="selectedItem.labels ?? []"
+            class="mt-3"
+        />
         <div
             v-if="!confirm"
             class="mt-4 space-y-4"

@@ -1,3 +1,4 @@
+import { labelImports, desktopLabelEnvironment } from './helpers/entitlementLabels.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -8,6 +9,7 @@ import { parse, compileScript } from '@vue/compiler-sfc';
 
 const dom = new JSDOM('<div id="app"></div>', { url: 'http://localhost' });
 for (const key of ['window', 'document', 'Element', 'HTMLElement', 'SVGElement', 'Node', 'Option', 'DocumentFragment', 'getComputedStyle']) globalThis[key] = dom.window[key];
+desktopLabelEnvironment();
 const { createApp, h, nextTick, reactive } = await import('vue');
 Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true });
 window.performance.getEntriesByType = () => [];
@@ -30,6 +32,7 @@ const compile = (path, replacements = []) => {
     const { descriptor } = parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
     let source = compileScript(descriptor, { id: path, inlineTemplate: true }).content
         .replaceAll(/from ['"]vue['"]/g, "from '" + pathToFileURL(require.resolve('vue')).href + "'");
+    source = source.replace(...labelImports);
     for (const [pattern, replacement] of replacements) source = source.replace(pattern, replacement);
     return 'data:text/javascript;base64,' + Buffer.from(source).toString('base64');
 };

@@ -3,6 +3,7 @@ import { useForm } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 import { Dialog } from '../ui/dialog';
+import { EntitlementItemName } from '../ui/entitlement-labels';
 import { FormField } from '../ui/form-field';
 import { Input } from '../ui/input';
 import { CustomDropdown } from '../ui/custom-dropdown';
@@ -58,6 +59,14 @@ const submit = () => {
         @update:open="$emit('update:open', $event)"
         @confirm="submit"
     >
+        <template #description>
+            <EntitlementItemName
+                v-if="entitlement"
+                :name="entitlement.name"
+                :labels="entitlement.labels ?? []"
+                stacked
+            />
+        </template>
         <div class="mt-4 space-y-4">
             <FormField
                 :label="$t('artists.check_in.location')"

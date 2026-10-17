@@ -88,7 +88,7 @@ const breadcrumbs = computed(() => [
                 {{ $t('artists.check_in.locked') }}
             </p>
             <div
-                class="grid items-stretch gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]"
+                class="grid grid-cols-1 items-stretch gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]"
             >
                 <aside v-if="person">
                     <Card class="h-full">
@@ -159,7 +159,7 @@ const breadcrumbs = computed(() => [
                 </aside>
                 <section
                     v-if="person"
-                    class="h-full rounded-xl border border-line bg-ground p-5"
+                    class="h-full min-w-0 rounded-xl border border-line bg-ground p-5"
                 >
                     <div class="mb-5 flex items-start justify-between gap-3">
                         <div>

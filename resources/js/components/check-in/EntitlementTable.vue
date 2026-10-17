@@ -2,6 +2,7 @@
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { getActiveLanguage, trans } from 'laravel-vue-i18n';
 import { Badge } from '../ui/badge';
+import { EntitlementItemName } from '../ui/entitlement-labels';
 import { IconButton } from '../ui/icon-button';
 import { Tooltip } from '../ui/tooltip';
 import { DataTable } from '../ui/data-table';
@@ -123,15 +124,19 @@ const formatWhen = (value) => {
 </script>
 
 <template>
-    <div class="overflow-x-auto">
+    <div class="min-w-0 overflow-x-auto">
         <DataTable
             ref="table"
             :ajax="load"
             :columns="columns"
             :options="options"
         >
-            <template #nameCell="{ cellData }">
-                <strong>{{ cellData }}</strong>
+            <template #nameCell="{ rowData }">
+                <EntitlementItemName
+                    :name="rowData.name"
+                    :labels="rowData.labels ?? []"
+                    stacked
+                />
             </template>
             <template #statusCell="{ cellData }">
                 <Badge

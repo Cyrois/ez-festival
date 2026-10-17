@@ -2,6 +2,7 @@ export const entitlementColumns = (trans) => [
     {
         data: 'name',
         name: 'name',
+        render: { display: '#nameCell' },
         title: trans('credentials.entitlements.items.table.name'),
     },
     {

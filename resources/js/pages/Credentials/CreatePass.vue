@@ -58,6 +58,7 @@ const entitlementOptions = computed(() =>
     props.entitlementItems.map((item) => ({
         value: item.id,
         title: item.name,
+        labels: item.labels ?? [],
     })),
 );
 const destroyPass = () => {

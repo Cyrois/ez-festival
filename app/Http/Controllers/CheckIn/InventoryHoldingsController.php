@@ -35,8 +35,6 @@ class InventoryHoldingsController extends Controller
         $rows = $builder->offset($filters['start'] ?? 0)->limit($filters['length'] ?? 25)->get();
 
         return new InventoryDataTableResource(['draw' => (int) ($filters['draw'] ?? 0), 'total' => $total, 'filtered' => $total,
-            'rows' => $history ? StockMovementResource::collection($rows) : $rows->map(fn ($row) => [
-                'id' => (int) $row->id, 'name' => $row->name, 'balance' => (int) $row->balance,
-            ])]);
+            'rows' => $history ? StockMovementResource::collection($rows) : $query->itemRows($holder->event_id, $rows)]);
     }
 }

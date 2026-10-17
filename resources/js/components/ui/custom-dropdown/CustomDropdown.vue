@@ -15,6 +15,7 @@ import { Icon } from '../icon';
 import { Tag } from '../tag';
 import { Checkbox } from '../checkbox';
 import { Avatar } from '../avatar';
+import { EntitlementItemName } from '../entitlement-labels';
 
 defineOptions({
     inheritAttrs: false,
@@ -103,8 +104,16 @@ const selected = (item) =>
           props.modelValue.includes(item.value)
         : item.value === props.modelValue;
 const selectedItems = computed(() => props.items.filter(selected));
+const labelledItems = computed(
+    () =>
+        !props.multiple &&
+        props.items.some((item) => Array.isArray(item.labels)),
+);
 const richItems = computed(
-    () => props.multiple || props.items.some((item) => item.group),
+    () =>
+        labelledItems.value ||
+        props.multiple ||
+        props.items.some((item) => item.group),
 );
 const selectedItem = computed(() =>
     props.items.find((item) => item.value === props.modelValue),
@@ -300,7 +309,7 @@ const onSearchKeydown = (event) => {
 
 const onMenuEscape = () => {
     close();
-    root.value?.querySelector('[aria-haspopup="listbox"]')?.focus();
+    root.value?.querySelector('[aria-haspopup]')?.focus();
 };
 
 const onTriggerKeydown = (event) => {
@@ -355,8 +364,50 @@ onUnmounted(() => {
         ref="root"
         class="relative w-full"
     >
+        <div
+            v-if="labelledItems"
+            :class="[
+                triggerClasses,
+                'relative h-auto min-h-10 py-2',
+                disabled && 'opacity-45',
+            ]"
+        >
+            <button
+                type="button"
+                class="absolute inset-0 rounded-lg focus-visible:outline-primary disabled:cursor-not-allowed"
+                :disabled="disabled"
+                :aria-expanded="open"
+                :aria-invalid="invalid ? 'true' : undefined"
+                aria-haspopup="dialog"
+                v-bind="attrs"
+                :aria-label="
+                    [attrs['aria-label'], selectedItem?.title || placeholder]
+                        .filter(Boolean)
+                        .join(': ')
+                "
+                @click="toggle"
+                @keydown="onTriggerKeydown"
+            />
+            <EntitlementItemName
+                v-if="selectedItem"
+                :name="selectedItem.title"
+                :labels="selectedItem.labels ?? []"
+                class="pointer-events-none flex-1 pr-4"
+            />
+            <span
+                v-else
+                class="pointer-events-none text-muted"
+                >{{ placeholder }}</span
+            >
+            <Icon
+                :name="['fas', 'chevron-down']"
+                size="sm"
+                class="pointer-events-none shrink-0"
+                :class="open ? 'rotate-180' : ''"
+            />
+        </div>
         <button
-            v-if="!multiple || !showSelected"
+            v-else-if="!multiple || !showSelected"
             type="button"
             :class="triggerClasses"
             :disabled="disabled"
@@ -440,6 +491,12 @@ onUnmounted(() => {
                 ref="menu"
                 :class="menuClasses"
                 :style="menuStyle"
+                :role="labelledItems ? 'dialog' : undefined"
+                :aria-label="
+                    labelledItems
+                        ? attrs['aria-label'] || placeholder
+                        : undefined
+                "
                 @keydown.esc.prevent.stop="onMenuEscape"
             >
                 <div
@@ -478,7 +535,7 @@ onUnmounted(() => {
                 <div
                     :aria-busy="loading"
                     class="min-h-0 overflow-y-auto"
-                    role="listbox"
+                    :role="labelledItems ? 'group' : 'listbox'"
                     :aria-multiselectable="multiple ? 'true' : undefined"
                 >
                     <template v-if="filteredItems.length">
@@ -501,8 +558,49 @@ onUnmounted(() => {
                                     >{{ groupHints[item.group] }}</span
                                 >
                             </div>
+                            <div
+                                v-if="labelledItems"
+                                class="relative px-3 py-2 focus-within:bg-page hover:bg-page"
+                                :class="[
+                                    selected(item) && 'bg-primary/10',
+                                    (item.disabled || disabled) && 'opacity-45',
+                                ]"
+                            >
+                                <button
+                                    type="button"
+                                    data-dropdown-option
+                                    class="absolute inset-0 rounded-lg focus-visible:outline-primary disabled:cursor-not-allowed"
+                                    :disabled="item.disabled || disabled"
+                                    :aria-pressed="selected(item)"
+                                    :aria-label="
+                                        [item.title, item.description]
+                                            .filter(Boolean)
+                                            .join(', ')
+                                    "
+                                    @click="select(item)"
+                                    @keydown="
+                                        onOptionKeydown($event, item, index)
+                                    "
+                                />
+                                <EntitlementItemName
+                                    :name="item.title"
+                                    :labels="item.labels ?? []"
+                                    class="pointer-events-none pr-5"
+                                />
+                                <span
+                                    v-if="item.description"
+                                    class="pointer-events-none mt-1 block text-xs text-muted"
+                                    >{{ item.description }}</span
+                                >
+                                <Icon
+                                    v-if="selected(item)"
+                                    :name="['fas', 'check']"
+                                    class="pointer-events-none absolute top-3 right-3 text-primary"
+                                />
+                            </div>
                             <component
                                 :is="multiple ? 'div' : 'button'"
+                                v-else
                                 :type="multiple ? undefined : 'button'"
                                 :tabindex="
                                     multiple
