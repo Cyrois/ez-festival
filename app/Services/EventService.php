@@ -92,6 +92,7 @@ class EventService
                 ->where('event_id', $event->id);
 
             DB::table('stock_movements')->where('event_id', $event->id)->delete();
+            DB::table('entitlement_code_reservations')->where('event_id', $event->id)->delete();
 
             DB::table('issued_entitlements')
                 ->where(fn ($query) => $query
