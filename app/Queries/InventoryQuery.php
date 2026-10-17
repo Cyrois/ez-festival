@@ -2,17 +2,27 @@
 
 namespace App\Queries;
 
+use App\Models\EntitlementItem;
 use App\Models\Event;
 use App\Models\StockHolder;
 use App\Models\StockMovement;
 use App\Services\StockMovementService;
+use App\Support\EntitlementLabels;
 use App\Support\SqlLike;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class InventoryQuery
 {
     public function __construct(private readonly StockMovementService $stock, private readonly InventoryTargetsQuery $targets) {}
+
+    /** @return \Illuminate\Database\Eloquent\Collection<int, EntitlementItem> */
+    public function itemOptions(Event $event): \Illuminate\Database\Eloquent\Collection
+    {
+        return $event->entitlementItems()->withEventLabels($event->id)
+            ->orderBy('name')->get(['id', 'name']);
+    }
 
     public function items(int $eventId, int $holderId): Builder
     {
@@ -61,6 +71,7 @@ class InventoryQuery
             ->join('entitlement_items as i', 'i.id', '=', 'b.entitlement_item_id')
             ->whereIn('b.holder_id', $ids)->where('b.balance', '>', 0)
             ->select('b.holder_id', 'i.id', 'i.name', 'b.balance')->orderBy('i.name')->get()->groupBy('holder_id');
+        $labels = EntitlementLabels::forItems($event->id, $balances->flatten(1)->pluck('id'));
         $eligible = $this->targets->receivers($event)->whereIn('p.id', array_column($rows, 'person_id'))->pluck('p.id')->all();
 
         return array_map(fn ($row) => [
@@ -71,13 +82,24 @@ class InventoryQuery
             'inactive' => $row->person_id !== null && ! in_array($row->person_id, $eligible),
             'items' => ($balances[$row->id] ?? collect())->map(fn ($item) => [
                 'id' => (int) $item->id, 'name' => $item->name, 'balance' => (int) $item->balance,
+                'labels' => $labels->get($item->id, []),
             ])->values()->all(),
         ], $rows);
     }
 
+    public function itemRows(int $eventId, Collection $rows): Collection
+    {
+        $labels = EntitlementLabels::forItems($eventId, $rows->pluck('id'));
+
+        return $rows->map(fn ($row): array => [
+            'id' => (int) $row->id, 'name' => $row->name, 'balance' => (int) $row->balance,
+            'labels' => $labels->get($row->id, []),
+        ]);
+    }
+
     public function movements(StockHolder $holder): \Illuminate\Database\Eloquent\Builder
     {
-        return StockMovement::with(['item:id,name', 'fromHolder.person:id,name', 'fromHolder.location:id,name',
+        return StockMovement::with(['item' => fn ($items) => $items->select('id', 'name')->withEventLabels($holder->event_id), 'fromHolder.person:id,name', 'fromHolder.location:id,name',
             'toHolder.person:id,name', 'toHolder.location:id,name', 'actor:id,name',
             'issuedEntitlement.expectedEntitlement.passAssignment.person:id,name'])
             ->where('event_id', $holder->event_id)

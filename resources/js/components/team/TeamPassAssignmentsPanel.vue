@@ -1,4 +1,5 @@
 <script setup>
+import { EntitlementItemName } from '../ui/entitlement-labels';
 import { CardTitle } from '../ui/card';
 import TeamPassCard from './TeamPassCard.vue';
 import { Button } from '../ui/button';
@@ -6,7 +7,6 @@ import { CustomDropdown } from '../ui/custom-dropdown';
 import { FormField } from '../ui/form-field';
 import { Icon } from '../ui/icon';
 import { Popup } from '../ui/popup';
-import { Tag } from '../ui/tag';
 import { trans } from 'laravel-vue-i18n';
 import { computed, ref } from 'vue';
 
@@ -188,14 +188,10 @@ const removePass = (index) => {
                             :key="entitlement.id"
                             class="flex flex-wrap items-center gap-2 py-3"
                         >
-                            <span class="text-sm font-semibold text-charcoal">
-                                {{ entitlement.name }}
-                            </span>
-                            <Tag
-                                v-for="label in entitlement.labels"
-                                :key="label.id"
-                                :name="label.name"
-                                :color="label.color"
+                            <EntitlementItemName
+                                :name="entitlement.name"
+                                :labels="entitlement.labels ?? []"
+                                class="min-w-0 flex-1"
                             />
                             <span
                                 class="ml-auto text-sm font-semibold text-charcoal"

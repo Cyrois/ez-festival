@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '../../layouts/AppLayout.vue';
+import { EntitlementLabels } from '../../components/ui/entitlement-labels';
 import { Button } from '../../components/ui/button';
 import { Card, CardTitle } from '../../components/ui/card';
 import { CustomDropdown } from '../../components/ui/custom-dropdown';
@@ -255,7 +256,7 @@ const formatWhen = (value) =>
             :class="canEdit ? 'pb-24' : ''"
         >
             <div class="mb-5 flex items-start justify-between gap-4">
-                <div>
+                <div class="min-w-0 flex-1">
                     <h1 class="m-0 text-2xl font-bold tracking-tight">
                         {{ item.name }}
                     </h1>
@@ -556,7 +557,13 @@ const formatWhen = (value) =>
             :cancel-label="$t('ui.dialog.cancel')"
             :busy="deleteForm.processing"
             @confirm="destroyItem"
-        />
+        >
+            <EntitlementLabels
+                :labels="item.labels ?? []"
+                :item-name="item.name"
+                class="mt-3"
+            />
+        </Dialog>
         <Popup
             v-if="canAdjust"
             v-model:open="adjustOpen"

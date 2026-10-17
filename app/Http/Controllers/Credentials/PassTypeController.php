@@ -8,11 +8,13 @@ use App\Http\Requests\Credentials\DestroyPassRequest;
 use App\Http\Requests\Credentials\EditPassRequest;
 use App\Http\Requests\Credentials\StorePassRequest;
 use App\Http\Requests\Credentials\UpdatePassRequest;
+use App\Http\Resources\EntitlementItemOptionResource;
 use App\Http\Resources\PassTypeResource;
 use App\Models\CustomField;
 use App\Models\Event;
 use App\Models\PassType;
 use App\Models\PassTypeLabel;
+use App\Queries\InventoryQuery;
 use App\Repositories\PassTypeRepository;
 use App\Services\PassTypeService;
 use App\Support\EventContext;
@@ -28,6 +30,7 @@ class PassTypeController extends Controller
         private readonly EventContext $eventContext,
         private readonly PassTypeService $passTypes,
         private readonly PassTypeRepository $passTypeRepository,
+        private readonly InventoryQuery $inventoryQuery,
     ) {}
 
     public function index(): Response
@@ -106,7 +109,7 @@ class PassTypeController extends Controller
             'canWrite' => ! $event->isLocked(),
             'labels' => PassTypeLabel::query()->orderBy('name')->get(['id', 'name', 'color']),
             'labelColors' => LabelColors::ALL,
-            'entitlementItems' => $event->entitlementItems()->orderBy('name')->get(['id', 'name']),
+            'entitlementItems' => EntitlementItemOptionResource::collection($this->inventoryQuery->itemOptions($event))->resolve(),
             'customFields' => CustomField::query()
                 ->forTarget(CustomField::TARGET_PASS)
                 ->where('active', true)

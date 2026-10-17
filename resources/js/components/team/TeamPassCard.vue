@@ -50,48 +50,51 @@ const status = computed(() => {
                 : 'border-line bg-ground'
         "
     >
-        <Badge
-            v-if="isNew"
-            variant="primary"
-            pill
-        >
-            {{ $t('team.member.passes.status.new') }}
-        </Badge>
-        <p class="m-0 text-sm font-semibold text-charcoal">
-            {{ pass.name }}
-        </p>
-        <div
-            v-if="pass.labels.length"
-            class="flex flex-wrap gap-1.5"
-        >
-            <Tag
-                v-for="label in pass.labels"
-                :key="label.id"
-                :name="label.name"
-                :color="label.color"
+        <div class="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+            <p class="m-0 text-sm font-semibold text-charcoal">
+                {{ pass.name }}
+            </p>
+            <div
+                v-if="pass.labels.length"
+                class="flex flex-wrap gap-1.5"
+            >
+                <Tag
+                    v-for="label in pass.labels"
+                    :key="label.id"
+                    :name="label.name"
+                    :color="label.color"
+                />
+            </div>
+        </div>
+        <div class="ml-auto flex shrink-0 items-center gap-3">
+            <Badge
+                v-if="isNew"
+                variant="primary"
+                pill
+            >
+                {{ $t('team.member.passes.status.new') }}
+            </Badge>
+            <Badge
+                v-if="!isNew"
+                :variant="status.variant"
+                pill
+            >
+                <Icon
+                    v-if="status.icon"
+                    :name="status.icon"
+                    class="mr-1"
+                    size="sm"
+                />
+                {{ status.label }}
+            </Badge>
+            <IconButton
+                v-if="canWrite"
+                :icon="['fas', 'circle-minus']"
+                :label="$t('team.member.passes.actions.remove')"
+                tone="delete"
+                :disabled="!assignment.can_remove"
+                @click="$emit('remove')"
             />
         </div>
-        <Badge
-            v-if="!isNew"
-            :variant="status.variant"
-            pill
-        >
-            <Icon
-                v-if="status.icon"
-                :name="status.icon"
-                class="mr-1"
-                size="sm"
-            />
-            {{ status.label }}
-        </Badge>
-        <IconButton
-            v-if="canWrite"
-            :icon="['fas', 'circle-minus']"
-            :label="$t('team.member.passes.actions.remove')"
-            tone="delete"
-            class="ml-auto"
-            :disabled="!assignment.can_remove"
-            @click="$emit('remove')"
-        />
     </article>
 </template>

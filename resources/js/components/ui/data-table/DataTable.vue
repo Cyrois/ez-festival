@@ -134,11 +134,16 @@ const reload = (resetPaging = true) => {
     api()?.ajax.reload(null, resetPaging);
 };
 
+const setColumnsVisible = (columns, visible) => {
+    api()?.columns(columns).visible(visible);
+};
+
 defineExpose({
     dataTable,
     filterRows,
     reload,
     search,
+    setColumnsVisible,
 });
 </script>
 

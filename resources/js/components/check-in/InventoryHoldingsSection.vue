@@ -7,6 +7,7 @@ import { Icon } from '../ui/icon';
 import { Input } from '../ui/input';
 import { CustomDropdown } from '../ui/custom-dropdown';
 import { DataTable } from '../ui/data-table';
+import { EntitlementItemName } from '../ui/entitlement-labels';
 import { activateDataTableRow } from '../../lib/dataTableRowNavigation';
 
 const props = defineProps({
@@ -28,7 +29,11 @@ const holdingsTable = ref(null);
 const filtersChanged = () => holdingsTable.value?.reload();
 const itemOptions = computed(() => [
     { value: '', title: trans('inventory.all_items') },
-    ...props.items.map((item) => ({ value: item.id, title: item.name })),
+    ...props.items.map((item) => ({
+        value: item.id,
+        title: item.name,
+        labels: item.labels ?? [],
+    })),
 ]);
 const columns = computed(() => [
     {
@@ -121,17 +126,18 @@ const holdingsAjax = {
                 >
             </template>
             <template #itemsCell="{ rowData }">
-                <span
+                <EntitlementItemName
                     v-for="stock in rowData.items"
                     :key="stock.id"
-                    class="block"
-                    >{{
+                    :name="
                         $t('inventory.item_count', {
                             item: stock.name,
                             count: stock.balance,
                         })
-                    }}</span
-                >
+                    "
+                    :labels="stock.labels ?? []"
+                    class="mb-2 last:mb-0"
+                />
             </template>
             <template #openCell="{ rowData }">
                 <button

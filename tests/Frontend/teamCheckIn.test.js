@@ -1,5 +1,6 @@
+import { labelImports, desktopLabelEnvironment } from './helpers/entitlementLabels.js';
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { beforeEach } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
@@ -7,7 +8,11 @@ import { JSDOM } from 'jsdom';
 import { parse, compileScript } from '@vue/compiler-sfc';
 
 const dom = new JSDOM('<div id="app"></div>', { url: 'http://localhost' });
+beforeEach(() => {
+    dom.window.document.cookie = 'check_in_audit_view=; Path=/; Max-Age=0';
+});
 for (const key of ['window', 'document', 'Element', 'HTMLElement', 'SVGElement', 'Node', 'Option', 'DocumentFragment', 'getComputedStyle']) globalThis[key] = dom.window[key];
+desktopLabelEnvironment();
 const { createApp, h, nextTick, reactive } = await import('vue');
 Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true });
 window.performance.getEntriesByType = () => [];
@@ -30,6 +35,7 @@ const compile = (path, replacements = []) => {
     const { descriptor } = parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
     let source = compileScript(descriptor, { id: path, inlineTemplate: true }).content
         .replaceAll(/from ['"]vue['"]/g, "from '" + pathToFileURL(require.resolve('vue')).href + "'");
+    source = source.replace(...labelImports);
     for (const [pattern, replacement] of replacements) source = source.replace(pattern, replacement);
     return 'data:text/javascript;base64,' + Buffer.from(source).toString('base64');
 };
@@ -54,8 +60,18 @@ const iconButton = compile('../../resources/js/components/ui/icon-button/IconBut
     [/import \{ Button \} from ['"].*?['"];?/, "import Button from '" + button + "';"],
     [/import \{ cn \} from ['"].*?['"];?/, 'const cn = (...values) => values.filter(Boolean).join(" ");'],
 ]);
+const toggle = compile('../../resources/js/components/ui/switch/Switch.vue', [
+    [/import \{ cn \} from ['"].*?['"];?/, 'const cn = (...values) => values.filter(Boolean).join(" ");'],
+]);
+const dialog = compile('../../resources/js/components/ui/dialog/Dialog.vue', [
+    ...kit,
+    [/import \{ Button \} from ['"].*?['"];?/, "import Button from '" + button + "';"],
+    [/import \{ cn \} from ['"].*?['"];?/, 'const cn = (...values) => values.filter(Boolean).join(" ");'],
+]);
 const rows = compile('../../resources/js/components/check-in/EntitlementTable.vue', [
     ...kit,
+    [/import \{ Dialog \} from ['"].*?['"];?/, "import Dialog from '" + dialog + "';"],
+    [/import \{ Switch \} from ['"].*?['"];?/, "import Switch from '" + toggle + "';"],
     [/import \{ DataTable \} from ['"].*?['"];?/, "import DataTable from '" + dataTable + "';"],
     [/import \{ getActiveLanguage, trans \} from ['"].*?['"];?/, 'const getActiveLanguage = () => "en", trans = globalThis.teamCheckInTranslate;'],
     [/import \{ useFlashToast \} from ['"].*?['"];?/, 'const useFlashToast = () => ({showError: () => {}});'],
@@ -192,10 +208,17 @@ test('event group and role remain visible when personal details are hidden, with
 });
 
 
-test('entitlement table has the six requested columns and issued audit values; actions differ by status', async () => {
+test('audit switch reveals six columns without refetching; actions differ by status', async () => {
     const issued = {...pending, id:44, status:'issued', issued:{code:'WRIST-44', issued_by:'Gate operator <img>', issued_at:'2026-10-09T18:30:00Z', location:'Gate'}};
     const app = await mount({holder:person(true,[pending,issued])});
     try {
+        const toggle = document.querySelector('[role="switch"]');
+        assert.equal(toggle.checked, false);
+        assert.deepEqual([...document.querySelectorAll('th')].map(el=>el.textContent.trim()), ['Entitled To','Status','Actions']);
+        toggle.click();
+        await nextTick();
+        assert.equal(toggle.checked, true);
+        assert.equal(globalThis.teamCheckInRequests.length, 1);
         assert.deepEqual([...document.querySelectorAll('th')].map(el=>el.textContent.trim()), ['Entitled To','Status','Code','Checked in By','Checked in at','Actions']);
         const rows = document.querySelectorAll('tbody tr');
         assert.match(rows[0].textContent, /Pending/);
@@ -215,6 +238,80 @@ test('entitlement table has the six requested columns and issued audit values; a
         assert.equal(document.querySelector('.dt-paging'), null);
         assert.equal(params.get('person_id'),'17');
         assert.equal(params.get('engagement_id'),'8');
+        toggle.click();
+        await nextTick();
+        assert.deepEqual([...document.querySelectorAll('th')].map(el=>el.textContent.trim()), ['Entitled To','Status','Actions']);
+        assert.doesNotMatch(document.querySelector('tbody').textContent, /WRIST-44|Gate operator|11:30/);
+        assert.equal(globalThis.teamCheckInRequests.length, 1);
+    } finally {app.unmount();}
+});
+
+test('audit selection survives reopening the table for both on and off choices', async () => {
+    let app = await mount({holder:person(true,[pending])});
+    try {
+        document.querySelector('[role="switch"]').click();
+        await nextTick();
+        assert.match(document.cookie, /check_in_audit_view=1/);
+        app.unmount();
+        app = await mount({holder:person(true,[pending])});
+        assert.equal(document.querySelector('[role="switch"]').checked, true);
+        assert.deepEqual([...document.querySelectorAll('th')].map(el=>el.textContent.trim()), ['Entitled To','Status','Code','Checked in By','Checked in at','Actions']);
+        document.querySelector('[role="switch"]').click();
+        await nextTick();
+        assert.match(document.cookie, /check_in_audit_view=0/);
+        app.unmount();
+        app = await mount({holder:person(true,[pending])});
+        assert.equal(document.querySelector('[role="switch"]').checked, false);
+        assert.deepEqual([...document.querySelectorAll('th')].map(el=>el.textContent.trim()), ['Entitled To','Status','Actions']);
+    } finally {app.unmount();}
+});
+
+test('unrecognized audit cookie values use the simplified view', async () => {
+    document.cookie = 'check_in_audit_view=invalid; Path=/';
+    const app = await mount({holder:person(true,[pending])});
+    try {
+        assert.equal(document.querySelector('[role="switch"]').checked, false);
+        assert.equal(document.querySelectorAll('th').length, 3);
+    } finally {app.unmount();}
+});
+
+test('simplified issued details are readable in locked events, escaped and dismissible with focus restored', async () => {
+    const issued = {...pending, id:44, status:'issued', labels:[{id:1,name:'Wristband label',color:'teal'}], issued:{code:'WRIST-44', issued_by:'Gate operator <img>', issued_at:'2026-10-09T18:30:00Z'}};
+    const app = await mount({holder:person(true,[pending,issued]),canWrite:false,locked:true});
+    try {
+        const rows = document.querySelectorAll('tbody tr');
+        assert.match(rows[1].textContent, /Wristband label/);
+        assert.equal(rows[0].querySelector('button').disabled, true);
+        const details = rows[1].querySelector('button[aria-label="View details"]');
+        assert.ok(details);
+        assert.equal(details.disabled, false);
+        for (const dismissal of ['close','escape']) {
+            details.focus();
+            details.click();
+            await nextTick(); await nextTick();
+            const popup = document.querySelector('[role="dialog"]');
+            assert.ok(popup);
+            assert.match(popup.textContent, /Wristband label/);
+            assert.deepEqual([...popup.querySelectorAll('dd')].map(el=>el.textContent.trim()), ['WRIST-44','Gate operator <img>','Oct 9, 2026, 11:30 AM']);
+            assert.equal(popup.querySelector('img'), null);
+            const close = popup.querySelector('button');
+            assert.equal(document.activeElement, close);
+            if (dismissal === 'close') close.click();
+            else window.dispatchEvent(new window.KeyboardEvent('keydown',{key:'Escape'}));
+            await nextTick();
+            assert.equal(document.querySelector('[role="dialog"]'), null);
+            assert.equal(document.activeElement, details);
+        }
+        assert.equal(globalThis.teamCheckInRequests.length, 1);
+    } finally {app.unmount();}
+});
+
+test('issued details show empty fallbacks when optional audit information is unavailable', async () => {
+    const app = await mount({holder:person(true,[{...pending,status:'issued',issued:{}}])});
+    try {
+        document.querySelector('tbody button[aria-label="View details"]').click();
+        await nextTick();
+        assert.deepEqual([...document.querySelectorAll('[role="dialog"] dd')].map(el=>el.textContent.trim()), Array(3).fill(locale['artists.not_set']));
     } finally {app.unmount();}
 });
 
@@ -228,7 +325,10 @@ test('successful consumption refreshes the entitlement table without resetting i
         await new Promise(resolve=>setTimeout(resolve,20));
         await nextTick();
         assert.equal(globalThis.teamCheckInRequests.length,2);
-        assert.match(document.querySelector('tbody').textContent,/NEW/);
+        const details = document.querySelector('tbody button[aria-label="View details"]');
+        assert.ok(details);
+        details.click(); await nextTick();
+        assert.match(document.querySelector('[role="dialog"]').textContent,/NEW/);
         assert.equal(document.querySelector('tbody [aria-label="Consume"]'), null);
     } finally {app.unmount();}
 });

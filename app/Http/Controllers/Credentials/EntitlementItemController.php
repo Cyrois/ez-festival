@@ -11,6 +11,7 @@ use App\Http\Resources\EntitlementItemResource;
 use App\Models\EntitlementItem;
 use App\Models\Event;
 use App\Services\EntitlementItemService;
+use App\Support\EntitlementLabels;
 use App\Support\EventContext;
 use App\Support\LabelColors;
 use Illuminate\Http\RedirectResponse;
@@ -34,7 +35,7 @@ class EntitlementItemController extends Controller
             'items' => EntitlementItemResource::collection(
                 $this->items->list($event),
             )->resolve(),
-            'labels' => $event->entitlementItemLabels()->orderBy('name')->get(['id', 'name', 'color']),
+            'labels' => EntitlementLabels::ordered($event->entitlementItemLabels()->get(['id', 'name', 'color'])),
             'labelColors' => LabelColors::ALL,
             'locations' => $event->locations()->orderBy('name')->get(['id', 'name']),
             'canWrite' => ! $event->isLocked(),
@@ -131,7 +132,7 @@ class EntitlementItemController extends Controller
         return [
             'event' => $event->only('id', 'name'),
             'item' => (new EntitlementItemResource($item))->resolve(),
-            'labels' => $event->entitlementItemLabels()->orderBy('name')->get(['id', 'name', 'color']),
+            'labels' => EntitlementLabels::ordered($event->entitlementItemLabels()->get(['id', 'name', 'color'])),
             'labelColors' => LabelColors::ALL,
             'stats' => [
                 'in_stock' => $inStock,

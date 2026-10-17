@@ -85,7 +85,9 @@ const breadcrumbs = computed(() => [
             <p class="mb-5 text-sm text-muted">
                 {{ $t('artists.check_in.select_person') }}
             </p>
-            <div class="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]">
+            <div
+                class="grid grid-cols-1 gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]"
+            >
                 <PeopleRail
                     :people="engagement.people"
                     :selected-id="selectedId"
@@ -93,7 +95,7 @@ const breadcrumbs = computed(() => [
                 />
                 <section
                     v-if="person"
-                    class="rounded-xl border border-line bg-ground p-5"
+                    class="min-w-0 rounded-xl border border-line bg-ground p-5"
                 >
                     <div class="mb-5 flex items-start justify-between gap-3">
                         <div>

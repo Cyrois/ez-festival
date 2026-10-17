@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 import { DataTable } from '../ui/data-table';
+import { EntitlementItemName } from '../ui/entitlement-labels';
 
 const props = defineProps({
     endpoint: { type: String, required: true },
@@ -83,8 +84,16 @@ const formatWhen = (value) =>
         :columns="columns"
         :options="options"
     >
-        <template #itemCell="{ rowData }">{{ rowData.item }}</template>
-        <template #nameCell="{ rowData }">{{ rowData.name }}</template>
+        <template #itemCell="{ rowData }"
+            ><EntitlementItemName
+                :name="rowData.item"
+                :labels="rowData.labels ?? []"
+        /></template>
+        <template #nameCell="{ rowData }"
+            ><EntitlementItemName
+                :name="rowData.name"
+                :labels="rowData.labels ?? []"
+        /></template>
         <template #giverCell="{ rowData }">{{ rowData.giver ?? '—' }}</template>
         <template #receiverCell="{ rowData }">{{
             rowData.receiver ?? '—'

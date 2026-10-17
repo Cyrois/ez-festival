@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\EntitlementLabels;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -26,9 +27,7 @@ class TeamPassOptionResource extends JsonResource
                         'id' => $item->id,
                         'name' => $item->name,
                         'quantity' => $lines->count(),
-                        'labels' => $item->labels
-                            ->map(fn ($label): array => $label->only('id', 'name', 'color'))
-                            ->values(),
+                        'labels' => EntitlementLabels::ordered($item->labels),
                     ];
                 })
                 ->values(),
