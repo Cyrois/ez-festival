@@ -15,6 +15,7 @@ class CheckInEntitlementResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->entitlementItem->name,
+            'needs_unique_code' => (bool) $this->entitlementItem->needs_unique_code,
             'labels' => EntitlementLabels::ordered($this->entitlementItem->labels),
             'source' => $this->passAssignment->passType->name,
             'status' => $issued ? 'issued' : 'pending',
