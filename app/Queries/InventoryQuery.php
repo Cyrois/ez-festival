@@ -2,6 +2,7 @@
 
 namespace App\Queries;
 
+use App\Models\EntitlementItem;
 use App\Models\Event;
 use App\Models\StockHolder;
 use App\Models\StockMovement;
@@ -15,6 +16,13 @@ use Illuminate\Support\Facades\DB;
 class InventoryQuery
 {
     public function __construct(private readonly StockMovementService $stock, private readonly InventoryTargetsQuery $targets) {}
+
+    /** @return \Illuminate\Database\Eloquent\Collection<int, EntitlementItem> */
+    public function itemOptions(Event $event): \Illuminate\Database\Eloquent\Collection
+    {
+        return $event->entitlementItems()->withEventLabels($event->id)
+            ->orderBy('name')->get(['id', 'name']);
+    }
 
     public function items(int $eventId, int $holderId): Builder
     {
@@ -91,7 +99,7 @@ class InventoryQuery
 
     public function movements(StockHolder $holder): \Illuminate\Database\Eloquent\Builder
     {
-        return StockMovement::with(['item:id,name', 'item.labels' => fn ($labels) => $labels->where('event_id', $holder->event_id)->select('entitlement_item_labels.id', 'name', 'color'), 'fromHolder.person:id,name', 'fromHolder.location:id,name',
+        return StockMovement::with(['item' => fn ($items) => $items->select('id', 'name')->withEventLabels($holder->event_id), 'fromHolder.person:id,name', 'fromHolder.location:id,name',
             'toHolder.person:id,name', 'toHolder.location:id,name', 'actor:id,name',
             'issuedEntitlement.expectedEntitlement.passAssignment.person:id,name'])
             ->where('event_id', $holder->event_id)

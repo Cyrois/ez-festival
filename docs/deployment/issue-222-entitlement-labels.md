@@ -8,8 +8,10 @@ history, and Pull / Move stock / Take back pickers and review states.
 
 - Order once on the server: natural numbers, case- and accent-insensitive name,
   then label ID when names compare equal. Browsers preserve that order.
-- Check-in and item headings stack labels beneath the name. Dense tables and
-  picker options put labels alongside the name on desktop, wrapping as needed.
+- Check-in stacks labels beneath the name. The entitlement edit page keeps
+  labels in the Details editor without repeating them beneath the page title.
+  Dense tables and picker options put labels alongside the name on desktop,
+  wrapping as needed. Team pass rows keep status on the right beside removal.
 - Below the existing `md` breakpoint, show the largest ordered prefix fitting
   one line, reserving the actual +N width. Keep at least one truncated label;
   a single long label has no +N. No labels means name only, except for the
@@ -31,6 +33,18 @@ cache key advances from v3 to v4; prior cached label values are not reused.
 Label saves/deletes invalidate that event's list after commit, while assignment
 writes retain the existing service invalidation. Roll back PHP and frontend
 assets together if required.
+
+Label model save/delete hooks intentionally remain even though the current UI
+only creates labels through the item service. Invalidation at the model boundary
+also covers persisted renames, colour changes and deletions, keeping the cached
+Entitlements list consistent with uncached history after reload. Feature tests
+exercise those model writes directly. The hooks reuse the service's after-commit
+invalidation so a cache refill cannot retain an uncommitted label state; bulk
+query-builder writes bypass model hooks and must invalidate explicitly.
+
+`EntitlementItem::withEventLabels` owns the event-scoped eager-load constraint.
+`InventoryQuery::itemOptions` supplies the shared item-picker lookup to both
+controllers, keeping query construction outside their response assembly.
 
 Payloads add `labels` (id/name/color, empty array when absent); existing name,
 quantity, balance, pagination and authorization behavior remain. Pass picker

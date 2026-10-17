@@ -260,11 +260,6 @@ const formatWhen = (value) =>
                     <h1 class="m-0 text-2xl font-bold tracking-tight">
                         {{ item.name }}
                     </h1>
-                    <EntitlementLabels
-                        :labels="item.labels ?? []"
-                        :item-name="item.name"
-                        class="mt-1.5"
-                    />
                     <p class="mt-1 mb-0 text-sm text-muted">
                         {{ $t('credentials.entitlements.edit.lead') }}
                     </p>

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -11,6 +12,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable(['event_id', 'name'])]
 class EntitlementItem extends Model
 {
+    public function scopeWithEventLabels(Builder $query, int $eventId): void
+    {
+        $query->with(['labels' => fn ($labels) => $labels
+            ->where('event_id', $eventId)
+            ->select('entitlement_item_labels.id', 'name', 'color')]);
+    }
+
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);

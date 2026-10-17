@@ -32,7 +32,7 @@ class InventoryController extends Controller
             'canPull' => $canManage && $canOperate,
             'canTakeBack' => $canManage && $canOperate,
             'ownPersonId' => $request->user()->person_id,
-            'items' => $canManage ? EntitlementItemOptionResource::collection($event->entitlementItems()->with(['labels' => fn ($labels) => $labels->where('event_id', $event->id)->select('entitlement_item_labels.id', 'name', 'color')])->orderBy('name')->get(['id', 'name']))->resolve()
+            'items' => $canManage ? EntitlementItemOptionResource::collection($query->itemOptions($event))->resolve()
                 : ($holder === null ? [] : $query->itemRows($event->id, $query->items($event->id, $holder->id)->get())),
             'locations' => $event->locations()->orderBy('name')->get(['id', 'name']),
         ]);

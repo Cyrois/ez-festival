@@ -42,7 +42,7 @@ class PassTypeRepository
                 $withEntitlements,
                 fn ($query) => $query->with([
                     'labels:id,name,color',
-                    'entitlements.entitlementItem.labels' => fn ($labels) => $labels->where('event_id', $event->id)->select('entitlement_item_labels.id', 'name', 'color'),
+                    'entitlements.entitlementItem' => fn ($items) => $items->withEventLabels($event->id),
                 ]),
             )
             ->withCount('assignments')
