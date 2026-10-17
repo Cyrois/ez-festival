@@ -17,6 +17,13 @@ class HandleReturnNavigation
             return $next($request);
         }
 
+        if ($request->isMethod('GET') || $request->isMethod('HEAD')) {
+            $destination = $request->input('return_to');
+            if (! is_string($destination) || ! ReturnNavigation::valid($destination)) {
+                return $next($request);
+            }
+        }
+
         $data = app(ReturnNavigationRequest::class)->validated();
         $link = ReturnNavigation::link($data['return_to'], $request->user());
         $request->attributes->set('return_navigation', $link);

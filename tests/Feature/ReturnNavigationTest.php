@@ -77,9 +77,19 @@ class ReturnNavigationTest extends TestCase
         $this->get(route('team.forms.public.show', $form->slug))->assertInertia(fn (Assert $page) => $page->where('preview', false)->where('returnNavigation', null));
     }
 
+    public function test_invalid_read_context_falls_back_without_blocking_the_detail_page(): void
+    {
+        foreach (['https://example.test/check-in', '//example.test/check-in', '/check-in?new_filter=value', '/check-in?search[x][y]=value', ['/check-in'], ''] as $origin) {
+            $url = route('artists.create', ['return_to' => $origin]);
+            $this->get($url)->assertOk()->assertSessionHasNoErrors()->assertInertia(fn (Assert $page) => $page
+                ->where('returnNavigation', ['href' => '/artists/advancing', 'page' => 'nav.artists']));
+            $this->head($url)->assertOk()->assertSessionHasNoErrors();
+        }
+    }
+
     public function test_unsafe_context_is_rejected_by_the_form_request_before_a_write(): void
     {
-        foreach (['https://example.test/check-in', '//example.test/check-in', '/check-in#x', '/check-in?return_to=/settings/team', '/check-in?event_id=3', '/check-in?search[x][y]=value', '/settings/team/1', ['/check-in']] as $origin) {
+        foreach (['https://example.test/check-in', '//example.test/check-in', '/check-in#x', '/check-in?return_to=/settings/team', '/check-in?event_id=3', '/check-in?new_filter=value', '/check-in?search[x][y]=value', '/settings/team/1', ['/check-in'], ''] as $origin) {
             $this->postJson(route('artists.store', ['event' => $this->event, 'return_to' => $origin]), ['name' => 'Do not create', 'status' => 'idea'])
                 ->assertUnprocessable()->assertJsonValidationErrors('return_to');
         }
