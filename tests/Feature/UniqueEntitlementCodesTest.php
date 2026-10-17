@@ -32,11 +32,40 @@ class UniqueEntitlementCodesTest extends TestCase
         $this->withoutVite();
     }
 
+    public function test_code_length_limit_applies_to_coded_and_optional_items_without_partial_writes(): void
+    {
+        foreach ([true, false] as $needsUniqueCode) {
+            [$event, $actor, $item, $location] = $this->context();
+            $item->update(['needs_unique_code' => $needsUniqueCode]);
+            $expected = $this->expected($event, $item);
+            $tooLong = str_repeat('X', 65);
+            $this->actingAs($actor)->postJson(route('check-in.issues.store', $expected), [
+                'location_id' => $location->id, 'code' => $tooLong,
+            ])->assertUnprocessable()->assertJsonValidationErrors('code');
+            try {
+                app(EntitlementConsumeService::class)->consume($expected, $actor, $location->id, $tooLong);
+                $this->fail('The service must reject codes longer than 64 characters.');
+            } catch (ValidationException $exception) {
+                $this->assertArrayHasKey('code', $exception->errors());
+            }
+            $this->assertNull($expected->fresh()->issuedEntitlement);
+            $this->assertSame('expected', $expected->fresh()->status);
+            $this->assertFalse(EntitlementCode::isUsed($event->id, $tooLong));
+            $this->assertSame(1, $item->movements()->count());
+
+            $code = str_repeat('X', 64);
+            $this->post(route('check-in.issues.store', $expected), [
+                'location_id' => $location->id, 'code' => $code,
+            ])->assertSessionHasNoErrors();
+            $this->assertSame($code, $expected->fresh()->issuedEntitlement->code);
+        }
+    }
+
     public function test_coded_item_requires_a_valid_code_through_the_form_request(): void
     {
         [$event, $actor, $item, $location] = $this->context();
         $expected = $this->expected($event, $item);
-        foreach ([null, '', '   ', [], 123, str_repeat('X', 256)] as $code) {
+        foreach ([null, '', '   ', [], 123, str_repeat('X', 65)] as $code) {
             $this->actingAs($actor)->postJson(route('check-in.issues.store', $expected), [
                 'location_id' => $location->id, 'code' => $code,
             ])->assertUnprocessable()->assertJsonValidationErrors('code');
@@ -112,7 +141,7 @@ class UniqueEntitlementCodesTest extends TestCase
         $service = app(EntitlementConsumeService::class);
         $expected = $this->expected($event, $item);
         $expected->load('entitlementItem');
-        foreach ([null, ' ', str_repeat('X', 256)] as $code) {
+        foreach ([null, ' ', str_repeat('X', 65)] as $code) {
             try {
                 $service->consume($expected, $actor, $location->id, $code);
                 $this->fail('The service must require a valid code.');
@@ -227,7 +256,7 @@ class UniqueEntitlementCodesTest extends TestCase
         $this->assertFalse(EntitlementCode::isUsed($event->id, 'NEW'));
     }
 
-    public function test_migration_reserves_existing_duplicate_and_optional_codes_without_changing_history_and_rolls_back(): void
+    public function test_migration_leaves_existing_codes_unreserved_and_preserves_history_on_rollback(): void
     {
         [$event, $actor, $item, $location] = $this->context();
         $migration = require database_path('migrations/2026_10_17_000001_add_unique_entitlement_codes.php');
@@ -240,16 +269,19 @@ class UniqueEntitlementCodesTest extends TestCase
         $before = DB::table('issued_entitlements')->orderBy('id')->get()->toJson();
         $migration->up();
         $this->assertFalse($item->fresh()->needs_unique_code);
-        $this->assertDatabaseCount('entitlement_code_reservations', 1);
-        $this->assertTrue(EntitlementCode::isUsed($event->id, 'LEGACY-1'));
+        $this->assertDatabaseCount('entitlement_code_reservations', 0);
+        $this->assertFalse(EntitlementCode::isUsed($event->id, 'LEGACY-1'));
+        $this->assertSame($before, DB::table('issued_entitlements')->orderBy('id')->get()->toJson());
         $item->refresh()->update(['needs_unique_code' => true]);
         $this->actingAs($actor)->postJson(route('check-in.issues.store', $this->expected($event, $item)), [
             'location_id' => $location->id, 'code' => 'LEGACY-1',
-        ])->assertUnprocessable()->assertJsonValidationErrors('code');
-        $this->assertSame($before, DB::table('issued_entitlements')->orderBy('id')->get()->toJson());
+        ])->assertRedirect();
+        $this->assertTrue(EntitlementCode::isUsed($event->id, 'LEGACY-1'));
+        $this->assertDatabaseCount('entitlement_code_reservations', 1);
+        $beforeRollback = DB::table('issued_entitlements')->orderBy('id')->get()->toJson();
         $migration->down();
         $this->assertFalse(Schema::hasColumn('entitlement_items', 'needs_unique_code'));
-        $this->assertSame($before, DB::table('issued_entitlements')->orderBy('id')->get()->toJson());
+        $this->assertSame($beforeRollback, DB::table('issued_entitlements')->orderBy('id')->get()->toJson());
     }
 
     public function test_database_enforces_one_reservation_per_event_and_code(): void

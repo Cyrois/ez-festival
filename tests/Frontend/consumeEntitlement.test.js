@@ -76,7 +76,7 @@ test('coded item opens with a focused required code field and cannot submit blan
         const input = document.querySelector('input');
         assert.equal(document.activeElement, input);
         assert.equal(input.required, true);
-        assert.equal(input.maxLength, 255);
+        assert.equal(input.maxLength, 64);
         assert.equal(input.value, '');
         assert.equal(document.querySelector('#confirm').disabled, true);
         enter(); form.code = '   '; await tick(); enter();

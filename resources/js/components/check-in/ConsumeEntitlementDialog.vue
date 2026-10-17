@@ -117,7 +117,7 @@ const submit = () => {
                         :invalid="invalid"
                         :required="needsUniqueCode"
                         :disabled="form.processing"
-                        maxlength="255"
+                        maxlength="64"
                         autocomplete="off"
                         @keydown.enter.prevent="submit"
                     />

@@ -46,7 +46,7 @@ class EntitlementConsumeService
             $code = $code === null ? null : trim($code);
             $code = $code === '' ? null : $code;
             Validator::make(['code' => $code], [
-                'code' => [$item->needs_unique_code ? 'required' : 'nullable', 'string', 'max:255'],
+                'code' => [$item->needs_unique_code ? 'required' : 'nullable', 'string', 'max:64'],
             ])->validate();
 
             // Optional codes also reserve their value for subsequent coded

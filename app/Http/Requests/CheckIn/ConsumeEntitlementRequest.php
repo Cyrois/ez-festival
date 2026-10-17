@@ -37,7 +37,7 @@ class ConsumeEntitlementRequest extends FormRequest
                 Rule::exists('locations', 'id')->where('event_id', $eventId),
             ],
             'code' => [
-                'bail', Rule::requiredIf($needsUniqueCode), 'nullable', 'string', 'max:255',
+                'bail', Rule::requiredIf($needsUniqueCode), 'nullable', 'string', 'max:64',
                 function (string $attribute, mixed $value, Closure $fail) use ($needsUniqueCode, $eventId): void {
                     if ($needsUniqueCode && EntitlementCode::isUsed($eventId, $value)) {
                         $fail(__('check_in.errors.code_used'));
