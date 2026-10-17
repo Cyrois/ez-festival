@@ -15,6 +15,7 @@ class UpdateEntitlementItemRequest extends StoreEntitlementItemRequest
     {
         $rules = parent::rules();
         unset($rules['opening_balance'], $rules['location_id']);
+        $rules['needs_unique_code'] = ['sometimes', 'boolean'];
 
         return $rules;
     }

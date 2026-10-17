@@ -9,9 +9,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['event_id', 'name'])]
+#[Fillable(['event_id', 'name', 'needs_unique_code'])]
 class EntitlementItem extends Model
 {
+    protected function casts(): array
+    {
+        return ['needs_unique_code' => 'boolean'];
+    }
+
     public function scopeWithEventLabels(Builder $query, int $eventId): void
     {
         $query->with(['labels' => fn ($labels) => $labels
