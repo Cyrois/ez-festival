@@ -93,7 +93,7 @@ const submit = () => {
                         v-model="form.code"
                         :invalid="invalid"
                         :disabled="form.processing"
-                        maxlength="255"
+                        maxlength="64"
                     />
                 </template>
             </FormField>

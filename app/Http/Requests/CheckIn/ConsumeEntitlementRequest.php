@@ -26,7 +26,7 @@ class ConsumeEntitlementRequest extends FormRequest
         return [
             'location_id' => ['prohibited'],
             'holder_id' => ['prohibited'],
-            'code' => ['nullable', 'string', 'max:255'],
+            'code' => ['nullable', 'string', 'max:64'],
         ];
     }
 }

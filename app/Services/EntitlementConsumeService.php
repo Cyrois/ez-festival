@@ -70,7 +70,7 @@ class EntitlementConsumeService
             }
             $code = $code === null ? null : trim($code);
             $code = $code === '' ? null : $code;
-            Validator::make(['code' => $code], ['code' => ['nullable', 'string', 'max:255']])->validate();
+            Validator::make(['code' => $code], ['code' => ['nullable', 'string', 'max:64']])->validate();
 
             $issued = $expected->issuedEntitlement()->create([
                 'entitlement_item_id' => $item->id,

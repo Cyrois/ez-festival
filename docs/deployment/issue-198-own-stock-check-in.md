@@ -57,7 +57,8 @@ zero. Both its Form Request and service use the ledger. Event deletion removes
 movements before issues and holders, preserving the existing restricted-FK order.
 
 This branch starts from main at `e3cf45d`. The separately committed #224 work is
-not part of that base. Code remains optional here. When integrating #224,
+not part of that base. Code remains optional here, with a 64-character limit.
+When integrating #224,
 preserve its required/unique-code validation and reservations around the new
 `consume($expected, $actor, $code)` signature, and update its fixtures to seed
 held stock rather than location-selected consumption. Do not reintroduce a

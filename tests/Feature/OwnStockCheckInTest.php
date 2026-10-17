@@ -16,6 +16,7 @@ use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
@@ -115,13 +116,34 @@ class OwnStockCheckInTest extends TestCase
     {
         [, $actor, , $expected, $location] = $this->context();
         $holder = $this->seedHeldStock($expected->entitlementItem, $location, 2, $actor);
-        foreach ([['location_id' => $location->id], ['holder_id' => $holder->id], ['code' => []], ['code' => str_repeat('X', 256)]] as $data) {
+        foreach ([['location_id' => $location->id], ['holder_id' => $holder->id], ['code' => []], ['code' => str_repeat('X', 65)]] as $data) {
             $this->actingAs($actor)->postJson(route('check-in.issues.store', $expected), $data)
                 ->assertUnprocessable()->assertJsonValidationErrors(array_key_first($data));
         }
         $this->assertDatabaseCount('issued_entitlements', 0);
         $this->post(route('check-in.issues.store', $expected), ['code' => '  '])->assertSessionHasNoErrors();
         $this->assertNull($expected->fresh()->issuedEntitlement->code);
+    }
+
+    public function test_code_limit_accepts_64_characters_and_rejects_65_without_consuming_stock(): void
+    {
+        [, $actor, , $expected, $location] = $this->context();
+        $holder = $this->seedHeldStock($expected->entitlementItem, $location, 2, $actor);
+        $this->actingAs($actor)->postJson(route('check-in.issues.store', $expected), ['code' => str_repeat('X', 65)])
+            ->assertUnprocessable()->assertJsonValidationErrors('code');
+        try {
+            app(EntitlementConsumeService::class)->consume($expected, $actor, str_repeat('X', 65));
+            $this->fail('The service must enforce the code length limit.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('code', $exception->errors());
+        }
+        $this->assertDatabaseCount('issued_entitlements', 0);
+        $this->assertSame('expected', $expected->fresh()->status);
+        $this->assertSame(2, app(StockMovementService::class)->balance($expected->entitlementItem, $holder));
+
+        $code = str_repeat('X', 64);
+        $this->post(route('check-in.issues.store', $expected), ['code' => $code])->assertSessionHasNoErrors();
+        $this->assertSame($code, $expected->fresh()->issuedEntitlement->code);
     }
 
     public function test_legacy_location_giver_and_different_recorder_remain_visible_and_sortable(): void

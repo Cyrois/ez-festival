@@ -259,7 +259,7 @@ class TeamCheckInTest extends TestCase
         $foreignLocation = $this->event('Other')->locations()->create(['name' => 'Other']);
         $this->post(route('check-in.issues.store', $expected), [])->assertSessionHasErrors('quantity');
         $this->post(route('check-in.issues.store', $expected), ['location_id' => $foreignLocation->id])->assertSessionHasErrors('location_id');
-        $this->post(route('check-in.issues.store', $expected), ['code' => str_repeat('X', 256)])->assertSessionHasErrors('code');
+        $this->post(route('check-in.issues.store', $expected), ['code' => str_repeat('X', 65)])->assertSessionHasErrors('code');
         $this->post(route('check-in.issues.store', $expected), [])->assertSessionHasErrors('quantity');
         $event->lock();
         $this->getJson(route('check-in.data', $this->paging(['type' => 'team'])))->assertOk()->assertJsonCount(1, 'data');

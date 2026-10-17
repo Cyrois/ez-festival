@@ -75,7 +75,7 @@ test('Consume shows only own count, retains optional Code and posts no source se
         assert.match(document.querySelector('[role="dialog"]').textContent, /You have 12 left/);
         assert.equal(document.querySelector('select, [data-location]'), null);
         assert.match(document.body.textContent, /Code \(optional\)/);
-        assert.equal(document.querySelector('input').maxLength, 255);
+        assert.equal(document.querySelector('input').maxLength, 64);
         assert.equal(document.querySelector('#confirm').disabled, false);
         document.querySelector('#confirm').click(); await tick();
         assert.deepEqual(requests[0].data, { code: '' });
