@@ -115,17 +115,6 @@ class ArtistCheckInTest extends TestCase
         }
     }
 
-    public function test_nested_check_in_lists_redirect_to_the_shared_page(): void
-    {
-        [$user, $event] = $this->context();
-        [$engagement] = $this->heldEntitlement($event, 'River Hollow');
-
-        $this->actingAs($user)->get(route('artists.check-in'))->assertRedirect('/check-in');
-        $this->get(route('vendors.check-in'))->assertRedirect('/check-in?type=vendor');
-        $this->get(route('artists.check-in.show', $engagement))
-            ->assertRedirect('/check-in/artists/'.$engagement->id);
-    }
-
     public function test_consume_records_location_and_decrements_only_that_location(): void
     {
         [$user, $event] = $this->context();
@@ -358,18 +347,6 @@ class ArtistCheckInTest extends TestCase
                 ->has('people.data', 1)
                 ->where('people.data.0.name', 'Maya Chen')
                 ->where('people.meta.total', 1));
-    }
-
-    public function test_legacy_artist_consume_post_redirects_to_shared_write_route(): void
-    {
-        [$user, $event] = $this->context();
-        [, , $expected] = $this->heldEntitlement($event, 'River Hollow');
-
-        $this->actingAs($user)
-            ->post(route('artists.check-in.issues.store', $expected), [
-                'location_id' => 1,
-            ])
-            ->assertRedirect(route('check-in.issues.store', $expected));
     }
 
     /** @return array{User, Event} */

@@ -55,6 +55,15 @@ const options = computed(() => ({
     },
     drawCallback: function (...args) {
         const table = this.api();
+        const info = table.page.info();
+        if (
+            props.options.stateSave &&
+            info.start > 0 &&
+            info.start >= info.recordsDisplay
+        ) {
+            table.page(info.recordsDisplay ? 'last' : 'first').draw('page');
+            return;
+        }
         const labels = table
             .columns()
             .header()
@@ -116,18 +125,18 @@ const api = () => {
     return instance?.value || instance;
 };
 
-const search = (value) => {
-    api()?.search(value).draw();
+const search = (value, resetPaging = true) => {
+    api()?.search(value).draw(resetPaging);
 };
 
 // Named row filter on raw row data; pass null to clear it.
-const filterRows = (name, predicate) => {
+const filterRows = (name, predicate, resetPaging = true) => {
     api()
         ?.search.fixed(
             name,
             predicate ? (_, rowData) => predicate(rowData) : null,
         )
-        .draw();
+        .draw(resetPaging);
 };
 
 const reload = (resetPaging = true) => {

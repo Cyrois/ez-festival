@@ -1,4 +1,7 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
+import { returnFormOptions } from '../../lib/returnNavigation';
+import { BackLink } from '../../components/ui/back-link';
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Button } from '../../components/ui/button';
 import { Card, CardTitle } from '../../components/ui/card';
@@ -13,6 +16,8 @@ import { fieldError, toastFormErrors } from '../../lib/fieldError';
 import { useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     canWrite: { type: Boolean, default: false },
@@ -164,7 +169,7 @@ const copyLink = async () => {
     await navigator.clipboard.writeText(props.teamForm.public_url);
     showSuccess(trans('team.forms.toast.link_copied'));
 };
-const submit = () => {
+const submit = (afterSave) => {
     if (!props.canWrite) return;
     form.transform((data) => ({
         ...data,
@@ -183,15 +188,15 @@ const submit = () => {
                     : [],
         })),
     }));
-    const options = {
+    const options = returnFormOptions(form, afterSave, {
         onError: (errors) =>
             toastFormErrors(form, errors, { showError, showFormError }),
-    };
+    });
     if (editing.value) {
-        form.put(`/team/forms/${props.teamForm.id}`, options);
+        form.put(returnUrl(`/team/forms/${props.teamForm.id}`), options);
         return;
     }
-    form.post(`/team/events/${props.event.id}/forms`, options);
+    form.post(returnUrl(`/team/events/${props.event.id}/forms`), options);
 };
 </script>
 
@@ -211,6 +216,12 @@ const submit = () => {
             @submit.prevent="submit"
         >
             <div>
+                <BackLink
+                    href="/team/forms"
+                    :page="$t('nav.team.forms')"
+                    :form="form"
+                    @save="submit"
+                />
                 <h1 class="m-0 text-2xl font-bold tracking-tight">
                     {{
                         editing
@@ -325,7 +336,7 @@ const submit = () => {
                                 {{ $t('team.forms.editor.preview_hint') }}
                             </span>
                             <Button
-                                :href="teamForm.preview_url"
+                                :href="returnUrl(teamForm.preview_url)"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 type="button"

@@ -5,7 +5,8 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { JSDOM } from 'jsdom';
-import { parse, compileScript } from '@vue/compiler-sfc';
+import { compileScript } from '@vue/compiler-sfc';
+import { parseWithReturnNavigation as parse } from './helpers/returnNavigation.js';
 
 const dom = new JSDOM('<div id="app"></div>', { url: 'http://localhost' });
 beforeEach(() => {

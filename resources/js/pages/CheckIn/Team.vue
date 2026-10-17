@@ -1,4 +1,6 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
+import { BackLink } from '../../components/ui/back-link';
 import HiddenPersonalInfo from '../../components/people/HiddenPersonalInfo.vue';
 import { computed, ref } from 'vue';
 import AppLayout from '../../layouts/AppLayout.vue';
@@ -12,6 +14,8 @@ import TeamMemberShiftsCard from '../../components/team/TeamMemberShiftsCard.vue
 import EntitlementTable from '../../components/check-in/EntitlementTable.vue';
 import ConsumeEntitlementDialog from '../../components/check-in/ConsumeEntitlementDialog.vue';
 import { trans } from 'laravel-vue-i18n';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     engagement: { type: Object, required: true },
@@ -52,6 +56,10 @@ const breadcrumbs = computed(() => [
         :breadcrumbs="breadcrumbs"
     >
         <div class="container mx-auto">
+            <BackLink
+                href="/check-in"
+                :page="$t('check_in.title')"
+            />
             <header
                 class="mb-5 flex flex-wrap items-center justify-between gap-3"
             >
@@ -66,7 +74,7 @@ const breadcrumbs = computed(() => [
                 </div>
                 <Button
                     v-if="memberUrl"
-                    :href="memberUrl"
+                    :href="returnUrl(memberUrl)"
                     variant="ghost"
                     >{{ $t('check_in.edit_member') }}</Button
                 >

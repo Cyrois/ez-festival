@@ -1,4 +1,6 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
+import { useLandingState } from '../../composables/useLandingState';
 import SettingsLayout from '../../layouts/SettingsLayout.vue';
 import { Avatar } from '../../components/ui/avatar';
 import { Badge } from '../../components/ui/badge';
@@ -7,10 +9,13 @@ import { DataTable } from '../../components/ui/data-table';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
-import { Link, router } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 import { teamColumns } from './teamColumns';
+import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
+
+const { returnUrl } = useReturnNavigation();
 
 defineProps({
     hasAnyPeople: { type: Boolean, required: true },
@@ -26,7 +31,11 @@ const table = ref(null);
 const search = ref('');
 let searchTimer;
 
+const landingState = useLandingState('global-team', { search }, () =>
+    table.value?.search(search.value, false),
+);
 const options = computed(() => ({
+    ...landingState,
     serverSide: true,
     searching: true,
     lengthChange: false,
@@ -37,16 +46,10 @@ const options = computed(() => ({
         topEnd: null,
     },
     columnDefs: [{ targets: 4, className: 'text-right' }],
-    createdRow: (row, person) => {
-        row.classList.add('cursor-pointer');
-        row.addEventListener('click', (event) => {
-            if (event.target.closest('a, button, input, select, textarea')) {
-                return;
-            }
-
-            router.get(`/settings/team/${person.id}`);
-        });
-    },
+    createdRow: (row, person) =>
+        navigateDataTableRow(row, person, (item) =>
+            returnUrl(`/settings/team/${item.id}`),
+        ),
     language: {
         emptyTable: trans('settings.team.empty.description'),
         zeroRecords: trans('settings.team.no_matches'),
@@ -79,7 +82,7 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                     </p>
                 </div>
                 <Button
-                    href="/settings/team/create"
+                    :href="returnUrl('/settings/team/create')"
                     class="min-h-11 w-full sm:w-auto"
                 >
                     <Icon
@@ -101,7 +104,7 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                         size="lg"
                     />
                 </template>
-                <Button href="/settings/team/create">
+                <Button :href="returnUrl('/settings/team/create')">
                     {{ $t('settings.team.actions.add') }}
                 </Button>
             </EmptyState>
@@ -135,7 +138,7 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                 >
                     <template #personCell="{ rowData }">
                         <Link
-                            :href="`/settings/team/${rowData.id}`"
+                            :href="returnUrl(`/settings/team/${rowData.id}`)"
                             class="flex items-center gap-3 font-semibold text-charcoal no-underline hover:text-primary hover:underline"
                         >
                             <Avatar
@@ -197,7 +200,7 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                     </template>
                     <template #openCell="{ rowData }">
                         <Link
-                            :href="`/settings/team/${rowData.id}`"
+                            :href="returnUrl(`/settings/team/${rowData.id}`)"
                             class="inline-flex text-muted hover:text-primary"
                             :aria-label="$t('settings.team.columns.open')"
                         >

@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { JSDOM } from 'jsdom';
-import { parse, compileScript } from '@vue/compiler-sfc';
+import { compileScript } from '@vue/compiler-sfc';
+import { parseWithReturnNavigation as parse } from './helpers/returnNavigation.js';
 
 const dom = new JSDOM('<div id="app"></div>', { url: 'http://localhost' });
 for (const key of ['window', 'document', 'Element', 'HTMLElement', 'SVGElement', 'Node', 'Option', 'DocumentFragment', 'getComputedStyle']) globalThis[key] = dom.window[key];
@@ -166,7 +167,7 @@ test('locked pass form is read-only and drops delete/save controls after the eve
         assert.doesNotMatch(document.body.textContent, /Delete pass/);
         assert.equal(document.querySelector('button[type="submit"]'), null);
         assert.ok([...document.querySelectorAll('form input')].every((input) => input.disabled));
-        assert.equal(document.querySelector('a[href="/credentials/passes"]').textContent.trim(), 'Cancel');
+        assert.equal([...document.querySelectorAll('a[href="/credentials/passes"]')].find((link) => link.textContent.trim() === 'Cancel').textContent.trim(), 'Cancel');
         assert.match(document.body.textContent, /This event is locked/);
         document.querySelector('form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
         assert.equal(state.calls.length, 0);

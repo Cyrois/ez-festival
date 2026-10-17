@@ -1,4 +1,6 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
+import { BackLink } from '../ui/back-link';
 import {
     personalBreakDraft,
     personalBreakPayload,
@@ -47,6 +49,8 @@ import { wallMinutes } from '../../lib/shiftBreaks';
 import { trans } from 'laravel-vue-i18n';
 import { draftRoster, assignmentOverlapUrl } from '../../lib/shiftAssignments';
 import { scheduleReturnHref } from '../../lib/scheduleTimeline';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     event: { type: Object, required: true },
@@ -719,8 +723,8 @@ const submit = (afterSave) => {
         },
     };
     const endpoint = `/team/events/${props.event.id}/shifts`;
-    if (creating.value) form.post(endpoint, options);
-    else form.put(`${endpoint}/${initialShift.value.id}`, options);
+    if (creating.value) form.post(returnUrl(endpoint), options);
+    else form.put(returnUrl(`${endpoint}/${initialShift.value.id}`), options);
 };
 
 const destroy = () => {
@@ -761,6 +765,11 @@ const destroy = () => {
         compact-mobile-header
     >
         <div class="container mx-auto pb-24">
+            <BackLink
+                :href="backHref"
+                :page="$t('nav.team.scheduling')"
+                data-unsaved-navigation
+            />
             <header class="mb-5 flex items-start justify-between gap-4">
                 <div class="min-w-0">
                     <h1 class="m-0 text-2xl font-bold tracking-tight">
@@ -784,7 +793,7 @@ const destroy = () => {
                     class="flex shrink-0 flex-wrap items-center justify-end gap-2"
                 >
                     <Button
-                        :href="copyHref"
+                        :href="returnUrl(copyHref)"
                         target="_blank"
                         rel="noopener noreferrer"
                         variant="secondary"

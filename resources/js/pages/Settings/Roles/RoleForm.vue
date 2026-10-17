@@ -1,4 +1,7 @@
 <script setup>
+import { useReturnNavigation } from '../../../composables/useReturnNavigation';
+import { returnFormOptions } from '../../../lib/returnNavigation';
+import { BackLink } from '../../../components/ui/back-link';
 import { emphasisParts } from '../../../lib/emphasisParts';
 import { roleMatchHint } from '../roleMatchHint';
 import RolePeopleCard from './RolePeopleCard.vue';
@@ -14,6 +17,8 @@ import { useFlashToast } from '../../../composables/useFlashToast';
 import { router, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     role: { type: Object, default: null },
@@ -66,18 +71,19 @@ watch(
     },
 );
 const { showError, showFormError } = useFlashToast();
-const submit = () => {
+const submit = (afterSave) => {
     submittedName.value = form.name;
     if (!form.permissions.length) {
         form.setError('permissions', trans('permissions.required'));
         return;
     }
-    const options = {
+    const options = returnFormOptions(form, afterSave, {
         onError: (errors) =>
             toastFormErrors(form, errors, { showError, showFormError }),
-    };
-    if (props.role) form.put(`/settings/roles/${props.role.id}`, options);
-    else form.post('/settings/roles', options);
+    });
+    if (props.role)
+        form.put(returnUrl(`/settings/roles/${props.role.id}`), options);
+    else form.post(returnUrl('/settings/roles'), options);
 };
 </script>
 
@@ -88,6 +94,12 @@ const submit = () => {
         compact-mobile-header
     >
         <div class="container mx-auto pb-24">
+            <BackLink
+                href="/settings/roles"
+                :page="$t('settings.roles.title')"
+                :form="form"
+                @save="submit"
+            />
             <div class="flex items-center justify-between gap-4">
                 <h1 class="text-2xl font-bold text-charcoal">{{ title }}</h1>
             </div>

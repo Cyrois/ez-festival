@@ -1,4 +1,5 @@
 <script setup>
+import { BackLink } from '../../components/ui/back-link';
 import HiddenPersonalInfo from '../../components/people/HiddenPersonalInfo.vue';
 import { computed, ref } from 'vue';
 import AppLayout from '../../layouts/AppLayout.vue';
@@ -56,6 +57,10 @@ const breadcrumbs = computed(() => [
         :breadcrumbs="breadcrumbs"
     >
         <div class="container mx-auto">
+            <BackLink
+                href="/check-in"
+                :page="$t('check_in.title')"
+            />
             <header class="mb-5 flex items-center gap-3">
                 <Avatar
                     :name="engagement.name"

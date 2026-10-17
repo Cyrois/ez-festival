@@ -1,4 +1,7 @@
 <script setup>
+import { useReturnNavigation } from '../../../composables/useReturnNavigation';
+import { returnFormOptions } from '../../../lib/returnNavigation';
+import { BackLink } from '../../../components/ui/back-link';
 import SettingsLayout from '../../../layouts/SettingsLayout.vue';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
@@ -10,6 +13,8 @@ import { fieldError, toastFormErrors } from '../../../lib/fieldError';
 import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     timezones: {
@@ -45,12 +50,16 @@ const breadcrumbs = computed(() => [
     },
 ]);
 
-const submit = () => {
-    form.post('/settings/events', {
-        onSuccess: () => showSuccess(trans('settings.events.toast.created')),
-        onError: (errors) =>
-            toastFormErrors(form, errors, { showError, showFormError }),
-    });
+const submit = (afterSave) => {
+    form.post(
+        returnUrl('/settings/events'),
+        returnFormOptions(form, afterSave, {
+            onSuccess: () =>
+                showSuccess(trans('settings.events.toast.created')),
+            onError: (errors) =>
+                toastFormErrors(form, errors, { showError, showFormError }),
+        }),
+    );
 };
 </script>
 
@@ -59,6 +68,12 @@ const submit = () => {
         :title="$t('settings.events.create.title')"
         :breadcrumbs="breadcrumbs"
     >
+        <BackLink
+            href="/settings/events"
+            :page="$t('settings.events.title')"
+            :form="form"
+            @save="submit"
+        />
         <div class="mb-6">
             <h1 class="m-0 text-2xl font-bold tracking-tight">
                 {{ $t('settings.events.create.title') }}

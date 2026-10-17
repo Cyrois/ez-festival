@@ -1,4 +1,6 @@
 <script setup>
+import { useReturnNavigation } from '../../../composables/useReturnNavigation';
+import { useLandingState } from '../../../composables/useLandingState';
 import AppLayout from '../../../layouts/AppLayout.vue';
 import SettingsLayout from '../../../layouts/SettingsLayout.vue';
 import { Badge } from '../../../components/ui/badge';
@@ -12,6 +14,8 @@ import { Link, router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 import { eventColumns } from './eventColumns';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     settings: { type: Boolean, default: true },
@@ -97,7 +101,11 @@ const filteredEvents = computed(() => {
     );
 });
 const columns = computed(() => eventColumns(trans));
+const landingState = useLandingState('events', { search }, () =>
+    table.value?.search(search.value, false),
+);
 const tableOptions = computed(() => ({
+    ...landingState,
     lengthChange: false,
     pageLength: 25,
     order: [
@@ -112,8 +120,8 @@ const tableOptions = computed(() => ({
     createdRow: (row, event) =>
         navigateDataTableRow(row, event, (item) =>
             props.settings
-                ? `/settings/events/${item.id}/edit`
-                : `/events/${item.id}`,
+                ? returnUrl(`/settings/events/${item.id}/edit`)
+                : returnUrl(`/events/${item.id}`),
         ),
     language: {
         zeroRecords: trans('settings.events.empty.filtered'),
@@ -143,7 +151,7 @@ watch(search, (value) => table.value?.search(value));
                 </div>
                 <Button
                     v-if="settings"
-                    href="/settings/events/create"
+                    :href="returnUrl('/settings/events/create')"
                     variant="primary"
                     class="min-h-11 w-full sm:w-auto"
                 >
@@ -233,7 +241,11 @@ watch(search, (value) => table.value?.search(value));
                             </Button>
                             <Button
                                 v-if="settings && !event.is_locked"
-                                :href="`/settings/events/${event.id}/edit`"
+                                :href="
+                                    returnUrl(
+                                        `/settings/events/${event.id}/edit`,
+                                    )
+                                "
                                 variant="primary"
                                 size="sm"
                                 class="min-h-11"
@@ -261,8 +273,10 @@ watch(search, (value) => table.value?.search(value));
                             <Link
                                 :href="
                                     settings
-                                        ? `/settings/events/${rowData.id}/edit`
-                                        : `/events/${rowData.id}`
+                                        ? returnUrl(
+                                              `/settings/events/${rowData.id}/edit`,
+                                          )
+                                        : returnUrl(`/events/${rowData.id}`)
                                 "
                                 class="font-semibold text-charcoal no-underline hover:text-primary hover:underline"
                             >
@@ -311,8 +325,10 @@ watch(search, (value) => table.value?.search(value));
                                 <Link
                                     :href="
                                         settings
-                                            ? `/settings/events/${rowData.id}/edit`
-                                            : `/events/${rowData.id}`
+                                            ? returnUrl(
+                                                  `/settings/events/${rowData.id}/edit`,
+                                              )
+                                            : returnUrl(`/events/${rowData.id}`)
                                     "
                                     class="inline-flex text-muted hover:text-primary"
                                     :aria-label="

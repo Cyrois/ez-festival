@@ -1,4 +1,7 @@
 <script setup>
+import { useReturnNavigation } from '../../../composables/useReturnNavigation';
+import { returnFormOptions } from '../../../lib/returnNavigation';
+import { BackLink } from '../../../components/ui/back-link';
 import SettingsLayout from '../../../layouts/SettingsLayout.vue';
 import { Button } from '../../../components/ui/button';
 import { Card, CardTitle } from '../../../components/ui/card';
@@ -13,6 +16,8 @@ import { useFlashToast } from '../../../composables/useFlashToast';
 import { Link, router, useForm } from '@inertiajs/vue3';
 import { computed, onUnmounted, reactive, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     events: { type: Array, required: true },
@@ -30,6 +35,9 @@ const form = useForm({
 });
 const selectedRoles = reactive(
     Object.fromEntries(props.events.map((event) => [event.id, ''])),
+);
+const rolesDirty = computed(() =>
+    Object.values(selectedRoles).some((role) => role !== ''),
 );
 const lookup = ref(null);
 const lookupBusy = ref(false);
@@ -87,7 +95,7 @@ watch(
 );
 onUnmounted(() => window.clearTimeout(lookupTimer));
 
-const submit = () => {
+const submit = (afterSave) => {
     if (lookupBusy.value || lookup.value?.exists) return;
 
     form.event_access = props.events
@@ -97,10 +105,13 @@ const submit = () => {
             role_id: selectedRoles[event.id],
         }));
 
-    form.post('/settings/team', {
-        onError: (errors) =>
-            toastFormErrors(form, errors, { showError, showFormError }),
-    });
+    form.post(
+        returnUrl('/settings/team'),
+        returnFormOptions(form, afterSave, {
+            onError: (errors) =>
+                toastFormErrors(form, errors, { showError, showFormError }),
+        }),
+    );
 };
 </script>
 
@@ -110,6 +121,13 @@ const submit = () => {
         :breadcrumbs="breadcrumbs"
     >
         <div class="container mx-auto pb-24">
+            <BackLink
+                href="/settings/team"
+                :page="$t('settings.team.title')"
+                :form="form"
+                :dirty="form.isDirty || rolesDirty"
+                @save="submit"
+            />
             <header class="mb-5">
                 <h1 class="m-0 text-2xl font-bold tracking-tight">
                     {{ $t('settings.team.add.title') }}
@@ -174,7 +192,11 @@ const submit = () => {
                                         )
                                     }}
                                     <Link
-                                        :href="`/settings/team/${lookup.person.id}`"
+                                        :href="
+                                            returnUrl(
+                                                `/settings/team/${lookup.person.id}`,
+                                            )
+                                        "
                                         class="font-semibold text-secondary underline underline-offset-2"
                                     >
                                         {{
@@ -330,7 +352,9 @@ const submit = () => {
             :show-cancel="false"
             confirm-variant="primary"
             @update:open="duplicateOpen = $event"
-            @confirm="router.get(`/settings/team/${lookup.person.id}`)"
+            @confirm="
+                router.get(returnUrl(`/settings/team/${lookup.person.id}`))
+            "
         />
     </SettingsLayout>
 </template>

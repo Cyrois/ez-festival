@@ -75,7 +75,7 @@ use App\Http\Controllers\UiKitController;
 use App\Http\Controllers\VendorCheckInController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\VendorEngagementPersonController;
-use App\Models\ExpectedEntitlement;
+use App\Http\Middleware\HandleReturnNavigation;
 use App\Support\PostLoginRedirect;
 use App\Support\RoutePermissions;
 use Illuminate\Support\Facades\Route;
@@ -116,7 +116,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::get('ui', UiKitController::class)->name('ui');
     }
 
-    Route::middleware(['organization', 'setup.complete', 'login.access', 'event.access'])->group(function () {
+    Route::middleware(['organization', 'setup.complete', 'login.access', 'event.access', HandleReturnNavigation::class])->group(function () {
         Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('reports/meals/export', [MealReportExportController::class, 'index'])->name('reports.meals.export');
         Route::get('meals', [KitchenController::class, 'index'])->name('meals.index');
@@ -180,11 +180,6 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             ->middleware('event.writable')->name('check-in.issues.store');
 
         Route::get('artists/advancing', [ArtistController::class, 'index'])->name('artists.index');
-        Route::redirect('artists/check-in', '/check-in')->name('artists.check-in');
-        Route::redirect('artists/check-in/{engagement}', '/check-in/artists/{engagement}')->name('artists.check-in.show');
-        Route::post('artists/check-in/expected-entitlements/{expectedEntitlement}/issues', function (ExpectedEntitlement $expectedEntitlement) {
-            return redirect()->route('check-in.issues.store', $expectedEntitlement, 307);
-        })->name('artists.check-in.issues.store');
         Route::get('artists/create', [ArtistController::class, 'create'])->name('artists.create');
         Route::get('artists/engagements/{engagement}', [ArtistController::class, 'view'])->name('artists.view');
         Route::put('artists/engagements/{engagement}', [ArtistController::class, 'update'])
@@ -286,7 +281,6 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
 
         Route::redirect('vendors', '/vendors/advancing')->name('vendors.index');
         Route::get('vendors/advancing', [VendorController::class, 'index'])->name('vendors.advancing');
-        Route::redirect('vendors/check-in', '/check-in?type=vendor')->name('vendors.check-in');
         Route::get('vendors/engagements/{engagement}', [VendorController::class, 'view'])->name('vendors.view');
         Route::put('vendors/engagements/{engagement}', [VendorController::class, 'update'])
             ->middleware('event.writable')->name('vendors.update');

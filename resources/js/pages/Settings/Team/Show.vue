@@ -1,4 +1,7 @@
 <script setup>
+import { useReturnNavigation } from '../../../composables/useReturnNavigation';
+import { returnFormOptions } from '../../../lib/returnNavigation';
+import { BackLink } from '../../../components/ui/back-link';
 import SettingsLayout from '../../../layouts/SettingsLayout.vue';
 import AdminAccessToggle from '../../../components/settings/AdminAccessToggle.vue';
 import { Avatar } from '../../../components/ui/avatar';
@@ -15,6 +18,8 @@ import { xsrfToken } from '../../../lib/http';
 import { router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     person: { type: Object, required: true },
@@ -100,17 +105,20 @@ const updateRole = (event, access, value) => {
         access.status = 'hired';
     }
 };
-const submit = () => {
+const submit = (afterSave) => {
     form.transform((data) => ({
         ...data,
         event_access: data.event_access.map((access) => ({
             ...access,
             role_id: access.role_id === '' ? null : access.role_id,
         })),
-    })).put(`/settings/team/${props.person.id}`, {
-        onError: (errors) =>
-            toastFormErrors(form, errors, { showError, showFormError }),
-    });
+    })).put(
+        returnUrl(`/settings/team/${props.person.id}`),
+        returnFormOptions(form, afterSave, {
+            onError: (errors) =>
+                toastFormErrors(form, errors, { showError, showFormError }),
+        }),
+    );
 };
 const resendInvite = () => {
     router.post(
@@ -164,6 +172,12 @@ const copyPassword = async () => {
         :breadcrumbs="breadcrumbs"
     >
         <div class="container mx-auto pb-24">
+            <BackLink
+                href="/settings/team"
+                :page="$t('settings.team.title')"
+                :form="form"
+                @save="submit"
+            />
             <header class="mb-5 flex items-center gap-3.5">
                 <Avatar
                     :name="person.name"

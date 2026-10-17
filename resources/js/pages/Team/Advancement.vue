@@ -1,4 +1,5 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
 import AdvancementBoardCard from '../../components/advancement/AdvancementBoardCard.vue';
 import AdvancementViewToggle from '../../components/advancement/AdvancementViewToggle.vue';
 import AppLayout from '../../layouts/AppLayout.vue';
@@ -17,6 +18,8 @@ import { Link } from '@inertiajs/vue3';
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 import { advancementColumns } from './advancementColumns';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     engagements: { type: Object, required: true },
@@ -63,10 +66,8 @@ const listOptions = computed(() => ({
     },
     columnDefs: [{ targets: 4, className: 'text-right' }],
     createdRow: (row, engagement) =>
-        navigateDataTableRow(
-            row,
-            engagement,
-            (item) => `/team/members/${item.id}`,
+        navigateDataTableRow(row, engagement, (item) =>
+            returnUrl(`/team/members/${item.id}`),
         ),
     language: {
         emptyTable: trans(
@@ -153,7 +154,7 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                     :title="
                         !canWrite ? $t('permissions.no_add.team') : undefined
                     "
-                    href="/team/members/create"
+                    :href="returnUrl('/team/members/create')"
                     class="min-h-11 w-full sm:w-auto"
                 >
                     <Icon
@@ -278,7 +279,7 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                             <AdvancementBoardCard
                                 :name="item.name"
                                 :subtitle="item.group?.name ?? ''"
-                                :href="`/team/members/${item.id}`"
+                                :href="returnUrl(`/team/members/${item.id}`)"
                             >
                                 <Badge
                                     :class="[
@@ -331,7 +332,11 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                                     />
                                     <div class="min-w-0">
                                         <Link
-                                            :href="`/team/members/${engagement.id}`"
+                                            :href="
+                                                returnUrl(
+                                                    `/team/members/${engagement.id}`,
+                                                )
+                                            "
                                             class="font-semibold break-words text-charcoal no-underline hover:text-primary hover:underline"
                                         >
                                             {{ engagement.name }}
@@ -384,7 +389,9 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                         >
                             <template #memberCell="{ rowData }">
                                 <Link
-                                    :href="`/team/members/${rowData.id}`"
+                                    :href="
+                                        returnUrl(`/team/members/${rowData.id}`)
+                                    "
                                     class="flex min-w-56 items-center gap-3 font-semibold text-charcoal no-underline hover:text-primary hover:underline"
                                 >
                                     <Avatar
@@ -428,7 +435,9 @@ onUnmounted(() => window.clearTimeout(searchTimer));
                             </template>
                             <template #openCell="{ rowData }">
                                 <Link
-                                    :href="`/team/members/${rowData.id}`"
+                                    :href="
+                                        returnUrl(`/team/members/${rowData.id}`)
+                                    "
                                     class="inline-flex text-muted hover:text-primary"
                                     :aria-label="
                                         $t('data_table.open', {

@@ -1,4 +1,6 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
+import { useLandingState } from '../../composables/useLandingState';
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Button } from '../../components/ui/button';
 import { DataTable } from '../../components/ui/data-table';
@@ -11,6 +13,8 @@ import { Link, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 import { passColumns } from './passColumns';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     passes: { type: Array, default: () => [] },
@@ -32,7 +36,23 @@ const lead = computed(() =>
     trans('credentials.passes.lead', { event: eventName.value }),
 );
 const columns = computed(() => passColumns(trans));
+const landingState = useLandingState(
+    'passes',
+    { search, selectedLabelIds },
+    () =>
+        table.value?.filterRows(
+            'labels',
+            selectedLabelIds.value.length
+                ? (pass) =>
+                      selectedLabelIds.value.every((id) =>
+                          pass.labels.some((label) => label.id === id),
+                      )
+                : null,
+            false,
+        ),
+);
 const options = computed(() => ({
+    ...landingState,
     lengthChange: false,
     pageLength: 25,
     order: [[0, 'asc']],
@@ -42,10 +62,8 @@ const options = computed(() => ({
     },
     columnDefs: [{ targets: 3, className: 'text-right' }],
     createdRow: (row, pass) =>
-        navigateDataTableRow(
-            row,
-            pass,
-            (item) => `/credentials/passes/${item.id}/edit`,
+        navigateDataTableRow(row, pass, (item) =>
+            returnUrl(`/credentials/passes/${item.id}/edit`),
         ),
     language: {
         emptyTable: trans('credentials.passes.empty.description'),
@@ -98,7 +116,7 @@ watch(selectedLabelIds, (value) => {
                 </div>
                 <Button
                     v-if="canWrite"
-                    href="/credentials/passes/create"
+                    :href="returnUrl('/credentials/passes/create')"
                     variant="primary"
                     class="min-h-10"
                 >
@@ -184,7 +202,9 @@ watch(selectedLabelIds, (value) => {
                 </template>
                 <template #openCell="{ rowData }">
                     <Link
-                        :href="`/credentials/passes/${rowData.id}/edit`"
+                        :href="
+                            returnUrl(`/credentials/passes/${rowData.id}/edit`)
+                        "
                         class="inline-flex text-muted hover:text-primary"
                         :aria-label="
                             $t('data_table.open', { name: rowData.name })

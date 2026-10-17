@@ -1,4 +1,7 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
+import { returnFormOptions } from '../../lib/returnNavigation';
+import { BackLink } from '../../components/ui/back-link';
 import { Tag } from '../../components/ui/tag';
 import AppLayout from '../../layouts/AppLayout.vue';
 import EngagementNoteLog from '../../components/notes/EngagementNoteLog.vue';
@@ -18,6 +21,8 @@ import { toastFormErrors } from '../../lib/fieldError';
 import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     engagement: { type: Object, required: true },
@@ -58,14 +63,17 @@ const labelError = computed(
         '',
 );
 
-const submit = () => {
+const submit = (afterSave) => {
     if (readOnly.value) {
         return;
     }
-    form.put(`/artists/engagements/${props.engagement.id}`, {
-        onError: (errors) =>
-            toastFormErrors(form, errors, { showError, showFormError }),
-    });
+    form.put(
+        returnUrl(`/artists/engagements/${props.engagement.id}`),
+        returnFormOptions(form, afterSave, {
+            onError: (errors) =>
+                toastFormErrors(form, errors, { showError, showFormError }),
+        }),
+    );
 };
 </script>
 
@@ -76,6 +84,12 @@ const submit = () => {
         compact-mobile-header
     >
         <div class="container mx-auto pb-24">
+            <BackLink
+                href="/artists/advancing"
+                :page="$t('nav.artists')"
+                :form="form"
+                @save="submit"
+            />
             <div class="mb-5 flex items-center gap-3.5">
                 <Avatar
                     :name="engagement.name"
@@ -284,7 +298,9 @@ const submit = () => {
             <EngagementNoteLog
                 class="mt-4"
                 :notes="notes"
-                :post-url="`/artists/engagements/${engagement.id}/notes`"
+                :post-url="
+                    returnUrl(`/artists/engagements/${engagement.id}/notes`)
+                "
                 :can-write="canWrite"
                 :timezone="event.timezone"
                 translation-namespace="artists"

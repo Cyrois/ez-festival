@@ -1,4 +1,7 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
+import { returnFormOptions } from '../../lib/returnNavigation';
+import { BackLink } from '../../components/ui/back-link';
 import AppLayout from '../../layouts/AppLayout.vue';
 import TeamMemberFields from '../../components/team/TeamMemberFields.vue';
 import { Button } from '../../components/ui/button';
@@ -8,6 +11,8 @@ import { toastFormErrors } from '../../lib/fieldError';
 import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     event: { type: Object, required: true },
@@ -32,11 +37,14 @@ const breadcrumbs = computed(() => [
     { label: trans('nav.team.advancement'), href: '/team/advancement' },
     { label: trans('team.member.add') },
 ]);
-const submit = () => {
-    form.post(`/team/events/${props.event.id}/members`, {
-        onError: (errors) =>
-            toastFormErrors(form, errors, { showError, showFormError }),
-    });
+const submit = (afterSave) => {
+    form.post(
+        returnUrl(`/team/events/${props.event.id}/members`),
+        returnFormOptions(form, afterSave, {
+            onError: (errors) =>
+                toastFormErrors(form, errors, { showError, showFormError }),
+        }),
+    );
 };
 </script>
 
@@ -47,6 +55,12 @@ const submit = () => {
         compact-mobile-header
     >
         <div class="container mx-auto">
+            <BackLink
+                href="/team/advancement"
+                :page="$t('nav.team.advancement')"
+                :form="form"
+                @save="submit"
+            />
             <header class="mb-6">
                 <h1 class="m-0 text-2xl font-bold tracking-tight">
                     {{ $t('team.member.add') }}

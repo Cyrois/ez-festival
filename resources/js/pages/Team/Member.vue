@@ -1,4 +1,7 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
+import { returnFormOptions } from '../../lib/returnNavigation';
+import { BackLink } from '../../components/ui/back-link';
 import HiddenPersonalInfo from '../../components/people/HiddenPersonalInfo.vue';
 import AppLayout from '../../layouts/AppLayout.vue';
 import TeamEngagementNoteLog from '../../components/notes/TeamEngagementNoteLog.vue';
@@ -17,6 +20,8 @@ import { toastFormErrors } from '../../lib/fieldError';
 import { Link, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { trans, transChoice } from 'laravel-vue-i18n';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     engagement: { type: Object, required: true },
@@ -123,7 +128,7 @@ const unsavedSummary = computed(() => {
 
     return form.isDirty ? trans('team.member.unsaved.changes') : '';
 });
-const submit = () => {
+const submit = (afterSave) => {
     if (!props.canWrite && !props.canAddNotes && !props.canChangeRole) return;
     form.transform((data) => ({
         ...(props.canWrite
@@ -139,25 +144,28 @@ const submit = () => {
             ? { notes: data.notes, note_edits: data.note_edits }
             : {}),
     }));
-    form.put(`/team/members/${props.engagement.id}`, {
-        onSuccess: () => {
-            form.notes = [];
-            form.note_edits = [];
-            form.defaults();
-        },
-        onError: (errors) => {
-            if (
-                Object.keys(errors).some((key) =>
-                    key.startsWith('pass_assignments'),
-                )
-            ) {
-                showFormError(errors);
-                return;
-            }
+    form.put(
+        returnUrl(`/team/members/${props.engagement.id}`),
+        returnFormOptions(form, afterSave, {
+            onSuccess: () => {
+                form.notes = [];
+                form.note_edits = [];
+                form.defaults();
+            },
+            onError: (errors) => {
+                if (
+                    Object.keys(errors).some((key) =>
+                        key.startsWith('pass_assignments'),
+                    )
+                ) {
+                    showFormError(errors);
+                    return;
+                }
 
-            toastFormErrors(form, errors, { showError, showFormError });
-        },
-    });
+                toastFormErrors(form, errors, { showError, showFormError });
+            },
+        }),
+    );
 };
 </script>
 
@@ -168,6 +176,12 @@ const submit = () => {
         compact-mobile-header
     >
         <div class="container mx-auto pb-24">
+            <BackLink
+                href="/team/advancement"
+                :page="$t('nav.team.advancement')"
+                :form="form"
+                @save="submit"
+            />
             <header class="mb-5 flex items-center gap-3.5">
                 <Avatar
                     :name="engagement.name"

@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import { pathToFileURL } from 'node:url';
-import { parse, compileScript } from '@vue/compiler-sfc';
+import { compileScript } from '@vue/compiler-sfc';
+import { parseWithReturnNavigation as parse } from './helpers/returnNavigation.js';
 import { JSDOM } from 'jsdom';
 
 const dom = new JSDOM('<div id="app"></div>', { url: 'http://localhost' });

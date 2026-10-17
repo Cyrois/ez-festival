@@ -1,4 +1,5 @@
 <script setup>
+import { useReturnNavigation } from '../../../composables/useReturnNavigation';
 import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
@@ -7,8 +8,10 @@ import { DataTable } from '../../../components/ui/data-table';
 import { Icon } from '../../../components/ui/icon';
 import { navigateDataTableRow } from '../../../lib/dataTableRowNavigation';
 
+const { returnUrl } = useReturnNavigation();
+
 defineProps({ roleId: { type: Number, required: true } });
-const personHref = (person) => `/settings/team/${person.id}`;
+const personHref = (person) => returnUrl(`/settings/team/${person.id}`);
 const columns = computed(() => [
     {
         data: 'name',

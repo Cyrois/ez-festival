@@ -1,4 +1,6 @@
 <script setup>
+import { useReturnNavigation } from '../../../composables/useReturnNavigation';
+import { returnFormOptions } from '../../../lib/returnNavigation';
 import EventEditShell from '../../../components/settings/EventEditShell.vue';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
@@ -13,6 +15,8 @@ import { fieldError, toastFormErrors } from '../../../lib/fieldError';
 import { router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     event: {
@@ -56,16 +60,20 @@ const form = useForm({
     timezone: props.event.timezone ?? 'America/Vancouver',
 });
 
-const submit = () => {
+const submit = (afterSave) => {
     if (!canWrite.value) {
         return;
     }
 
-    form.put(`/settings/events/${props.event.id}`, {
-        onSuccess: () => showSuccess(trans('settings.events.toast.updated')),
-        onError: (errors) =>
-            toastFormErrors(form, errors, { showError, showFormError }),
-    });
+    form.put(
+        returnUrl(`/settings/events/${props.event.id}`),
+        returnFormOptions(form, afterSave, {
+            onSuccess: () =>
+                showSuccess(trans('settings.events.toast.updated')),
+            onError: (errors) =>
+                toastFormErrors(form, errors, { showError, showFormError }),
+        }),
+    );
 };
 
 const confirmDelete = () => {
@@ -87,6 +95,8 @@ const confirmDelete = () => {
         :event="event"
         :tab="tab"
         :for-primary="forPrimary"
+        :form="form"
+        @save="submit"
     >
         <Card class="p-6">
             <form @submit.prevent="submit">

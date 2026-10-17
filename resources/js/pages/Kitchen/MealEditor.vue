@@ -1,4 +1,7 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
+import { returnFormOptions } from '../../lib/returnNavigation';
+import { BackLink } from '../../components/ui/back-link';
 import AppLayout from '../../layouts/AppLayout.vue';
 import { Button } from '../../components/ui/button';
 import { Card, CardTitle } from '../../components/ui/card';
@@ -11,6 +14,8 @@ import { toastFormErrors } from '../../lib/fieldError';
 import { useForm } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     event: { type: Object, required: true },
@@ -60,15 +65,15 @@ const typeHint = computed(() =>
         : '',
 );
 const { showError, showFormError } = useFlashToast();
-const submit = () => {
+const submit = (afterSave) => {
     if (!props.canWrite || form.processing) return;
-    const options = {
+    const options = returnFormOptions(form, afterSave, {
         onError: (errors) =>
             toastFormErrors(form, errors, { showError, showFormError }),
-    };
+    });
     const url = `/events/${props.event.id}/meals`;
     if (creating.value) form.post(url, options);
-    else form.put(`${url}/${props.meal.id}`, options);
+    else form.put(returnUrl(`${url}/${props.meal.id}`), options);
 };
 </script>
 
@@ -79,6 +84,12 @@ const submit = () => {
         compact-mobile-header
     >
         <div class="container mx-auto pb-24">
+            <BackLink
+                href="/meals/settings"
+                :page="$t('meals.settings.title')"
+                :form="form"
+                @save="submit"
+            />
             <h1 class="mb-5 text-2xl font-bold text-charcoal">{{ title }}</h1>
             <p
                 v-if="event.is_locked"

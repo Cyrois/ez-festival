@@ -1,4 +1,6 @@
 <script setup>
+import { useReturnNavigation } from '../../composables/useReturnNavigation';
+import { useLandingState } from '../../composables/useLandingState';
 import SettingsLayout from '../../layouts/SettingsLayout.vue';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -12,6 +14,8 @@ import { Link, router } from '@inertiajs/vue3';
 import { navigateDataTableRow } from '../../lib/dataTableRowNavigation';
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import { trans, transChoice } from 'laravel-vue-i18n';
+
+const { returnUrl } = useReturnNavigation();
 
 const props = defineProps({
     roles: { type: Object, required: true },
@@ -54,7 +58,9 @@ const dataTableUrl = computed(() => {
 
     return `/settings/roles/data${suffix ? `?${suffix}` : ''}`;
 });
+const landingState = useLandingState('roles');
 const dataTableOptions = computed(() => ({
+    ...landingState,
     serverSide: true,
     searching: false,
     lengthChange: false,
@@ -70,10 +76,8 @@ const dataTableOptions = computed(() => ({
             return;
         }
 
-        navigateDataTableRow(
-            row,
-            role,
-            (item) => `/settings/roles/${item.id}/edit`,
+        navigateDataTableRow(row, role, (item) =>
+            returnUrl(`/settings/roles/${item.id}/edit`),
         );
     },
     language: {
@@ -119,7 +123,7 @@ watch(
 
 onUnmounted(() => window.clearTimeout(searchTimer));
 
-const openAdd = () => router.visit('/settings/roles/create');
+const openAdd = () => router.visit(returnUrl('/settings/roles/create'));
 
 // Turn on inactive roles.
 const statusBusy = ref(false);
@@ -215,7 +219,9 @@ const setActive = (role, active, onSuccess = () => {}) => {
                             :is="canManageRoles ? Link : 'span'"
                             :href="
                                 canManageRoles
-                                    ? `/settings/roles/${rowData.id}/edit`
+                                    ? returnUrl(
+                                          `/settings/roles/${rowData.id}/edit`,
+                                      )
                                     : undefined
                             "
                             :class="[
@@ -260,7 +266,11 @@ const setActive = (role, active, onSuccess = () => {}) => {
                                 {{ $t('settings.roles.actions.turn_on') }}
                             </Button>
                             <Link
-                                :href="`/settings/roles/${rowData.id}/edit`"
+                                :href="
+                                    returnUrl(
+                                        `/settings/roles/${rowData.id}/edit`,
+                                    )
+                                "
                                 class="inline-flex text-muted hover:text-primary"
                                 :aria-label="
                                     $t('data_table.open', {
