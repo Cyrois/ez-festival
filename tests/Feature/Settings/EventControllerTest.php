@@ -216,7 +216,6 @@ class EventControllerTest extends TestCase
         $issued = IssuedEntitlement::query()->create([
             'expected_entitlement_id' => $expected->id,
             'entitlement_item_id' => $expected->entitlement_item_id,
-            'location_id' => $location->id,
             'code' => 'EVENT-DELETE-TEST',
             'issued_by' => $user->id,
         ]);

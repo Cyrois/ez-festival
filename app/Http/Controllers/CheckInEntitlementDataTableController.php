@@ -25,6 +25,6 @@ class CheckInEntitlementDataTableController extends Controller
             ? $engagement->person_id === (int) $data['person_id']
             : $engagement->people()->where('people.id', $data['person_id'])->exists(), 404);
 
-        return new CheckInEntitlementDataTableResource(['draw' => (int) $data['draw'], ...$query->dataTable($event, $data)]);
+        return new CheckInEntitlementDataTableResource(['draw' => (int) $data['draw'], ...$query->dataTable($event, $data, $request->user())]);
     }
 }

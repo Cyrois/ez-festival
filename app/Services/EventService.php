@@ -84,9 +84,6 @@ class EventService
             $entitlementItemIds = fn () => DB::table('entitlement_items')
                 ->select('id')
                 ->where('event_id', $event->id);
-            $locationIds = fn () => DB::table('locations')
-                ->select('id')
-                ->where('event_id', $event->id);
             $passTypeIds = fn () => DB::table('pass_types')
                 ->select('id')
                 ->where('event_id', $event->id);
@@ -94,9 +91,7 @@ class EventService
             DB::table('stock_movements')->where('event_id', $event->id)->delete();
 
             DB::table('issued_entitlements')
-                ->where(fn ($query) => $query
-                    ->whereIn('entitlement_item_id', $entitlementItemIds())
-                    ->orWhereIn('location_id', $locationIds()))
+                ->whereIn('entitlement_item_id', $entitlementItemIds())
                 ->delete();
 
             DB::table('expected_entitlements')

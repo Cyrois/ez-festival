@@ -64,15 +64,15 @@ class PassAssignmentsTest extends TestCase
         [$user, $event, $engagement] = $this->artistContext();
         $location = $event->locations()->create(['name' => 'Main stage']);
         $item = $event->entitlementItems()->create(['name' => 'Artist wristband']);
-        $this->seedStock($item, $location, 1);
+        $this->seedHeldStock($item, $location, 1, $user);
         $passType = $event->passTypes()->create(['name' => 'Artist']);
-        $assignment = $engagement->passAssignments()->create(['pass_type_id' => $passType->id]);
+        $assignment = $engagement->passAssignments()->create(['pass_type_id' => $passType->id, 'person_id' => $user->person_id]);
         $expected = $assignment->expectedEntitlements()->create([
             'entitlement_item_id' => $item->id,
             'status' => ExpectedEntitlement::STATUS_EXPECTED,
         ]);
 
-        app(EntitlementConsumeService::class)->consume($expected, $user, $location->id, 'RFID-1');
+        app(EntitlementConsumeService::class)->consume($expected, $user, 'RFID-1');
 
         $this->assertDatabaseHas('issued_entitlements', [
             'expected_entitlement_id' => $expected->id,
@@ -83,32 +83,32 @@ class PassAssignmentsTest extends TestCase
         $this->assertSame(0, app(EntitlementItemService::class)->balance($item));
         $this->assertDatabaseHas('stock_movements', [
             'entitlement_item_id' => $item->id,
-            'from_holder_id' => StockHolder::query()->where('event_id', $item->event_id)->where('location_id', $location->id)->value('id'),
+            'from_holder_id' => StockHolder::query()->where('event_id', $item->event_id)->where('person_id', $user->person_id)->value('id'),
             'quantity' => 1,
             'type' => StockMovementType::GiveOut,
             'issued_entitlement_id' => $expected->issuedEntitlement->id,
             'actor_user_id' => $user->id,
         ]);
-        $this->assertSame(0, StockHolder::query()->where('event_id', $item->event_id)->whereNotNull('person_id')->count());
+        $this->assertSame(1, StockHolder::query()->where('event_id', $item->event_id)->whereNotNull('person_id')->count());
     }
 
-    public function test_consume_decrements_the_picked_location_without_unassigned_orphan(): void
+    public function test_consume_debits_person_stock_without_an_unassigned_holder(): void
     {
         [$user, $event, $engagement] = $this->artistContext();
         $location = $event->locations()->create(['name' => 'Main stage']);
         $item = $event->entitlementItems()->create(['name' => 'Artist wristband']);
-        $this->seedStock($item, $location, 10, $user);
+        $this->seedHeldStock($item, $location, 10, $user);
         $passType = $event->passTypes()->create(['name' => 'Artist']);
-        $assignment = $engagement->passAssignments()->create(['pass_type_id' => $passType->id]);
+        $assignment = $engagement->passAssignments()->create(['pass_type_id' => $passType->id, 'person_id' => $user->person_id]);
         $expected = $assignment->expectedEntitlements()->create([
             'entitlement_item_id' => $item->id,
             'status' => ExpectedEntitlement::STATUS_EXPECTED,
         ]);
 
-        app(EntitlementConsumeService::class)->consume($expected, $user, $location->id);
+        app(EntitlementConsumeService::class)->consume($expected, $user);
 
-        $this->assertSame(9, (int) app(EntitlementItemService::class)->balanceForLocation($item, $location->id));
-        $this->assertSame(0, StockHolder::query()->where('event_id', $item->event_id)->whereNotNull('person_id')->count());
+        $this->assertSame(0, (int) app(EntitlementItemService::class)->balanceForLocation($item, $location->id));
+        $this->assertSame(1, StockHolder::query()->where('event_id', $item->event_id)->whereNotNull('person_id')->count());
         $this->assertSame(9, (int) app(EntitlementItemService::class)->balance($item));
     }
 
@@ -217,7 +217,9 @@ class PassAssignmentsTest extends TestCase
         $this->grantAdminAccess($user);
 
         $artist = Artist::query()->create(['name' => 'The Headliners']);
-        $engagement = ArtistEngagement::query()->create(['artist_id' => $artist->id, 'event_id' => $event->id]);
+        $engagement = ArtistEngagement::query()->create(['artist_id' => $artist->id, 'event_id' => $event->id, 'status' => 'confirmed']);
+
+        $engagement->people()->attach($user->person_id);
 
         return [$user, $event, $engagement];
     }

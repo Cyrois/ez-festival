@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Event;
-use App\Models\IssuedEntitlement;
 use App\Models\Location;
 use App\Models\StockHolder;
 use Illuminate\Support\Facades\DB;
@@ -40,7 +39,6 @@ class EventLocationService
             $location = $event->locations()->lockForUpdate()->findOrFail($location->id);
 
             if (app(StockMovementService::class)->locationHasHistory($location)
-                || IssuedEntitlement::query()->where('location_id', $location->id)->exists()
                 || $location->shifts()->exists()) {
                 throw ValidationException::withMessages([
                     'location' => __('setup.locations.errors.delete_blocked'),

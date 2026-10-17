@@ -15,6 +15,20 @@ use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
 {
+    /** Distribute fixture stock to the actor without bypassing ledger constraints. */
+    protected function seedHeldStock(EntitlementItem $item, Location $location, int $quantity, User $actor): StockHolder
+    {
+        $this->seedStock($item, $location, $quantity, $actor);
+        $from = StockHolder::where('event_id', $item->event_id)->where('location_id', $location->id)->sole();
+        $holder = StockHolder::firstOrCreate(['event_id' => $item->event_id, 'person_id' => $actor->person_id]);
+        $item->movements()->create([
+            'event_id' => $item->event_id, 'quantity' => $quantity, 'type' => StockMovementType::Pull,
+            'from_holder_id' => $from->id, 'to_holder_id' => $holder->id, 'actor_user_id' => $actor->id,
+        ]);
+
+        return $holder;
+    }
+
     /** Seed a valid ledger fixture without coupling setup to the write service under test. */
     protected function seedStock(EntitlementItem $item, Location $location, int $delta, ?User $actor = null): StockMovement
     {

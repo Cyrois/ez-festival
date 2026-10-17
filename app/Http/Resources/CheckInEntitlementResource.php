@@ -11,6 +11,7 @@ class CheckInEntitlementResource extends JsonResource
     public function toArray(Request $request): array
     {
         $issued = $this->issuedEntitlement;
+        $movement = $issued?->giveOutMovement;
 
         return [
             'id' => $this->id,
@@ -18,13 +19,15 @@ class CheckInEntitlementResource extends JsonResource
             'labels' => EntitlementLabels::ordered($this->entitlementItem->labels),
             'source' => $this->passAssignment->passType->name,
             'status' => $issued ? 'issued' : 'pending',
-            'locations' => $this->stock_locations->map(fn ($stock): array => [
-                'id' => $stock->location_id, 'name' => $stock->name, 'in_stock' => (int) $stock->balance,
-            ])->values(),
+            'own_stock' => $this->own_stock,
+            'can_consume' => $this->can_consume,
+            'consume_blocked_reason' => $this->consume_blocked_reason,
             'issued' => $issued ? [
-                'location' => $issued->location?->name,
+                'giver' => $movement?->fromHolder?->person?->name ?? $movement?->fromHolder?->location?->name,
+                'receiver' => $this->passAssignment->person?->name,
                 'code' => $issued->code,
                 'issued_by' => $issued->issuedBy?->name,
+                'recorded_by' => $movement?->actor?->name,
                 'issued_at' => $issued->issued_at,
             ] : null,
         ];

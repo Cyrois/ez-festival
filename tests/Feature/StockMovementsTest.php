@@ -49,7 +49,7 @@ class StockMovementsTest extends TestCase
         $stocks->move($item, StockMovementType::Return, 1, $person, $location, $actor);
         $this->assertSame(10, $stocks->total($item));
         $stocks->move($item, StockMovementType::Remove, 2, $location, null, $actor, 'Damaged');
-        $issue = $this->expected($event, $item)->issuedEntitlement()->create(['entitlement_item_id' => $item->id, 'location_id' => $location->location_id]);
+        $issue = $this->expected($event, $item)->issuedEntitlement()->create(['entitlement_item_id' => $item->id]);
         $stocks->move($item, StockMovementType::GiveOut, 1, $location, null, $actor, issued: $issue);
 
         $this->assertSame(5, $stocks->balance($item, $location));
@@ -141,7 +141,7 @@ class StockMovementsTest extends TestCase
         [$event, $actor, $item, $location] = $this->context();
         $expected = $this->expected($event, $item);
         try {
-            app(EntitlementConsumeService::class)->consume($expected, $actor, $location->location_id);
+            app(EntitlementConsumeService::class)->consume($expected, $actor);
             $this->fail('Empty stock must refuse consume.');
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('quantity', $exception->errors());
@@ -154,11 +154,11 @@ class StockMovementsTest extends TestCase
     public function test_consumption_has_one_issue_link_and_duplicate_link_is_a_controlled_conflict(): void
     {
         [$event, $actor, $item, $location] = $this->context();
-        $this->seedStock($item, $location->location, 2, $actor);
+        $person = $this->seedHeldStock($item, $location->location, 2, $actor);
         $expected = $this->expected($event, $item);
-        $issued = app(EntitlementConsumeService::class)->consume($expected, $actor, $location->location_id);
+        $issued = app(EntitlementConsumeService::class)->consume($expected, $actor);
         $this->assertDatabaseHas('stock_movements', ['type' => StockMovementType::GiveOut, 'quantity' => 1,
-            'from_holder_id' => $location->id, 'to_holder_id' => null, 'issued_entitlement_id' => $issued->id, 'actor_user_id' => $actor->id]);
+            'from_holder_id' => $person->id, 'to_holder_id' => null, 'issued_entitlement_id' => $issued->id, 'actor_user_id' => $actor->id]);
         try {
             app(StockMovementService::class)->move($item, StockMovementType::GiveOut, 1, $location, null, $actor, issued: $issued);
             $this->fail('An issue must debit stock only once.');
@@ -210,9 +210,13 @@ class StockMovementsTest extends TestCase
 
     public function test_unused_holder_does_not_block_location_delete(): void
     {
-        [$event, , , $holder] = $this->context();
+        [$event, $actor, , $holder] = $this->context();
         app(EventLocationService::class)->destroy($event, $holder->location);
         $this->assertModelMissing($holder);
+        $unused = $event->locations()->create(['name' => 'Unused setup location']);
+        $this->actingAs($actor)->delete(route('setup.locations.destroy', $unused))
+            ->assertRedirect(route('setup.locations'))->assertSessionHasNoErrors();
+        $this->assertModelMissing($unused);
     }
 
     public function test_locked_event_refuses_movements_and_holder_creation_even_with_stale_models(): void
@@ -252,13 +256,13 @@ class StockMovementsTest extends TestCase
         [$event, $actor, , $location, $person] = $this->context();
         [, , , $foreign] = $this->context('Foreign event');
         foreach ([['event_id' => $event->id],
-            ['event_id' => $event->id, 'person_id' => $actor->person_id, 'location_id' => $location->location_id],
-            ['event_id' => $event->id, 'location_id' => $location->location_id],
+            ['event_id' => $event->id, 'person_id' => $actor->person_id],
+            ['event_id' => $event->id],
             ['event_id' => $event->id, 'person_id' => $actor->person_id],
             ['event_id' => $event->id, 'location_id' => $foreign->location_id]] as $data) {
             $this->assertDatabaseRejected(fn () => StockHolder::create($data));
         }
-        $this->assertDatabaseRejected(fn () => $person->update(['person_id' => null, 'location_id' => $location->location_id]));
+        $this->assertDatabaseRejected(fn () => $person->update(['person_id' => null]));
         $this->assertSame($actor->person_id, $person->fresh()->person_id);
     }
 
@@ -314,8 +318,8 @@ class StockMovementsTest extends TestCase
         $issue = $this->expected($event, $otherItem)->issuedEntitlement()->create(['entitlement_item_id' => $otherItem->id]);
         $this->assertDatabaseRejected(fn () => $item->movements()->create(['event_id' => $event->id,
             'type' => StockMovementType::GiveOut, 'quantity' => 1, 'from_holder_id' => $holder->id, 'issued_entitlement_id' => $issue->id]));
-        $this->seedStock($item, $holder->location, 2, $actor);
-        $issue = app(EntitlementConsumeService::class)->consume($this->expected($event, $item), $actor, $holder->location_id);
+        $this->seedHeldStock($item, $holder->location, 2, $actor);
+        $issue = app(EntitlementConsumeService::class)->consume($this->expected($event, $item), $actor);
         $movement = $item->movements()->where('type', StockMovementType::GiveOut)->sole();
         $this->assertSame(StockMovementType::GiveOut, $movement->type);
         $this->assertSame('give_out', $movement->getRawOriginal('type'));
@@ -365,8 +369,8 @@ class StockMovementsTest extends TestCase
     private function expected(Event $event, EntitlementItem $item): ExpectedEntitlement
     {
         $pass = $event->passTypes()->firstOrCreate(['name' => 'Pass '.$item->id]);
-        $patron = $event->patrons()->firstOrCreate(['person_id' => User::query()->value('person_id')]);
-        $assignment = $pass->assignments()->create(['event_patron_id' => $patron->id]);
+        $member = $event->teamEngagements()->firstOrCreate(['person_id' => User::query()->value('person_id')], ['status' => 'hired']);
+        $assignment = $pass->assignments()->create(['team_engagement_id' => $member->id, 'person_id' => $member->person_id]);
 
         return $assignment->expectedEntitlements()->create(['entitlement_item_id' => $item->id]);
     }

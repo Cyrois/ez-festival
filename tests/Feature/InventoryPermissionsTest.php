@@ -240,7 +240,7 @@ class InventoryPermissionsTest extends TestCase
             $field = $engagement instanceof ArtistEngagement ? 'artist_engagement_id' : ($engagement instanceof VendorEngagement ? 'vendor_engagement_id' : 'team_engagement_id');
             $assignment = $pass->assignments()->create([$field => $engagement->id, 'person_id' => $person->id]);
             $expected = $assignment->expectedEntitlements()->create(['entitlement_item_id' => $item->id, 'status' => 'expected']);
-            $this->post(route('check-in.issues.store', $expected), [])->assertSessionHasErrors('location_id');
+            $this->post(route('check-in.issues.store', $expected), [])->assertSessionHasErrors('quantity');
         }
         $this->role->update(['permissions' => ['checkin.edit']]);
         foreach ($targets as [$engagement, $route]) {

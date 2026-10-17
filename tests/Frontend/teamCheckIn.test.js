@@ -97,7 +97,7 @@ const person = (hasPass = true, entitlements = []) => ({
     passes: hasPass ? ['Crew pass'] : [], pass_labels: [], expected: entitlements.length,
     issued: 0, entitlements,
 });
-const pending = { id: 43, name: 'Wristband', status: 'pending', locations: [{ id: 2, name: 'Gate', in_stock: 2 }] };
+const pending = { id: 43, name: 'Wristband', status: 'pending', own_stock: 2, can_consume: true, consume_blocked_reason: null };
 const mount = async ({ holder = person(), canWrite = true, locked = false, memberUrl = null, canViewShifts = false, checkInShifts = [], groupName = null, roleName = null } = {}) => {
     globalThis.teamCheckInRequests = [];
     globalThis.fetch = async (url) => {
@@ -210,7 +210,7 @@ test('event group and role remain visible when personal details are hidden, with
 
 
 test('audit switch reveals six columns without refetching; actions differ by status', async () => {
-    const issued = {...pending, id:44, status:'issued', issued:{code:'WRIST-44', issued_by:'Gate operator <img>', issued_at:'2026-10-09T18:30:00Z', location:'Gate'}};
+    const issued = {...pending, id:44, status:'issued', issued:{code:'WRIST-44', giver:'Stock giver <img>',receiver:'Maya',recorded_by:'Gate operator <img>',issued_by:'Original issuer <img>', issued_at:'2026-10-09T18:30:00Z', location:'Gate'}};
     const app = await mount({holder:person(true,[pending,issued])});
     try {
         const toggle = document.querySelector('[role="switch"]');
@@ -220,7 +220,7 @@ test('audit switch reveals six columns without refetching; actions differ by sta
         await nextTick();
         assert.equal(toggle.checked, true);
         assert.equal(globalThis.teamCheckInRequests.length, 1);
-        assert.deepEqual([...document.querySelectorAll('th')].map(el=>el.textContent.trim()), ['Entitled To','Status','Code','Checked in By','Checked in at','Actions']);
+        assert.deepEqual([...document.querySelectorAll('th')].map(el=>el.textContent.trim()), ['Entitled To','Status','Code','Giver','Receiver','Recorded by','Checked in at','Actions']);
         const rows = document.querySelectorAll('tbody tr');
         assert.match(rows[0].textContent, /Pending/);
         assert.equal(rows[0].querySelector('[aria-label="Details"], [aria-label="Remove"]'), null);
@@ -256,7 +256,7 @@ test('audit selection survives reopening the table for both on and off choices',
         app.unmount();
         app = await mount({holder:person(true,[pending])});
         assert.equal(document.querySelector('[role="switch"]').checked, true);
-        assert.deepEqual([...document.querySelectorAll('th')].map(el=>el.textContent.trim()), ['Entitled To','Status','Code','Checked in By','Checked in at','Actions']);
+        assert.deepEqual([...document.querySelectorAll('th')].map(el=>el.textContent.trim()), ['Entitled To','Status','Code','Giver','Receiver','Recorded by','Checked in at','Actions']);
         document.querySelector('[role="switch"]').click();
         await nextTick();
         assert.match(document.cookie, /check_in_audit_view=0/);
@@ -277,7 +277,7 @@ test('unrecognized audit cookie values use the simplified view', async () => {
 });
 
 test('simplified issued details are readable in locked events, escaped and dismissible with focus restored', async () => {
-    const issued = {...pending, id:44, status:'issued', labels:[{id:1,name:'Wristband label',color:'teal'}], issued:{code:'WRIST-44', issued_by:'Gate operator <img>', issued_at:'2026-10-09T18:30:00Z'}};
+    const issued = {...pending, id:44, status:'issued', labels:[{id:1,name:'Wristband label',color:'teal'}], issued:{code:'WRIST-44', giver:'Stock giver <img>',receiver:'Maya',recorded_by:'Gate operator <img>',issued_by:'Original issuer <img>', issued_at:'2026-10-09T18:30:00Z'}};
     const app = await mount({holder:person(true,[pending,issued]),canWrite:false,locked:true});
     try {
         const rows = document.querySelectorAll('tbody tr');
@@ -293,7 +293,7 @@ test('simplified issued details are readable in locked events, escaped and dismi
             const popup = document.querySelector('[role="dialog"]');
             assert.ok(popup);
             assert.match(popup.textContent, /Wristband label/);
-            assert.deepEqual([...popup.querySelectorAll('dd')].map(el=>el.textContent.trim()), ['WRIST-44','Gate operator <img>','Oct 9, 2026, 11:30 AM']);
+            assert.deepEqual([...popup.querySelectorAll('dd')].map(el=>el.textContent.trim()), ['WRIST-44','Original issuer <img>','Oct 9, 2026, 11:30 AM']);
             assert.equal(popup.querySelector('img'), null);
             const close = popup.querySelector('button');
             assert.equal(document.activeElement, close);
@@ -320,7 +320,7 @@ test('successful consumption refreshes the entitlement table without resetting i
     const holder = reactive(person(true,[pending]));
     const app = await mount({holder});
     try {
-        holder.entitlements = [{...pending, status:'issued', issued:{code:'NEW',issued_by:'Gate operator',issued_at:'2026-10-09T18:30:00Z'}}];
+        holder.entitlements = [{...pending, status:'issued', issued:{code:'NEW',giver:'Stock giver',receiver:'Maya',recorded_by:'Gate operator',issued_at:'2026-10-09T18:30:00Z'}}];
         holder.issued=1;
         await nextTick();
         await new Promise(resolve=>setTimeout(resolve,20));

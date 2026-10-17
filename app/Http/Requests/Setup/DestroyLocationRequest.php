@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\Setup;
 
-use App\Models\IssuedEntitlement;
 use App\Models\Location;
 use App\Models\Shift;
 use App\Services\StockMovementService;
@@ -29,7 +28,7 @@ class DestroyLocationRequest extends FormRequest
             /** @var Location|null $location */
             $location = $this->route('location');
 
-            if ($location !== null && (app(StockMovementService::class)->locationHasHistory($location) || IssuedEntitlement::query()->where('location_id', $location->id)->exists()
+            if ($location !== null && (app(StockMovementService::class)->locationHasHistory($location)
                 || Shift::query()->where('location_id', $location->id)->exists())) {
                 $validator->errors()->add(
                     'location',
