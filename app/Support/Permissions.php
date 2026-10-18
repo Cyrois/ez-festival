@@ -25,6 +25,7 @@ final class Permissions
         'team.notes.read' => [],
         'team.notes.add' => ['team.notes.read'],
         'team.personal_info' => [],
+        'team.hours_report.view' => [],
         'scheduling.view' => [],
         'scheduling.edit' => ['scheduling.view'],
         'forms.view' => [],

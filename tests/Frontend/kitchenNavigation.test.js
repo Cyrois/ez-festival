@@ -97,6 +97,41 @@ test('admins see every Kitchen tab through their shared permission map', async (
 });
 
 for (const collapsed of [false, true]) {
+    test(`Team navigation respects independent hours report access (collapsed: ${collapsed})`, async () => {
+        for (const [viewTeam, viewReport] of [[false, false], [true, false], [false, true], [true, true]]) {
+            const permissions = { 'team.view': viewTeam, 'team.hours_report.view': viewReport };
+            const url = viewReport ? '/team/reports' : viewTeam ? '/team/advancement' : '/dashboard';
+            const { sidebar, tabs } = await navigation(permissions, collapsed, false, url);
+            const team = sidebar.find((link) => link.label === locale['nav.team']);
+            assert.equal(Boolean(team), viewTeam || viewReport);
+            if (team) {
+                assert.equal(team.href, viewTeam ? '/team/advancement' : '/team/reports');
+                assert.equal(team.current, 'page');
+            }
+            assert.equal(sidebar.some((link) => link.label === 'Reports'), false);
+            assert.equal(tabs.some((link) => link.href === '/team/reports'), viewReport);
+            assert.equal(tabs.some((link) => link.href === '/team/advancement'), viewTeam);
+            assert.equal(tabs.some((link) => link.href === '/team/configure'), viewTeam);
+            if (viewReport) {
+                assert.deepEqual(tabs.filter((link) => link.current === 'page').map((link) => link.href), ['/team/reports']);
+            }
+            if (viewReport && !viewTeam) {
+                assert.deepEqual(tabs.map((link) => link.label), ['Reports']);
+            }
+        }
+    });
+}
+
+test('admins see Reports in its agreed position through their shared permission map', async () => {
+    const permissions = Object.fromEntries(['team.view', 'scheduling.view', 'forms.view', 'team.hours_report.view'].map((key) => [key, true]));
+    const { sidebar, tabs } = await navigation(permissions, false, true, '/team/reports');
+    assert.ok(sidebar.some((link) => link.label === locale['nav.team']));
+    assert.equal(sidebar.some((link) => link.label === 'Reports'), false);
+    assert.deepEqual(tabs.map((link) => link.label), ['Advancement', 'Scheduling', 'Forms', 'Reports', 'Configure']);
+    assert.deepEqual(tabs.filter((link) => link.current === 'page').map((link) => link.href), ['/team/reports']);
+});
+
+for (const collapsed of [false, true]) {
     test(`Check-in header tabs respect Inventory access (collapsed: ${collapsed})`, async () => {
         for (const [permissions, url, labels, active] of [
             [{}, '/dashboard', [], null],

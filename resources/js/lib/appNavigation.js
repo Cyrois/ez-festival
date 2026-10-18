@@ -76,6 +76,11 @@ export function getAppNavigation({
                     enabled: true,
                 },
                 {
+                    key: 'team.reports',
+                    href: '/team/reports',
+                    enabled: true,
+                },
+                {
                     key: 'team.configure',
                     href: '/team/configure',
                     enabled: true,
@@ -165,6 +170,7 @@ export function getAppNavigation({
                         {
                             'team.scheduling': 'scheduling.view',
                             'team.forms': 'forms.view',
+                            'team.reports': 'team.hours_report.view',
                             'meals.report': 'meals.report.view',
                         }[child.key] ??
                             (item.key === 'meals' ? 'meals.view' : 'team.view')
