@@ -71,6 +71,7 @@ class EventPermissionsTest extends TestCase
             $checked = collect($route->gatherMiddleware())->contains(fn ($middleware) => str_starts_with($middleware, 'can:'));
             $this->assertTrue($checked || isset($exceptions[$route->uri()]), 'Missing permission check: '.$route->methods()[0].' '.$route->uri());
         }
+        $this->assertContains('can:team.hours_report.view', Route::getRoutes()->getByName('team.reports')->gatherMiddleware());
     }
 
     public function test_view_only_artist_role_gets_home_and_an_event_only_permission_map(): void
@@ -81,7 +82,7 @@ class EventPermissionsTest extends TestCase
             ->missing('permissions.role')
             ->missing('permissions.events'));
         $this->get(route('artists.index'))->assertOk();
-        foreach (['artists.create', 'vendors.advancing', 'check-in.index', 'team.advancement', 'patrons.index', 'reports.index', 'reports.meals.export', 'credentials.passes', 'credentials.entitlements', 'credentials.products', 'settings.events.index', 'settings.roles', 'settings.roles.create', 'setup.event'] as $route) {
+        foreach (['artists.create', 'vendors.advancing', 'check-in.index', 'team.advancement', 'team.reports', 'patrons.index', 'reports.index', 'reports.meals.export', 'credentials.passes', 'credentials.entitlements', 'credentials.products', 'settings.events.index', 'settings.roles', 'settings.roles.create', 'setup.event'] as $route) {
             $this->get(route($route))->assertForbidden();
         }
         $this->get(route('settings.account'))->assertOk();
@@ -166,7 +167,7 @@ class EventPermissionsTest extends TestCase
     {
         $this->grantAdminAccess($this->user);
         $this->get(route('settings.roles.create'))->assertInertia(fn (Assert $page) => $page
-            ->component('Settings/Roles/Create')->has('permissionGroups', 10)->has('permissionGroups.inventory', 3)->has('permissionGroups.credentials', 3)->has('permissionGroups.team', 6)->has('permissionGroups.scheduling', 2)->has('permissionGroups.forms', 2)->has('permissionGroups.meals', 6));
+            ->component('Settings/Roles/Create')->has('permissionGroups', 10)->has('permissionGroups.inventory', 3)->has('permissionGroups.credentials', 3)->has('permissionGroups.team', 7)->has('permissionGroups.scheduling', 2)->has('permissionGroups.forms', 2)->has('permissionGroups.meals', 6));
         foreach ([[], ['invented.permission']] as $permissions) {
             $this->post(route('settings.roles.store'), ['name' => 'Invalid', 'permissions' => $permissions])->assertSessionHasErrors();
         }
@@ -384,6 +385,92 @@ class EventPermissionsTest extends TestCase
         $this->assertModelMissing($shift);
         $this->event->lock();
         $this->post(route('team.shifts.store', $this->event), $payload)->assertForbidden();
+    }
+
+    public function test_team_hours_report_permission_allows_report_only_access_even_when_locked(): void
+    {
+        $this->role->update(['permissions' => ['team.hours_report.view']]);
+        $this->get(route('team.reports'))->assertInertia(fn (Assert $page) => $page
+            ->component('Team/Reports')
+            ->where('permissions', fn ($permissions) => $permissions['team.hours_report.view']
+                && ! $permissions['team.view'] && ! $permissions['scheduling.view'] && ! $permissions['forms.view']));
+        foreach (['team.advancement', 'team.scheduling', 'team.forms', 'team.configure', 'reports.index', 'reports.meals.export'] as $route) {
+            $this->get(route($route))->assertForbidden();
+        }
+
+        $this->event->lock();
+        $this->get(route('team.reports'))->assertInertia(fn (Assert $page) => $page
+            ->component('Team/Reports')->where('activeEvent.is_locked', true));
+    }
+
+    public function test_other_team_and_kitchen_permissions_do_not_grant_team_hours_report_access(): void
+    {
+        foreach (['team.view', 'team.edit', 'scheduling.view', 'forms.view', 'meals.report.view'] as $permission) {
+            $this->role->update(['permissions' => [$permission]]);
+            $this->get(route('team.reports'))->assertForbidden();
+            $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
+                ->where('permissions', fn ($permissions) => ! $permissions['team.hours_report.view']));
+        }
+    }
+
+    public function test_admin_can_read_team_hours_report_without_a_role_on_a_locked_event(): void
+    {
+        $this->grantAdminAccess($this->user);
+        TeamEngagement::where('person_id', $this->user->person_id)->delete();
+        $this->event->lock();
+
+        $this->get(route('team.reports'))->assertInertia(fn (Assert $page) => $page
+            ->component('Team/Reports')
+            ->where('permissions', fn ($permissions) => $permissions['team.hours_report.view'])
+            ->where('activeEvent.is_locked', true));
+    }
+
+    public function test_team_hours_report_access_follows_current_event_and_permission_removal(): void
+    {
+        $other = $this->event('Festival B');
+        $otherRole = Role::create(['name' => 'Team viewer', 'permissions' => ['team.view']]);
+        $this->membership($other, $this->user->person, $otherRole);
+        $this->role->update(['permissions' => ['team.hours_report.view']]);
+
+        $this->get(route('team.reports'))->assertOk();
+        $this->user->setCurrentEvent($other);
+        $this->get(route('team.reports'))->assertForbidden();
+        $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
+            ->where('activeEvent.id', $other->id)->where('permissions', fn ($permissions) => ! $permissions['team.hours_report.view']));
+
+        $this->user->setCurrentEvent($this->event);
+        $this->get(route('team.reports'))->assertOk();
+        $this->role->update(['permissions' => ['team.view']]);
+        $this->get(route('team.reports'))->assertForbidden();
+        $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
+            ->where('permissions', fn ($permissions) => ! $permissions['team.hours_report.view']));
+    }
+
+    public function test_team_hours_report_permission_is_available_on_role_forms_and_round_trips(): void
+    {
+        $this->grantAdminAccess($this->user);
+        $permission = [
+            'key' => 'team.hours_report.view',
+            'label' => 'View Team hours report',
+            'tooltip' => "See everyone's scheduled and worked hours under Team. No pay.",
+            'includes' => [],
+        ];
+        $this->get(route('settings.roles.create'))->assertInertia(fn (Assert $page) => $page
+            ->where('permissionGroups.team.6', $permission));
+
+        $this->post(route('settings.roles.store'), [
+            'name' => 'Hours viewer', 'permissions' => ['team.hours_report.view'],
+        ])->assertSessionHasNoErrors()->assertRedirect(route('settings.roles'));
+        $role = Role::where('name', 'Hours viewer')->sole();
+        $this->assertSame(['team.hours_report.view'], $role->permissions);
+        $this->get(route('settings.roles.edit', $role))->assertInertia(fn (Assert $page) => $page
+            ->where('permissionGroups.team.6', $permission)
+            ->where('role.permissions', ['team.hours_report.view']));
+
+        $this->put(route('settings.roles.update', $this->role), [
+            'name' => 'Another hours viewer', 'permissions' => ['team.hours_report.view'],
+        ])->assertSessionHasNoErrors()->assertRedirect(route('settings.roles'));
+        $this->assertSame(['team.hours_report.view'], $this->role->fresh()->permissions);
     }
 
     private function event(string $name): Event

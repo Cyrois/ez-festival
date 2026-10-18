@@ -142,6 +142,7 @@ final class RoutePermissions
         'setup.vendor-types.update' => 'admin',
         'team.advancement' => 'team.view',
         'team.configure' => 'team.view',
+        'team.reports' => 'team.hours_report.view',
         'team.forms.store' => 'forms.edit',
         'team.groups.store' => 'team.edit',
         'team.groups.update' => 'team.edit',

@@ -23,7 +23,7 @@ class TeamShellTest extends TestCase
 
     public function test_team_sections_require_authentication(): void
     {
-        foreach (['advancement', 'scheduling', 'forms', 'configure'] as $section) {
+        foreach (['advancement', 'scheduling', 'forms', 'reports', 'configure'] as $section) {
             $this->get(route("team.{$section}"))->assertRedirect(route('login'));
         }
     }
@@ -36,6 +36,7 @@ class TeamShellTest extends TestCase
             'advancement' => 'Team/Advancement',
             'scheduling' => 'Team/Scheduling',
             'forms' => 'Team/Forms',
+            'reports' => 'Team/Reports',
             'configure' => 'Team/Configure',
         ] as $section => $component) {
             $this->actingAs($user)->get(route("team.{$section}"))->assertInertia(

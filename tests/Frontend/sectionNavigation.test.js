@@ -7,7 +7,7 @@ import { parse, compileScript } from '@vue/compiler-sfc';
 import { JSDOM } from 'jsdom';
 import { getAppNavigation, isNavigationItemActive } from '../../resources/js/lib/appNavigation.js';
 
-const allPermissions = Object.fromEntries(['team.view', 'scheduling.view', 'forms.view', 'meals.view', 'meals.report.view', 'credentials.passes.edit', 'credentials.entitlements.edit', 'artists.view', 'vendors.view', 'patrons.view', 'checkin.view', 'checkin.edit', 'inventory.manage'].map((key) => [key, true]));
+const allPermissions = Object.fromEntries(['team.view', 'scheduling.view', 'forms.view', 'team.hours_report.view', 'meals.view', 'meals.report.view', 'credentials.passes.edit', 'credentials.entitlements.edit', 'artists.view', 'vendors.view', 'patrons.view', 'checkin.view', 'checkin.edit', 'inventory.manage'].map((key) => [key, true]));
 const navigation = (options = {}) => getAppNavigation({ permissions: allPermissions, isAdmin: true, ...options });
 
 test('Team opens its first permitted page and omits inaccessible tabs', () => {
@@ -15,6 +15,7 @@ test('Team opens its first permitted page and omits inaccessible tabs', () => {
         ['team.view', '/team/advancement', ['team.advancement', 'team.configure']],
         ['scheduling.view', '/team/scheduling', ['team.scheduling']],
         ['forms.view', '/team/forms', ['team.forms']],
+        ['team.hours_report.view', '/team/reports', ['team.reports']],
     ]) {
         const team = navigation({ permissions: { [permission]: true } }).find((item) => item.key === 'team');
         assert.equal(team.href, href);
@@ -37,6 +38,7 @@ test('detail and edit routes keep exactly one section tab selected', () => {
         ['/team/shifts/12/copy?return_tab=schedule', 'team', 'team.scheduling'],
         ['/team/shifts/create', 'team', 'team.scheduling'],
         ['/team/forms/12/edit', 'team', 'team.forms'],
+        ['/team/reports', 'team', 'team.reports'],
         ['/team/configure', 'team', 'team.configure'],
         ['/credentials/passes/12/edit', 'credentials', 'credentials.passes'],
         ['/credentials/entitlements/12/edit', 'credentials', 'credentials.entitlements'],
@@ -99,7 +101,7 @@ test('section tabs are real keyboard-focusable links with one current destinatio
         await nextTick();
         const nav = document.querySelector('nav[aria-label="Team"]');
         assert.ok(nav.hasAttribute('data-unsaved-navigation'));
-        assert.deepEqual([...nav.querySelectorAll('a')].map((link) => link.textContent.trim()), ['Advancement', 'Scheduling', 'Forms', 'Configure']);
+        assert.deepEqual([...nav.querySelectorAll('a')].map((link) => link.textContent.trim()), ['Advancement', 'Scheduling', 'Forms', 'Reports', 'Configure']);
         assert.equal(nav.querySelectorAll('[aria-current="page"]').length, 1);
         assert.equal(nav.querySelector('[aria-current="page"]').getAttribute('href'), '/team/scheduling');
         assert.equal(nav.querySelectorAll('[role="tab"], [aria-controls], [tabindex="-1"]').length, 0);
