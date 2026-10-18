@@ -1,12 +1,10 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
 import { computed, nextTick, ref, watch } from 'vue';
-import { trans } from 'laravel-vue-i18n';
 import { Dialog } from '../ui/dialog';
 import { EntitlementItemName } from '../ui/entitlement-labels';
 import { FormField } from '../ui/form-field';
 import { Input } from '../ui/input';
-import { CustomDropdown } from '../ui/custom-dropdown';
 import { useFlashToast } from '../../composables/useFlashToast';
 
 const props = defineProps({
@@ -16,34 +14,24 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['update:open']);
-const form = useForm({ location_id: '', code: '' });
+const form = useForm({ code: '' });
 const codeInput = ref(null);
 const needsUniqueCode = computed(() =>
     Boolean(props.entitlement?.needs_unique_code),
 );
 const canSubmit = computed(
     () =>
+        Boolean(props.entitlement?.can_consume) &&
         !form.processing &&
         (!needsUniqueCode.value || form.code.trim().length > 0),
 );
 const { showFormError } = useFlashToast();
-const locationItems = computed(() => [
-    { value: '', title: trans('artists.check_in.choose_location') },
-    ...(props.entitlement?.locations ?? []).map((location) => ({
-        value: location.id,
-        title: trans('artists.check_in.location_stock', {
-            location: location.name,
-            count: location.in_stock,
-        }),
-    })),
-]);
 
 watch(
     () => [props.open, props.entitlement?.id],
     async ([open]) => {
         if (!open) return;
         form.clearErrors();
-        form.location_id = props.entitlement?.locations?.[0]?.id ?? '';
         form.code = '';
         if (needsUniqueCode.value) {
             await nextTick();
@@ -82,22 +70,30 @@ const submit = () => {
                 stacked
             />
         </template>
-        <div class="mt-4 space-y-4">
-            <FormField
-                :label="$t('artists.check_in.location')"
-                :error="form.errors.location_id"
-                required
-            >
-                <template #default="{ id, invalid }">
-                    <CustomDropdown
-                        :id="id"
-                        v-model="form.location_id"
-                        :items="locationItems"
-                        :invalid="invalid"
-                        :disabled="form.processing"
-                    />
+        <div class="mt-4 flex flex-col gap-4">
+            <p class="m-0 rounded-lg bg-page p-3 text-sm text-charcoal">
+                <template
+                    v-for="(part, index) in $t(
+                        'check_in.from_your_stock',
+                    ).split(':count')"
+                    :key="index"
+                >
+                    <strong
+                        v-if="index > 0"
+                        class="font-bold"
+                        >{{ entitlement?.own_stock ?? 0 }}</strong
+                    >{{ part }}
                 </template>
-            </FormField>
+            </p>
+            <p
+                v-if="
+                    entitlement?.consume_blocked_reason || form.errors.quantity
+                "
+                class="m-0 text-sm text-danger"
+                role="alert"
+            >
+                {{ form.errors.quantity || entitlement.consume_blocked_reason }}
+            </p>
             <FormField
                 :label="
                     $t(

@@ -31,11 +31,8 @@ class ConsumeEntitlementRequest extends FormRequest
         $needsUniqueCode = $item?->event_id === $eventId && $item?->needs_unique_code;
 
         return [
-            'location_id' => [
-                'required',
-                'integer',
-                Rule::exists('locations', 'id')->where('event_id', $eventId),
-            ],
+            'location_id' => ['prohibited'],
+            'holder_id' => ['prohibited'],
             'code' => [
                 'bail', Rule::requiredIf($needsUniqueCode), 'nullable', 'string', 'max:64',
                 function (string $attribute, mixed $value, Closure $fail) use ($needsUniqueCode, $eventId): void {

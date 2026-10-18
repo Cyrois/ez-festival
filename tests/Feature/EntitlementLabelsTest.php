@@ -135,7 +135,7 @@ class EntitlementLabelsTest extends TestCase
         $measure = function () use ($member, $location): array {
             DB::enableQueryLog();
             DB::flushQueryLog();
-            $result = app(CheckInEntitlementsQuery::class)->dataTable($this->event, $this->filters($member));
+            $result = app(CheckInEntitlementsQuery::class)->dataTable($this->event, $this->filters($member), $this->actor);
             CheckInEntitlementResource::collection($result['rows'])->resolve();
             $checkIn = count(DB::getQueryLog());
             DB::flushQueryLog();

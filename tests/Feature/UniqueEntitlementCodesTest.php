@@ -40,10 +40,10 @@ class UniqueEntitlementCodesTest extends TestCase
             $expected = $this->expected($event, $item);
             $tooLong = str_repeat('X', 65);
             $this->actingAs($actor)->postJson(route('check-in.issues.store', $expected), [
-                'location_id' => $location->id, 'code' => $tooLong,
+                'code' => $tooLong,
             ])->assertUnprocessable()->assertJsonValidationErrors('code');
             try {
-                app(EntitlementConsumeService::class)->consume($expected, $actor, $location->id, $tooLong);
+                app(EntitlementConsumeService::class)->consume($expected, $actor, $tooLong);
                 $this->fail('The service must reject codes longer than 64 characters.');
             } catch (ValidationException $exception) {
                 $this->assertArrayHasKey('code', $exception->errors());
@@ -51,11 +51,11 @@ class UniqueEntitlementCodesTest extends TestCase
             $this->assertNull($expected->fresh()->issuedEntitlement);
             $this->assertSame('expected', $expected->fresh()->status);
             $this->assertFalse(EntitlementCode::isUsed($event->id, $tooLong));
-            $this->assertSame(1, $item->movements()->count());
+            $this->assertSame(2, $item->movements()->count());
 
             $code = str_repeat('X', 64);
             $this->post(route('check-in.issues.store', $expected), [
-                'location_id' => $location->id, 'code' => $code,
+                'code' => $code,
             ])->assertSessionHasNoErrors();
             $this->assertSame($code, $expected->fresh()->issuedEntitlement->code);
         }
@@ -67,12 +67,12 @@ class UniqueEntitlementCodesTest extends TestCase
         $expected = $this->expected($event, $item);
         foreach ([null, '', '   ', [], 123, str_repeat('X', 65)] as $code) {
             $this->actingAs($actor)->postJson(route('check-in.issues.store', $expected), [
-                'location_id' => $location->id, 'code' => $code,
+                'code' => $code,
             ])->assertUnprocessable()->assertJsonValidationErrors('code');
         }
         $this->assertDatabaseCount('issued_entitlements', 0);
         $this->assertDatabaseCount('entitlement_code_reservations', 0);
-        $this->assertDatabaseCount('stock_movements', 1);
+        $this->assertDatabaseCount('stock_movements', 2);
     }
 
     #[DataProvider('duplicateCodes')]
@@ -81,13 +81,13 @@ class UniqueEntitlementCodesTest extends TestCase
         [$event, $actor, $item, $location] = $this->context();
         $service = app(EntitlementConsumeService::class);
         $first = $this->expected($event, $item);
-        $issued = $service->consume($first, $actor, $location->id, ' CODE-42 ');
+        $issued = $service->consume($first, $actor, ' CODE-42 ');
         $secondItem = $differentItem ? $event->entitlementItems()->create(['name' => 'Lanyard', 'needs_unique_code' => true]) : $item;
         $second = $this->expected($event, $secondItem);
-        $this->seedStock($secondItem, $location, 2, $actor);
+        $this->seedHeldStock($secondItem, $location, 2, $actor);
         $before = DB::table('stock_movements')->count();
         $this->actingAs($actor)->postJson(route('check-in.issues.store', $second), [
-            'location_id' => $location->id, 'code' => $code,
+            'code' => $code,
         ])->assertUnprocessable()->assertJsonValidationErrors('code')
             ->assertJsonPath('errors.code.0', __('check_in.errors.code_used'));
         $this->assertSame('CODE-42', $issued->code);
@@ -111,16 +111,16 @@ class UniqueEntitlementCodesTest extends TestCase
         [$event, $actor, $item, $location] = $this->context();
         $item->update(['needs_unique_code' => false]);
         $service = app(EntitlementConsumeService::class);
-        $this->seedStock($item, $location, 5, $actor);
+        $this->seedHeldStock($item, $location, 5, $actor);
         foreach ([null, 'FREE-1', ' free-1 '] as $code) {
-            $service->consume($this->expected($event, $item), $actor, $location->id, $code);
+            $service->consume($this->expected($event, $item), $actor, $code);
         }
         $this->assertDatabaseCount('issued_entitlements', 3);
         $this->assertDatabaseCount('entitlement_code_reservations', 1);
         $item->update(['needs_unique_code' => true]);
         $expected = $this->expected($event, $item);
         $this->actingAs($actor)->postJson(route('check-in.issues.store', $expected), [
-            'location_id' => $location->id, 'code' => 'FREE-1',
+            'code' => 'FREE-1',
         ])->assertUnprocessable()->assertJsonValidationErrors('code');
     }
 
@@ -128,9 +128,10 @@ class UniqueEntitlementCodesTest extends TestCase
     {
         [$event, $actor, $item, $location] = $this->context();
         $service = app(EntitlementConsumeService::class);
-        $service->consume($this->expected($event, $item), $actor, $location->id, 'EVENT-1');
+        $service->consume($this->expected($event, $item), $actor, 'EVENT-1');
         [$other, , $otherItem, $otherLocation] = $this->context();
-        $service->consume($this->expected($other, $otherItem), $actor, $otherLocation->id, 'EVENT-1');
+        $this->seedHeldStock($otherItem, $otherLocation, 2, $actor);
+        $service->consume($this->expected($other, $otherItem), $actor, 'EVENT-1');
         $this->assertDatabaseCount('issued_entitlements', 2);
         $this->assertDatabaseCount('entitlement_code_reservations', 2);
     }
@@ -143,29 +144,30 @@ class UniqueEntitlementCodesTest extends TestCase
         $expected->load('entitlementItem');
         foreach ([null, ' ', str_repeat('X', 65)] as $code) {
             try {
-                $service->consume($expected, $actor, $location->id, $code);
+                $service->consume($expected, $actor, $code);
                 $this->fail('The service must require a valid code.');
             } catch (ValidationException $exception) {
                 $this->assertArrayHasKey('code', $exception->errors());
             }
         }
-        $service->consume($expected, $actor, $location->id, 'USED');
+        $service->consume($expected, $actor, 'USED');
         $next = $this->expected($event, $item);
         try {
-            $service->consume($next, $actor, $location->id, 'used');
+            $service->consume($next, $actor, 'used');
             $this->fail('Direct service calls must refuse duplicate codes.');
         } catch (ValidationException $exception) {
             $this->assertSame([__('check_in.errors.code_used')], $exception->errors()['code']);
         }
-        $empty = $event->locations()->create(['name' => 'Empty']);
+        $emptyActor = User::factory()->create();
+        $this->grantAdminAccess($emptyActor);
         try {
-            $service->consume($next, $actor, $empty->id, 'STILL-FREE');
+            $service->consume($next, $emptyActor, 'STILL-FREE');
             $this->fail('Consumption from empty stock must fail.');
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('quantity', $exception->errors());
         }
         $this->assertFalse(EntitlementCode::isUsed($event->id, 'STILL-FREE'));
-        $service->consume($next, $actor, $location->id, 'STILL-FREE');
+        $service->consume($next, $actor, 'STILL-FREE');
         $this->assertDatabaseCount('issued_entitlements', 2);
     }
 
@@ -173,14 +175,14 @@ class UniqueEntitlementCodesTest extends TestCase
     {
         [$event, $actor, $item, $location] = $this->context();
         $service = app(EntitlementConsumeService::class);
-        $service->consume($this->expected($event, $item), $actor, $location->id, 'TAKEN');
+        $service->consume($this->expected($event, $item), $actor, 'TAKEN');
         $expected = $this->expected($event, $item);
         $item->update(['needs_unique_code' => false]);
         $expected->load('entitlementItem');
         $item->update(['needs_unique_code' => true]);
         foreach ([null, 'taken'] as $code) {
             try {
-                $service->consume($expected, $actor, $location->id, $code);
+                $service->consume($expected, $actor, $code);
                 $this->fail('A stale model must not bypass current code requirements.');
             } catch (ValidationException $exception) {
                 $this->assertArrayHasKey('code', $exception->errors());
@@ -188,7 +190,7 @@ class UniqueEntitlementCodesTest extends TestCase
         }
         $this->assertTrue(EntitlementCode::isUsed($event->id, 'TAKEN'));
         $item->update(['needs_unique_code' => false]);
-        $service->consume($expected, $actor, $location->id);
+        $service->consume($expected, $actor);
     }
 
     public function test_item_setting_round_trips_invalidates_cache_and_checks_permissions_locks_and_event_scope(): void
@@ -240,7 +242,7 @@ class UniqueEntitlementCodesTest extends TestCase
         [$event, $actor, $item, $location] = $this->context();
         $expected = $this->expected($event, $item);
         $this->grantRoleAccess($actor, ['checkin.view']);
-        $data = ['location_id' => $location->id, 'code' => 'GATED'];
+        $data = ['code' => 'GATED'];
         $this->actingAs($actor)->postJson(route('check-in.issues.store', $expected), $data)->assertForbidden();
         $this->grantAdminAccess($actor);
         [$other, , $foreignItem] = $this->context();
@@ -274,7 +276,7 @@ class UniqueEntitlementCodesTest extends TestCase
         $this->assertSame($before, DB::table('issued_entitlements')->orderBy('id')->get()->toJson());
         $item->refresh()->update(['needs_unique_code' => true]);
         $this->actingAs($actor)->postJson(route('check-in.issues.store', $this->expected($event, $item)), [
-            'location_id' => $location->id, 'code' => 'LEGACY-1',
+            'code' => 'LEGACY-1',
         ])->assertRedirect();
         $this->assertTrue(EntitlementCode::isUsed($event->id, 'LEGACY-1'));
         $this->assertDatabaseCount('entitlement_code_reservations', 1);
@@ -308,7 +310,7 @@ class UniqueEntitlementCodesTest extends TestCase
         app(OrganizationContext::class)->markSetupComplete();
         $item = $event->entitlementItems()->create(['name' => 'Wristband', 'needs_unique_code' => true]);
         $location = $event->locations()->create(['name' => 'Gate']);
-        $this->seedStock($item, $location, 2, $actor);
+        $this->seedHeldStock($item, $location, 2, $actor);
 
         return [$event, $actor, $item, $location];
     }

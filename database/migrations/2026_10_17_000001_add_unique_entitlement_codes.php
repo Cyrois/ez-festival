@@ -16,7 +16,7 @@ return new class extends Migration
         // independently of the current flag.
         Schema::create('entitlement_code_reservations', function (Blueprint $table): void {
             $table->unsignedBigInteger('event_id');
-            // Lowercasing can expand a 255-character display code.
+            // Display codes are limited to 64 characters; allow room for Unicode lowercase expansion.
             $table->string('code_key', 510);
             $table->primary(['event_id', 'code_key'], 'ecr_event_code_pk');
             $table->foreign('event_id', 'ecr_event_fk')->references('id')->on('events')->restrictOnDelete();

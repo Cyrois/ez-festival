@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Enums\StockMovement;
 use App\Models\ArtistEngagement;
 use App\Models\Event;
 use App\Models\Person;
+use App\Models\StockHolder;
 use App\Models\TeamEngagement;
 use App\Models\TeamForm;
 use App\Models\User;
@@ -15,6 +17,7 @@ use App\Services\EventLocationService;
 use App\Services\EventService;
 use App\Services\PassAssignmentService;
 use App\Services\PassTypeService;
+use App\Services\StockMovementService;
 use App\Services\TeamFormService;
 use App\Support\OrganizationContext;
 use Illuminate\Database\Eloquent\Collection;
@@ -178,7 +181,7 @@ class DatabaseAuditRegressionTest extends TestCase
         app(EventLocationService::class)->update($event, $location, ['name' => 'Changed']);
     }
 
-    public function test_location_deletion_blocks_issued_rows_in_both_request_and_service(): void
+    public function test_location_deletion_blocks_historical_give_outs_in_both_request_and_service(): void
     {
         [$user, $event] = $this->context();
         $location = $event->locations()->create(['name' => 'Gate']);
@@ -187,8 +190,10 @@ class DatabaseAuditRegressionTest extends TestCase
         $item = $event->entitlementItems()->create(['name' => 'Wristband']);
         $assignment = $engagement->passAssignments()->create(['pass_type_id' => $pass->id]);
         $expected = $assignment->expectedEntitlements()->create(['entitlement_item_id' => $item->id, 'status' => 'consumed']);
-        // A legacy/imported issued row can exist without a stock adjustment.
-        $expected->issuedEntitlement()->create(['entitlement_item_id' => $item->id, 'location_id' => $location->id, 'issued_by' => $user->id, 'issued_at' => now()]);
+        $issued = $expected->issuedEntitlement()->create(['entitlement_item_id' => $item->id, 'issued_by' => $user->id, 'issued_at' => now()]);
+        $this->seedStock($item, $location, 1, $user);
+        app(StockMovementService::class)->move($item, StockMovement::GiveOut, 1,
+            StockHolder::where('location_id', $location->id)->sole(), null, $user, issued: $issued);
         $this->actingAs($user)->delete(route('settings.events.locations.destroy', [$event, $location]))
             ->assertRedirect()->assertSessionHasErrors('location');
         try {
@@ -320,6 +325,7 @@ class DatabaseAuditRegressionTest extends TestCase
         $this->seedStock($item, $location, -4);
         $this->seedStock($item, $empty, 2);
         $this->seedStock($item, $empty, -2);
+        $this->seedHeldStock($item, $location, 7, $user);
         $ledgerQueries = [];
         DB::listen(function ($query) use (&$ledgerQueries): void {
             if (preg_match('/from ["`]stock_movements["`]/i', $query->sql)) {
@@ -329,8 +335,8 @@ class DatabaseAuditRegressionTest extends TestCase
         $this->actingAs($user)->getJson(route('check-in.entitlements', [
             'draw' => 1, 'start' => 0, 'length' => 25, 'type' => 'artist',
             'engagement_id' => $engagement->id, 'person_id' => $person->id,
-        ]))->assertOk()->assertJsonCount(1, 'data.0.locations')
-            ->assertJsonPath('data.0.locations.0.name', 'Available')->assertJsonPath('data.0.locations.0.in_stock', 26);
+        ]))->assertOk()->assertJsonMissingPath('data.0.locations')
+            ->assertJsonPath('data.0.own_stock', 7);
         $this->assertCount(1, $ledgerQueries);
         $this->assertStringContainsString('sum(delta)', $ledgerQueries[0]);
         $this->assertStringContainsString('group by', $ledgerQueries[0]);

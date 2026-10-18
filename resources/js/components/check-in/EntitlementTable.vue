@@ -34,7 +34,7 @@ const auditView = ref(
 );
 const details = ref(null);
 watch(auditView, (visible) => {
-    table.value?.setColumnsVisible([2, 3, 4], visible);
+    table.value?.setColumnsVisible([2, 3, 4, 5, 6], visible);
     if (typeof document !== 'undefined') {
         const secure =
             document.location.protocol === 'https:' ? '; Secure' : '';
@@ -108,12 +108,28 @@ const columns = computed(() => [
         render: { display: '#codeCell' },
     },
     {
-        data: 'issued.issued_by',
+        data: 'issued.giver',
         width: '12rem',
         defaultContent: '',
-        title: trans('check_in.checked_in_by'),
+        title: trans('inventory.columns.giver'),
         visible: auditView.value,
-        render: { display: '#issuerCell' },
+        render: { display: '#participantCell' },
+    },
+    {
+        data: 'issued.receiver',
+        width: '12rem',
+        defaultContent: '',
+        title: trans('inventory.columns.receiver'),
+        visible: auditView.value,
+        render: { display: '#participantCell' },
+    },
+    {
+        data: 'issued.recorded_by',
+        width: '12rem',
+        defaultContent: '',
+        title: trans('inventory.columns.recorded_by'),
+        visible: auditView.value,
+        render: { display: '#participantCell' },
     },
     {
         data: 'issued.issued_at',
@@ -140,8 +156,8 @@ const options = computed(() => ({
     lengthChange: false,
     order: [[0, 'asc']],
     columnDefs: [
-        { targets: [0, 1, 2, 3, 4], className: 'dt-left' },
-        { targets: 5, className: 'dt-right' },
+        { targets: [0, 1, 2, 3, 4, 5, 6], className: 'dt-left' },
+        { targets: 7, className: 'dt-right' },
     ],
 }));
 const formatWhen = (value) => {
@@ -157,7 +173,7 @@ const formatWhen = (value) => {
 <template>
     <div
         class="min-w-0 overflow-x-auto"
-        :class="auditView && '[&_table]:md:min-w-[62rem]'"
+        :class="auditView && '[&_table]:md:min-w-[86rem]'"
     >
         <DataTable
             ref="table"
@@ -186,11 +202,11 @@ const formatWhen = (value) => {
                     cellData || $t('artists.not_set')
                 }}</span>
             </template>
-            <template #issuerCell="{ cellData }">
+            <template #participantCell="{ cellData }">
                 <span
                     class="[overflow-wrap:anywhere]"
                     :class="!cellData && 'font-mono text-xs'"
-                    >{{ cellData || $t('artists.not_set') }}</span
+                    >{{ cellData || $t('check_in.absent_endpoint') }}</span
                 >
             </template>
             <template #timeCell="{ cellData }">
@@ -203,13 +219,10 @@ const formatWhen = (value) => {
                     <div class="flex items-center justify-end gap-2">
                         <template v-if="rowData.status === 'pending'">
                             <Tooltip
-                                v-if="
-                                    !canWrite || rowData.locations.length === 0
-                                "
+                                v-if="!canWrite || !rowData.can_consume"
                                 :label="
-                                    !canWrite
-                                        ? writeBlockedReason
-                                        : $t('check_in.no_stock')
+                                    rowData.consume_blocked_reason ||
+                                    writeBlockedReason
                                 "
                             >
                                 <IconButton
@@ -219,9 +232,8 @@ const formatWhen = (value) => {
                                     disabled
                                 />
                                 <template #content>{{
-                                    !canWrite
-                                        ? writeBlockedReason
-                                        : $t('check_in.no_stock')
+                                    rowData.consume_blocked_reason ||
+                                    writeBlockedReason
                                 }}</template>
                             </Tooltip>
                             <IconButton

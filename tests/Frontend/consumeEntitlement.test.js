@@ -21,7 +21,7 @@ globalThis.consumeCodeTest = {
             clearErrors() { this.errors = {}; },
             post(endpoint, options) {
                 this.processing = true;
-                requests.push({ endpoint, data: { code: this.code, location_id: this.location_id }, options });
+                requests.push({ endpoint, data: { code: this.code }, options });
             },
         });
         return form;
@@ -59,7 +59,7 @@ const tick = async () => { await nextTick(); await nextTick(); };
 const mount = async (needsUniqueCode = true) => {
     requests.length = 0; toasts.length = 0;
     const open = ref(false);
-    const entitlement = ref({ id: 1, name: 'Wristband', needs_unique_code: needsUniqueCode, locations: [{ id: 7, name: 'Gate', in_stock: 2 }] });
+    const entitlement = ref({ id: 1, name: 'Wristband', needs_unique_code: needsUniqueCode, can_consume: true, own_stock: 2 });
     const app = createApp({ setup: () => () => h(Component, {
         open: open.value, entitlement: entitlement.value, endpoint: '/check-in/expected-entitlements/1/issues',
         'onUpdate:open': (value) => { open.value = value; },
@@ -93,7 +93,7 @@ test('scanner Enter submits the supplied code once and keeps the dialog open unt
         assert.equal(document.querySelector('#confirm').disabled, false);
         enter(); enter(); await tick();
         assert.equal(requests.length, 1);
-        assert.deepEqual(requests[0].data, { code: 'BAND-0042', location_id: 7 });
+        assert.deepEqual(requests[0].data, { code: 'BAND-0042' });
         assert.equal(open.value, true);
         assert.equal(input.disabled, true);
         requests[0].options.onSuccess(); await tick();
@@ -136,5 +136,17 @@ test('opening another entitlement clears the previous code and validation error'
         assert.deepEqual(form.errors, {});
         assert.equal(document.activeElement, document.querySelector('input'));
         assert.equal(document.querySelector('#confirm').disabled, true);
+    } finally { app.unmount(); }
+});
+
+ test('own-stock gate blocks scanner and button submissions even with a valid code', async () => {
+    const { app, entitlement } = await mount();
+    try {
+        form.code = 'BAND-0042';
+        entitlement.value = { ...entitlement.value, can_consume: false, own_stock: 0 };
+        await tick();
+        assert.equal(document.querySelector('#confirm').disabled, true);
+        enter();
+        assert.equal(requests.length, 0);
     } finally { app.unmount(); }
 });

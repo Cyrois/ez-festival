@@ -179,23 +179,23 @@ class TeamCheckInTest extends TestCase
             ->where('engagement.people.0.has_pass', true)->where('engagement.people.0.expected', 0)->missing('engagement.people.0.entitlements'));
     }
 
-    public function test_issuance_decrements_selected_stock_and_blocks_pass_removal_and_repeated_issuance(): void
+    public function test_issuance_debits_own_stock_and_blocks_pass_removal_and_repeated_issuance(): void
     {
         [$user, $event] = $this->context();
         $member = $this->member($event, 'Maya');
         $expected = $this->pass($member);
         $location = $this->stock($event, $expected, 2);
-        $other = $this->stock($event, $expected, 4, 'Other gate');
+        $other = $this->stock($event, $expected, 4, 'Other gate', held: false);
         $this->get(route('check-in.teams.show', $member))->assertInertia(fn (Assert $page) => $page
             ->where('canWrite', true)->where('engagement.people.0.expected', 1));
-        $this->getJson($this->entitlementTable($member))->assertOk()->assertJsonCount(2, 'data.0.locations');
-        $this->post(route('check-in.issues.store', $expected), ['location_id' => $location->id, 'code' => '  TEAM-42  '])
+        $this->getJson($this->entitlementTable($member))->assertOk()->assertJsonPath('data.0.own_stock', 2)->assertJsonMissingPath('data.0.locations');
+        $this->post(route('check-in.issues.store', $expected), ['code' => '  TEAM-42  '])
             ->assertRedirect()->assertSessionHasNoErrors();
         $this->assertDatabaseHas('issued_entitlements', ['expected_entitlement_id' => $expected->id,
-            'location_id' => $location->id, 'code' => 'TEAM-42', 'issued_by' => $user->id]);
-        $this->assertSame(1, (int) app(EntitlementItemService::class)->balanceForLocation($expected->entitlementItem, $location->id));
+            'code' => 'TEAM-42', 'issued_by' => $user->id]);
+        $this->assertSame(0, (int) app(EntitlementItemService::class)->balanceForLocation($expected->entitlementItem, $location->id));
         $this->assertSame(4, (int) app(EntitlementItemService::class)->balanceForLocation($expected->entitlementItem, $other->id));
-        $this->post(route('check-in.issues.store', $expected), ['location_id' => $location->id])
+        $this->post(route('check-in.issues.store', $expected), [])
             ->assertSessionHasErrors('expected_entitlement');
         $this->put(route('team.members.update', $member), [
             'name' => $member->person->name, 'email' => $member->person->email,
@@ -213,17 +213,17 @@ class TeamCheckInTest extends TestCase
         $foreign = $this->member($this->event('Foreign'), 'Foreign');
         $foreignExpected = $this->pass($foreign);
         $this->get(route('check-in.teams.show', $foreign))->assertNotFound();
-        $this->post(route('check-in.issues.store', $foreignExpected), ['location_id' => $location->id])->assertNotFound();
+        $this->post(route('check-in.issues.store', $foreignExpected), [])->assertNotFound();
         foreach (['applied', 'reviewing', 'declined'] as $status) {
             $member->update(['status' => $status]);
             $this->get(route('check-in.teams.show', $member))->assertNotFound();
-            $this->post(route('check-in.issues.store', $expected), ['location_id' => $location->id])->assertNotFound();
+            $this->post(route('check-in.issues.store', $expected), [])->assertNotFound();
         }
         $member->update(['status' => 'hired']);
         $expected->passAssignment->update(['person_id' => $foreign->person_id]);
-        $this->post(route('check-in.issues.store', $expected), ['location_id' => $location->id])->assertNotFound();
+        $this->post(route('check-in.issues.store', $expected), [])->assertNotFound();
         $expected->passAssignment->update(['person_id' => null]);
-        $this->post(route('check-in.issues.store', $expected), ['location_id' => $location->id])->assertNotFound();
+        $this->post(route('check-in.issues.store', $expected), [])->assertNotFound();
         $this->assertDatabaseCount('issued_entitlements', 0);
     }
 
@@ -241,12 +241,12 @@ class TeamCheckInTest extends TestCase
             ->assertJsonPath('data.0.has_pass', false)->assertJsonPath('data.0.expected', 0);
         $this->get(route('check-in.teams.show', $member))->assertInertia(fn (Assert $page) => $page
             ->where('engagement.people.0.has_pass', false)->where('engagement.people.0.expected', 0)->missing('engagement.people.0.entitlements'));
-        $this->post(route('check-in.issues.store', $expected), ['location_id' => $location->id])->assertNotFound();
+        $this->post(route('check-in.issues.store', $expected), [])->assertNotFound();
         $expected->passAssignment->update(['pass_type_id' => $event->passTypes()->firstOrFail()->id]);
         $expected->update(['entitlement_item_id' => $foreignItem->id]);
         $this->get(route('check-in.teams.show', $member))->assertInertia(fn (Assert $page) => $page
             ->where('engagement.people.0.has_pass', true)->where('engagement.people.0.expected', 0)->missing('engagement.people.0.entitlements'));
-        $this->post(route('check-in.issues.store', $expected), ['location_id' => $location->id])->assertNotFound();
+        $this->post(route('check-in.issues.store', $expected), [])->assertNotFound();
         $this->assertDatabaseCount('issued_entitlements', 0);
     }
 
@@ -257,14 +257,14 @@ class TeamCheckInTest extends TestCase
         $expected = $this->pass($member);
         $location = $event->locations()->create(['name' => 'Empty gate']);
         $foreignLocation = $this->event('Other')->locations()->create(['name' => 'Other']);
-        $this->post(route('check-in.issues.store', $expected), [])->assertSessionHasErrors('location_id');
+        $this->post(route('check-in.issues.store', $expected), [])->assertSessionHasErrors('quantity');
         $this->post(route('check-in.issues.store', $expected), ['location_id' => $foreignLocation->id])->assertSessionHasErrors('location_id');
-        $this->post(route('check-in.issues.store', $expected), ['location_id' => $location->id, 'code' => str_repeat('X', 256)])->assertSessionHasErrors('code');
-        $this->post(route('check-in.issues.store', $expected), ['location_id' => $location->id])->assertSessionHasErrors('quantity');
+        $this->post(route('check-in.issues.store', $expected), ['code' => str_repeat('X', 65)])->assertSessionHasErrors('code');
+        $this->post(route('check-in.issues.store', $expected), [])->assertSessionHasErrors('quantity');
         $event->lock();
         $this->getJson(route('check-in.data', $this->paging(['type' => 'team'])))->assertOk()->assertJsonCount(1, 'data');
         $this->get(route('check-in.teams.show', $member))->assertInertia(fn (Assert $page) => $page->where('canWrite', false));
-        $this->post(route('check-in.issues.store', $expected), ['location_id' => $location->id])->assertForbidden();
+        $this->post(route('check-in.issues.store', $expected), [])->assertForbidden();
         $this->assertDatabaseCount('issued_entitlements', 0);
     }
 
@@ -286,7 +286,7 @@ class TeamCheckInTest extends TestCase
         $this->assertStringNotContainsString($member->person->email, $response->getContent());
         $this->get(route('check-in.teams.show', $member), ['X-Inertia' => 'true', 'X-Inertia-Version' => Inertia::getVersion()])
             ->assertOk()->assertDontSee($member->person->email)->assertDontSee('555-private');
-        $this->post(route('check-in.issues.store', $expected), ['location_id' => $location->id])->assertForbidden();
+        $this->post(route('check-in.issues.store', $expected), [])->assertForbidden();
         $this->grantRoleAccess($user, ['checkin.edit', 'artists.personal_info', 'vendors.personal_info']);
         $this->get(route('check-in.teams.show', $member))->assertInertia(fn (Assert $page) => $page
             ->where('canWrite', true)->missing('engagement.people.0.email'));
@@ -374,7 +374,7 @@ class TeamCheckInTest extends TestCase
         $expected->load('passAssignment.teamEngagement');
         $member->update(['status' => 'reviewing']);
         try {
-            app(EntitlementConsumeService::class)->consume($expected, $user, $location->id);
+            app(EntitlementConsumeService::class)->consume($expected, $user);
             $this->fail('The stale hired member must not be consumed.');
         } catch (HttpException $exception) {
             $this->assertSame(404, $exception->getStatusCode());
@@ -388,7 +388,7 @@ class TeamCheckInTest extends TestCase
         $member = $this->member($event, 'Maya');
         $expected = $this->pass($member);
         $location = $this->stock($event, $expected, 2);
-        $this->post(route('check-in.issues.store', $expected), ['location_id' => $location->id])->assertSessionHasNoErrors();
+        $this->post(route('check-in.issues.store', $expected), [])->assertSessionHasNoErrors();
         app(EventService::class)->delete($event);
         $this->assertModelMissing($member);
         $this->assertDatabaseCount('issued_entitlements', 0);
@@ -411,13 +411,13 @@ class TeamCheckInTest extends TestCase
         $member = $this->member($event, 'Maya');
         $first = $this->pass($member, 30);
         $location = $this->stock($event, $first, 100);
-        app(EntitlementConsumeService::class)->consume($first, $user, $location->id, 'PASS-100%_');
+        app(EntitlementConsumeService::class)->consume($first, $user, 'PASS-100%_');
         $this->pass($this->member($event, 'Other'), 4);
         $this->pass($this->member($this->event('Foreign'), 'Foreign'), 5);
         $this->getJson($this->entitlementTable($member, ['order' => [['column' => 1, 'dir' => 'asc']]]))->assertOk()->assertJsonPath('recordsTotal', 30)
             ->assertJsonCount(25, 'data')->assertJsonPath('data.0.status', 'issued')
-            ->assertJsonPath('data.0.issued.issued_by', 'Gate operator')->assertJsonPath('data.0.issued.code', 'PASS-100%_')
-            ->assertJsonPath('data.0.issued.location', 'Gate')->assertJsonPath('data.1.issued', null)
+            ->assertJsonPath('data.0.issued.recorded_by', 'Gate operator')->assertJsonPath('data.0.issued.code', 'PASS-100%_')
+            ->assertJsonPath('data.0.issued.giver', $user->person->name)->assertJsonPath('data.0.issued.receiver', 'Maya')->assertJsonPath('data.1.issued', null)
             ->assertJsonMissingPath('data.0.issued.email');
         $this->getJson($this->entitlementTable($member, ['start' => 25]))->assertJsonCount(5, 'data');
         $this->getJson($this->entitlementTable($member, ['length' => -1]))
@@ -436,7 +436,7 @@ class TeamCheckInTest extends TestCase
         $this->grantAdminAccess($viewer);
         $viewer->setCurrentEvent($event);
         $this->actingAs($viewer)->getJson($this->entitlementTable($member, ['search' => ['value' => 'PASS-100%_']]))
-            ->assertOk()->assertJsonPath('data.0.issued.issued_by', null);
+            ->assertOk()->assertJsonPath('data.0.issued.recorded_by', null);
     }
 
     public function test_entitlement_table_refuses_invalid_scope_and_revoked_permissions(): void
@@ -496,10 +496,14 @@ class TeamCheckInTest extends TestCase
         return $expected;
     }
 
-    private function stock(Event $event, ExpectedEntitlement $expected, int $quantity, string $name = 'Gate'): Location
+    private function stock(Event $event, ExpectedEntitlement $expected, int $quantity, string $name = 'Gate', bool $held = true): Location
     {
         $location = $event->locations()->create(['name' => $name]);
-        $this->seedStock($expected->entitlementItem, $location, $quantity);
+        if ($held) {
+            $this->seedHeldStock($expected->entitlementItem, $location, $quantity, $this->app['auth']->user());
+        } else {
+            $this->seedStock($expected->entitlementItem, $location, $quantity);
+        }
 
         return $location;
     }
