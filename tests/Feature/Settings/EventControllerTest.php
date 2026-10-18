@@ -12,6 +12,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Services\MealAssignmentService;
 use App\Services\StockMovementService;
+use App\Support\EntitlementCode;
 use App\Support\OrganizationContext;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -219,6 +220,7 @@ class EventControllerTest extends TestCase
             'code' => 'EVENT-DELETE-TEST',
             'issued_by' => $user->id,
         ]);
+        EntitlementCode::reserve($event->id, $issued->code);
         $stocks = app(StockMovementService::class);
         $locationHolder = $stocks->forLocation($event, $location->id);
         $personHolder = $stocks->forPerson($event, $user->person);
@@ -289,6 +291,7 @@ class EventControllerTest extends TestCase
         $this->assertModelMissing($event);
         $this->assertModelMissing($location);
         $this->assertModelMissing($issued);
+        $this->assertDatabaseCount('entitlement_code_reservations', 0);
         $this->assertModelMissing($shift);
         $this->assertDatabaseCount('pass_assignments', 0);
         $this->assertDatabaseCount('pass_type_entitlements', 0);

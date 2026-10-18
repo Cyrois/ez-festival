@@ -77,7 +77,10 @@ class EntitlementItemService
             $event->ensureWritable();
             $item = $event->entitlementItems()->lockForUpdate()->findOrFail($item->id);
 
-            $item->update(['name' => $data['name']]);
+            $item->update([
+                'name' => $data['name'],
+                'needs_unique_code' => $data['needs_unique_code'] ?? $item->needs_unique_code,
+            ]);
             $this->syncLabels($item, $data, $event);
         }, 3);
 
@@ -217,6 +220,6 @@ class EntitlementItemService
 
     private function listKey(int $eventId): string
     {
-        return "lists.events.{$eventId}.entitlement-items.v4";
+        return "lists.events.{$eventId}.entitlement-items.v5";
     }
 }

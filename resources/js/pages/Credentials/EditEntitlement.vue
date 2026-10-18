@@ -10,6 +10,7 @@ import { CustomDropdown } from '../../components/ui/custom-dropdown';
 import { FormField } from '../../components/ui/form-field';
 import { Icon } from '../../components/ui/icon';
 import { Input } from '../../components/ui/input';
+import { Switch } from '../../components/ui/switch';
 import { LabelCombobox } from '../../components/ui/label-combobox';
 import { Popup } from '../../components/ui/popup';
 import { DataTable } from '../../components/ui/data-table';
@@ -59,6 +60,7 @@ const deleteOpen = ref(false);
 const deleteForm = useForm({});
 const form = useForm({
     name: props.item.name,
+    needs_unique_code: props.item.needs_unique_code,
     label_ids: props.item.labels.map((label) => label.id),
     new_labels: [],
 });
@@ -338,6 +340,21 @@ const formatWhen = (value) =>
                             :invalid="Boolean(labelError)"
                             :disabled="!canEdit || form.processing"
                             allow-create
+                        />
+                    </FormField>
+
+                    <FormField
+                        class="mt-5"
+                        :error="form.errors.needs_unique_code"
+                    >
+                        <Switch
+                            v-model="form.needs_unique_code"
+                            :label="
+                                $t(
+                                    'credentials.entitlements.fields.needs_unique_code',
+                                )
+                            "
+                            :disabled="!canEdit || form.processing"
                         />
                     </FormField>
 

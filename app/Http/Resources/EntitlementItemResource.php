@@ -13,6 +13,7 @@ class EntitlementItemResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'needs_unique_code' => (bool) $this->needs_unique_code,
             'balance' => (int) ($this->balance ?? 0),
             'labels' => $this->whenLoaded('labels', fn (): array => EntitlementLabels::ordered($this->labels)),
         ];

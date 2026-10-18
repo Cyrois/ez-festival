@@ -12,6 +12,7 @@ use App\Models\StockHolder;
 use App\Models\TeamEngagement;
 use App\Models\User;
 use App\Queries\InventoryTargetsQuery;
+use App\Support\EntitlementCode;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -70,7 +71,15 @@ class EntitlementConsumeService
             }
             $code = $code === null ? null : trim($code);
             $code = $code === '' ? null : $code;
-            Validator::make(['code' => $code], ['code' => ['nullable', 'string', 'max:64']])->validate();
+            Validator::make(['code' => $code], [
+                'code' => [$item->needs_unique_code ? 'required' : 'nullable', 'string', 'max:64'],
+            ])->validate();
+
+            // Optional codes also reserve their value for subsequent coded
+            // check-ins. Their existing ability to repeat is unchanged.
+            if ($code !== null && ! EntitlementCode::reserve($event->id, $code) && $item->needs_unique_code) {
+                throw ValidationException::withMessages(['code' => __('check_in.errors.code_used')]);
+            }
 
             $issued = $expected->issuedEntitlement()->create([
                 'entitlement_item_id' => $item->id,

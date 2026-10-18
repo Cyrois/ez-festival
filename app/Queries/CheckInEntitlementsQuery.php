@@ -64,7 +64,7 @@ class CheckInEntitlementsQuery
                 'issuedEntitlement.giveOutMovement.fromHolder.person:id,name',
                 'issuedEntitlement.giveOutMovement.fromHolder.location:id,name',
                 'issuedEntitlement.giveOutMovement.actor:id,name',
-                'entitlementItem' => fn ($items) => $items->select('id', 'name')->withEventLabels($event->id),
+                'entitlementItem' => fn ($items) => $items->select('id', 'name', 'needs_unique_code')->withEventLabels($event->id),
             ])->get();
 
         $holderId = $viewer->person_id === null ? null

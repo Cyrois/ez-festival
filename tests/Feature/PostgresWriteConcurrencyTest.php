@@ -624,6 +624,57 @@ class PostgresWriteConcurrencyTest extends TestCase
         app(EventService::class)->delete($event);
     }
 
+    public function test_same_code_on_different_items_can_only_be_consumed_once(): void
+    {
+        [$event, $actor, $engagement] = $this->context();
+        $this->grantAdminAccess($actor);
+        $engagement->people()->attach($actor->person_id);
+        $location = $event->locations()->create(['name' => 'Code gate']);
+        $items = collect(['Wristband', 'Lanyard'])->map(fn ($name) => $event->entitlementItems()->create([
+            'name' => $name, 'needs_unique_code' => true,
+        ]));
+        $pass = $event->passTypes()->create(['name' => 'Code pass']);
+        $assignment = $engagement->passAssignments()->create(['pass_type_id' => $pass->id, 'person_id' => $actor->person_id]);
+        $expected = $items->map(function ($item) use ($location, $assignment, $actor) {
+            $this->seedHeldStock($item, $location, 2, $actor);
+
+            return $assignment->expectedEntitlements()->create(['entitlement_item_id' => $item->id]);
+        });
+        $results = $this->concurrently(
+            fn () => app(EntitlementConsumeService::class)->consume($expected[0], $actor, 'RACE-42'),
+            fn () => app(EntitlementConsumeService::class)->consume($expected[1], $actor, ' race-42 '),
+        );
+        $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+        $this->assertDatabaseCount('entitlement_code_reservations', 1);
+        $this->assertDatabaseCount('issued_entitlements', 1);
+        $this->assertSame(1, DB::table('stock_movements')->where('event_id', $event->id)->where('type', StockMovementType::GiveOut->value)->count());
+        $this->assertSame('expected', $expected[1]->fresh()->status);
+        $this->assertSame(2, app(StockMovementService::class)->total($items[1]));
+        app(EventService::class)->delete($event);
+    }
+
+    public function test_enabling_unique_codes_during_consume_enforces_the_new_setting(): void
+    {
+        [$event, $actor, $engagement] = $this->context();
+        $this->grantAdminAccess($actor);
+        $engagement->people()->attach($actor->person_id);
+        $location = $event->locations()->create(['name' => 'Code gate']);
+        $item = $event->entitlementItems()->create(['name' => 'Wristband']);
+        $this->seedHeldStock($item, $location, 2, $actor);
+        $pass = $event->passTypes()->create(['name' => 'Code pass']);
+        $assignment = $engagement->passAssignments()->create(['pass_type_id' => $pass->id, 'person_id' => $actor->person_id]);
+        $expected = $assignment->expectedEntitlements()->create(['entitlement_item_id' => $item->id]);
+        $expected->load('entitlementItem');
+        $results = $this->concurrently(
+            fn () => app(EntitlementItemService::class)->update($item, ['name' => $item->name, 'needs_unique_code' => true]),
+            fn () => app(EntitlementConsumeService::class)->consume($expected, $actor),
+        );
+        $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+        $this->assertDatabaseCount('issued_entitlements', 0);
+        $this->assertDatabaseCount('entitlement_code_reservations', 0);
+        $this->assertSame(2, app(StockMovementService::class)->total($item));
+    }
+
     public function test_concurrent_first_use_creates_only_one_person_holder(): void
     {
         [$event, $actor] = $this->context();
