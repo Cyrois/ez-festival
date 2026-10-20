@@ -110,21 +110,6 @@ const groupItems = computed(() => [
         </FormField>
         <FormField
             v-slot="{ id, invalid }"
-            :label="$t('team.member.fields.phone')"
-            :error="form.errors.phone"
-        >
-            <Input
-                :id="id"
-                :model-value="form.phone"
-                type="tel"
-                :invalid="invalid"
-                :disabled="disabled"
-                maxlength="50"
-                @update:model-value="emit('update', 'phone', $event)"
-            />
-        </FormField>
-        <FormField
-            v-slot="{ id, invalid }"
             :label="$t('team.member.fields.email')"
             :error="form.errors.email"
             required
@@ -138,6 +123,21 @@ const groupItems = computed(() => [
                 maxlength="255"
                 required
                 @update:model-value="emit('update', 'email', $event)"
+            />
+        </FormField>
+        <FormField
+            v-slot="{ id, invalid }"
+            :label="$t('team.member.fields.phone')"
+            :error="form.errors.phone"
+        >
+            <Input
+                :id="id"
+                :model-value="form.phone"
+                type="tel"
+                :invalid="invalid"
+                :disabled="disabled"
+                maxlength="50"
+                @update:model-value="emit('update', 'phone', $event)"
             />
         </FormField>
         <FormField
