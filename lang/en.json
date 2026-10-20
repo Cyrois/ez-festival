@@ -372,7 +372,7 @@
     "team.reports.scheduled": "Scheduled",
     "team.reports.approved": "Approved",
     "team.reports.unapproved": "Unapproved",
-    "team.reports.duration": ":hoursh:minutes",
+    "team.reports.duration": ":hours h :minutes",
     "team.reports.unavailable": "—",
     "team.reports.loading": "Loading group hours…",
     "team.reports.load_failed": "Couldn’t load group hours. Try again.",

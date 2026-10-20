@@ -182,7 +182,7 @@ test('first load shows loading, then every group with three hours columns and no
         }));
         await respond(0, groups);
         assert.equal(document.querySelector('[role="status"]'), null);
-        assert.equal(scheduledTotal(), '12h00');
+        assert.equal(scheduledTotal(), '12 h 00');
         assert.equal(document.querySelectorAll('tbody tr').length, 12);
         assert.deepEqual(
             [...document.querySelectorAll('thead th')].map(
@@ -194,7 +194,7 @@ test('first load shows loading, then every group with three hours columns and no
             [...document.querySelector('tbody tr').cells].map((cell) =>
                 cell.textContent.trim(),
             ),
-            ['<img src=x onerror=alert(1)>', '1h00', '—', '—'],
+            ['<img src=x onerror=alert(1)>', '1 h 00', '—', '—'],
         );
         assert.equal(
             document.querySelector('img, select, .dt-paging, .dt-search'),
@@ -234,7 +234,7 @@ test('a failed response shows Retry, repeated clicks send one request, and zero 
         await respond(1, []);
         assert.equal(document.querySelector('[role="alert"], table'), null);
         assert.match(document.body.textContent, /No Team groups yet/);
-        assert.equal(scheduledTotal(), '0h00');
+        assert.equal(scheduledTotal(), '0 h 00');
     } finally {
         app.unmount();
     }
@@ -265,18 +265,18 @@ test('paired free dates validate before fetching, retain zero rows, and cache su
         assert.equal(params.get('start_date'), '2027-10-05');
         assert.equal(params.get('end_date'), '2027-10-06');
         await respond(1, [group('Unused', 0)]);
-        assert.equal(scheduledTotal(), '0h00');
+        assert.equal(scheduledTotal(), '0 h 00');
         assert.equal(document.querySelectorAll('tbody tr').length, 1);
         assert.match(document.querySelector('tbody').textContent, /Unused/);
         assert.doesNotMatch(document.body.textContent, /No Team groups yet/);
         await setDate('hours-start-date', '');
         await setDate('hours-end-date', '');
         assert.equal(requests.length, 2);
-        assert.equal(scheduledTotal(), '1h30');
+        assert.equal(scheduledTotal(), '1 h 30');
         await setDate('hours-start-date', '2027-10-05');
         await setDate('hours-end-date', '2027-10-06');
         assert.equal(requests.length, 2);
-        assert.equal(scheduledTotal(), '0h00');
+        assert.equal(scheduledTotal(), '0 h 00');
     } finally {
         app.unmount();
     }
@@ -290,7 +290,7 @@ test('late results cannot replace the selected range or event, and unmount abort
         await setDate('hours-end-date', '2026-09-02');
         await respond(1, [group('Selected range', 120)]);
         await respond(0, [group('Stale range', 900)]);
-        assert.equal(scheduledTotal(), '2h00');
+        assert.equal(scheduledTotal(), '2 h 00');
         assert.doesNotMatch(document.body.textContent, /Stale range/);
         page.props.activeEvent = { id: 22, name: 'Other festival' };
         await tick();
@@ -306,7 +306,7 @@ test('late results cannot replace the selected range or event, and unmount abort
         );
         document.querySelector('button').click();
         await respond(3, [group('Other event', 180)], 22);
-        assert.equal(scheduledTotal(), '3h00');
+        assert.equal(scheduledTotal(), '3 h 00');
         await setDate('hours-end-date', '2026-09-03');
         assert.equal(requests.length, 5);
     } finally {
@@ -341,7 +341,7 @@ test('server validation is shown on the field and through the shared error toast
         await setDate('hours-end-date', '2026-10-02');
         assert.equal(requests.length, 2);
         await respond(1);
-        assert.equal(scheduledTotal(), '1h30');
+        assert.equal(scheduledTotal(), '1 h 30');
     } finally {
         app.unmount();
     }
