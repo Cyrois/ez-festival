@@ -410,7 +410,7 @@
     "team.member.fields.group_none": "No group",
     "team.member.errors.group_required": "Choose a Group on the Team member page before hiring or scheduling. Members with saved assignments must keep a Group.",
     "team.member.errors.group_event": "Choose a Group from this event.",
-    "team.member.fields.group_hint": "Required before hiring or scheduling. Applicants may have no Group. Groups are separate from shift locations and shift roles.",
+    "team.member.fields.group_hint": "The member’s department for this event, such as Gate, Kitchen, or Parking. Used to total scheduled hours by department, identify colleagues eligible for inventory transfers when group permissions apply, and show their department at check-in. Required before hiring or scheduling; applicants may have no group. This does not set their shift location, shift role, or access permissions.",
     "team.member.unlock_summary": "Scheduling, Passes, and Check-in unlock at Hired; contracts can be prepared earlier.",
     "team.member.locked": "This event is locked. Team member details are read-only.",
     "team.member.role.title": "Role at this event",
