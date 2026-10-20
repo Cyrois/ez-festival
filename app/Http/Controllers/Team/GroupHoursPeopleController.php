@@ -8,6 +8,7 @@ use App\Http\Resources\TeamGroupHoursReportResource;
 use App\Models\Group;
 use App\Queries\TeamScheduledHoursQuery;
 use App\Support\EventContext;
+use Illuminate\Support\Facades\Gate;
 
 class GroupHoursPeopleController extends Controller
 {
@@ -29,6 +30,7 @@ class GroupHoursPeopleController extends Controller
             $group,
             $startDate,
             $endDate,
+            Gate::allows('team.view', $event),
         );
     }
 }

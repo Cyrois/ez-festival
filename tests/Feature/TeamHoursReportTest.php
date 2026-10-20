@@ -13,6 +13,7 @@ use App\Support\ShiftAssignmentHours;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
 class TeamHoursReportTest extends TestCase
@@ -212,7 +213,8 @@ class TeamHoursReportTest extends TestCase
         $this->assertSame('paid', $data['people'][0]['employment_type']);
         $this->assertSame('volunteer', $data['people'][1]['employment_type']);
         foreach ($data['people'] as $index => $person) {
-            $this->assertSame(['team_engagement_id', 'person_id', 'name', 'employment_type', 'scheduled_minutes', 'approved_minutes', 'unapproved_minutes'], array_keys($person));
+            $this->assertSame(['team_engagement_id', 'person_id', 'name', 'employment_type', 'member_url', 'scheduled_minutes', 'approved_minutes', 'unapproved_minutes'], array_keys($person));
+            $this->assertSame(route('team.members.show', $person['team_engagement_id']), $person['member_url']);
             $this->assertSame($index === 0 ? 195 : 0, $person['scheduled_minutes']);
             $this->assertNull($person['approved_minutes']);
             $this->assertNull($person['unapproved_minutes']);
@@ -304,6 +306,22 @@ class TeamHoursReportTest extends TestCase
             }
         }
         $this->assertSame($counts[0], $counts[1]);
+    }
+
+    public function test_report_address_restores_valid_event_scoped_group_and_date_filters(): void
+    {
+        $group = $this->event->groups()->create(['name' => 'Gate']);
+        $foreign = $this->event('Other festival')->groups()->create(['name' => 'Foreign']);
+        $this->get(route('team.reports', ['group_id' => $group->id, 'start_date' => '2027-01-01', 'end_date' => '2027-01-03']))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('Team/Reports')
+                ->where('filters', ['group_id' => $group->id, 'start_date' => '2027-01-01', 'end_date' => '2027-01-03'])
+                ->where('groupOptions', [['group_id' => $group->id, 'name' => 'Gate']])
+                ->missing('people')->missing('shifts'));
+        foreach ([['group_id' => $foreign->id], ['group_id' => 'bad'], ['start_date' => '2027-01-01'],
+            ['start_date' => '2027-01-03', 'end_date' => '2027-01-01']] as $params) {
+            $this->getJson(route('team.reports', $params))->assertUnprocessable();
+        }
     }
 
     private function event(string $name): Event

@@ -15,6 +15,7 @@ class TeamGroupHoursReportResource extends JsonResource
         private readonly Group $group,
         private readonly ?string $startDate,
         private readonly ?string $endDate,
+        private readonly bool $canViewTeam,
     ) {
         parent::__construct($people);
     }
@@ -31,6 +32,7 @@ class TeamGroupHoursReportResource extends JsonResource
                 'person_id' => (int) $person->person_id,
                 'name' => $person->name,
                 'employment_type' => $person->employment_type,
+                'member_url' => $this->canViewTeam ? route('team.members.show', $person->team_engagement_id) : null,
                 ...$this->hours((int) $person->scheduled_minutes),
             ])->values()->all(),
         ];

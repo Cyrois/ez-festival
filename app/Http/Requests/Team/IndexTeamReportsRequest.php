@@ -2,19 +2,17 @@
 
 namespace App\Http\Requests\Team;
 
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\Gate;
+use App\Support\EventContext;
+use Illuminate\Validation\Rule;
 
-class IndexTeamReportsRequest extends FormRequest
+class IndexTeamReportsRequest extends IndexTeamHoursReportRequest
 {
-    public function authorize(): bool
-    {
-        return Gate::allows('team.hours_report.view');
-    }
-
     /** @return array<string, mixed> */
     public function rules(): array
     {
-        return [];
+        return [
+            ...parent::rules(),
+            'group_id' => ['nullable', 'integer', Rule::exists('groups', 'id')->where('event_id', app(EventContext::class)->current($this->user())?->id)],
+        ];
     }
 }

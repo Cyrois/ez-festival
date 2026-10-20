@@ -38,12 +38,21 @@ const translate = (key, values = {}) =>
     );
 let page, requests, toasts;
 const deps = (globalThis.__teamHoursTest = {
+    router: {
+        replace: (options) => {
+            page.props = options.props(page.props);
+            page.url = options.url;
+        },
+    },
     cva,
     FontAwesomeIcon: (await import('@fortawesome/vue-fontawesome'))
         .FontAwesomeIcon,
     activateDataTableRow: (
         await import('../../resources/js/lib/dataTableRowNavigation.js')
     ).activateDataTableRow,
+    navigateDataTableRow: (
+        await import('../../resources/js/lib/dataTableRowNavigation.js')
+    ).navigateDataTableRow,
     trans: translate,
     cn: (...values) => values.filter(Boolean).join(' '),
     AppLayout: {
@@ -114,20 +123,31 @@ const tick = async () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
     await nextTick();
 };
-const mount = () => {
+const mount = ({
+    filters = {},
+    groupOptions = [],
+    url = '/team/reports',
+    canViewTeam = false,
+} = {}) => {
     requests = [];
     toasts = [];
     page = reactive({
+        url,
         props: {
+            filters,
+            groupOptions,
             activeEvent: { id: 11, name: 'Sunrise Folk Fest' },
-            permissions: { 'team.hours_report.view': true },
+            permissions: {
+                'team.hours_report.view': true,
+                'team.view': canViewTeam,
+            },
         },
     });
     globalThis.fetch = (url, options) =>
         new Promise((resolve, reject) => {
             requests.push({ url, options, resolve, reject });
         });
-    const app = createApp(Report);
+    const app = createApp(Report, { filters, groupOptions });
     app.config.globalProperties.$t = translate;
     app.mount(document.getElementById('app'));
     return app;
@@ -182,6 +202,7 @@ const person = (name = 'Ava Chen', minutes = 90, type = 'volunteer') => ({
     person_id: 1,
     name,
     employment_type: type,
+    member_url: null,
     scheduled_minutes: minutes,
     approved_minutes: null,
     unapproved_minutes: null,
@@ -583,7 +604,12 @@ test('failed groups retry once while pending and successful empty groups are rem
         await tick();
         assert.match(
             document.querySelector('[role="alert"]').textContent,
-            /Couldn’t load people’s hours/,
+            /Couldn’t load Gate’s people/,
+        );
+        assert.equal(
+            scheduledTotal(),
+            '1 h 30',
+            'known same-range group totals remain visible after a people fetch fails',
         );
         const retry = buttonWithText('Retry');
         retry.click();
@@ -692,5 +718,132 @@ test('wrong-group responses fail without caching and selected-group validation u
         assert.equal(scheduledTotal(), '1 h 30');
     } finally {
         app.unmount();
+    }
+});
+
+test('member names and chevrons use same-tab member links only with Team view, with the summary mobile layout', async () => {
+    const app = mount({ canViewTeam: true });
+    try {
+        await respond(0);
+        document.querySelector('tbody button').click();
+        await tick();
+        await respondPeople(1, [
+            { ...person(), member_url: '/team/members/87' },
+        ]);
+        const links = [...document.querySelectorAll('tbody a')];
+        assert.equal(links.length, 2);
+        assert.equal(links[0].textContent, 'Ava Chen');
+        for (const link of links) {
+            assert.equal(link.getAttribute('href'), '/team/members/87');
+            assert.equal(link.getAttribute('target'), null);
+        }
+        assert.equal(
+            links[1].getAttribute('aria-label'),
+            'View Team member Ava Chen',
+        );
+        assert.equal(
+            document.querySelector('table').classList.contains('dt-summary'),
+            true,
+        );
+        assert.equal(
+            document.querySelector('tbody tr').hasAttribute('data-row-link'),
+            true,
+        );
+        assert.match(
+            document.body.textContent,
+            /A person’s name opens their Team member page/,
+        );
+        assert.equal(
+            requests.length,
+            2,
+            'rendering a member link must not fetch shifts',
+        );
+        assert.equal(page.url, '/team/reports?group_id=1');
+    } finally {
+        app.unmount();
+    }
+});
+
+test('the report address and Inertia history props restore the same group and dates after a member visit', async () => {
+    let app = mount({ canViewTeam: true });
+    let saved;
+    try {
+        await respond(0);
+        await setDate('hours-start-date', '2027-01-01');
+        await setDate('hours-end-date', '2027-01-03');
+        await respond(1);
+        document.querySelector('tbody button').click();
+        await tick();
+        await respondPeople(2, [
+            { ...person(), member_url: '/team/members/87' },
+        ]);
+        assert.equal(
+            page.url,
+            '/team/reports?group_id=1&start_date=2027-01-01&end_date=2027-01-03',
+        );
+        saved = {
+            url: page.url,
+            filters: { ...page.props.filters },
+            groupOptions: [...page.props.groupOptions],
+            canViewTeam: true,
+        };
+    } finally {
+        app.unmount();
+    }
+    app = mount(saved);
+    try {
+        assert.equal(
+            document.getElementById('hours-start-date').value,
+            '2027-01-01',
+        );
+        assert.equal(
+            document.getElementById('hours-end-date').value,
+            '2027-01-03',
+        );
+        assert.match(
+            document.getElementById('hours-group').textContent,
+            /Gate/,
+        );
+        assert.equal(requests.length, 1);
+        assert.equal(
+            requests[0].url,
+            '/team/reports/groups/1/people?start_date=2027-01-01&end_date=2027-01-03',
+        );
+        await respondPeople(0, [
+            { ...person(), member_url: '/team/members/87' },
+        ]);
+        assert.equal(
+            document.querySelector('tbody a').getAttribute('href'),
+            '/team/members/87',
+        );
+    } finally {
+        app.unmount();
+    }
+});
+
+test('deferred history updates retain the filters belonging to their own address', async () => {
+    const replace = deps.router.replace;
+    const historyUpdates = [];
+    deps.router.replace = (options) => {
+        historyUpdates.push(options);
+        replace(options);
+    };
+    const app = mount();
+    try {
+        await respond(0, [group(), { ...group('Stage'), group_id: 2 }]);
+        document.querySelector('tbody button').click();
+        await tick();
+        const gateHistory = historyUpdates.at(-1);
+        await pickGroup('Stage');
+        assert.equal(page.url, '/team/reports?group_id=2');
+        assert.equal(gateHistory.url, '/team/reports?group_id=1');
+        assert.deepEqual(gateHistory.props({}).filters, {
+            group_id: 1,
+            start_date: null,
+            end_date: null,
+        });
+    } finally {
+        app.unmount();
+        deps.router.replace = replace;
     }
 });

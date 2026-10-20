@@ -423,6 +423,23 @@ class EventPermissionsTest extends TestCase
         }
     }
 
+    public function test_team_hours_person_links_require_team_view_without_loading_person_shifts(): void
+    {
+        $group = $this->event->groups()->create(['name' => 'Gate']);
+        $member = $this->createTeamEngagement(['event_id' => $this->event->id, 'group_id' => $group->id,
+            'person_id' => Person::create(['name' => 'Report person', 'email' => 'report-person@example.test'])->id]);
+        $this->role->update(['permissions' => ['team.hours_report.view']]);
+        $this->getJson(route('team.reports.groups.people', $group))->assertOk()
+            ->assertJsonPath('data.people.0.member_url', null)->assertJsonMissingPath('data.people.0.shifts');
+        $this->get(route('team.members.show', $member))->assertForbidden();
+
+        $this->role->update(['permissions' => ['team.hours_report.view', 'team.view']]);
+        $this->getJson(route('team.reports.groups.people', $group))->assertOk()
+            ->assertJsonPath('data.people.0.member_url', route('team.members.show', $member))
+            ->assertJsonMissingPath('data.people.0.shifts');
+        $this->get(route('team.members.show', $member))->assertOk();
+    }
+
     public function test_admin_can_read_team_hours_report_without_a_role_on_a_locked_event(): void
     {
         $group = $this->event->groups()->create(['name' => 'Gate']);
