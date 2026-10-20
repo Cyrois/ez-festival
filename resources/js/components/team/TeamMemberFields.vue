@@ -90,11 +90,10 @@ const groupItems = computed(() => [
             />
         </FormField>
         <FormField
-            v-if="form.employment_type === 'paid'"
             v-slot="{ id, invalid }"
             :label="$t('team.member.fields.hourly_pay')"
             :error="form.errors.hourly_pay"
-            required
+            :required="form.employment_type === 'paid'"
         >
             <Input
                 :id="id"
@@ -104,8 +103,8 @@ const groupItems = computed(() => [
                 max="99999999.99"
                 step="0.01"
                 :invalid="invalid"
-                :disabled="disabled"
-                required
+                :disabled="disabled || form.employment_type === 'volunteer'"
+                :required="form.employment_type === 'paid'"
                 @update:model-value="emit('update', 'hourly_pay', $event)"
             />
         </FormField>
