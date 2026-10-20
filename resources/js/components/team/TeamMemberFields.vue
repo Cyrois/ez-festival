@@ -143,7 +143,7 @@ const groupItems = computed(() => [
             v-slot="{ id, invalid }"
             :label="$t('team.member.fields.group')"
             :error="form.errors.group_id"
-            :required="groupRequired"
+            required
             :hint="$t('team.member.fields.group_hint')"
             class="sm:col-span-2"
         >
