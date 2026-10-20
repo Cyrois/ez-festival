@@ -36,19 +36,24 @@ const hasError = computed(() => Boolean(props.error));
 
 <template>
     <div :class="cn('flex flex-col gap-1.5', props.class)">
-        <label
+        <div
             v-if="label"
-            :for="controlId"
-            class="text-xs font-bold text-charcoal"
+            class="flex items-center gap-1.5"
         >
-            {{ label
-            }}<span
-                v-if="required"
-                class="ml-0.5 text-danger"
-                aria-hidden="true"
-                >*</span
+            <label
+                :for="controlId"
+                class="text-xs font-bold text-charcoal"
             >
-        </label>
+                {{ label
+                }}<span
+                    v-if="required"
+                    class="ml-0.5 text-danger"
+                    aria-hidden="true"
+                    >*</span
+                >
+            </label>
+            <slot name="label-suffix" />
+        </div>
         <slot
             :id="controlId"
             :invalid="hasError"

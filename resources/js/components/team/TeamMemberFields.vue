@@ -2,6 +2,8 @@
 import { CustomDropdown } from '../ui/custom-dropdown';
 import { FormField } from '../ui/form-field';
 import { Input } from '../ui/input';
+import { Icon } from '../ui/icon';
+import { Tooltip } from '../ui/tooltip';
 import { computed } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
@@ -140,22 +142,36 @@ const groupItems = computed(() => [
             />
         </FormField>
         <FormField
-            v-slot="{ id, invalid }"
             :label="$t('team.member.fields.group')"
             :error="form.errors.group_id"
             required
-            :hint="$t('team.member.fields.group_hint')"
             class="sm:col-start-1"
         >
-            <CustomDropdown
-                :id="id"
-                :model-value="form.group_id"
-                :items="groupItems"
-                :aria-required="groupRequired"
-                :invalid="invalid"
-                :disabled="disabled"
-                @update:model-value="emit('update', 'group_id', $event)"
-            />
+            <template #label-suffix>
+                <Tooltip :label="$t('team.member.fields.group_hint')">
+                    <Icon
+                        :name="['fas', 'circle-info']"
+                        class="text-muted"
+                        size="sm"
+                    />
+                    <template #content>
+                        <span class="block max-w-xs leading-relaxed">
+                            {{ $t('team.member.fields.group_hint') }}
+                        </span>
+                    </template>
+                </Tooltip>
+            </template>
+            <template #default="{ id, invalid }">
+                <CustomDropdown
+                    :id="id"
+                    :model-value="form.group_id"
+                    :items="groupItems"
+                    :aria-required="groupRequired"
+                    :invalid="invalid"
+                    :disabled="disabled"
+                    @update:model-value="emit('update', 'group_id', $event)"
+                />
+            </template>
         </FormField>
     </div>
 </template>
