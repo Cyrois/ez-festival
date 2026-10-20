@@ -151,8 +151,8 @@ class TeamGroupRequirementTest extends TestCase
         $role = Role::create(['name' => 'Staff']);
         $data = ['name' => 'Global', 'email' => 'global@example.test', 'can_log_in' => false, 'status' => 'hired',
             'event_access' => [['event_id' => $this->event->id, 'role_id' => $role->id]]];
-        $this->post(route('settings.team.store'), $data)->assertSessionHasErrors('status');
-        $this->validationError(fn () => app(GlobalTeamService::class)->create($data, $this->user), 'status');
+        $this->post(route('settings.team.store'), $data)->assertSessionHasErrors('event_access.0.group_id');
+        $this->validationError(fn () => app(GlobalTeamService::class)->create($data, $this->user), 'event_access.0.group_id');
         $this->assertDatabaseMissing('people', ['email' => $data['email']]);
         $member = $this->applicant();
         $update = ['name' => $member->person->name, 'can_log_in' => false,
@@ -162,6 +162,63 @@ class TeamGroupRequirementTest extends TestCase
         $member->update(['group_id' => $this->group->id]);
         $this->put(route('settings.team.update', $member->person), $update)->assertSessionHasNoErrors();
         $this->assertSame('hired', $member->fresh()->status);
+    }
+
+    public function test_global_team_create_loads_each_events_own_groups_and_saves_hired_members_with_them(): void
+    {
+        $second = Event::create(['name' => 'Second', 'starts_on' => '2026-10-01', 'ends_on' => '2026-10-03', 'timezone' => 'UTC']);
+        $secondGroup = $second->groups()->create(['name' => 'Kitchen']);
+        $role = Role::create(['name' => 'Staff']);
+        $this->get(route('settings.team.create'))->assertInertia(fn (Assert $page) => $page
+            ->component('Settings/Team/Create')
+            ->where('events.0.id', $second->id)
+            ->where('events.0.groups', [['id' => $secondGroup->id, 'name' => 'Kitchen']])
+            ->where('events.1.id', $this->event->id)
+            ->where('events.1.groups', [['id' => $this->group->id, 'name' => 'Gate']]));
+        $data = ['name' => 'Global', 'email' => 'global@example.test', 'can_log_in' => false, 'status' => 'hired',
+            'event_access' => [
+                ['event_id' => $this->event->id, 'role_id' => $role->id, 'group_id' => $this->group->id],
+                ['event_id' => $second->id, 'role_id' => $role->id, 'group_id' => $secondGroup->id],
+            ]];
+        $this->postJson(route('settings.team.store'), $data)->assertRedirect();
+        $person = Person::where('email', $data['email'])->sole();
+        foreach ($data['event_access'] as $access) {
+            $this->assertDatabaseHas('team_engagements', [...$access, 'person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+        }
+
+        $data['email'] = 'direct@example.test';
+        $direct = app(GlobalTeamService::class)->create($data, $this->user)['person'];
+        foreach ($data['event_access'] as $access) {
+            $this->assertDatabaseHas('team_engagements', [...$access, 'person_id' => $direct->id, 'status' => 'hired']);
+        }
+    }
+
+    public function test_global_team_create_rejects_missing_or_foreign_groups_per_event_without_partial_writes(): void
+    {
+        $second = Event::create(['name' => 'Second', 'starts_on' => '2026-10-01', 'ends_on' => '2026-10-03', 'timezone' => 'UTC']);
+        $role = Role::create(['name' => 'Staff']);
+        foreach ([null, $this->group->id] as $groupId) {
+            $data = ['name' => 'Global', 'email' => 'global@example.test', 'can_log_in' => false, 'status' => 'hired',
+                'event_access' => [
+                    ['event_id' => $this->event->id, 'role_id' => $role->id, 'group_id' => $this->group->id],
+                    ['event_id' => $second->id, 'role_id' => $role->id, 'group_id' => $groupId],
+                ]];
+            $this->postJson(route('settings.team.store'), $data)->assertUnprocessable()->assertJsonValidationErrors('event_access.1.group_id');
+            $this->validationError(fn () => app(GlobalTeamService::class)->create($data, $this->user), 'event_access.1.group_id');
+            $this->assertDatabaseMissing('people', ['email' => $data['email']]);
+            $this->assertDatabaseCount('team_engagements', 0);
+        }
+        $data['status'] = 'applied';
+        $this->postJson(route('settings.team.store'), $data)->assertUnprocessable()->assertJsonValidationErrors('event_access.1.group_id');
+        $this->validationError(fn () => app(GlobalTeamService::class)->create($data, $this->user), 'event_access.1.group_id');
+        unset($data['event_access'][0]['group_id'], $data['event_access'][1]['group_id']);
+        $this->postJson(route('settings.team.store'), $data)->assertRedirect();
+        $person = Person::where('email', $data['email'])->sole();
+        $this->assertCount(2, $person->teamEngagements);
+        foreach ($person->teamEngagements as $member) {
+            $this->assertSame('applied', $member->status);
+            $this->assertNull($member->group_id);
+        }
     }
 
     public function test_database_guards_insert_and_update_and_migration_rollback_preserves_relations_and_indexes(): void

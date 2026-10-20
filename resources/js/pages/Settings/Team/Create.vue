@@ -11,6 +11,7 @@ import { FormField } from '../../../components/ui/form-field';
 import { Icon } from '../../../components/ui/icon';
 import { Input } from '../../../components/ui/input';
 import { Switch } from '../../../components/ui/switch';
+import { Tooltip } from '../../../components/ui/tooltip';
 import { toastFormErrors } from '../../../lib/fieldError';
 import { useFlashToast } from '../../../composables/useFlashToast';
 import { Link, router, useForm } from '@inertiajs/vue3';
@@ -36,9 +37,27 @@ const form = useForm({
 const selectedRoles = reactive(
     Object.fromEntries(props.events.map((event) => [event.id, ''])),
 );
-const rolesDirty = computed(() =>
-    Object.values(selectedRoles).some((role) => role !== ''),
+const selectedGroups = reactive(
+    Object.fromEntries(props.events.map((event) => [event.id, ''])),
 );
+const accessDirty = computed(
+    () =>
+        Object.values(selectedRoles).some((role) => role !== '') ||
+        Object.values(selectedGroups).some((group) => group !== ''),
+);
+const groupRequired = computed(() => form.status === 'hired');
+const groupItems = (event) => [
+    ...(!groupRequired.value
+        ? [{ value: '', title: trans('team.member.fields.group_none') }]
+        : []),
+    ...event.groups.map((group) => ({ value: group.id, title: group.name })),
+];
+const groupError = (eventId) => {
+    const index = form.event_access.findIndex(
+        (access) => access.event_id === eventId,
+    );
+    return form.errors[`event_access.${index}.group_id`];
+};
 const lookup = ref(null);
 const lookupBusy = ref(false);
 const duplicateOpen = ref(false);
@@ -103,6 +122,7 @@ const submit = (afterSave) => {
         .map((event) => ({
             event_id: event.id,
             role_id: selectedRoles[event.id],
+            group_id: selectedGroups[event.id] || null,
         }));
 
     form.post(
@@ -125,7 +145,7 @@ const submit = (afterSave) => {
                 href="/settings/team"
                 :page="$t('settings.team.title')"
                 :form="form"
-                :dirty="form.isDirty || rolesDirty"
+                :dirty="form.isDirty || accessDirty"
                 @save="submit"
             />
             <header class="mb-5">
@@ -287,12 +307,57 @@ const submit = (afterSave) => {
                                     {{ event.starts_on }} – {{ event.ends_on }}
                                 </p>
                             </div>
-                            <div>
+                            <div class="space-y-3">
                                 <CustomDropdown
                                     v-model="selectedRoles[event.id]"
                                     :items="roleItems"
                                     :disabled="event.locked || form.processing"
                                 />
+                                <FormField
+                                    v-if="selectedRoles[event.id] !== ''"
+                                    :label="$t('team.member.fields.group')"
+                                    :required="groupRequired"
+                                    :error="groupError(event.id)"
+                                >
+                                    <template #label-suffix>
+                                        <Tooltip
+                                            :label="
+                                                $t(
+                                                    'team.member.fields.group_hint',
+                                                )
+                                            "
+                                        >
+                                            <Icon
+                                                :name="['fas', 'circle-info']"
+                                                class="text-muted"
+                                                size="sm"
+                                            />
+                                            <template #content>
+                                                <span
+                                                    class="block max-w-xs leading-relaxed"
+                                                >
+                                                    {{
+                                                        $t(
+                                                            'team.member.fields.group_hint',
+                                                        )
+                                                    }}
+                                                </span>
+                                            </template>
+                                        </Tooltip>
+                                    </template>
+                                    <template #default="{ id, invalid }">
+                                        <CustomDropdown
+                                            :id="id"
+                                            v-model="selectedGroups[event.id]"
+                                            :items="groupItems(event)"
+                                            :aria-required="groupRequired"
+                                            :invalid="invalid"
+                                            :disabled="
+                                                event.locked || form.processing
+                                            "
+                                        />
+                                    </template>
+                                </FormField>
                                 <p
                                     v-if="event.locked"
                                     class="mt-1.5 mb-0 flex items-center gap-1.5 text-xs text-muted"

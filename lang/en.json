@@ -1051,7 +1051,7 @@
     "settings.team.add.title": "Add person",
     "settings.team.add.lead": "Add someone to your team and give them a role at one event or more.",
     "settings.team.add.access_hint": "Give them a role at one event or more.",
-    "settings.team.add.status_hint": "Applies to every event where you give them a role.",
+    "settings.team.add.status_hint": "Applies to every event where you give them a role. Hired members need a group at each event.",
     "settings.team.add.existing_contact": "This email already belongs to :name.",
     "settings.team.add.open_existing": "Open their person page",
     "settings.team.add.duplicate_title": "This person already exists",
