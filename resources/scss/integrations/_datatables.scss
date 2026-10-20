@@ -32,6 +32,11 @@
         @apply mt-4 mb-0;
     }
 
+    /* Reports without controls have only the table row, with no toolbar gap. */
+    div.dt-container div.dt-layout-row.dt-layout-table:only-child {
+        @apply m-0;
+    }
+
     div.dt-container .dt-search input,
     div.dt-container .dt-length select {
         @apply box-border h-10 rounded-lg border border-line bg-ground text-sm text-charcoal transition-[box-shadow,border-color] outline-none focus:border-primary focus:ring-[3px] focus:ring-primary/35 disabled:cursor-not-allowed disabled:opacity-45;

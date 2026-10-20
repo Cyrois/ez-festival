@@ -72,6 +72,7 @@ class EventPermissionsTest extends TestCase
             $this->assertTrue($checked || isset($exceptions[$route->uri()]), 'Missing permission check: '.$route->methods()[0].' '.$route->uri());
         }
         $this->assertContains('can:team.hours_report.view', Route::getRoutes()->getByName('team.reports')->gatherMiddleware());
+        $this->assertContains('can:team.hours_report.view', Route::getRoutes()->getByName('team.reports.data')->gatherMiddleware());
     }
 
     public function test_view_only_artist_role_gets_home_and_an_event_only_permission_map(): void
@@ -390,6 +391,7 @@ class EventPermissionsTest extends TestCase
     public function test_team_hours_report_permission_allows_report_only_access_even_when_locked(): void
     {
         $this->role->update(['permissions' => ['team.hours_report.view']]);
+        $this->getJson(route('team.reports.data'))->assertOk();
         $this->get(route('team.reports'))->assertInertia(fn (Assert $page) => $page
             ->component('Team/Reports')
             ->where('permissions', fn ($permissions) => $permissions['team.hours_report.view']
@@ -399,6 +401,7 @@ class EventPermissionsTest extends TestCase
         }
 
         $this->event->lock();
+        $this->getJson(route('team.reports.data'))->assertOk();
         $this->get(route('team.reports'))->assertInertia(fn (Assert $page) => $page
             ->component('Team/Reports')->where('activeEvent.is_locked', true));
     }
@@ -408,6 +411,7 @@ class EventPermissionsTest extends TestCase
         foreach (['team.view', 'team.edit', 'scheduling.view', 'forms.view', 'meals.report.view'] as $permission) {
             $this->role->update(['permissions' => [$permission]]);
             $this->get(route('team.reports'))->assertForbidden();
+            $this->getJson(route('team.reports.data'))->assertForbidden();
             $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
                 ->where('permissions', fn ($permissions) => ! $permissions['team.hours_report.view']));
         }
@@ -418,6 +422,7 @@ class EventPermissionsTest extends TestCase
         $this->grantAdminAccess($this->user);
         TeamEngagement::where('person_id', $this->user->person_id)->delete();
         $this->event->lock();
+        $this->getJson(route('team.reports.data'))->assertOk();
 
         $this->get(route('team.reports'))->assertInertia(fn (Assert $page) => $page
             ->component('Team/Reports')
@@ -433,8 +438,10 @@ class EventPermissionsTest extends TestCase
         $this->role->update(['permissions' => ['team.hours_report.view']]);
 
         $this->get(route('team.reports'))->assertOk();
+        $this->getJson(route('team.reports.data'))->assertOk();
         $this->user->setCurrentEvent($other);
         $this->get(route('team.reports'))->assertForbidden();
+        $this->getJson(route('team.reports.data'))->assertForbidden();
         $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
             ->where('activeEvent.id', $other->id)->where('permissions', fn ($permissions) => ! $permissions['team.hours_report.view']));
 
@@ -442,6 +449,7 @@ class EventPermissionsTest extends TestCase
         $this->get(route('team.reports'))->assertOk();
         $this->role->update(['permissions' => ['team.view']]);
         $this->get(route('team.reports'))->assertForbidden();
+        $this->getJson(route('team.reports.data'))->assertForbidden();
         $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
             ->where('permissions', fn ($permissions) => ! $permissions['team.hours_report.view']));
     }

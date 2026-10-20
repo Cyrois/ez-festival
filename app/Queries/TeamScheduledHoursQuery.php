@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 class TeamScheduledHoursQuery
 {
     /** Composable SQL rows: callers aggregate before fetching, never hydrate all assignments. */
-    public function forEvent(Event $event): Builder
+    public function forEvent(Event $event, ?string $startDate = null, ?string $endDate = null): Builder
     {
         $breaks = DB::table('shift_assignment_breaks as b')
             ->join('shift_assignments as ba', 'ba.id', '=', 'b.shift_assignment_id')
@@ -33,6 +33,8 @@ class TeamScheduledHoursQuery
             ->join('team_engagements as t', 't.id', '=', 'a.team_engagement_id')
             ->join('groups as g', 'g.id', '=', 't.group_id')
             ->where('s.event_id', $event->id)->where('t.event_id', $event->id)->where('g.event_id', $event->id)
+            ->when($startDate !== null, fn (Builder $query) => $query->whereDate('s.starts_at', '>=', $startDate))
+            ->when($endDate !== null, fn (Builder $query) => $query->whereDate('s.starts_at', '<=', $endDate))
             ->leftJoinSub($breaks, 'breaks', 'breaks.shift_assignment_id', '=', 'a.id')
             ->select('a.id as assignment_id', 'a.shift_id', 'a.team_engagement_id', 't.person_id', 't.group_id', 's.starts_at as shift_starts_at')
             ->selectRaw("DATE(s.starts_at) as day, {$clamp}(0, {$duration} - COALESCE(breaks.break_minutes, 0)) as scheduled_minutes");
@@ -45,15 +47,15 @@ class TeamScheduledHoursQuery
         return (int) $this->forEvent($event)->sum('scheduled_minutes');
     }
 
-    public function groups(Event $event): Collection
+    public function groups(Event $event, ?string $startDate = null, ?string $endDate = null): Collection
     {
-        $totals = $this->forEvent($event)->select('group_id')->selectRaw('SUM(scheduled_minutes) as scheduled_minutes')->groupBy('group_id');
+        $totals = $this->forEvent($event, $startDate, $endDate)->select('group_id')->selectRaw('SUM(scheduled_minutes) as scheduled_minutes')->groupBy('group_id');
 
         return DB::table('groups')->where('groups.event_id', $event->id)
             ->leftJoinSub($totals, 'totals', 'totals.group_id', '=', 'groups.id')
-            ->select('groups.id as group_id')->selectRaw('COALESCE(totals.scheduled_minutes, 0) as scheduled_minutes')
+            ->select('groups.id as group_id', 'groups.name as group_name')->selectRaw('COALESCE(totals.scheduled_minutes, 0) as scheduled_minutes')
             ->orderBy('groups.name')->orderBy('groups.id')->get()->map(fn ($row): array => [
-                'group_id' => (int) $row->group_id, 'scheduled_minutes' => (int) $row->scheduled_minutes,
+                'group_id' => (int) $row->group_id, 'group_name' => $row->group_name, 'scheduled_minutes' => (int) $row->scheduled_minutes,
             ]);
     }
 
