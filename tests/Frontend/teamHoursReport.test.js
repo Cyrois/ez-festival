@@ -73,15 +73,9 @@ const deps = (globalThis.__teamHoursTest = {
     buttonVariants,
 });
 await import('../../resources/js/icons.js');
-const compile = async (path) => {
-    const { descriptor } = parse(
-        readFileSync(
-            new URL('../../resources/js/' + path, import.meta.url),
-            'utf8',
-        ),
-    );
-    let source = compileScript(descriptor, { id: path, inlineTemplate: true })
-        .content.replaceAll(
+const importSource = async (source) => {
+    source = source
+        .replaceAll(
             /from ['"]vue['"]/g,
             "from '" + pathToFileURL(require.resolve('vue')).href + "'",
         )
@@ -98,10 +92,28 @@ const compile = async (path) => {
                           ';';
             },
         );
+    return import(
+        'data:text/javascript;base64,' + Buffer.from(source).toString('base64')
+    );
+};
+const compileModule = async (path) =>
+    importSource(
+        readFileSync(
+            new URL('../../resources/js/' + path, import.meta.url),
+            'utf8',
+        ),
+    );
+const compile = async (path) => {
+    const { descriptor } = parse(
+        readFileSync(
+            new URL('../../resources/js/' + path, import.meta.url),
+            'utf8',
+        ),
+    );
     return (
-        await import(
-            'data:text/javascript;base64,' +
-                Buffer.from(source).toString('base64')
+        await importSource(
+            compileScript(descriptor, { id: path, inlineTemplate: true })
+                .content,
         )
     ).default;
 };
@@ -118,6 +130,20 @@ for (const [name, path] of [
     ['EmptyState', 'components/ui/empty-state/EmptyState.vue'],
 ])
     deps[name] = await compile(path);
+deps.formatHoursReportDuration = (
+    await compileModule('lib/hoursReport.js')
+).formatHoursReportDuration;
+deps.useHoursReportRequests = (
+    await compileModule('composables/useHoursReportRequests.js')
+).useHoursReportRequests;
+for (const name of [
+    'HoursReportFilters',
+    'HoursReportSummary',
+    'HoursReportLoadState',
+    'HoursReportTable',
+]) {
+    deps[name] = await compile('components/team/hours-report/' + name + '.vue');
+}
 const Report = await compile('pages/Team/Reports.vue');
 const tick = async () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
