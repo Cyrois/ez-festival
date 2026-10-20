@@ -7,6 +7,7 @@ use App\Models\Person;
 use App\Models\Role;
 use App\Models\TeamEngagement;
 use App\Models\User;
+use App\Support\TeamMemberGroup;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -111,6 +112,7 @@ class GlobalTeamService
                     ->lockForUpdate()
                     ->first();
 
+                TeamMemberGroup::ensure($event->id, $engagement?->group_id, $data['status'], $engagement, 'status');
                 if ($engagement) {
                     $engagement->update([
                         'role_id' => $role->id,
@@ -226,6 +228,7 @@ class GlobalTeamService
                         ]);
                     }
 
+                    TeamMemberGroup::ensure($event->id, $engagement?->group_id, $status, $engagement, "event_access.{$index}.status");
                     if ($engagement) {
                         $engagement->update(['role_id' => $role->id, 'status' => $status]);
                     } else {

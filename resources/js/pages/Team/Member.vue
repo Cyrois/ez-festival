@@ -263,6 +263,7 @@ const submit = (afterSave) => {
                         v-else
                         :form="form"
                         :groups="groups"
+                        :has-assignments="engagement.has_shift_assignments"
                         :statuses="statuses"
                         :employment-types="employmentTypes"
                         :disabled="readOnly || form.processing"

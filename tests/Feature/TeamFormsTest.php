@@ -264,7 +264,7 @@ class TeamFormsTest extends TestCase
         $event = $this->event();
         $form = $this->teamForm($event);
         $person = Person::query()->create(['name' => 'Existing', 'email' => 'existing@example.test']);
-        TeamEngagement::query()->create([
+        $this->createTeamEngagement([
             'event_id' => $event->id,
             'person_id' => $person->id,
             'status' => 'reviewing',

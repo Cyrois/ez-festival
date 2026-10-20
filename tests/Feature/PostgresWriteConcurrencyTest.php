@@ -136,10 +136,10 @@ class PostgresWriteConcurrencyTest extends TestCase
         [$event, $actor] = $this->context();
         $this->grantAdminAccess($actor);
         $person = Person::create(['name' => 'Original', 'email' => 'member@example.test']);
-        $member = TeamEngagement::create(['event_id' => $event->id, 'person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+        $member = $this->createTeamEngagement(['event_id' => $event->id, 'person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
         $results = $this->concurrently(
             fn () => app(TeamEngagementService::class)->update($member, $actor, [
-                'name' => 'Original', 'email' => $person->email, 'status' => 'hired', 'employment_type' => 'volunteer',
+                'name' => 'Original', 'email' => $person->email, 'status' => 'hired', 'group_id' => $member->group_id, 'employment_type' => 'volunteer',
             ]),
             fn () => app(GlobalTeamService::class)->update($person, [
                 'name' => 'Global Edit', 'can_log_in' => false,
@@ -197,7 +197,7 @@ class PostgresWriteConcurrencyTest extends TestCase
             $this->grantAdminAccess($actor);
             $recipient = User::factory()->create();
             $role = Role::create(['name' => 'Receiver '.$recipient->id, 'permissions' => ['checkin.edit']]);
-            $member = TeamEngagement::create(['event_id' => $event->id, 'person_id' => $recipient->person_id,
+            $member = $this->createTeamEngagement(['event_id' => $event->id, 'person_id' => $recipient->person_id,
                 'role_id' => $role->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
             $location = $event->locations()->create(['name' => 'Gate']);
             $item = $event->entitlementItems()->create(['name' => 'Wristband']);
@@ -218,7 +218,7 @@ class PostgresWriteConcurrencyTest extends TestCase
         $this->grantAdminAccess($actor);
         $recipient = User::factory()->create();
         $role = Role::create(['name' => 'Receiver', 'permissions' => ['checkin.edit']]);
-        TeamEngagement::create(['event_id' => $event->id, 'person_id' => $recipient->person_id,
+        $this->createTeamEngagement(['event_id' => $event->id, 'person_id' => $recipient->person_id,
             'role_id' => $role->id, 'status' => 'hired']);
         $location = $event->locations()->create(['name' => 'Gate']);
         $item = $event->entitlementItems()->create(['name' => 'Wristband']);
@@ -247,7 +247,7 @@ class PostgresWriteConcurrencyTest extends TestCase
                     $this->grantAdminAccess($recipient);
                 } else {
                     $roleId = Role::create(['name' => 'Receiver '.$recipient->id, 'permissions' => ['checkin.edit']])->id;
-                    TeamEngagement::create(['event_id' => $event->id, 'person_id' => $recipient->person_id,
+                    $this->createTeamEngagement(['event_id' => $event->id, 'person_id' => $recipient->person_id,
                         'role_id' => $roleId, 'status' => 'hired']);
                 }
                 $location = $event->locations()->create(['name' => 'Gate']);
@@ -349,7 +349,7 @@ class PostgresWriteConcurrencyTest extends TestCase
         $results = $this->concurrently(
             fn () => DB::transaction(function () use ($event, $member): void {
                 Event::whereKey($event->id)->lockForUpdate()->firstOrFail();
-                $member->update(['group_id' => null]);
+                $member->update(['group_id' => $event->groups()->create(['name' => 'Other crew'])->id]);
             }),
             fn () => app(InventoryMovementService::class)->passStock($event, $source, [
                 'person_id' => $target->person_id, 'entitlement_item_id' => $item->id, 'quantity' => 1,
@@ -383,13 +383,13 @@ class PostgresWriteConcurrencyTest extends TestCase
     {
         [$event, $manager] = $this->context();
         $role = Role::create(['name' => 'Inventory manager '.$event->id, 'permissions' => ['inventory.manage']]);
-        TeamEngagement::create(['event_id' => $event->id, 'person_id' => $manager->person_id, 'role_id' => $role->id, 'status' => 'hired']);
+        $this->createTeamEngagement(['event_id' => $event->id, 'person_id' => $manager->person_id, 'role_id' => $role->id, 'status' => 'hired']);
         $group = $event->groups()->create(['name' => 'Handover']);
         $source = User::factory()->create();
         $target = User::factory()->create();
         foreach ([$source, $target] as $user) {
             $memberRole = Role::create(['name' => 'Crew '.$user->id, 'permissions' => ['inventory.pass_group']]);
-            TeamEngagement::create(['event_id' => $event->id, 'person_id' => $user->person_id, 'role_id' => $memberRole->id, 'status' => 'hired', 'group_id' => $group->id]);
+            $this->createTeamEngagement(['event_id' => $event->id, 'person_id' => $user->person_id, 'role_id' => $memberRole->id, 'status' => 'hired', 'group_id' => $group->id]);
         }
         $location = $event->locations()->create(['name' => 'Gate']);
         $item = $event->entitlementItems()->create(['name' => 'Last person unit']);
@@ -745,7 +745,7 @@ class PostgresWriteConcurrencyTest extends TestCase
         $user = User::factory()->create();
         $this->grantAdminAccess($user);
         $person = Person::create(['name' => 'Meal recipient', 'email' => 'meal@example.test']);
-        $member = $event->teamEngagements()->create(['person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+        $member = $this->createTeamEngagement(['event_id' => $event->id, 'person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
         $location = $event->locations()->create(['name' => 'Kitchen']);
         $shift = $event->shifts()->create(['location_id' => $location->id, 'name' => 'Lunch shift', 'starts_at' => '2026-10-01 09:00', 'ends_at' => '2026-10-01 18:00']);
         $role = Role::create(['name' => 'Meal crew']);

@@ -5,7 +5,6 @@ namespace Tests\Feature\Settings;
 use App\Models\Event;
 use App\Models\Person;
 use App\Models\Role;
-use App\Models\TeamEngagement;
 use App\Models\User;
 use App\Services\RoleService;
 use App\Support\OrganizationContext;
@@ -228,7 +227,7 @@ class RoleControllerTest extends TestCase
         ]);
         $user->forceFill(['is_admin' => false])->save();
         $user->person()->update(['can_log_in' => true]);
-        TeamEngagement::query()->create([
+        $this->createTeamEngagement([
             'event_id' => $this->event->id,
             'person_id' => $user->person_id,
             'role_id' => $accessRole->id,
@@ -600,11 +599,11 @@ class RoleControllerTest extends TestCase
         foreach (['Alice', 'Bob', 'Crew 100%'] as $name) {
             $person = Person::create(['name' => $name, 'email' => str_replace(' ', '', $name).'@example.test']);
             foreach ([$this->event, $otherEvent] as $event) {
-                TeamEngagement::create(['event_id' => $event->id, 'person_id' => $person->id, 'role_id' => $role->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+                $this->createTeamEngagement(['event_id' => $event->id, 'person_id' => $person->id, 'role_id' => $role->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
             }
         }
         $outsider = Person::create(['name' => 'Outsider', 'email' => 'outsider@example.test']);
-        TeamEngagement::create(['event_id' => $this->event->id, 'person_id' => $outsider->id, 'role_id' => $otherRole->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+        $this->createTeamEngagement(['event_id' => $this->event->id, 'person_id' => $outsider->id, 'role_id' => $otherRole->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
         $url = route('settings.roles.people', $role);
         $params = ['draw' => 1, 'start' => 0, 'length' => 2];
         $this->actingAs($user)->getJson($url.'?'.http_build_query($params))

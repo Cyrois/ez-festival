@@ -36,7 +36,7 @@ class CredentialsPermissionsTest extends TestCase
         $this->user->person()->update(['can_log_in' => true]);
         $this->user->setCurrentEvent($this->event);
         $this->role = Role::create(['name' => 'Credentials staff', 'permissions' => []]);
-        TeamEngagement::create(['event_id' => $this->event->id, 'person_id' => $this->user->person_id, 'role_id' => $this->role->id, 'status' => 'hired']);
+        $this->createTeamEngagement(['event_id' => $this->event->id, 'person_id' => $this->user->person_id, 'role_id' => $this->role->id, 'status' => 'hired']);
         app(OrganizationContext::class)->setDefaultEvent($this->event);
         app(OrganizationContext::class)->markSetupComplete();
         $this->item = $this->event->entitlementItems()->create(['name' => 'Wristband']);
@@ -187,7 +187,7 @@ class CredentialsPermissionsTest extends TestCase
     {
         $this->role->update(['permissions' => ['credentials.entitlements.edit', 'credentials.stock.adjust', 'credentials.passes.edit']]);
         $other = Event::create(['name' => 'Other festival', 'starts_on' => '2027-06-01', 'ends_on' => '2027-06-03', 'timezone' => 'America/Vancouver']);
-        TeamEngagement::create(['event_id' => $other->id, 'person_id' => $this->user->person_id, 'role_id' => $this->role->id, 'status' => 'hired']);
+        $this->createTeamEngagement(['event_id' => $other->id, 'person_id' => $this->user->person_id, 'role_id' => $this->role->id, 'status' => 'hired']);
         $item = $other->entitlementItems()->create(['name' => 'Other item']);
         $pass = $other->passTypes()->create(['name' => 'Other pass']);
         $location = $other->locations()->create(['name' => 'Other location']);

@@ -48,7 +48,7 @@ class MealReportTest extends TestCase
         $this->grantAdminAccess($this->user);
         $this->user->setCurrentEvent($this->event);
         $this->actingAs($this->user);
-        $this->member = $this->event->teamEngagements()->create([
+        $this->member = $this->createTeamEngagement(['event_id' => $this->event->id,
             'person_id' => Person::create(['name' => 'Ava Lee', 'email' => 'ava@example.test'])->id,
             'status' => 'hired', 'employment_type' => 'volunteer',
         ]);
@@ -244,7 +244,7 @@ class MealReportTest extends TestCase
         $foreign = app(EventService::class)->create([
             'name' => 'Other festival', 'starts_on' => '2026-10-01', 'ends_on' => '2026-10-04', 'timezone' => 'UTC',
         ]);
-        $foreignMember = $foreign->teamEngagements()->create([
+        $foreignMember = $this->createTeamEngagement(['event_id' => $foreign->id,
             'person_id' => $this->member->person_id, 'status' => 'hired', 'employment_type' => 'volunteer',
         ]);
         $meal = $foreign->meals()->create([
@@ -311,7 +311,7 @@ class MealReportTest extends TestCase
             'name' => 'Other festival', 'starts_on' => '2026-11-01',
             'ends_on' => '2026-11-02', 'timezone' => 'America/Vancouver',
         ]);
-        $otherEvent->teamEngagements()->create([
+        $this->createTeamEngagement(['event_id' => $otherEvent->id,
             'person_id' => $this->user->person_id,
             'role_id' => Role::create(['name' => 'Other event viewer', 'permissions' => ['team.view']])->id,
             'status' => 'hired', 'employment_type' => 'volunteer',

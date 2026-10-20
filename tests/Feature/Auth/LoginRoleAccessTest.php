@@ -126,7 +126,7 @@ class LoginRoleAccessTest extends TestCase
 
     private function engagement(User $user, Event $event, Role $role): TeamEngagement
     {
-        return TeamEngagement::query()->create([
+        return $this->createTeamEngagement([
             'event_id' => $event->id,
             'person_id' => $user->person_id,
             'role_id' => $role->id,

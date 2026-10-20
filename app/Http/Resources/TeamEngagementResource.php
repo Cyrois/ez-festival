@@ -17,6 +17,7 @@ class TeamEngagementResource extends JsonResource
             'status' => $this->status,
             'employment_type' => $this->employment_type,
             'group_id' => $this->group_id,
+            'has_shift_assignments' => (bool) $this->shift_assignments_exists,
             'group' => $this->group?->only(['id', 'name']),
             'role_id' => $this->role_id,
             'role' => $this->role?->only(['id', 'name', 'active']),

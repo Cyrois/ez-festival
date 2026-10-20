@@ -194,6 +194,7 @@ class TeamAdvancementTest extends TestCase
     {
         [$user, $event] = $this->userWithCompletedSetup();
         $engagement = $this->engagement($event, 'Sam Rivera');
+        $engagement->update(['group_id' => $this->fixtureGroupId($event->id)]);
 
         foreach (['reviewing', 'hired', 'declined', 'applied'] as $status) {
             $this->actingAs($user)
@@ -278,6 +279,7 @@ class TeamAdvancementTest extends TestCase
         [$user] = $this->userWithCompletedSetup();
         $otherEvent = $this->event('Other Festival');
         $foreign = $this->engagement($otherEvent, 'Foreign Member');
+        $foreign->update(['group_id' => $this->fixtureGroupId($otherEvent->id)]);
 
         $this->actingAs($user)->get(route('team.members.show', $foreign))->assertNotFound();
         $this->actingAs($user)
@@ -328,7 +330,7 @@ class TeamAdvancementTest extends TestCase
             'phone' => '555-1000',
         ]);
         $originalPerson = $sharedUser->person;
-        $engagement = TeamEngagement::query()->create([
+        $engagement = $this->createTeamEngagement([
             'event_id' => $event->id,
             'person_id' => $originalPerson->id,
             'status' => 'applied',
@@ -565,7 +567,7 @@ class TeamAdvancementTest extends TestCase
             'email' => str($name)->slug().'@example.test',
         ]);
 
-        return TeamEngagement::query()->create([
+        return $this->createTeamEngagement([
             'event_id' => $event->id,
             'person_id' => $person->id,
             'status' => $status,

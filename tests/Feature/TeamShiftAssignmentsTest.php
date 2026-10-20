@@ -1137,7 +1137,7 @@ class TeamShiftAssignmentsTest extends TestCase
     {
         $person = Person::create(['name' => $name, 'email' => fake()->unique()->safeEmail(), 'phone' => '555-555-5555']);
 
-        return TeamEngagement::create(['event_id' => ($event ?? $this->event)->id, 'person_id' => $person->id, 'role_id' => $role?->id, 'status' => $status, 'employment_type' => 'paid', 'hourly_pay' => '20.00']);
+        return $this->createTeamEngagement(['event_id' => ($event ?? $this->event)->id, 'person_id' => $person->id, 'role_id' => $role?->id, 'status' => $status, 'employment_type' => 'paid', 'hourly_pay' => '20.00']);
     }
 
     private function payload(TeamEngagement $member, array $overrides = []): array

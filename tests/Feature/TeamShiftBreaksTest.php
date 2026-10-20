@@ -8,7 +8,6 @@ use App\Models\Location;
 use App\Models\Person;
 use App\Models\Role;
 use App\Models\Shift;
-use App\Models\TeamEngagement;
 use App\Models\User;
 use App\Services\ShiftAssignmentService;
 use App\Services\ShiftService;
@@ -714,9 +713,9 @@ class TeamShiftBreaksTest extends TestCase
 
     public function test_create_mass_add_targets_draft_people_at_the_time_of_the_add_without_affecting_later_people(): void
     {
-        $first = TeamEngagement::create(['event_id' => $this->event->id, 'person_id' => Person::create(['name' => 'First', 'email' => 'first@example.test'])->id,
+        $first = $this->createTeamEngagement(['event_id' => $this->event->id, 'person_id' => Person::create(['name' => 'First', 'email' => 'first@example.test'])->id,
             'role_id' => $this->role->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
-        $later = TeamEngagement::create(['event_id' => $this->event->id, 'person_id' => Person::create(['name' => 'Later', 'email' => 'later@example.test'])->id,
+        $later = $this->createTeamEngagement(['event_id' => $this->event->id, 'person_id' => Person::create(['name' => 'Later', 'email' => 'later@example.test'])->id,
             'role_id' => $this->role->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
         $break = $this->breakRow();
         $this->post(route('team.shifts.store', $this->event), [...$this->payload(),
@@ -772,7 +771,7 @@ class TeamShiftBreaksTest extends TestCase
 
     private function assign(Shift $shift, string $name, string $start, string $end)
     {
-        $member = TeamEngagement::create(['event_id' => $this->event->id, 'person_id' => Person::create(['name' => $name, 'email' => Str::uuid().'@example.test'])->id,
+        $member = $this->createTeamEngagement(['event_id' => $this->event->id, 'person_id' => Person::create(['name' => $name, 'email' => Str::uuid().'@example.test'])->id,
             'role_id' => $this->role->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
 
         return app(ShiftAssignmentService::class)->create($shift, ['team_engagement_id' => $member->id, 'shift_role_slot_id' => $shift->roleSlots()->sole()->id,

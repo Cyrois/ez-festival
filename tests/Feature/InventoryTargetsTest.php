@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Event;
 use App\Models\Person;
 use App\Models\Role;
-use App\Models\TeamEngagement;
 use App\Models\User;
 use App\Queries\InventoryTargetsQuery;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -62,7 +61,7 @@ class InventoryTargetsTest extends TestCase
         $noRole->person->teamEngagements()->update(['role_id' => null]);
         $foreign = $this->member(['checkin.edit', 'inventory.manage']);
         $other = Event::create(['name' => 'Other', 'starts_on' => '2027-07-01', 'ends_on' => '2027-07-03', 'timezone' => 'UTC']);
-        $foreign->person->teamEngagements()->update(['event_id' => $other->id]);
+        $foreign->person->teamEngagements()->update(['event_id' => $other->id, 'group_id' => $this->fixtureGroupId($other->id)]);
         $noAccount = $this->member(['checkin.edit', 'inventory.manage']);
         $personId = $noAccount->person_id;
         $noAccount->delete();
@@ -139,7 +138,7 @@ class InventoryTargetsTest extends TestCase
     {
         $user = User::factory()->create();
         $role = Role::create(['name' => 'Role for '.$user->id, 'permissions' => $permissions]);
-        TeamEngagement::create(['event_id' => $this->event->id, 'person_id' => $user->person_id,
+        $this->createTeamEngagement(['event_id' => $this->event->id, 'person_id' => $user->person_id,
             'role_id' => $role->id, 'status' => $status]);
 
         return $user;

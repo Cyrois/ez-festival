@@ -34,7 +34,7 @@ class InventoryPermissionsTest extends TestCase
         $this->event = $this->event('Festival');
         $this->user = User::factory()->create();
         $this->role = Role::create(['name' => 'Manager', 'permissions' => ['inventory.manage']]);
-        TeamEngagement::create(['event_id' => $this->event->id, 'person_id' => $this->user->person_id,
+        $this->createTeamEngagement(['event_id' => $this->event->id, 'person_id' => $this->user->person_id,
             'role_id' => $this->role->id, 'status' => 'hired']);
         $this->user->setCurrentEvent($this->event);
         app(OrganizationContext::class)->setDefaultEvent($this->event);
@@ -142,7 +142,7 @@ class InventoryPermissionsTest extends TestCase
     public function test_manager_location_access_is_limited_to_current_event_and_foreign_ids_are_refused(): void
     {
         $other = $this->event('Other event');
-        TeamEngagement::create(['event_id' => $other->id, 'person_id' => $this->user->person_id,
+        $this->createTeamEngagement(['event_id' => $other->id, 'person_id' => $this->user->person_id,
             'role_id' => $this->role->id, 'status' => 'hired']);
         $location = $other->locations()->create(['name' => 'Other Gate']);
         $item = $other->entitlementItems()->create(['name' => 'Other stock']);
@@ -208,7 +208,7 @@ class InventoryPermissionsTest extends TestCase
         $this->role->update(['permissions' => ['inventory.manage']]);
         $other = $this->event('Other');
         $otherRole = Role::create(['name' => 'Other role', 'permissions' => ['checkin.view']]);
-        TeamEngagement::create(['event_id' => $other->id, 'person_id' => $this->user->person_id,
+        $this->createTeamEngagement(['event_id' => $other->id, 'person_id' => $this->user->person_id,
             'role_id' => $otherRole->id, 'status' => 'hired']);
         $this->get(route('settings.events.locations', $other))->assertForbidden();
         $this->role->update(['active' => false]);
@@ -225,7 +225,7 @@ class InventoryPermissionsTest extends TestCase
             'vendor_id' => Vendor::create(['name' => 'Vendor'])->id, 'status' => 'confirmed']);
         $artist->people()->attach($person);
         $vendor->people()->attach($person);
-        $team = TeamEngagement::create(['event_id' => $this->event->id, 'person_id' => $person->id, 'status' => 'hired']);
+        $team = $this->createTeamEngagement(['event_id' => $this->event->id, 'person_id' => $person->id, 'status' => 'hired']);
         $pass = $this->event->passTypes()->create(['name' => 'Staff']);
         $item = $this->event->entitlementItems()->create(['name' => 'Wristband']);
         $location = $this->event->locations()->create(['name' => 'Gate']);

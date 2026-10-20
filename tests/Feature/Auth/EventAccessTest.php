@@ -191,7 +191,7 @@ class EventAccessTest extends TestCase
 
     private function giveAccess(User $user, Event $event, Role $role): void
     {
-        TeamEngagement::query()->create([
+        $this->createTeamEngagement([
             'event_id' => $event->id,
             'person_id' => $user->person_id,
             'role_id' => $role->id,

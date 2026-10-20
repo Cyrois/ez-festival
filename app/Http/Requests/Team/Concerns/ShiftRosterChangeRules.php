@@ -25,7 +25,7 @@ trait ShiftRosterChangeRules
                 : ['prohibited'],
             'assignment_additions.*.slot_key' => ['required_without_all:assignment_additions.*.shift_role_slot_id,assignment_additions.*.role_id,assignment_additions.*.extra', 'prohibits:assignment_additions.*.shift_role_slot_id', 'string', 'max:64', 'regex:/^draft-\d+$/'],
             'assignment_additions.*.role_id' => ['required_without_all:assignment_additions.*.slot_key,assignment_additions.*.shift_role_slot_id,assignment_additions.*.extra', 'prohibits:assignment_additions.*.slot_key,assignment_additions.*.shift_role_slot_id', 'integer', Rule::exists('roles', 'id')],
-            'assignment_additions.*.team_engagement_id' => ['required', 'integer', 'distinct', Rule::exists('team_engagements', 'id')->where('event_id', $shift?->event_id ?? $this->route('event')->id)->where('status', 'hired')],
+            'assignment_additions.*.team_engagement_id' => ['required', 'integer', 'distinct', Rule::exists('team_engagements', 'id')->where('event_id', $shift?->event_id ?? $this->route('event')->id)->where('status', 'hired')->whereNotNull('group_id')],
         ];
         $rules['assignment_additions.*.client_key'] = ['sometimes', 'integer', 'max:-1', 'distinct'];
         $rules['break_operations'] = ['sometimes', 'array', 'list'];

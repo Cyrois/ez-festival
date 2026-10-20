@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\ArtistEngagement;
 use App\Models\Event;
 use App\Models\Person;
-use App\Models\TeamEngagement;
 use App\Models\TeamForm;
 use App\Models\User;
 use App\Support\OrganizationContext;
@@ -59,7 +58,7 @@ class ReturnNavigationTest extends TestCase
 
     public function test_team_member_returns_to_the_originating_schedule_and_direct_shifts_keep_the_existing_context(): void
     {
-        $member = TeamEngagement::create(['event_id' => $this->event->id, 'person_id' => Person::create(['name' => 'Maya', 'email' => 'maya@example.test'])->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+        $member = $this->createTeamEngagement(['event_id' => $this->event->id, 'person_id' => Person::create(['name' => 'Maya', 'email' => 'maya@example.test'])->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
         $origin = '/team/scheduling?tab=schedule&date=2026-10-02&view=location_shifts&restore=1';
         $this->get(route('team.members.show', ['engagement' => $member, 'return_to' => $origin]))
             ->assertInertia(fn (Assert $page) => $page->where('returnNavigation.href', $origin)->where('returnNavigation.page', 'nav.team.scheduling'));

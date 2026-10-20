@@ -209,7 +209,7 @@ class TeamGroupsTest extends TestCase
             'name' => 'Parking',
         ])->assertForbidden();
 
-        $this->assertDatabaseCount('groups', 0);
+        $this->assertDatabaseMissing('groups', ['event_id' => $event->id, 'name' => 'Parking']);
     }
 
     /**
@@ -245,7 +245,7 @@ class TeamGroupsTest extends TestCase
             'email' => str($name)->slug().'@example.test',
         ]);
 
-        return TeamEngagement::query()->create([
+        return $this->createTeamEngagement([
             'event_id' => $event->id,
             'person_id' => $person->id,
             'status' => 'hired',

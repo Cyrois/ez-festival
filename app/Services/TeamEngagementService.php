@@ -11,6 +11,7 @@ use App\Models\Role;
 use App\Models\TeamEngagement;
 use App\Models\User;
 use App\Repositories\PassTypeRepository;
+use App\Support\TeamMemberGroup;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +31,7 @@ class TeamEngagementService
         return DB::transaction(function () use ($event, $data): TeamEngagement {
             $event = Event::query()->lockForUpdate()->findOrFail($event->id);
             $event->ensureWritable();
+            TeamMemberGroup::ensure($event->id, $data['group_id'] ?? null, $data['status']);
             $person = $this->people->findByEmail($data['email']);
 
             if ($person?->teamEngagements()->whereBelongsTo($event)->exists()) {
@@ -88,6 +90,7 @@ class TeamEngagementService
             }
             $wasHired = $engagement->status === 'hired';
             if ($access->allows($user, 'team.edit', $event)) {
+                TeamMemberGroup::ensure($event->id, $data['group_id'] ?? null, $data['status'], $engagement);
                 $person = Person::query()->lockForUpdate()->findOrFail($engagement->person_id);
                 $email = $this->people->normalizeEmail($data['email']);
 
@@ -180,6 +183,7 @@ class TeamEngagementService
             if ($engagement->status === 'hired' && $status !== 'hired') {
                 app(HeldStockGuard::class)->ensureClear($engagement->person_id, $event->id, 'status');
             }
+            TeamMemberGroup::ensure($event->id, $engagement->group_id, $status, $engagement, 'status');
             $engagement->update(['status' => $status]);
         });
     }

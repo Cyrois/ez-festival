@@ -161,7 +161,7 @@ class TeamControllerTest extends TestCase
         $second = $this->event('Second Festival');
         $role = Role::query()->create(['name' => 'Staff']);
         $engagement = $this->engagement($event, 'Shared Role Holder', $role);
-        TeamEngagement::query()->create([
+        $this->createTeamEngagement([
             'event_id' => $second->id,
             'person_id' => $engagement->person_id,
             'role_id' => $role->id,
@@ -221,7 +221,7 @@ class TeamControllerTest extends TestCase
             'email' => 'no-login@example.test',
             'phone' => null,
             'can_log_in' => false,
-            'status' => 'hired',
+            'status' => 'applied',
             'event_access' => [['event_id' => $event->id, 'role_id' => $role->id]],
         ])->assertSessionHasNoErrors();
 
@@ -357,7 +357,7 @@ class TeamControllerTest extends TestCase
             'email' => 'known@example.test',
             'phone' => 'stored phone',
         ]);
-        $engagement = TeamEngagement::query()->create([
+        $engagement = $this->createTeamEngagement([
             'event_id' => $event->id,
             'person_id' => $person->id,
             'status' => 'applied',
@@ -447,7 +447,7 @@ class TeamControllerTest extends TestCase
             'can_log_in' => true,
             'event_access' => [
                 ['event_id' => $event->id, 'role_id' => null, 'status' => null],
-                ['event_id' => $second->id, 'role_id' => $secondRole->id, 'status' => 'hired'],
+                ['event_id' => $second->id, 'role_id' => $secondRole->id, 'status' => 'applied'],
             ],
         ])->assertRedirect(route('settings.team.show', $engagement->person));
 
@@ -459,7 +459,7 @@ class TeamControllerTest extends TestCase
             'event_id' => $second->id,
             'person_id' => $engagement->person_id,
             'role_id' => $secondRole->id,
-            'status' => 'hired',
+            'status' => 'applied',
             'employment_type' => 'volunteer',
         ]);
         $this->assertSame('Jordan L.', $engagement->person->fresh()->name);
@@ -472,7 +472,7 @@ class TeamControllerTest extends TestCase
         [$user, $event] = $this->userWithCompletedSetup();
         $user->forceFill(['is_admin' => false])->save();
         $role = Role::query()->create(['name' => 'Staff']);
-        TeamEngagement::query()->create([
+        $this->createTeamEngagement([
             'event_id' => $event->id,
             'person_id' => $user->person_id,
             'role_id' => $role->id,
@@ -504,7 +504,7 @@ class TeamControllerTest extends TestCase
     {
         [$user, $event] = $this->userWithCompletedSetup();
         $role = Role::query()->create(['name' => 'Staff']);
-        TeamEngagement::query()->create([
+        $this->createTeamEngagement([
             'event_id' => $event->id,
             'person_id' => $user->person_id,
             'role_id' => $role->id,
@@ -781,7 +781,7 @@ class TeamControllerTest extends TestCase
         [$actor, $event] = $this->userWithCompletedSetup();
         $actor->forceFill(['is_admin' => false])->save();
         $role = Role::query()->create(['name' => 'Staff']);
-        TeamEngagement::query()->create([
+        $this->createTeamEngagement([
             'event_id' => $event->id,
             'person_id' => $actor->person_id,
             'role_id' => $role->id,
@@ -846,7 +846,7 @@ class TeamControllerTest extends TestCase
         [$actor, $event] = $this->userWithCompletedSetup();
         $actor->forceFill(['is_admin' => false])->save();
         $role = Role::query()->create(['name' => 'Administrator']);
-        TeamEngagement::query()->create([
+        $this->createTeamEngagement([
             'event_id' => $event->id,
             'person_id' => $actor->person_id,
             'role_id' => $role->id,
@@ -1022,7 +1022,7 @@ class TeamControllerTest extends TestCase
             'email' => $email,
         ]);
 
-        return TeamEngagement::query()->create([
+        return $this->createTeamEngagement([
             'event_id' => $event->id,
             'person_id' => $person->id,
             'role_id' => $role?->id,

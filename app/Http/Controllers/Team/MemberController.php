@@ -71,6 +71,9 @@ class MemberController extends Controller
                 ])
                 ->latest('id'),
         ]);
+        if (Gate::allows('team.edit')) {
+            $engagement->loadExists('shiftAssignments');
+        }
         $canReadNotes = Gate::allows('team.notes.read', $engagement);
         $canReadMeals = $engagement->status === 'hired' && Gate::allows('meals.view', $event);
         $notes = $canReadNotes

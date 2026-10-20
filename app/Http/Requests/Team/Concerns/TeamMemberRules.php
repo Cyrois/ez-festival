@@ -31,6 +31,8 @@ trait TeamMemberRules
                 'max:99999999.99',
             ],
             'group_id' => [
+                Rule::requiredIf(fn () => $this->input('status') === 'hired'
+                    || ($this->route('engagement') instanceof TeamEngagement && $this->route('engagement')->shiftAssignments()->exists())),
                 'nullable',
                 'integer',
                 Rule::exists('groups', 'id')->where('event_id', $eventId),

@@ -47,6 +47,9 @@ class StoreGlobalTeamPersonRequest extends FormRequest
             if (app(PersonService::class)->findByEmail($this->input('email')) !== null) {
                 $validator->errors()->add('email', __('settings.team.validation.email_exists'));
             }
+            if ($this->input('status') === 'hired') {
+                $validator->errors()->add('status', __('team.member.errors.group_required'));
+            }
         }];
     }
 

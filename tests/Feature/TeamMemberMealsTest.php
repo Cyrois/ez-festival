@@ -49,7 +49,7 @@ class TeamMemberMealsTest extends TestCase
         $this->grantAdminAccess($this->user);
         $this->user->setCurrentEvent($this->event);
         $this->actingAs($this->user);
-        $this->member = $this->event->teamEngagements()->create([
+        $this->member = $this->createTeamEngagement(['event_id' => $this->event->id,
             'person_id' => Person::create(['name' => 'Ava Lee', 'email' => 'ava@example.test'])->id,
             'status' => 'hired',
             'employment_type' => 'volunteer',
@@ -162,7 +162,7 @@ class TeamMemberMealsTest extends TestCase
     public function test_assignments_are_scoped_to_the_event_and_member(): void
     {
         $this->grant($this->meal('Ava lunch', '2026-10-02'));
-        $other = $this->event->teamEngagements()->create([
+        $other = $this->createTeamEngagement(['event_id' => $this->event->id,
             'person_id' => Person::create(['name' => 'Noah Park', 'email' => 'noah@example.test'])->id,
             'status' => 'hired', 'employment_type' => 'volunteer',
         ]);
@@ -170,7 +170,7 @@ class TeamMemberMealsTest extends TestCase
         $foreign = app(EventService::class)->create([
             'name' => 'Other festival', 'starts_on' => '2026-10-01', 'ends_on' => '2026-10-04', 'timezone' => 'UTC',
         ]);
-        $foreignMember = $foreign->teamEngagements()->create([
+        $foreignMember = $this->createTeamEngagement(['event_id' => $foreign->id,
             'person_id' => $this->member->person_id, 'status' => 'hired', 'employment_type' => 'volunteer',
         ]);
         $foreignMeal = app(MealService::class)->create($foreign, [
@@ -244,7 +244,7 @@ class TeamMemberMealsTest extends TestCase
         $foreign = app(EventService::class)->create([
             'name' => 'Other festival', 'starts_on' => '2026-10-01', 'ends_on' => '2026-10-04', 'timezone' => 'UTC',
         ]);
-        $member = $foreign->teamEngagements()->create([
+        $member = $this->createTeamEngagement(['event_id' => $foreign->id,
             'person_id' => $this->member->person_id, 'status' => 'hired', 'employment_type' => 'volunteer',
         ]);
         $this->get(route('team.members.show', $member))->assertNotFound();

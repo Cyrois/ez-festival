@@ -49,7 +49,7 @@ class TeamMemberShiftsTest extends TestCase
         $this->assign($shift, $this->member($this->event));
         $foreignEvent = $this->event('Other festival');
         $foreignShift = $this->shift($foreignEvent);
-        $foreignMember = TeamEngagement::create([
+        $foreignMember = $this->createTeamEngagement([
             'event_id' => $foreignEvent->id, 'person_id' => $this->member->person_id,
             'status' => 'hired', 'employment_type' => 'volunteer',
         ]);
@@ -195,7 +195,7 @@ class TeamMemberShiftsTest extends TestCase
     {
         $person = Person::create(['name' => 'Member', 'email' => fake()->unique()->safeEmail()]);
 
-        return TeamEngagement::create(['event_id' => $event->id, 'person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+        return $this->createTeamEngagement(['event_id' => $event->id, 'person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
     }
 
     private function shift(Event $event): Shift

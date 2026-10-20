@@ -6,7 +6,6 @@ use App\Models\Event;
 use App\Models\Person;
 use App\Models\Role;
 use App\Models\Shift;
-use App\Models\TeamEngagement;
 use App\Services\ShiftAssignmentService;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
@@ -27,7 +26,7 @@ class ShiftOverrideMigrationTest extends TestCase
         $location = $event->locations()->create(['name' => 'Gate']);
         $role = Role::create(['name' => 'Crew']);
         $person = Person::create(['name' => 'Legacy person', 'email' => 'legacy@example.test']);
-        $member = TeamEngagement::create(['event_id' => $event->id, 'person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+        $member = $this->createTeamEngagement(['event_id' => $event->id, 'person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
         $shift = Shift::create(['event_id' => $event->id, 'location_id' => $location->id, 'name' => 'Legacy shift', 'starts_at' => '2026-10-01T10:00', 'ends_at' => '2026-10-01T14:00']);
         $slot = $shift->roleSlots()->create(['role_id' => $role->id, 'needed' => 1, 'sort_order' => 0]);
         $assignment = app(ShiftAssignmentService::class)->create($shift, ['team_engagement_id' => $member->id, 'shift_role_slot_id' => $slot->id, 'hours_mode' => 'full_shift']);
@@ -38,7 +37,7 @@ class ShiftOverrideMigrationTest extends TestCase
         $deletedRole->delete();
 
         $second = Person::create(['name' => 'Next person', 'email' => 'next@example.test']);
-        $nextMember = TeamEngagement::create(['event_id' => $event->id, 'person_id' => $second->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+        $nextMember = $this->createTeamEngagement(['event_id' => $event->id, 'person_id' => $second->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
         $deleted = app(ShiftAssignmentService::class)->create($shift, ['team_engagement_id' => $nextMember->id, 'shift_role_slot_id' => $slot->id, 'hours_mode' => 'full_shift']);
         $lastId = $deleted->id;
         $deleted->delete();

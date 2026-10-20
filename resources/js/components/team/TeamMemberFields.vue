@@ -11,6 +11,7 @@ const props = defineProps({
     statuses: { type: Array, required: true },
     employmentTypes: { type: Array, required: true },
     disabled: { type: Boolean, default: false },
+    hasAssignments: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['update']);
@@ -26,8 +27,13 @@ const employmentTypeItems = computed(() =>
         title: trans(`team.advancement.employment_type.${type}`),
     })),
 );
+const groupRequired = computed(
+    () => props.form.status === 'hired' || props.hasAssignments,
+);
 const groupItems = computed(() => [
-    { value: '', title: trans('team.member.fields.group_none') },
+    ...(!groupRequired.value
+        ? [{ value: '', title: trans('team.member.fields.group_none') }]
+        : []),
     ...props.groups.map((group) => ({
         value: group.id,
         title: group.name,
@@ -137,6 +143,7 @@ const groupItems = computed(() => [
             v-slot="{ id, invalid }"
             :label="$t('team.member.fields.group')"
             :error="form.errors.group_id"
+            :required="groupRequired"
             :hint="$t('team.member.fields.group_hint')"
             class="sm:col-span-2"
         >
@@ -144,6 +151,7 @@ const groupItems = computed(() => [
                 :id="id"
                 :model-value="form.group_id"
                 :items="groupItems"
+                :aria-required="groupRequired"
                 :invalid="invalid"
                 :disabled="disabled"
                 @update:model-value="emit('update', 'group_id', $event)"

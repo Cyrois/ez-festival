@@ -198,7 +198,7 @@ class CheckInInventoryTest extends TestCase
                 'role_off' => $member->role->update(['active' => false]),
                 'login_off' => $user->person()->update(['can_log_in' => false]),
                 'no_account' => $user->delete(),
-                'foreign_event' => $member->update(['event_id' => $foreign->id]),
+                'foreign_event' => $member->update(['event_id' => $foreign->id, 'group_id' => $this->fixtureGroupId($foreign->id)]),
                 default => null,
             };
             $this->post(route('check-in.inventory.pulls.store', $this->event), $this->pullData($user))->assertSessionHasErrors('person_id');
@@ -253,7 +253,7 @@ class CheckInInventoryTest extends TestCase
         $member = $this->teamMember($this->receiver);
         $this->patch(route('team.members.status.update', $member), ['status' => 'declined'])->assertSessionHasErrors('status');
         $data = ['name' => $this->receiver->name, 'email' => $this->receiver->email,
-            'status' => 'hired', 'employment_type' => 'volunteer'];
+            'status' => 'hired', 'employment_type' => 'volunteer', 'group_id' => $member->group_id];
         foreach (['status' => 'declined', 'role_id' => null, 'email' => 'replacement@example.test'] as $field => $value) {
             $this->put(route('team.members.update', $member), [...$data, $field => $value])->assertSessionHasErrors($field);
         }
@@ -334,7 +334,7 @@ class CheckInInventoryTest extends TestCase
     {
         $user = User::factory()->create();
         $role = Role::create(['name' => 'Role '.$user->id, 'permissions' => $permissions]);
-        TeamEngagement::create(['event_id' => $this->event->id, 'person_id' => $user->person_id,
+        $this->createTeamEngagement(['event_id' => $this->event->id, 'person_id' => $user->person_id,
             'role_id' => $role->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
         $user->setCurrentEvent($this->event);
 

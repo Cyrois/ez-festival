@@ -20,7 +20,7 @@ class StoreShiftAssignmentRequest extends FormRequest
     {
         return [...$this->assignmentRules(), ...ShiftReturnContext::rules(),
             'team_engagement_id' => ['required', 'integer', Rule::exists('team_engagements', 'id')
-                ->where('event_id', $this->route('shift')->event_id)->where('status', 'hired')],
+                ->where('event_id', $this->route('shift')->event_id)->where('status', 'hired')->whereNotNull('group_id')],
         ];
     }
 }
