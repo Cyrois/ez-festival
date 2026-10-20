@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\GlobalTeamService;
 use App\Services\ShiftAssignmentService;
 use App\Services\TeamEngagementService;
+use App\Services\TeamMemberGroupService;
 use App\Support\OrganizationContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -101,12 +102,22 @@ class TeamGroupRequirementTest extends TestCase
     {
         $member = $this->applicant();
         $member->update(['group_id' => $this->group->id, 'status' => 'hired']);
+        $member->loadExists('shiftAssignments');
+        $this->assertFalse((bool) $member->shift_assignments_exists);
         $location = $this->event->locations()->create(['name' => 'Gate']);
         $shift = $this->event->shifts()->create(['location_id' => $location->id, 'starts_at' => '2026-10-01 08:00', 'ends_at' => '2026-10-01 12:00']);
         $data = ['team_engagement_id' => $member->id, 'hours_mode' => 'full_shift', 'extra' => true];
         app(ShiftAssignmentService::class)->create($shift, $data);
         $this->post(route('team.shifts.assignments.store', [$this->event, $shift]), $data)->assertSessionHasErrors('team_engagement_id');
         $member->update(['status' => 'declined']);
+        DB::enableQueryLog();
+        try {
+            $this->put(route('team.members.update', $member), $this->payload($member))->assertSessionHasNoErrors();
+            $this->assertEmpty(array_filter(DB::getQueryLog(), fn (array $query) => str_contains($query['query'], 'shift_assignments')));
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
         $payload = $this->payload($member, ['group_id' => null]);
         $this->put(route('team.members.update', $member), $payload)->assertSessionHasErrors('group_id');
         $this->validationError(fn () => app(TeamEngagementService::class)->update($member, $this->user, $payload), 'group_id');
@@ -116,6 +127,23 @@ class TeamGroupRequirementTest extends TestCase
         $this->put(route('team.members.update', $member), ['notes' => [['body' => 'A note']]])->assertSessionHasNoErrors();
         $this->assertSame($this->group->id, $member->fresh()->group_id);
         $this->assertCount(1, $member->notes);
+    }
+
+    public function test_group_requirement_reuses_assignment_existence_on_the_same_member(): void
+    {
+        $member = $this->applicant();
+        $groups = app(TeamMemberGroupService::class);
+        DB::enableQueryLog();
+        try {
+            $this->assertFalse($groups->required('reviewing', $member));
+            $this->assertFalse($groups->hasAssignments($member));
+            $this->assertNull($groups->error($this->event->id, null, 'reviewing', $member));
+            $groups->ensure($this->event->id, null, 'reviewing', $member);
+            $this->assertCount(1, array_filter(DB::getQueryLog(), fn (array $query) => str_contains($query['query'], 'shift_assignments')));
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
     }
 
     public function test_global_team_cannot_bypass_hiring_rule_and_can_hire_an_existing_grouped_member(): void

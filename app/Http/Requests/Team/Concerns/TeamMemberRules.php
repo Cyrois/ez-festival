@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Team\Concerns;
 
 use App\Models\TeamEngagement;
+use App\Services\TeamMemberGroupService;
 use Illuminate\Validation\Rule;
 
 trait TeamMemberRules
@@ -31,8 +32,11 @@ trait TeamMemberRules
                 'max:99999999.99',
             ],
             'group_id' => [
-                Rule::requiredIf(fn () => $this->input('status') === 'hired'
-                    || ($this->route('engagement') instanceof TeamEngagement && $this->route('engagement')->shiftAssignments()->exists())),
+                Rule::requiredIf(fn () => ! $this->filled('group_id')
+                    && app(TeamMemberGroupService::class)->required(
+                        (string) $this->input('status'),
+                        $this->route('engagement') instanceof TeamEngagement ? $this->route('engagement') : null,
+                    )),
                 'nullable',
                 'integer',
                 Rule::exists('groups', 'id')->where('event_id', $eventId),

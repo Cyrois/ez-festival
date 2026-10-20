@@ -19,6 +19,7 @@ use App\Repositories\GroupRepository;
 use App\Repositories\PassTypeRepository;
 use App\Services\EventAccessService;
 use App\Services\TeamEngagementService;
+use App\Services\TeamMemberGroupService;
 use App\Support\EventContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
@@ -72,7 +73,7 @@ class MemberController extends Controller
                 ->latest('id'),
         ]);
         if (Gate::allows('team.edit')) {
-            $engagement->loadExists('shiftAssignments');
+            app(TeamMemberGroupService::class)->hasAssignments($engagement);
         }
         $canReadNotes = Gate::allows('team.notes.read', $engagement);
         $canReadMeals = $engagement->status === 'hired' && Gate::allows('meals.view', $event);

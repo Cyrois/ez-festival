@@ -13,7 +13,6 @@ use App\Repositories\ShiftBreakRepository;
 use App\Support\ShiftAssignmentHours;
 use App\Support\ShiftAssignmentOverlaps;
 use App\Support\ShiftMeals;
-use App\Support\TeamMemberGroup;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -26,7 +25,7 @@ class ShiftAssignmentService
             return __('team.scheduling.assignments.errors.eligible');
         }
 
-        return TeamMemberGroup::error($member->event_id, $member->group_id, $member->status);
+        return app(TeamMemberGroupService::class)->error($member->event_id, $member->group_id, $member->status);
     }
 
     public function create(Shift $shift, array $data, array $draftBreaks = []): ShiftAssignment
