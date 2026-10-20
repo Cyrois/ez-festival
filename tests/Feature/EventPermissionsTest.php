@@ -427,7 +427,8 @@ class EventPermissionsTest extends TestCase
     {
         $group = $this->event->groups()->create(['name' => 'Gate']);
         $member = $this->createTeamEngagement(['event_id' => $this->event->id, 'group_id' => $group->id,
-            'person_id' => Person::create(['name' => 'Report person', 'email' => 'report-person@example.test'])->id]);
+            'person_id' => Person::create(['name' => 'Report person', 'email' => 'report-person@example.test'])->id,
+            'status' => 'hired']);
         $this->role->update(['permissions' => ['team.hours_report.view']]);
         $this->getJson(route('team.reports.groups.people', $group))->assertOk()
             ->assertJsonPath('data.people.0.member_url', null)->assertJsonMissingPath('data.people.0.shifts');

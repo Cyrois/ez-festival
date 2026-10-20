@@ -74,7 +74,7 @@ class TeamScheduledHoursQuery
             ->groupBy('team_engagement_id', 'person_id')->orderBy('team_engagement_id');
     }
 
-    /** Complete current group roster, including members without assignments in the range. */
+    /** Hired members at zero hours plus anyone with assignments in the range, regardless of status. */
     public function groupRoster(Event $event, int $groupId, ?string $startDate = null, ?string $endDate = null): Collection
     {
         $hours = $this->groupPeople($event, $groupId, $startDate, $endDate)->reorder();
@@ -85,6 +85,7 @@ class TeamScheduledHoursQuery
             ->where('members.event_id', $event->id)->where('groups.event_id', $event->id)
             ->where('members.group_id', $groupId)
             ->leftJoinSub($hours, 'hours', 'hours.team_engagement_id', '=', 'members.id')
+            ->where(fn (Builder $query) => $query->where('members.status', 'hired')->orWhereNotNull('hours.team_engagement_id'))
             ->select('members.id as team_engagement_id', 'members.person_id', 'people.name', 'members.employment_type')
             ->selectRaw('COALESCE(hours.scheduled_minutes, 0) as scheduled_minutes')
             ->orderBy('people.name')->orderBy('members.id')->get();
