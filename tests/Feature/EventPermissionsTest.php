@@ -73,6 +73,7 @@ class EventPermissionsTest extends TestCase
         }
         $this->assertContains('can:team.hours_report.view', Route::getRoutes()->getByName('team.reports')->gatherMiddleware());
         $this->assertContains('can:team.hours_report.view', Route::getRoutes()->getByName('team.reports.data')->gatherMiddleware());
+        $this->assertContains('can:team.hours_report.view', Route::getRoutes()->getByName('team.reports.groups.people')->gatherMiddleware());
     }
 
     public function test_view_only_artist_role_gets_home_and_an_event_only_permission_map(): void
@@ -390,7 +391,9 @@ class EventPermissionsTest extends TestCase
 
     public function test_team_hours_report_permission_allows_report_only_access_even_when_locked(): void
     {
+        $group = $this->event->groups()->create(['name' => 'Gate']);
         $this->role->update(['permissions' => ['team.hours_report.view']]);
+        $this->getJson(route('team.reports.groups.people', $group))->assertOk();
         $this->getJson(route('team.reports.data'))->assertOk();
         $this->get(route('team.reports'))->assertInertia(fn (Assert $page) => $page
             ->component('Team/Reports')
@@ -401,6 +404,7 @@ class EventPermissionsTest extends TestCase
         }
 
         $this->event->lock();
+        $this->getJson(route('team.reports.groups.people', $group))->assertOk();
         $this->getJson(route('team.reports.data'))->assertOk();
         $this->get(route('team.reports'))->assertInertia(fn (Assert $page) => $page
             ->component('Team/Reports')->where('activeEvent.is_locked', true));
@@ -408,20 +412,42 @@ class EventPermissionsTest extends TestCase
 
     public function test_other_team_and_kitchen_permissions_do_not_grant_team_hours_report_access(): void
     {
+        $group = $this->event->groups()->create(['name' => 'Gate']);
         foreach (['team.view', 'team.edit', 'scheduling.view', 'forms.view', 'meals.report.view'] as $permission) {
             $this->role->update(['permissions' => [$permission]]);
             $this->get(route('team.reports'))->assertForbidden();
             $this->getJson(route('team.reports.data'))->assertForbidden();
+            $this->getJson(route('team.reports.groups.people', $group))->assertForbidden();
             $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
                 ->where('permissions', fn ($permissions) => ! $permissions['team.hours_report.view']));
         }
     }
 
+    public function test_team_hours_person_links_require_team_view_without_loading_person_shifts(): void
+    {
+        $group = $this->event->groups()->create(['name' => 'Gate']);
+        $member = $this->createTeamEngagement(['event_id' => $this->event->id, 'group_id' => $group->id,
+            'person_id' => Person::create(['name' => 'Report person', 'email' => 'report-person@example.test'])->id,
+            'status' => 'hired']);
+        $this->role->update(['permissions' => ['team.hours_report.view']]);
+        $this->getJson(route('team.reports.groups.people', $group))->assertOk()
+            ->assertJsonPath('data.people.0.member_url', null)->assertJsonMissingPath('data.people.0.shifts');
+        $this->get(route('team.members.show', $member))->assertForbidden();
+
+        $this->role->update(['permissions' => ['team.hours_report.view', 'team.view']]);
+        $this->getJson(route('team.reports.groups.people', $group))->assertOk()
+            ->assertJsonPath('data.people.0.member_url', route('team.members.show', $member))
+            ->assertJsonMissingPath('data.people.0.shifts');
+        $this->get(route('team.members.show', $member))->assertOk();
+    }
+
     public function test_admin_can_read_team_hours_report_without_a_role_on_a_locked_event(): void
     {
+        $group = $this->event->groups()->create(['name' => 'Gate']);
         $this->grantAdminAccess($this->user);
         TeamEngagement::where('person_id', $this->user->person_id)->delete();
         $this->event->lock();
+        $this->getJson(route('team.reports.groups.people', $group))->assertOk();
         $this->getJson(route('team.reports.data'))->assertOk();
 
         $this->get(route('team.reports'))->assertInertia(fn (Assert $page) => $page
@@ -432,6 +458,7 @@ class EventPermissionsTest extends TestCase
 
     public function test_team_hours_report_access_follows_current_event_and_permission_removal(): void
     {
+        $group = $this->event->groups()->create(['name' => 'Gate']);
         $other = $this->event('Festival B');
         $otherRole = Role::create(['name' => 'Team viewer', 'permissions' => ['team.view']]);
         $this->membership($other, $this->user->person, $otherRole);
@@ -448,6 +475,7 @@ class EventPermissionsTest extends TestCase
         $this->user->setCurrentEvent($this->event);
         $this->get(route('team.reports'))->assertOk();
         $this->role->update(['permissions' => ['team.view']]);
+        $this->getJson(route('team.reports.groups.people', $group))->assertForbidden();
         $this->get(route('team.reports'))->assertForbidden();
         $this->getJson(route('team.reports.data'))->assertForbidden();
         $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page

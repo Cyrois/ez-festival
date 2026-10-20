@@ -67,11 +67,28 @@ class TeamScheduledHoursQuery
     }
 
     /** Aggregate IDs only; people-list consumers can paginate/join names on the server. */
-    public function groupPeople(Event $event, int $groupId): Builder
+    public function groupPeople(Event $event, int $groupId, ?string $startDate = null, ?string $endDate = null): Builder
     {
-        return $this->forEvent($event)->where('group_id', $groupId)
+        return $this->forEvent($event, $startDate, $endDate)->where('group_id', $groupId)
             ->select('team_engagement_id', 'person_id')->selectRaw('CAST(SUM(scheduled_minutes) AS BIGINT) as scheduled_minutes')
             ->groupBy('team_engagement_id', 'person_id')->orderBy('team_engagement_id');
+    }
+
+    /** Hired members at zero hours plus anyone with assignments in the range, regardless of status. */
+    public function groupRoster(Event $event, int $groupId, ?string $startDate = null, ?string $endDate = null): Collection
+    {
+        $hours = $this->groupPeople($event, $groupId, $startDate, $endDate)->reorder();
+
+        return DB::table('team_engagements as members')
+            ->join('people', 'people.id', '=', 'members.person_id')
+            ->join('groups', 'groups.id', '=', 'members.group_id')
+            ->where('members.event_id', $event->id)->where('groups.event_id', $event->id)
+            ->where('members.group_id', $groupId)
+            ->leftJoinSub($hours, 'hours', 'hours.team_engagement_id', '=', 'members.id')
+            ->where(fn (Builder $query) => $query->where('members.status', 'hired')->orWhereNotNull('hours.team_engagement_id'))
+            ->select('members.id as team_engagement_id', 'members.person_id', 'people.name', 'members.employment_type')
+            ->selectRaw('COALESCE(hours.scheduled_minutes, 0) as scheduled_minutes')
+            ->orderBy('people.name')->orderBy('members.id')->get();
     }
 
     public function personShifts(Event $event, int $engagementId): Collection

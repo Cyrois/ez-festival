@@ -16,6 +16,11 @@ defineOptions({ inheritAttrs: false });
 DataTablesVue.use(DataTablesCore);
 
 const props = defineProps({
+    mobileLayout: {
+        type: String,
+        default: 'stacked',
+        validator: (value) => ['stacked', 'summary'].includes(value),
+    },
     ajax: {
         type: [String, Object, Function],
         default: undefined,
@@ -41,7 +46,11 @@ const props = defineProps({
 const dataTable = ref(null);
 const ready = ref(isLoaded(getActiveLanguage()));
 const classes = computed(() =>
-    cn('dt-stacked w-full border-collapse text-left text-sm', props.class),
+    cn(
+        'dt-stacked w-full border-collapse text-left text-sm',
+        props.mobileLayout === 'summary' && 'dt-summary',
+        props.class,
+    ),
 );
 // DataTables reads options only when it mounts. Locale changes remount the
 // table below; callers should not expect other option changes to be reactive.

@@ -59,6 +59,7 @@ use App\Http\Controllers\Team\AdvancementController as TeamAdvancementController
 use App\Http\Controllers\Team\ConfigureController as TeamConfigureController;
 use App\Http\Controllers\Team\FormsController as TeamFormsController;
 use App\Http\Controllers\Team\GroupController as TeamGroupController;
+use App\Http\Controllers\Team\GroupHoursPeopleController;
 use App\Http\Controllers\Team\HoursReportController;
 use App\Http\Controllers\Team\MemberController as TeamMemberController;
 use App\Http\Controllers\Team\MemberShiftDataTableController;
@@ -228,6 +229,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::get('forms/{teamForm}/edit', [TeamFormsController::class, 'edit'])->name('forms.edit');
             Route::get('reports', [TeamReportsController::class, 'index'])->name('reports');
             Route::get('reports/data', [HoursReportController::class, 'index'])->name('reports.data');
+            Route::get('reports/groups/{group}/people', [GroupHoursPeopleController::class, 'index'])->name('reports.groups.people');
             Route::get('configure', [TeamConfigureController::class, 'index'])->name('configure');
             Route::middleware('event.writable')->group(function () {
                 Route::post('events/{event}/members', [TeamMemberController::class, 'store'])->name('members.store');

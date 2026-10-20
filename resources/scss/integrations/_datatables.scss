@@ -163,6 +163,34 @@
         div.dt-container table.dt-stacked tbody td .whitespace-nowrap {
             @apply whitespace-normal;
         }
+
+        /* Optional summary records: a full-width name followed by three metrics. */
+        div.dt-container table.dt-stacked.dt-summary tbody tr {
+            @apply relative grid grid-cols-3;
+        }
+
+        div.dt-container table.dt-stacked.dt-summary tbody tr > td {
+            @apply px-3 py-1;
+        }
+
+        div.dt-container table.dt-stacked.dt-summary tbody tr > td:first-child {
+            @apply col-span-3;
+
+            &::before {
+                @apply hidden;
+            }
+        }
+
+        div.dt-container table.dt-stacked.dt-summary tbody td.dt-row-action {
+            @apply hidden;
+        }
+
+        div.dt-container
+            table.dt-stacked.dt-summary
+            tbody
+            td[data-label]::before {
+            @apply mb-0 tracking-normal;
+        }
     }
 
     /*
