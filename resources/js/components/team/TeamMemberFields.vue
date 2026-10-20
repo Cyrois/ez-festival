@@ -145,7 +145,7 @@ const groupItems = computed(() => [
             :error="form.errors.group_id"
             required
             :hint="$t('team.member.fields.group_hint')"
-            class="sm:col-span-2"
+            class="sm:col-start-1"
         >
             <CustomDropdown
                 :id="id"
