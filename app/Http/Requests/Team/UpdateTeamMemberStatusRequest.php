@@ -4,6 +4,7 @@ namespace App\Http\Requests\Team;
 
 use App\Models\TeamEngagement;
 use App\Services\HeldStockGuard;
+use App\Services\TeamMemberGroupService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -28,6 +29,10 @@ class UpdateTeamMemberStatusRequest extends FormRequest
     {
         return [function (Validator $validator): void {
             $member = $this->route('engagement');
+            if ($validator->errors()->isEmpty()
+                && ($error = app(TeamMemberGroupService::class)->error($member->event_id, $member->group_id, $this->input('status'), $member)) !== null) {
+                $validator->errors()->add('status', $error);
+            }
             if ($validator->errors()->isEmpty() && $member->status === 'hired' && $this->input('status') !== 'hired'
                 && app(HeldStockGuard::class)->hasStock($member->person_id, $member->event_id)) {
                 $validator->errors()->add('status', __('inventory.errors.stock_remains'));

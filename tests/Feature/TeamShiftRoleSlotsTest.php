@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Event;
 use App\Models\Role;
 use App\Models\Shift;
-use App\Models\TeamEngagement;
 use App\Models\User;
 use App\Services\ShiftService;
 use App\Support\OrganizationContext;
@@ -297,7 +296,7 @@ class TeamShiftRoleSlotsTest extends TestCase
         [$user, $event, $location] = $this->context();
         $role = Role::query()->create(['name' => 'Crew', 'permissions' => ['scheduling.edit']]);
         $user->forceFill(['is_admin' => false])->save();
-        TeamEngagement::query()->create([
+        $this->createTeamEngagement([
             'event_id' => $event->id, 'person_id' => $user->person_id, 'role_id' => $role->id,
             'status' => 'hired', 'employment_type' => 'volunteer',
         ]);

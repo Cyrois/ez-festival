@@ -280,7 +280,7 @@ class TeamShiftMealsTest extends TestCase
     {
         $person = Person::create(['name' => fake()->name(), 'email' => fake()->unique()->safeEmail()]);
 
-        return TeamEngagement::create(['event_id' => $this->event->id, 'person_id' => $person->id, 'role_id' => $this->role->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+        return $this->createTeamEngagement(['event_id' => $this->event->id, 'person_id' => $person->id, 'role_id' => $this->role->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
     }
 
     private function addition(TeamEngagement $member, int $key): array

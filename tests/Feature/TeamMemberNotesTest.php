@@ -199,6 +199,7 @@ class TeamMemberNotesTest extends TestCase
         Carbon::setTestNow('2026-09-30 12:05:00');
         $this->put(route('team.members.update', $target), $this->payload($target, [
             'status' => 'hired',
+            'group_id' => $this->fixtureGroupId($event->id),
             'note_edits' => [['id' => $note->id, 'body' => 'Too late']],
         ]))
             ->assertSessionHasNoErrors()
@@ -289,7 +290,7 @@ class TeamMemberNotesTest extends TestCase
 
     private function selfEngagement(User $user, Event $event, Role $role): TeamEngagement
     {
-        return TeamEngagement::query()->create([
+        return $this->createTeamEngagement([
             'event_id' => $event->id,
             'person_id' => $user->person_id,
             'role_id' => $role->id,
@@ -305,7 +306,7 @@ class TeamMemberNotesTest extends TestCase
             'email' => str($name)->slug().'@example.test',
         ]);
 
-        return TeamEngagement::query()->create([
+        return $this->createTeamEngagement([
             'event_id' => $event->id,
             'person_id' => $person->id,
             'status' => 'applied',

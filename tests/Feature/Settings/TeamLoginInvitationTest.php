@@ -6,7 +6,6 @@ use App\Mail\TeamInvitationMail;
 use App\Models\Event;
 use App\Models\Person;
 use App\Models\Role;
-use App\Models\TeamEngagement;
 use App\Models\User;
 use App\Services\LoginInvitationService;
 use App\Support\OrganizationContext;
@@ -151,7 +150,7 @@ class TeamLoginInvitationTest extends TestCase
             'email' => 'avery.stone@example.test',
             'phone' => null,
             'can_log_in' => true,
-            'status' => 'hired',
+            'status' => 'applied',
             'event_access' => [[
                 'event_id' => $event->id,
                 'role_id' => $role->id,
@@ -433,7 +432,7 @@ class TeamLoginInvitationTest extends TestCase
             'email' => 'morgan.west@example.test',
             'can_log_in' => false,
         ]);
-        TeamEngagement::query()->create([
+        $this->createTeamEngagement([
             'event_id' => $event->id,
             'person_id' => $person->id,
             'role_id' => $role->id,

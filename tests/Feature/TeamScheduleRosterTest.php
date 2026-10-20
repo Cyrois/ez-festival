@@ -161,7 +161,7 @@ class TeamScheduleRosterTest extends TestCase
     {
         $person = Person::create(['name' => $name, 'email' => 'private@example.test']);
 
-        return TeamEngagement::create(['event_id' => $this->event->id, 'person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+        return $this->createTeamEngagement(['event_id' => $this->event->id, 'person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
     }
 
     private function assign(Shift $shift, int $slot, TeamEngagement $member, ?string $start = null, ?string $end = null)

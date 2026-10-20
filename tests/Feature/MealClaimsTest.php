@@ -224,7 +224,7 @@ class MealClaimsTest extends TestCase
     public function test_form_requests_refuse_foreign_ids_unknown_ids_and_invalid_payloads(): void
     {
         $foreign = app(EventService::class)->create(['name' => 'Other', 'starts_on' => '2026-10-01', 'ends_on' => '2026-10-03', 'timezone' => 'UTC']);
-        $foreignMember = $foreign->teamEngagements()->create(['person_id' => $this->member->person_id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+        $foreignMember = $this->createTeamEngagement(['event_id' => $foreign->id, 'person_id' => $this->member->person_id, 'status' => 'hired', 'employment_type' => 'volunteer']);
         $foreignMeal = $foreign->meals()->create(['name' => 'Other meal', 'meal_type_id' => $foreign->mealTypes()->firstOrFail()->id,
             'date' => '2026-10-01', 'starts_at' => '12:00', 'ends_at' => '13:00']);
         $foreignAssignment = app(MealAssignmentService::class)->assign($foreign, $foreignMember, $foreignMeal);
@@ -269,7 +269,7 @@ class MealClaimsTest extends TestCase
         $this->detail($empty)->assertNotFound();
         $this->postJson(route('meals.claims.store', [$this->event, $empty]), ['meal_id' => $this->meal->id, 'source_shift_id' => $this->shift->id])->assertNotFound();
         $other = app(EventService::class)->create(['name' => 'Other', 'starts_on' => '2026-10-01', 'ends_on' => '2026-10-03', 'timezone' => 'UTC']);
-        $empty->update(['status' => 'hired', 'event_id' => $other->id]);
+        $empty->update(['status' => 'hired', 'event_id' => $other->id, 'group_id' => $this->fixtureGroupId($other->id)]);
         $this->detail($empty)->assertNotFound();
         $this->postJson(route('meals.claims.store', [$this->event, $empty]), ['meal_id' => $this->meal->id, 'source_shift_id' => $this->shift->id])->assertNotFound();
     }
@@ -284,7 +284,7 @@ class MealClaimsTest extends TestCase
         $this->code($duplicate, 'WB-123');
         $this->lookup('WB-123')->assertJsonPath('matched_id', null)->assertJsonPath('total', 2);
         $foreign = app(EventService::class)->create(['name' => 'Other festival', 'starts_on' => '2026-10-01', 'ends_on' => '2026-10-03', 'timezone' => 'UTC']);
-        $duplicate->update(['event_id' => $foreign->id]);
+        $duplicate->update(['event_id' => $foreign->id, 'group_id' => $this->fixtureGroupId($foreign->id)]);
         $this->lookup('WB-123')->assertJsonPath('matched_id', $this->member->id)->assertJsonPath('total', 1);
         $foreignPass = $foreign->passTypes()->create(['name' => 'Other wristband']);
         $item = $foreign->entitlementItems()->create(['name' => 'Other wristband']);
@@ -350,10 +350,10 @@ class MealClaimsTest extends TestCase
         $otherMember = $this->member('Other person');
         $this->unclaim($claimId, $otherMember)->assertUnprocessable()->assertJsonValidationErrors('assignment_id');
         $foreign = app(EventService::class)->create(['name' => 'Other', 'starts_on' => '2026-10-01', 'ends_on' => '2026-10-03', 'timezone' => 'UTC']);
-        $otherMember->update(['event_id' => $foreign->id]);
+        $otherMember->update(['event_id' => $foreign->id, 'group_id' => $this->fixtureGroupId($foreign->id)]);
         $this->unclaim($claimId, $otherMember)->assertNotFound();
         $this->deleteJson(route('meals.claims.destroy', [$foreign, $this->member]), ['assignment_id' => $claimId])->assertNotFound();
-        MealAssignment::findOrFail($claimId)->update(['event_id' => $foreign->id]);
+        MealAssignment::findOrFail($claimId)->update(['event_id' => $foreign->id, 'group_id' => $this->fixtureGroupId($foreign->id)]);
         $this->unclaim($claimId)->assertUnprocessable()->assertJsonValidationErrors('assignment_id');
         $this->assertSame(1, MealAssignment::query()->whereNotNull('claimed_at')->count());
     }
@@ -473,7 +473,7 @@ class MealClaimsTest extends TestCase
     {
         $person = Person::create(['name' => $name, 'email' => fake()->unique()->safeEmail()]);
 
-        return $this->event->teamEngagements()->create(['person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+        return $this->createTeamEngagement(['event_id' => $this->event->id, 'person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
     }
 
     private function shift(string $name = 'Gate shift'): Shift

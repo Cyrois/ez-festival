@@ -292,7 +292,7 @@ class TeamShiftCopyTest extends TestCase
     {
         $person = Person::create(['name' => $name, 'email' => fake()->unique()->safeEmail()]);
 
-        return TeamEngagement::create(['event_id' => ($event ?? $this->event)->id, 'person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+        return $this->createTeamEngagement(['event_id' => ($event ?? $this->event)->id, 'person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
     }
 
     private function event(string $name): Event

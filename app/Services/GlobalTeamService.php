@@ -94,7 +94,7 @@ class GlobalTeamService
                 'can_log_in' => $data['can_log_in'],
             ]);
 
-            foreach ($data['event_access'] as $access) {
+            foreach ($data['event_access'] as $index => $access) {
                 $event = $events->findOrFail($access['event_id']);
                 $event->ensureWritable();
                 $role = Role::query()->lockForUpdate()->findOrFail($access['role_id']);
@@ -111,10 +111,13 @@ class GlobalTeamService
                     ->lockForUpdate()
                     ->first();
 
+                $groupId = $access['group_id'] ?? null;
+                app(TeamMemberGroupService::class)->ensure($event->id, $groupId, $data['status'], $engagement, "event_access.{$index}.group_id");
                 if ($engagement) {
                     $engagement->update([
                         'role_id' => $role->id,
                         'status' => $data['status'],
+                        'group_id' => $groupId,
                     ]);
                 } else {
                     TeamEngagement::query()->create([
@@ -122,6 +125,7 @@ class GlobalTeamService
                         'person_id' => $person->id,
                         'role_id' => $role->id,
                         'status' => $data['status'],
+                        'group_id' => $groupId,
                         'employment_type' => 'volunteer',
                     ]);
                 }
@@ -226,6 +230,7 @@ class GlobalTeamService
                         ]);
                     }
 
+                    app(TeamMemberGroupService::class)->ensure($event->id, $engagement?->group_id, $status, $engagement, "event_access.{$index}.status");
                     if ($engagement) {
                         $engagement->update(['role_id' => $role->id, 'status' => $status]);
                     } else {

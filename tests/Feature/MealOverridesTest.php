@@ -213,7 +213,7 @@ class MealOverridesTest extends TestCase
         $this->give()->assertNotFound();
         $this->mealOptions()->assertNotFound();
         $this->remove($id)->assertNotFound();
-        $this->member->update(['status' => 'hired', 'event_id' => $foreign->id]);
+        $this->member->update(['status' => 'hired', 'event_id' => $foreign->id, 'group_id' => $this->fixtureGroupId($foreign->id)]);
         $this->give()->assertNotFound();
         try {
             app(MealOverrideService::class)->give($this->event, $this->member, $this->user, $this->meal->id);
@@ -284,7 +284,7 @@ class MealOverridesTest extends TestCase
     {
         $person = Person::create(['name' => 'Walk-up', 'email' => fake()->unique()->safeEmail()]);
 
-        return $this->event->teamEngagements()->create(['person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+        return $this->createTeamEngagement(['event_id' => $this->event->id, 'person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
     }
 
     private function meal(string $name, string $date = '2026-10-01'): Meal

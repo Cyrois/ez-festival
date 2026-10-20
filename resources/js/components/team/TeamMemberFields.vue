@@ -2,6 +2,8 @@
 import { CustomDropdown } from '../ui/custom-dropdown';
 import { FormField } from '../ui/form-field';
 import { Input } from '../ui/input';
+import { Icon } from '../ui/icon';
+import { Tooltip } from '../ui/tooltip';
 import { computed } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 
@@ -11,6 +13,7 @@ const props = defineProps({
     statuses: { type: Array, required: true },
     employmentTypes: { type: Array, required: true },
     disabled: { type: Boolean, default: false },
+    hasAssignments: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['update']);
@@ -26,8 +29,13 @@ const employmentTypeItems = computed(() =>
         title: trans(`team.advancement.employment_type.${type}`),
     })),
 );
+const groupRequired = computed(
+    () => props.form.status === 'hired' || props.hasAssignments,
+);
 const groupItems = computed(() => [
-    { value: '', title: trans('team.member.fields.group_none') },
+    ...(!groupRequired.value
+        ? [{ value: '', title: trans('team.member.fields.group_none') }]
+        : []),
     ...props.groups.map((group) => ({
         value: group.id,
         title: group.name,
@@ -82,11 +90,10 @@ const groupItems = computed(() => [
             />
         </FormField>
         <FormField
-            v-if="form.employment_type === 'paid'"
             v-slot="{ id, invalid }"
             :label="$t('team.member.fields.hourly_pay')"
             :error="form.errors.hourly_pay"
-            required
+            :required="form.employment_type === 'paid'"
         >
             <Input
                 :id="id"
@@ -96,24 +103,9 @@ const groupItems = computed(() => [
                 max="99999999.99"
                 step="0.01"
                 :invalid="invalid"
-                :disabled="disabled"
-                required
+                :disabled="disabled || form.employment_type === 'volunteer'"
+                :required="form.employment_type === 'paid'"
                 @update:model-value="emit('update', 'hourly_pay', $event)"
-            />
-        </FormField>
-        <FormField
-            v-slot="{ id, invalid }"
-            :label="$t('team.member.fields.phone')"
-            :error="form.errors.phone"
-        >
-            <Input
-                :id="id"
-                :model-value="form.phone"
-                type="tel"
-                :invalid="invalid"
-                :disabled="disabled"
-                maxlength="50"
-                @update:model-value="emit('update', 'phone', $event)"
             />
         </FormField>
         <FormField
@@ -135,19 +127,50 @@ const groupItems = computed(() => [
         </FormField>
         <FormField
             v-slot="{ id, invalid }"
-            :label="$t('team.member.fields.group')"
-            :error="form.errors.group_id"
-            :hint="$t('team.member.fields.group_hint')"
-            class="sm:col-span-2"
+            :label="$t('team.member.fields.phone')"
+            :error="form.errors.phone"
         >
-            <CustomDropdown
+            <Input
                 :id="id"
-                :model-value="form.group_id"
-                :items="groupItems"
+                :model-value="form.phone"
+                type="tel"
                 :invalid="invalid"
                 :disabled="disabled"
-                @update:model-value="emit('update', 'group_id', $event)"
+                maxlength="50"
+                @update:model-value="emit('update', 'phone', $event)"
             />
+        </FormField>
+        <FormField
+            :label="$t('team.member.fields.group')"
+            :error="form.errors.group_id"
+            required
+            class="sm:col-start-1"
+        >
+            <template #label-suffix>
+                <Tooltip :label="$t('team.member.fields.group_hint')">
+                    <Icon
+                        :name="['fas', 'circle-info']"
+                        class="text-muted"
+                        size="sm"
+                    />
+                    <template #content>
+                        <span class="block max-w-xs leading-relaxed">
+                            {{ $t('team.member.fields.group_hint') }}
+                        </span>
+                    </template>
+                </Tooltip>
+            </template>
+            <template #default="{ id, invalid }">
+                <CustomDropdown
+                    :id="id"
+                    :model-value="form.group_id"
+                    :items="groupItems"
+                    :aria-required="groupRequired"
+                    :invalid="invalid"
+                    :disabled="disabled"
+                    @update:model-value="emit('update', 'group_id', $event)"
+                />
+            </template>
         </FormField>
     </div>
 </template>

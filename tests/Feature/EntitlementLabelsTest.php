@@ -161,7 +161,7 @@ class EntitlementLabelsTest extends TestCase
     private function assigned(): array
     {
         $person = Person::create(['name' => 'Guest', 'email' => 'guest@example.test']);
-        $member = $this->event->teamEngagements()->create(['person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+        $member = $this->createTeamEngagement(['event_id' => $this->event->id, 'person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
         $pass = $this->event->passTypes()->create(['name' => 'Crew']);
         $assignment = $member->passAssignments()->create(['person_id' => $person->id, 'pass_type_id' => $pass->id]);
 

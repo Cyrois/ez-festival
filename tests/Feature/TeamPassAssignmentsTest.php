@@ -406,7 +406,7 @@ class TeamPassAssignmentsTest extends TestCase
             'status' => 'hired',
             'employment_type' => 'volunteer',
             'hourly_pay' => null,
-            'group_id' => null,
+            'group_id' => $engagement->group_id,
         ])->assertSessionHasNoErrors();
 
         $engagement->refresh();
@@ -534,7 +534,7 @@ class TeamPassAssignmentsTest extends TestCase
             'email' => str($name)->slug().'@example.test',
         ]);
 
-        return TeamEngagement::query()->create([
+        return $this->createTeamEngagement([
             'event_id' => $event->id,
             'person_id' => $person->id,
             'status' => 'hired',

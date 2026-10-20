@@ -5,6 +5,7 @@ namespace Tests;
 use App\Enums\StockMovement as StockMovementType;
 use App\Models\EntitlementItem;
 use App\Models\Event;
+use App\Models\Group;
 use App\Models\Location;
 use App\Models\Role;
 use App\Models\StockHolder;
@@ -15,6 +16,22 @@ use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
 {
+    /** Create a member fixture with the event-scoped group required for hiring. */
+    protected function createTeamEngagement(array $attributes): TeamEngagement
+    {
+        if (($attributes['status'] ?? 'applied') === 'hired' && ! array_key_exists('group_id', $attributes)) {
+            $attributes['group_id'] = $this->fixtureGroupId($attributes['event_id']);
+        }
+
+        return TeamEngagement::query()->create($attributes);
+    }
+
+    protected function fixtureGroupId(int $eventId): int
+    {
+        return Group::query()->where('event_id', $eventId)->value('id')
+            ?? Group::query()->create(['event_id' => $eventId, 'name' => 'Test group'])->id;
+    }
+
     /** Distribute fixture stock to the actor without bypassing ledger constraints. */
     protected function seedHeldStock(EntitlementItem $item, Location $location, int $quantity, User $actor): StockHolder
     {
@@ -53,7 +70,7 @@ abstract class TestCase extends BaseTestCase
         foreach (Event::all() as $event) {
             TeamEngagement::query()->updateOrCreate(
                 ['event_id' => $event->id, 'person_id' => $user->person_id],
-                ['role_id' => $role->id, 'status' => 'hired', 'employment_type' => 'volunteer'],
+                ['role_id' => $role->id, 'group_id' => TeamEngagement::where('event_id', $event->id)->where('person_id', $user->person_id)->value('group_id') ?? $this->fixtureGroupId($event->id), 'status' => 'hired', 'employment_type' => 'volunteer'],
             );
         }
 

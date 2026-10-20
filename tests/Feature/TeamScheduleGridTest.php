@@ -7,7 +7,6 @@ use App\Models\Location;
 use App\Models\Person;
 use App\Models\Role;
 use App\Models\Shift;
-use App\Models\TeamEngagement;
 use App\Models\User;
 use App\Repositories\ShiftRepository;
 use App\Services\ShiftService;
@@ -71,7 +70,7 @@ class TeamScheduleGridTest extends TestCase
         $slot = $shift->roleSlots()->first();
         for ($index = 0; $index < 2; $index++) {
             $person = Person::create(['name' => 'Private '.$index, 'email' => 'private'.$index.'@example.test']);
-            $member = TeamEngagement::create(['event_id' => $this->event->id, 'person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+            $member = $this->createTeamEngagement(['event_id' => $this->event->id, 'person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
             $shift->assignments()->create(['team_engagement_id' => $member->id, 'shift_role_slot_id' => $slot->id, 'role_id' => $role->id, 'starts_at' => $shift->starts_at, 'ends_at' => $shift->ends_at]);
         }
         $this->getJson($this->gridUrl())->assertOk()

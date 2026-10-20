@@ -156,10 +156,10 @@ test('user-facing copy does not invent an organization owner', () => {
     }
 });
 
-test('new event access starts as Hired and only appears for a new role', () => {
+test('new event access starts as Applied until staff assign a group before hiring', () => {
     assert.match(personPage, /originalRoles\[event\.id\] === ''/);
     assert.match(personPage, /const wasNoAccess = access\.role_id === ''/);
-    assert.match(personPage, /access\.status = 'hired'/);
+    assert.match(personPage, /access\.status = 'applied'/);
     assert.match(
         personPage,
         /v-if="[\s\S]*?newlyGranted\([\s\S]*?form\.event_access\[index\][\s\S]*?\)[\s\S]*?"/,

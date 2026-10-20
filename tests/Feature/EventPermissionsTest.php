@@ -334,12 +334,12 @@ class EventPermissionsTest extends TestCase
         $this->role->update(['permissions' => ['team.edit']]);
         $this->put(route('team.members.update', $target), [
             'name' => $target->person->name, 'email' => $target->person->email,
-            'status' => 'hired', 'employment_type' => 'volunteer', 'role_id' => $small->id,
+            'status' => 'hired', 'group_id' => $target->group_id, 'employment_type' => 'volunteer', 'role_id' => $small->id,
         ])->assertSessionHasErrors('role_id');
         $this->grantAdminAccess($this->user);
         $this->put(route('team.members.update', $self), [
             'name' => $this->user->name, 'email' => $this->user->email,
-            'status' => 'hired', 'employment_type' => 'volunteer', 'role_id' => $large->id,
+            'status' => 'hired', 'group_id' => $self->group_id, 'employment_type' => 'volunteer', 'role_id' => $large->id,
         ])->assertSessionHasNoErrors();
     }
 
@@ -480,7 +480,7 @@ class EventPermissionsTest extends TestCase
 
     private function membership(Event $event, Person $person, ?Role $role = null): TeamEngagement
     {
-        return TeamEngagement::create(['event_id' => $event->id, 'person_id' => $person->id, 'role_id' => $role?->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+        return $this->createTeamEngagement(['event_id' => $event->id, 'person_id' => $person->id, 'role_id' => $role?->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
     }
 
     private function artist(Event $event): ArtistEngagement

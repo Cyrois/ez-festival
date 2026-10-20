@@ -35,7 +35,7 @@ class TeamCheckInTest extends TestCase
         $this->withoutVite();
     }
 
-    public function test_hired_team_rows_include_no_pass_and_all_group_role_fallbacks(): void
+    public function test_hired_team_rows_include_required_groups_no_pass_and_optional_roles(): void
     {
         [, $event] = $this->context();
         $group = $event->groups()->create(['name' => 'Stage crew']);
@@ -43,8 +43,8 @@ class TeamCheckInTest extends TestCase
         foreach ([
             ['Both', $group->id, $role->id],
             ['Group only', $group->id, null],
-            ['Neither', null, null],
-            ['Role only', null, $role->id],
+            ['No role', $group->id, null],
+            ['Role and group', $group->id, $role->id],
         ] as [$name, $groupId, $roleId]) {
             $member = $this->member($event, $name);
             $member->update(['group_id' => $groupId, 'role_id' => $roleId]);
@@ -63,8 +63,8 @@ class TeamCheckInTest extends TestCase
             ->assertJsonCount(5, 'data')
             ->assertJsonPath('data.0.context', 'Stage crew | Supervisor')
             ->assertJsonPath('data.1.context', 'Stage crew')
-            ->assertJsonPath('data.2.context', 'Team')
-            ->assertJsonPath('data.3.context', 'Supervisor')
+            ->assertJsonPath('data.2.context', 'Stage crew')
+            ->assertJsonPath('data.3.context', 'Stage crew | Supervisor')
             ->assertJsonPath('data.0.has_pass', false)
             ->assertJsonPath('data.0.check_in_status', 'no_pass')
             ->assertJsonPath('data.4.has_pass', true)->assertJsonPath('data.4.expected', 0);
@@ -199,7 +199,7 @@ class TeamCheckInTest extends TestCase
             ->assertSessionHasErrors('expected_entitlement');
         $this->put(route('team.members.update', $member), [
             'name' => $member->person->name, 'email' => $member->person->email,
-            'status' => 'hired', 'employment_type' => 'volunteer', 'pass_assignments' => [],
+            'status' => 'hired', 'group_id' => $member->group_id, 'employment_type' => 'volunteer', 'pass_assignments' => [],
         ])->assertSessionHasErrors('pass_assignments');
         $this->assertModelExists($expected->passAssignment);
     }
@@ -480,7 +480,7 @@ class TeamCheckInTest extends TestCase
     {
         $person = Person::create(['name' => $name, 'email' => str($name)->slug().'@example.test']);
 
-        return $event->teamEngagements()->create(['person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
+        return $this->createTeamEngagement(['event_id' => $event->id, 'person_id' => $person->id, 'status' => 'hired', 'employment_type' => 'volunteer']);
     }
 
     private function pass(TeamEngagement $member, int $lines = 1): ?ExpectedEntitlement

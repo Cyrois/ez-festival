@@ -5,6 +5,7 @@ namespace App\Http\Requests\Settings;
 use App\Models\Event;
 use App\Services\GlobalTeamService;
 use App\Services\HeldStockGuard;
+use App\Services\TeamMemberGroupService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -51,7 +52,14 @@ class UpdateGlobalTeamPersonRequest extends FormRequest
             }
 
             $this->validateAdminChange($validator);
+            $members = $this->route('person')->teamEngagements()->get()->keyBy('event_id');
             foreach ($this->input('event_access') as $index => $access) {
+                $member = $members->get($access['event_id']);
+                if (($access['role_id'] ?? null) !== null && $member?->role_id === null
+                    && in_array($access['status'] ?? null, ['applied', 'reviewing', 'hired'], true)
+                    && ($error = app(TeamMemberGroupService::class)->error((int) $access['event_id'], $member?->group_id, $access['status'], $member)) !== null) {
+                    $validator->errors()->add("event_access.{$index}.status", $error);
+                }
                 if (($access['role_id'] ?? null) === null
                     && $this->route('person')->teamEngagements()->where('event_id', $access['event_id'])->whereNotNull('role_id')->exists()
                     && app(HeldStockGuard::class)->hasStock($this->route('person')->id, (int) $access['event_id'])) {

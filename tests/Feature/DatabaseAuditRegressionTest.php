@@ -7,7 +7,6 @@ use App\Models\ArtistEngagement;
 use App\Models\Event;
 use App\Models\Person;
 use App\Models\StockHolder;
-use App\Models\TeamEngagement;
 use App\Models\TeamForm;
 use App\Models\User;
 use App\Models\Vendor;
@@ -288,7 +287,7 @@ class DatabaseAuditRegressionTest extends TestCase
 
         foreach (range(1, 30) as $number) {
             $person = Person::create(['name' => "Member {$number}", 'email' => "member-{$number}@example.test"]);
-            TeamEngagement::create(['event_id' => $event->id, 'person_id' => $person->id, 'status' => 'applied', 'employment_type' => 'volunteer']);
+            $this->createTeamEngagement(['event_id' => $event->id, 'person_id' => $person->id, 'status' => 'applied', 'employment_type' => 'volunteer']);
 
             if (! in_array($number, [1, 30], true)) {
                 continue;

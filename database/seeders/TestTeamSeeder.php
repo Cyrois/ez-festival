@@ -54,7 +54,7 @@ class TestTeamSeeder extends Seeder
                 'name' => 'Taylor Brooks',
                 'email' => 'taylor.brooks@example.com',
                 'phone' => '(604) 555-0168',
-                'group' => 'Stage',
+                'group' => null,
                 'status' => 'reviewing',
                 'employment_type' => 'volunteer',
                 'hourly_pay' => null,
@@ -85,7 +85,7 @@ class TestTeamSeeder extends Seeder
                     'person_id' => $person->id,
                 ],
                 [
-                    'group_id' => $groups[$member['group']]->id,
+                    'group_id' => $member['group'] === null ? null : $groups[$member['group']]->id,
                     'status' => $member['status'],
                     'employment_type' => $member['employment_type'],
                     'hourly_pay' => $member['hourly_pay'],

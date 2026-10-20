@@ -56,7 +56,7 @@ class TeamController extends Controller
     public function create(): Response
     {
         return Inertia::render('Settings/Team/Create', [
-            'events' => $this->eventOptions(),
+            'events' => $this->eventOptions(withGroups: true),
             'roles' => $this->roleOptions(),
             'statuses' => ['applied', 'reviewing', 'hired'],
         ]);
@@ -146,9 +146,12 @@ class TeamController extends Controller
     }
 
     /** @return list<array<string, mixed>> */
-    private function eventOptions(): array
+    private function eventOptions(bool $withGroups = false): array
     {
         return Event::query()
+            ->when($withGroups, fn ($query) => $query->with([
+                'groups' => fn ($groups) => $groups->orderBy('name')->select(['id', 'event_id', 'name']),
+            ]))
             ->orderByDesc('starts_on')
             ->orderByDesc('id')
             ->get()
@@ -158,6 +161,7 @@ class TeamController extends Controller
                 'starts_on' => $event->starts_on->toDateString(),
                 'ends_on' => $event->ends_on->toDateString(),
                 'locked' => $event->isLocked(),
+                ...($withGroups ? ['groups' => $event->groups->map->only(['id', 'name'])->values()->all()] : []),
             ])
             ->all();
     }

@@ -1,0 +1,11 @@
+# Shared scheduled hours and required Team groups
+
+Deploy the application and compiled assets together with the new forward migration, then run `php artisan migrate --force`. Pause Team and Scheduling writes during the rollout so older application code cannot hire ungrouped members.
+
+`team_engagements.group_id` remains nullable for applicants. Hired members require a group from their event, enforced by the existing composite foreign key and a new conditional database guard (PostgreSQL CHECK; equivalent INSERT/UPDATE triggers on SQLite). Members with saved shift assignments cannot clear their group through the write services, even after leaving Hired. The nullable column is intentional, not temporary.
+
+There is no data backfill or automatic fallback group. No existing members require conversion for this deployment. The migration refuses any unexpected hired records with null groups; assign their existing Group field before retrying. Seed fixtures give hired members valid groups and retain an ungrouped applicant example. Public applications remain ungrouped until staff assign Group on the member page before hiring. Global Team creation defaults to Applied with no group required; choosing Hired requires selecting a group from each selected event. Hiring an existing member through Global Team still requires their saved Group.
+
+The `TeamScheduledHoursQuery` supplies an event total, all configured group totals (including zero groups), one group's days and people, one person's shifts, and one day's shifts (including unassigned shifts at zero). Every projection is one SQL statement, using each assignment's own breaks and attributing all its minutes to the shift's start day. `groupPeople()` and `forEvent()` return composable builders so later screens can apply server pagination and exports can reuse the calculation without hydrating every assignment. The event argument is the trusted scope; future HTTP consumers must resolve it through EventContext and enforce the report permission.
+
+Report screens, HTTP data routes, exports, worked hours and labour cost are outside this slice. No new report cache or indexes are introduced. Rollback removes the new database guard without remapping or deleting group data; coordinate application rollback with the migration if reverting the feature.

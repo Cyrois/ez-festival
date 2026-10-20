@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Settings;
 
 use App\Services\PersonService;
+use App\Services\TeamMemberGroupService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -34,6 +35,7 @@ class StoreGlobalTeamPersonRequest extends FormRequest
             'event_access' => ['required', 'array', 'min:1'],
             'event_access.*.event_id' => ['required', 'integer', 'distinct', Rule::exists('events', 'id')->where('locked', 0)],
             'event_access.*.role_id' => ['required', 'integer', Rule::exists('roles', 'id')->where('active', 1)],
+            'event_access.*.group_id' => ['nullable', 'integer'],
         ];
     }
 
@@ -46,6 +48,16 @@ class StoreGlobalTeamPersonRequest extends FormRequest
 
             if (app(PersonService::class)->findByEmail($this->input('email')) !== null) {
                 $validator->errors()->add('email', __('settings.team.validation.email_exists'));
+            }
+            foreach ($this->input('event_access') as $index => $access) {
+                $error = app(TeamMemberGroupService::class)->error(
+                    (int) $access['event_id'],
+                    $access['group_id'] ?? null,
+                    $this->input('status'),
+                );
+                if ($error !== null) {
+                    $validator->errors()->add("event_access.{$index}.group_id", $error);
+                }
             }
         }];
     }

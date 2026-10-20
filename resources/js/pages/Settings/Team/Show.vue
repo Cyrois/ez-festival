@@ -102,7 +102,7 @@ const updateRole = (event, access, value) => {
     if (value === '') {
         access.status = null;
     } else if (originalRoles[event.id] === '' && wasNoAccess) {
-        access.status = 'hired';
+        access.status = 'applied';
     }
 };
 const submit = (afterSave) => {

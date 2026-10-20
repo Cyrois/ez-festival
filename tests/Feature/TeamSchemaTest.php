@@ -38,7 +38,7 @@ class TeamSchemaTest extends TestCase
     #[DataProvider('statusProvider')]
     public function test_team_engagement_accepts_each_pipeline_status(string $status): void
     {
-        $engagement = TeamEngagement::query()->create([
+        $engagement = $this->createTeamEngagement([
             'event_id' => $this->event()->id,
             'person_id' => $this->person($status)->id,
             'status' => $status,
@@ -83,7 +83,7 @@ class TeamSchemaTest extends TestCase
         $firstGroup = Group::query()->create(['event_id' => $event->id, 'name' => 'Site']);
         $secondGroup = Group::query()->create(['event_id' => $event->id, 'name' => 'Production']);
 
-        $engagement = TeamEngagement::query()->create([
+        $engagement = $this->createTeamEngagement([
             'event_id' => $event->id,
             'person_id' => $person->id,
             'group_id' => $firstGroup->id,
@@ -96,7 +96,7 @@ class TeamSchemaTest extends TestCase
 
         $this->expectException(QueryException::class);
 
-        TeamEngagement::query()->create([
+        $this->createTeamEngagement([
             'event_id' => $event->id,
             'person_id' => $person->id,
             'group_id' => $secondGroup->id,
@@ -113,7 +113,7 @@ class TeamSchemaTest extends TestCase
 
         $this->expectException(QueryException::class);
 
-        TeamEngagement::query()->create([
+        $this->createTeamEngagement([
             'event_id' => $engagementEvent->id,
             'person_id' => $this->person('wrong-event')->id,
             'group_id' => $group->id,
@@ -126,7 +126,7 @@ class TeamSchemaTest extends TestCase
     {
         $event = $this->event();
         $group = Group::query()->create(['event_id' => $event->id, 'name' => 'Site']);
-        TeamEngagement::query()->create([
+        $this->createTeamEngagement([
             'event_id' => $event->id,
             'person_id' => $this->person('event-delete')->id,
             'group_id' => $group->id,
@@ -143,7 +143,7 @@ class TeamSchemaTest extends TestCase
     public function test_pass_assignments_support_exactly_one_of_four_owner_types(): void
     {
         $event = $this->event();
-        $engagement = TeamEngagement::query()->create([
+        $engagement = $this->createTeamEngagement([
             'event_id' => $event->id,
             'person_id' => $this->person('pass-owner')->id,
             'status' => 'hired',
@@ -180,7 +180,7 @@ class TeamSchemaTest extends TestCase
     public function test_deleting_team_engagement_cascades_its_pass_assignments(): void
     {
         $event = $this->event();
-        $engagement = TeamEngagement::query()->create([
+        $engagement = $this->createTeamEngagement([
             'event_id' => $event->id,
             'person_id' => $this->person('pass-cascade')->id,
             'status' => 'hired',
@@ -204,7 +204,7 @@ class TeamSchemaTest extends TestCase
 
         $this->expectException(QueryException::class);
 
-        TeamEngagement::query()->create([
+        $this->createTeamEngagement([
             'event_id' => $event->id,
             'person_id' => $person->id,
             'role_id' => $roleId,

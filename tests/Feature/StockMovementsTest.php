@@ -74,7 +74,7 @@ class StockMovementsTest extends TestCase
 
         app(TeamEngagementService::class)->create($event, [
             'name' => $actor->person->name, 'email' => $actor->person->email,
-            'status' => 'hired', 'employment_type' => 'volunteer',
+            'status' => 'hired', 'employment_type' => 'volunteer', 'group_id' => $this->fixtureGroupId($event->id),
         ]);
 
         $this->assertSame($holder->id, $stocks->forPerson($event, $actor->person)->id);
@@ -369,7 +369,7 @@ class StockMovementsTest extends TestCase
     private function expected(Event $event, EntitlementItem $item): ExpectedEntitlement
     {
         $pass = $event->passTypes()->firstOrCreate(['name' => 'Pass '.$item->id]);
-        $member = $event->teamEngagements()->firstOrCreate(['person_id' => User::query()->value('person_id')], ['status' => 'hired']);
+        $member = $event->teamEngagements()->firstOrCreate(['person_id' => User::query()->value('person_id')], ['status' => 'hired', 'group_id' => $this->fixtureGroupId($event->id)]);
         $assignment = $pass->assignments()->create(['team_engagement_id' => $member->id, 'person_id' => $member->person_id]);
 
         return $assignment->expectedEntitlements()->create(['entitlement_item_id' => $item->id]);

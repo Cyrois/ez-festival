@@ -122,7 +122,7 @@ class InventoryPersonMovementsTest extends TestCase
         $this->getJson(route('check-in.inventory.holders.receivers', $this->holder()))->assertForbidden();
     }
 
-    public function test_group_pass_works_off_shift_and_missing_group_does_not_match_other_ungrouped_people(): void
+    public function test_group_pass_works_off_shift_and_different_groups_do_not_match(): void
     {
         $this->role($this->source)->update(['permissions' => ['inventory.pass_group']]);
         $group = Group::create(['event_id' => $this->event->id, 'name' => 'Crew']);
@@ -344,7 +344,7 @@ class InventoryPersonMovementsTest extends TestCase
     {
         $user = User::factory()->create();
         $role = Role::create(['name' => 'Role '.$user->id, 'permissions' => $permissions]);
-        TeamEngagement::create(['event_id' => $this->event->id, 'person_id' => $user->person_id, 'role_id' => $role->id, 'status' => 'hired', 'group_id' => $group?->id]);
+        $this->createTeamEngagement(['event_id' => $this->event->id, 'person_id' => $user->person_id, 'role_id' => $role->id, 'status' => 'hired', 'group_id' => $group?->id ?? Group::create(['event_id' => $this->event->id, 'name' => 'Group '.$user->id])->id]);
         $user->setCurrentEvent($this->event);
 
         return $user;
