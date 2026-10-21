@@ -25,12 +25,13 @@ class GroupHoursPeopleController extends Controller
         $endDate = $data['end_date'] ?? null;
 
         return new TeamGroupHoursReportResource(
-            $hours->groupRoster($event, $group->id, $startDate, $endDate),
+            $hours->groupRoster($event, $group->id, $startDate, $endDate, $request->employmentType()),
             $event->id,
             $group,
             $startDate,
             $endDate,
             Gate::allows('team.view', $event),
+            $request->employmentType(),
         );
     }
 }

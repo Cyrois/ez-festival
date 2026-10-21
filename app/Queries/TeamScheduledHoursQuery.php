@@ -47,16 +47,33 @@ class TeamScheduledHoursQuery
         return (int) $this->forEvent($event)->sum('scheduled_minutes');
     }
 
-    public function groups(Event $event, ?string $startDate = null, ?string $endDate = null): Collection
+    public function groups(Event $event, ?string $startDate = null, ?string $endDate = null, string $employmentType = 'all'): Collection
     {
-        $totals = $this->forEvent($event, $startDate, $endDate)->select('group_id')->selectRaw('SUM(scheduled_minutes) as scheduled_minutes')->groupBy('group_id');
+        // Round each person's range cost before summing their team, including eligible zero-hour members.
+        $totals = DB::query()->fromSub($this->reportRosterQuery($event, $startDate, $endDate, $employmentType), 'roster')
+            ->select('group_id')->selectRaw('SUM(scheduled_minutes) as scheduled_minutes, SUM(scheduled_cost_cents) as scheduled_cost_cents, SUM(missing_rate_count) as missing_rate_count')
+            ->groupBy('group_id');
 
         return DB::table('groups')->where('groups.event_id', $event->id)
             ->leftJoinSub($totals, 'totals', 'totals.group_id', '=', 'groups.id')
-            ->select('groups.id as group_id', 'groups.name as group_name')->selectRaw('COALESCE(totals.scheduled_minutes, 0) as scheduled_minutes')
+            ->when($employmentType !== 'all', fn (Builder $query) => $query->whereNotNull('totals.group_id'))
+            ->select('groups.id as group_id', 'groups.name as group_name')
+            ->selectRaw('COALESCE(totals.scheduled_minutes, 0) as scheduled_minutes, COALESCE(totals.scheduled_cost_cents, 0) as scheduled_cost_cents, COALESCE(totals.missing_rate_count, 0) as missing_rate_count')
             ->orderBy('groups.name')->orderBy('groups.id')->get()->map(fn ($row): array => [
-                'group_id' => (int) $row->group_id, 'group_name' => $row->group_name, 'scheduled_minutes' => (int) $row->scheduled_minutes,
+                'group_id' => (int) $row->group_id, 'group_name' => $row->group_name,
+                'scheduled_minutes' => (int) $row->scheduled_minutes,
+                'scheduled_cost_cents' => (int) $row->scheduled_cost_cents,
+                'missing_rate_count' => (int) $row->missing_rate_count,
             ]);
+    }
+
+    /** Whole-event figures for Budget, independent of report selections. */
+    public function eventCostTotals(Event $event): array
+    {
+        $total = DB::query()->fromSub($this->reportRosterQuery($event), 'roster')
+            ->selectRaw('COALESCE(SUM(scheduled_cost_cents), 0) as scheduled_cost_cents, COALESCE(SUM(missing_rate_count), 0) as missing_rate_count')->first();
+
+        return ['scheduled_cost_cents' => (int) $total->scheduled_cost_cents, 'approved_cost_cents' => null, 'missing_rate_count' => (int) $total->missing_rate_count];
     }
 
     public function groupDays(Event $event, int $groupId): Collection
@@ -75,20 +92,39 @@ class TeamScheduledHoursQuery
     }
 
     /** Hired members at zero hours plus anyone with assignments in the range, regardless of status. */
-    public function groupRoster(Event $event, int $groupId, ?string $startDate = null, ?string $endDate = null): Collection
+    public function groupRoster(Event $event, int $groupId, ?string $startDate = null, ?string $endDate = null, string $employmentType = 'all'): Collection
     {
-        $hours = $this->groupPeople($event, $groupId, $startDate, $endDate)->reorder();
+        return $this->reportRosterQuery($event, $startDate, $endDate, $employmentType, $groupId)
+            ->join('people', 'people.id', '=', 'members.person_id')->addSelect('people.name')
+            ->orderBy('people.name')->orderBy('members.id')->get();
+    }
+
+    private function reportRosterQuery(Event $event, ?string $startDate = null, ?string $endDate = null, string $employmentType = 'all', ?int $groupId = null): Builder
+    {
+        $hours = $this->forEvent($event, $startDate, $endDate)
+            ->when($groupId !== null, fn (Builder $query) => $query->where('group_id', $groupId))
+            ->select('team_engagement_id')->selectRaw('CAST(SUM(scheduled_minutes) AS BIGINT) as scheduled_minutes')->groupBy('team_engagement_id');
 
         return DB::table('team_engagements as members')
-            ->join('people', 'people.id', '=', 'members.person_id')
             ->join('groups', 'groups.id', '=', 'members.group_id')
             ->where('members.event_id', $event->id)->where('groups.event_id', $event->id)
-            ->where('members.group_id', $groupId)
+            ->when($groupId !== null, fn (Builder $query) => $query->where('members.group_id', $groupId))
+            ->when($employmentType !== 'all', fn (Builder $query) => $query->where('members.employment_type', $employmentType))
             ->leftJoinSub($hours, 'hours', 'hours.team_engagement_id', '=', 'members.id')
             ->where(fn (Builder $query) => $query->where('members.status', 'hired')->orWhereNotNull('hours.team_engagement_id'))
-            ->select('members.id as team_engagement_id', 'members.person_id', 'people.name', 'members.employment_type')
+            ->select('members.id as team_engagement_id', 'members.person_id', 'members.group_id', 'members.employment_type')
+            ->selectRaw("CASE WHEN members.employment_type = 'paid' THEN members.hourly_pay END as hourly_pay")
             ->selectRaw('COALESCE(hours.scheduled_minutes, 0) as scheduled_minutes')
-            ->orderBy('people.name')->orderBy('members.id')->get();
+            ->selectRaw($this->costExpression('COALESCE(hours.scheduled_minutes, 0)').' as scheduled_cost_cents')
+            ->selectRaw("CASE WHEN members.employment_type = 'paid' AND members.hourly_pay IS NULL THEN 1 ELSE 0 END as missing_rate_count");
+    }
+
+    /** Integer cents: half-up rounding after minutes have been grouped for this person row. */
+    private function costExpression(string $minutes): string
+    {
+        $rateCents = 'CAST(ROUND(COALESCE(members.hourly_pay, 0) * 100, 0) AS BIGINT)';
+
+        return "CASE WHEN members.employment_type = 'paid' THEN CAST(({$minutes} * {$rateCents} + 30) / 60 AS BIGINT) ELSE 0 END";
     }
 
     public function personShifts(Event $event, int $engagementId): Collection
@@ -110,36 +146,46 @@ class TeamScheduledHoursQuery
             ]);
     }
 
-    public function dayShiftReport(Event $event, string $day): Collection
+    public function dayShiftReport(Event $event, string $day, string $employmentType = 'all'): Collection
     {
-        return $this->dayShiftQuery($event, $day)
+        return $this->dayShiftQuery($event, $day, $employmentType)
             ->join('locations', fn ($join) => $join->on('locations.id', '=', 'shifts.location_id')->where('locations.event_id', $event->id))
             ->leftJoin('people as supervisor', 'supervisor.id', '=', 'totals.supervisor_person_id')
             ->select('shifts.id as shift_id', 'shifts.name', 'shifts.starts_at', 'shifts.ends_at', 'locations.name as location', 'supervisor.name as supervisor_name')
-            ->selectRaw('COALESCE(totals.scheduled_minutes, 0) as scheduled_minutes, COALESCE(totals.people_count, 0) as people_count')
+            ->selectRaw('COALESCE(totals.scheduled_minutes, 0) as scheduled_minutes, COALESCE(totals.people_count, 0) as people_count, COALESCE(totals.scheduled_cost_cents, 0) as scheduled_cost_cents, COALESCE(totals.missing_rate_count, 0) as missing_rate_count')
             ->get();
     }
 
-    public function shiftPeople(Event $event, int $shiftId): Collection
+    public function shiftPeople(Event $event, int $shiftId, string $employmentType = 'all'): Collection
     {
         return $this->forEvent($event)->where('scheduled.shift_id', $shiftId)
             ->join('people', 'people.id', '=', 'scheduled.person_id')
             ->join('team_engagements as members', 'members.id', '=', 'scheduled.team_engagement_id')
+            ->when($employmentType !== 'all', fn (Builder $query) => $query->where('members.employment_type', $employmentType))
             ->select('scheduled.team_engagement_id', 'scheduled.person_id', 'scheduled.is_supervisor', 'scheduled.scheduled_minutes', 'people.name', 'members.employment_type')
+            ->selectRaw("CASE WHEN members.employment_type = 'paid' THEN members.hourly_pay END as hourly_pay")
+            ->selectRaw($this->costExpression('scheduled.scheduled_minutes').' as scheduled_cost_cents')
+            ->selectRaw("CASE WHEN members.employment_type = 'paid' AND members.hourly_pay IS NULL THEN 1 ELSE 0 END as missing_rate_count")
             ->orderByDesc('scheduled.is_supervisor')->orderBy('people.name')->orderBy('scheduled.team_engagement_id')->get();
     }
 
-    private function dayShiftQuery(Event $event, string $day): Builder
+    private function dayShiftQuery(Event $event, string $day, string $employmentType = 'all'): Builder
     {
         $start = CarbonImmutable::createFromFormat('!Y-m-d', $day, 'UTC');
-        $totals = $this->forEvent($event)->where('shift_starts_at', '>=', $start->format('Y-m-d H:i:s'))
+        $totals = $this->forEvent($event)
+            ->join('team_engagements as members', 'members.id', '=', 'scheduled.team_engagement_id')
+            ->when($employmentType !== 'all', fn (Builder $query) => $query->where('members.employment_type', $employmentType))
+            ->where('shift_starts_at', '>=', $start->format('Y-m-d H:i:s'))
             ->where('shift_starts_at', '<', $start->addDay()->format('Y-m-d H:i:s'))
-            ->select('shift_id')->selectRaw('SUM(scheduled_minutes) as scheduled_minutes, COUNT(*) as people_count, MAX(CASE WHEN is_supervisor THEN person_id END) as supervisor_person_id')->groupBy('shift_id');
+            ->select('shift_id')->selectRaw('SUM(scheduled_minutes) as scheduled_minutes, COUNT(*) as people_count, MAX(CASE WHEN is_supervisor THEN scheduled.person_id END) as supervisor_person_id')
+            ->selectRaw('SUM('.$this->costExpression('scheduled.scheduled_minutes').') as scheduled_cost_cents')
+            ->selectRaw("SUM(CASE WHEN members.employment_type = 'paid' AND members.hourly_pay IS NULL THEN 1 ELSE 0 END) as missing_rate_count")->groupBy('shift_id');
 
         return DB::table('shifts')->where('shifts.event_id', $event->id)
             ->where('shifts.starts_at', '>=', $start->format('Y-m-d H:i:s'))
             ->where('shifts.starts_at', '<', $start->addDay()->format('Y-m-d H:i:s'))
             ->leftJoinSub($totals, 'totals', 'totals.shift_id', '=', 'shifts.id')
+            ->when($employmentType !== 'all', fn (Builder $query) => $query->whereNotNull('totals.shift_id'))
             ->orderBy('shifts.starts_at')->orderBy('shifts.id');
     }
 }

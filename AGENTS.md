@@ -266,3 +266,11 @@ These are recurring Codex mistakes on this repo. Treat them as hard stops — do
 
 - Stock belongs to a person within an event, or to a location. `stock_holders` uses exactly one of `person_id` / `location_id`; never Team engagement or admin account holder identities.
 - Joining the Team must leave the person's holder, balance, and movement history unchanged. Do not create a membership-related stock transfer or merge.
+
+
+## Personnel hours pay and cost (Calvin, 2026-10-20, #190)
+
+- Pay and cost use `team.hours_report.view`; this deliberately grants report viewers access to rates even without `team.personal_info`. The member page's personal-info gate is unchanged. Locked events retain report access.
+- Use current event engagement rates with no history. Round each displayed person row halves up to integer cents: combined selected-range minutes in Summary / By team, individual shift minutes in By shift. Sum those rounded rows for each view's totals. Small differences between combined-range and summed-shift costs are accepted. Budget uses whole-event person totals rounded before aggregation; never sum individually rounded assignments for that figure.
+- Scheduled / Approved cost appears beneath hours in existing cells; no new columns, no average rates, and no Unapproved cost field. Approved cost stays unavailable until #205. Hourly pay appears only beneath person names. Volunteers contribute hours and zero cost, with no person cost lines; Volunteers filtering hides all cost lines. Paid includes missing-rate members, whose rates show No rate and whose distinct eligible-person counts appear on totals. A stored zero rate is valid.
+- All / Paid / Volunteers filtering happens on the server and is included in the URL and every page-visit request-cache key. Keep the complete event team picker catalogue separate from filtered Summary rows. Until an event currency setting exists, format amounts to two decimals without a symbol.

@@ -16,10 +16,12 @@ import { useHoursReportRequests } from '../../composables/useHoursReportRequests
 const props = defineProps({
     shiftFilters: { type: Object, default: () => ({}) },
     filters: { type: Object, default: () => ({}) },
+    employmentOptions: { type: Array, default: () => [] },
     groupOptions: { type: Array, default: () => [] },
 });
 const page = usePage();
 const eventId = computed(() => page.props.activeEvent.id);
+const employmentType = ref(props.filters.employment_type ?? 'all');
 const startDate = ref(props.filters.start_date ?? '');
 const endDate = ref(props.filters.end_date ?? '');
 const selectedGroup = ref(props.filters.group_id ?? '');
@@ -83,6 +85,7 @@ const selectGroup = (groupId) => {
 const shiftReport = reactive(
     useShiftHoursReportRequests({
         eventId,
+        employmentType,
         selectedDate,
         active: computed(() => activeView.value === 'shift'),
     }),
@@ -109,6 +112,7 @@ const {
     load,
 } = useHoursReportRequests({
     eventId,
+    employmentType,
     selectedGroup: requestedGroup,
     startDate,
     endDate,
@@ -131,6 +135,7 @@ watch(
     () => props.filters,
     (filters) => {
         selectedGroup.value = filters.group_id ?? '';
+        employmentType.value = filters.employment_type ?? 'all';
         startDate.value = filters.start_date ?? '';
         endDate.value = filters.end_date ?? '';
     },
@@ -149,9 +154,12 @@ const syncAddress = () => {
         params.set('start_date', startDate.value);
         params.set('end_date', endDate.value);
     }
+    if (employmentType.value !== 'all')
+        params.set('employment_type', employmentType.value);
     const url = '/team/reports' + (params.size ? '?' + params : '');
     if (page.url === url) return;
     const filters = {
+        employment_type: employmentType.value,
         group_id: selectedGroup.value || null,
         start_date: startDate.value || null,
         end_date: endDate.value || null,
@@ -172,7 +180,15 @@ const syncAddress = () => {
 };
 
 watch(
-    [eventId, selectedGroup, startDate, endDate, activeView, selectedDate],
+    [
+        eventId,
+        selectedGroup,
+        startDate,
+        endDate,
+        activeView,
+        selectedDate,
+        employmentType,
+    ],
     syncAddress,
     {
         immediate: true,
@@ -254,9 +270,11 @@ const breadcrumbs = computed(() => [
                     <template v-if="activeView === view">
                         <HoursReportFilters
                             v-if="groupActive"
+                            v-model:employment-type="employmentType"
                             v-model:group-id="selectedGroup"
                             v-model:start-date="startDate"
                             v-model:end-date="endDate"
+                            :employment-options="employmentOptions"
                             :groups="groups"
                             :showing-people="view === 'team'"
                             :errors="errors"
@@ -282,6 +300,7 @@ const breadcrumbs = computed(() => [
                         >
                             <HoursReportSummary
                                 :summary="summary"
+                                :employment-type="employmentType"
                                 :showing-people="showingPeople"
                                 :loading="loading"
                             />
@@ -313,6 +332,7 @@ const breadcrumbs = computed(() => [
                                 <HoursReportTable
                                     v-else
                                     :rows="rows"
+                                    :employment-type="employmentType"
                                     :request-key="key"
                                     :showing-people="showingPeople"
                                     :can-view-team="canViewTeam"
@@ -326,6 +346,8 @@ const breadcrumbs = computed(() => [
                     <ShiftHoursReport
                         v-if="!groupActive"
                         v-model:date="selectedDate"
+                        v-model:employment-type="employmentType"
+                        :employment-options="employmentOptions"
                         :day="shiftReport.day"
                         :people="shiftReport.people"
                         :rows="shiftReport.rows"

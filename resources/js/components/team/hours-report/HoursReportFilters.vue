@@ -1,13 +1,19 @@
 <script setup>
+import HoursReportEmploymentFilter from './HoursReportEmploymentFilter.vue';
 import { computed } from 'vue';
 import { CustomDropdown } from '../../ui/custom-dropdown';
 import { FormField } from '../../ui/form-field';
 import { Input } from '../../ui/input';
 
+const employmentType = defineModel('employmentType', {
+    type: String,
+    default: 'all',
+});
 const groupId = defineModel('groupId', { type: [String, Number], default: '' });
 const startDate = defineModel('startDate', { type: String, default: '' });
 const endDate = defineModel('endDate', { type: String, default: '' });
 const props = defineProps({
+    employmentOptions: { type: Array, default: () => [] },
     groups: { type: Array, required: true },
     showingPeople: { type: Boolean, default: false },
     errors: { type: Object, default: () => ({}) },
@@ -62,6 +68,10 @@ const groupItems = computed(() =>
                         :invalid="invalid"
                     />
                 </FormField>
+                <HoursReportEmploymentFilter
+                    v-model="employmentType"
+                    :options="employmentOptions"
+                />
             </div>
             <p class="mt-3 text-xs text-muted">
                 {{ $t('team.reports.range_hint') }}

@@ -1,10 +1,12 @@
 <script setup>
+import HoursReportCost from './HoursReportCost.vue';
 import { Card } from '../../ui/card';
 import { formatHoursReportDuration } from '../../../lib/hoursReport';
 
 defineProps({
     summary: { type: Object, default: null },
     showingPeople: { type: Boolean, default: false },
+    employmentType: { type: String, default: 'all' },
     loading: { type: Boolean, default: false },
 });
 </script>
@@ -42,6 +44,14 @@ defineProps({
                     class="text-muted"
                     >{{ $t('team.reports.unavailable') }}</span
                 >
+                <HoursReportCost
+                    v-if="summary && type !== 'unapproved'"
+                    :cents="summary[`${type}_cost_cents`]"
+                    :visible="employmentType !== 'volunteer'"
+                    :missing-rate-count="
+                        type === 'scheduled' ? summary.missing_rate_count : 0
+                    "
+                />
             </dd>
         </Card>
     </dl>

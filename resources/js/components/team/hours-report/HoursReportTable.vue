@@ -10,7 +10,11 @@ import {
     activateDataTableRow,
     navigateDataTableRow,
 } from '../../../lib/dataTableRowNavigation';
-import { formatHoursReportDuration } from '../../../lib/hoursReport';
+import HoursReportCost from './HoursReportCost.vue';
+import {
+    formatHoursReportPay,
+    formatHoursReportDuration,
+} from '../../../lib/hoursReport';
 
 const props = defineProps({
     rows: { type: Array, required: true },
@@ -18,6 +22,7 @@ const props = defineProps({
     showingPeople: { type: Boolean, default: false },
     canViewTeam: { type: Boolean, default: false },
     shiftPeople: { type: Boolean, default: false },
+    employmentType: { type: String, default: 'all' },
     columnWidths: { type: Array, default: () => [] },
 });
 const emit = defineEmits(['select-group']);
@@ -152,14 +157,37 @@ const tableOptions = computed(() => ({
                         {{ $t('team.scheduling.supervisor.tag') }}
                     </Badge>
                 </span>
+                <span
+                    v-if="showingPeople"
+                    data-hourly-pay
+                    class="block text-xs text-muted"
+                    >{{ formatHoursReportPay(rowData) }}</span
+                >
             </template>
-            <template #scheduledCell="{ rowData }">{{
-                formatHoursReportDuration(rowData.scheduled_minutes)
-            }}</template>
-            <template #approvedCell>
+            <template #scheduledCell="{ rowData }">
+                {{ formatHoursReportDuration(rowData.scheduled_minutes) }}
+                <HoursReportCost
+                    :cents="rowData.scheduled_cost_cents"
+                    :visible="
+                        employmentType !== 'volunteer' &&
+                        (!showingPeople || rowData.employment_type === 'paid')
+                    "
+                    :missing-rate-count="
+                        showingPeople ? 0 : rowData.missing_rate_count
+                    "
+                />
+            </template>
+            <template #approvedCell="{ rowData }">
                 <span class="text-muted">{{
                     $t('team.reports.unavailable')
                 }}</span>
+                <HoursReportCost
+                    :cents="rowData.approved_cost_cents"
+                    :visible="
+                        employmentType !== 'volunteer' &&
+                        (!showingPeople || rowData.employment_type === 'paid')
+                    "
+                />
             </template>
             <template #unapprovedCell>
                 <span class="text-muted">{{

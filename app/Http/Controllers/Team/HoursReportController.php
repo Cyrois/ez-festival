@@ -21,10 +21,11 @@ class HoursReportController extends Controller
         $endDate = $data['end_date'] ?? null;
 
         return new TeamHoursReportResource(
-            $hours->groups($event, $startDate, $endDate),
+            $hours->groups($event, $startDate, $endDate, $request->employmentType()),
             $event->id,
             $startDate,
             $endDate,
+            $request->employmentType(),
         );
     }
 }

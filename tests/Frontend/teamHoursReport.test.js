@@ -134,12 +134,11 @@ for (const [name, path] of [
     ['FormField', 'components/ui/form-field/FormField.vue'],
     ['Button', 'components/ui/button/Button.vue'],
     ['DataTable', 'components/ui/data-table/DataTable.vue'],
+    ['SegmentedControl', 'components/ui/segmented-control/SegmentedControl.vue'],
     ['EmptyState', 'components/ui/empty-state/EmptyState.vue'],
 ])
     deps[name] = await compile(path);
-deps.formatHoursReportDuration = (
-    await compileModule('lib/hoursReport.js')
-).formatHoursReportDuration;
+Object.assign(deps, await compileModule('lib/hoursReport.js'));
 deps.useHoursReportRequests = (
     await compileModule('composables/useHoursReportRequests.js')
 ).useHoursReportRequests;
@@ -148,6 +147,8 @@ deps.useShiftHoursReportRequests = (
 ).useShiftHoursReportRequests;
 Object.assign(deps, await import('../../resources/js/lib/scheduleTimeline.js'));
 for (const name of [
+    'HoursReportCost',
+    'HoursReportEmploymentFilter',
     'HoursReportFilters',
     'HoursReportSummary',
     'HoursReportLoadState',
@@ -197,7 +198,8 @@ const mount = ({
         new Promise((resolve, reject) => {
             requests.push({ url, options, resolve, reject });
         });
-    const app = createApp(Report, { filters, shiftFilters, groupOptions });
+    const employmentOptions = ['all', 'paid', 'volunteer'].map((value) => ({ value, label: translate(`team.reports.filter.${value}`) }));
+    const app = createApp(Report, { filters, shiftFilters, groupOptions, employmentOptions });
     app.config.globalProperties.$t = translate;
     app.mount(document.getElementById('app'));
     return app;
@@ -208,6 +210,9 @@ const group = (name = 'Gate', minutes = 90) => ({
     scheduled_minutes: minutes,
     approved_minutes: null,
     unapproved_minutes: null,
+    scheduled_cost_cents: 0,
+    approved_cost_cents: null,
+    missing_rate_count: 0,
 });
 const respond = async (index, groups = [group()], eventId = 11) => {
     requests[index].resolve({
@@ -216,6 +221,7 @@ const respond = async (index, groups = [group()], eventId = 11) => {
         json: async () => ({
             data: {
                 event_id: eventId,
+                employment_type: new URL(requests[index].url, 'http://localhost').searchParams.get('employment_type') ?? 'all',
                 range: {
                     start_date: new URL(
                         requests[index].url,
@@ -233,6 +239,9 @@ const respond = async (index, groups = [group()], eventId = 11) => {
                     ),
                     approved_minutes: null,
                     unapproved_minutes: null,
+                    scheduled_cost_cents: groups.reduce((sum, row) => sum + (row.scheduled_cost_cents ?? 0), 0),
+                    approved_cost_cents: null,
+                    missing_rate_count: groups.reduce((sum, row) => sum + (row.missing_rate_count ?? 0), 0),
                 },
                 groups,
             },
@@ -246,16 +255,20 @@ const setDate = async (id, value) => {
     input.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
     await tick();
 };
-const scheduledTotal = () => document.querySelector('dd').textContent.trim();
+const scheduledTotal = () => document.querySelector('dd > span:not([data-hours-cost])').textContent.trim();
 const person = (name = 'Ava Chen', minutes = 90, type = 'volunteer') => ({
     team_engagement_id: 1,
     person_id: 1,
     name,
     employment_type: type,
+    hourly_pay: type === 'paid' ? '24.50' : null,
     member_url: null,
     scheduled_minutes: minutes,
     approved_minutes: null,
     unapproved_minutes: null,
+    scheduled_cost_cents: 0,
+    approved_cost_cents: null,
+    missing_rate_count: 0,
 });
 const respondPeople = async (index, people = [person()], overrides = {}) => {
     const url = new URL(requests[index].url, 'http://localhost');
@@ -265,6 +278,7 @@ const respondPeople = async (index, people = [person()], overrides = {}) => {
         json: async () => ({
             data: {
                 event_id: 11,
+                employment_type: url.searchParams.get('employment_type') ?? 'all',
                 range: {
                     start_date: url.searchParams.get('start_date'),
                     end_date: url.searchParams.get('end_date'),
@@ -280,6 +294,9 @@ const respondPeople = async (index, people = [person()], overrides = {}) => {
                     ),
                     approved_minutes: null,
                     unapproved_minutes: null,
+                    scheduled_cost_cents: people.reduce((sum, row) => sum + (row.scheduled_cost_cents ?? 0), 0),
+                    approved_cost_cents: null,
+                    missing_rate_count: people.reduce((sum, row) => sum + (row.missing_rate_count ?? 0), 0),
                 },
                 people,
                 ...overrides,
@@ -397,7 +414,7 @@ test('first load shows group hours, both view tabs, and no export or shift prefe
             [...document.querySelector('tbody tr').cells].map((cell) =>
                 cell.textContent.trim(),
             ),
-            ['<img src=x onerror=alert(1)>', '1 h 00', '—', '—', ''],
+            ['<img src=x onerror=alert(1)>', '1 h 00 0.00', '——', '—', ''],
         );
         assert.equal(
             document.querySelector('img, select, .dt-paging, .dt-search'),
@@ -415,7 +432,7 @@ test('first load shows group hours, both view tabs, and no export or shift prefe
         );
         assert.doesNotMatch(
             document.body.textContent,
-            /No team|Export CSV|Back to All teams|Paid|Volunteer/,
+            /No team|Export CSV|Back to All teams/,
         );
         assert.match(document.body.textContent, /Sunrise Folk Fest/);
     } finally {
@@ -549,7 +566,7 @@ test('server validation is shown on the field and through the shared error toast
         assert.deepEqual(toasts, [{ end_date: 'Choose a valid end date.' }]);
         assert.equal(
             document.querySelector(
-                '[role=tabpanel]:not([hidden]) button, table',
+                '[role=tabpanel]:not([hidden]) button:not([role=radio]), table',
             ),
             null,
         );
@@ -612,11 +629,11 @@ test('group rows open the complete people list directly with badges, group total
         assert.equal(document.querySelectorAll('tbody tr').length, 32);
         assert.match(
             document.querySelector('tbody tr').textContent,
-            /<img src=x onerror=alert\(1\)>\s*Paid1 h 30/,
+            /<img src=x onerror=alert\(1\)>\s*Paid\s*24.50\/h1 h 30/,
         );
         assert.match(
             document.querySelectorAll('tbody tr')[1].textContent,
-            /Volunteer0 h 00/,
+            /Volunteer\s*Volunteer0 h 00/,
         );
         assert.equal(
             document.querySelector(
@@ -957,6 +974,7 @@ test('deferred history updates retain the filters belonging to their own address
         assert.equal(page.url, '/team/reports?view=team&group_id=2');
         assert.equal(gateHistory.url, '/team/reports?view=team&group_id=1');
         assert.deepEqual(gateHistory.props({}).filters, {
+            employment_type: 'all',
             group_id: 1,
             start_date: null,
             end_date: null,
@@ -978,6 +996,9 @@ const shift = (shift_id = 71, name = 'Gate A') => ({
     scheduled_minutes: 90,
     approved_minutes: null,
     unapproved_minutes: null,
+    scheduled_cost_cents: 0,
+    approved_cost_cents: null,
+    missing_rate_count: 0,
 });
 const respondDay = async (index, shifts = [shift()], overrides = {}) => {
     const date = new URL(
@@ -988,7 +1009,7 @@ const respondDay = async (index, shifts = [shift()], overrides = {}) => {
         ok: true,
         status: 200,
         json: async () => ({
-            data: { event_id: 11, date, shifts, ...overrides },
+            data: { event_id: 11, employment_type: new URL(requests[index].url, 'http://localhost').searchParams.get('employment_type') ?? 'all', date, shifts, ...overrides },
         }),
     });
     await tick();
@@ -1003,7 +1024,7 @@ const respondShiftPeople = async (
         ok: true,
         status: 200,
         json: async () => ({
-            data: { event_id: 11, shift_id, people, ...overrides },
+            data: { event_id: 11, employment_type: new URL(requests[index].url, 'http://localhost').searchParams.get('employment_type') ?? 'all', shift_id, people, ...overrides },
         }),
     });
     await tick();
@@ -1471,5 +1492,109 @@ test('By team restores a team per user and event, chooses the first only for a n
         assert.ok(document.getElementById('hours-group'));
         await pickGroup('Gate');
         assert.equal(requests[0].url, '/team/reports/groups/1/people?');
+    } finally { app.unmount(); }
+});
+
+
+const chooseEmployment = async (label) => {
+    [...document.querySelectorAll('[role=radio]')].find((control) => control.textContent.trim() === label).click();
+    await tick();
+};
+
+test('pay and cost use existing cells and tiles, preserve rate cents, and keep volunteers and Unapproved free of cost lines', async () => {
+    const app = mount();
+    try {
+        await respond(0, [{ ...group(), scheduled_cost_cents: 3675, missing_rate_count: 2 }]);
+        assert.equal(document.querySelector('dd [data-hours-cost]').textContent.trim(), '36.75');
+        assert.match(document.querySelector('dd').textContent, /2 paid people have no rate/);
+        const row = document.querySelector('tbody tr');
+        assert.equal(row.cells[1].querySelector('[data-hours-cost]').textContent.trim(), '36.75');
+        assert.equal(row.cells[2].querySelector('[data-hours-cost]').textContent.trim(), '—');
+        assert.equal(row.cells[3].querySelector('[data-hours-cost]'), null);
+        assert.equal(document.querySelector('[data-hourly-pay]'), null);
+        document.querySelector('tbody button').click();
+        await tick();
+        await respondPeople(1, [
+            { ...person('Paid person', 90, 'paid'), scheduled_cost_cents: 3675 },
+            { ...person('Missing person', 0, 'paid'), hourly_pay: null, scheduled_cost_cents: 0, missing_rate_count: 1 },
+            { ...person('Volunteer', 90), scheduled_cost_cents: null },
+        ]);
+        assert.deepEqual([...document.querySelectorAll('thead th')].map((cell) => cell.textContent), ['Person', 'Scheduled', 'Approved', 'Unapproved']);
+        const rows = [...document.querySelectorAll('tbody tr')];
+        assert.equal(rows[0].querySelector('[data-hourly-pay]').textContent.trim(), '24.50/h');
+        assert.equal(rows[1].querySelector('[data-hourly-pay]').textContent.trim(), 'No rate');
+        assert.equal(rows[1].cells[1].querySelector('[data-hours-cost]').textContent.trim(), '0.00');
+        assert.equal(rows[2].querySelector('[data-hourly-pay]').textContent.trim(), 'Volunteer');
+        assert.equal(rows[2].querySelector('[data-hours-cost]'), null);
+        assert.ok(rows.every((row) => !row.cells[3].querySelector('[data-hours-cost]')));
+        assert.equal(document.querySelectorAll('dd [data-hours-cost]').length, 2);
+        assert.match(document.querySelector('dd').textContent, /1 paid person has no rate/);
+    } finally { app.unmount(); }
+});
+
+test('employment filters isolate caches and responses, preserve the complete picker, and carry across every tab and restored URL', async () => {
+    const teams = [group(), { ...group('Volunteer team'), group_id: 2 }];
+    let app = mount({ groupOptions: teams });
+    let saved;
+    try {
+        await respond(0, teams);
+        await chooseEmployment('Paid');
+        assert.match(requests[1].url, /employment_type=paid/);
+        await chooseEmployment('Volunteers');
+        await respond(1, [group()]);
+        assert.match(document.querySelector('[role=status]').textContent, /Loading/);
+        await respond(2, [teams[1]]);
+        assert.equal(document.querySelector('[data-hours-cost]'), null);
+        document.querySelector('tbody button').click();
+        await tick();
+        await respondPeople(3, [{ ...person(), scheduled_cost_cents: null }]);
+        assert.equal(document.querySelectorAll('[data-hours-cost]').length, 0);
+        document.getElementById('hours-group').click();
+        await tick();
+        assert.deepEqual([...document.querySelectorAll('[role=option]')].map((option) => option.textContent.trim()), ['Gate', 'Volunteer team']);
+        document.querySelector('[role=option]').click();
+        await tick();
+        await respondPeople(4, []);
+        await selectView('By shift');
+        await respondDay(5, [shift()]);
+        openShiftButton().click();
+        await tick();
+        await respondShiftPeople(6, [{ ...person(), is_supervisor: true, scheduled_cost_cents: null }]);
+        assert.equal(document.querySelectorAll('[data-hours-cost]').length, 0);
+        assert.match(requests[6].url, /employment_type=volunteer/);
+        await chooseEmployment('Paid');
+        await respondDay(7, [shift()]);
+        await respondShiftPeople(8, [{ ...person('Paid', 90, 'paid'), is_supervisor: true, scheduled_cost_cents: 3675 }]);
+        assert.equal(document.querySelector('tbody tr [data-hours-cost]').textContent.trim(), '36.75');
+        await chooseEmployment('Volunteers');
+        assert.equal(requests.length, 9, 'day and open-roster caches include employment type');
+        assert.equal(document.querySelectorAll('[data-hours-cost]').length, 0);
+        assert.match(page.url, /employment_type=volunteer/);
+        saved = { filters: { ...page.props.filters }, shiftFilters: { ...page.props.shiftFilters }, groupOptions: teams, url: page.url };
+    } finally { app.unmount(); }
+    app = mount(saved);
+    try {
+        assert.equal(document.querySelector('[role=radio][aria-checked=true]').textContent.trim(), 'Volunteers');
+        assert.match(requests[0].url, /employment_type=volunteer/);
+    } finally { app.unmount(); }
+});
+
+test('wrong employment responses fail with Retry and never fill another filter cache', async () => {
+    const app = mount();
+    try {
+        await respond(0);
+        await chooseEmployment('Paid');
+        await respond(1, [group()], 11);
+        await chooseEmployment('All');
+        await chooseEmployment('Paid');
+        assert.equal(requests.length, 2);
+        await chooseEmployment('Volunteers');
+        const response = requests[2];
+        response.resolve({ ok: true, json: async () => ({ data: { event_id: 11, employment_type: 'paid', range: { start_date: null, end_date: null }, groups: [], totals: {} } }) });
+        await tick();
+        assert.match(document.querySelector('[role=alert]').textContent, /Couldn’t load team hours/);
+        buttonWithText('Retry').click();
+        buttonWithText('Retry').click();
+        assert.equal(requests.length, 4);
     } finally { app.unmount(); }
 });

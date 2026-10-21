@@ -523,7 +523,7 @@ class EventPermissionsTest extends TestCase
         $permission = [
             'key' => 'team.hours_report.view',
             'label' => 'View Personnel hours report',
-            'tooltip' => "See everyone's scheduled and worked hours under Personnel. No pay.",
+            'tooltip' => "See everyone's scheduled and worked hours, hourly pay and cost under Personnel.",
             'includes' => [],
         ];
         $this->get(route('settings.roles.create'))->assertInertia(fn (Assert $page) => $page

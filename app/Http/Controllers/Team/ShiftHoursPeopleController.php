@@ -17,6 +17,6 @@ class ShiftHoursPeopleController extends Controller
         $event = $eventContext->requireCurrent($request->user());
         abort_unless((int) $shift->event_id === (int) $event->id, 404);
 
-        return new TeamShiftHoursPeopleResource($hours->shiftPeople($event, $shift->id), $event->id, $shift->id, Gate::allows('team.view', $event));
+        return new TeamShiftHoursPeopleResource($hours->shiftPeople($event, $shift->id, $request->employmentType()), $event->id, $shift->id, Gate::allows('team.view', $event), $request->employmentType());
     }
 }

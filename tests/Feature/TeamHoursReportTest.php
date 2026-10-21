@@ -40,7 +40,7 @@ class TeamHoursReportTest extends TestCase
         $this->actingAs($this->user);
     }
 
-    public function test_initial_overview_reconciles_all_groups_including_zero_rows_without_detail_or_pay_data(): void
+    public function test_initial_overview_reconciles_all_groups_including_zero_rows_without_detail_or_personal_data(): void
     {
         $stage = $this->event->groups()->create(['name' => 'Stage']);
         $gate = $this->event->groups()->create(['name' => 'Gate']);
@@ -55,20 +55,20 @@ class TeamHoursReportTest extends TestCase
         $expected = ShiftAssignmentHours::scheduledMinutes($first, 45) + ShiftAssignmentHours::scheduledMinutes($second, 30);
         $response = $this->getJson(route('team.reports.data'))->assertOk();
         $data = $response->json('data');
-        $this->assertSame(['event_id', 'range', 'totals', 'groups'], array_keys($data));
+        $this->assertSame(['event_id', 'employment_type', 'range', 'totals', 'groups'], array_keys($data));
         $this->assertSame($this->event->id, $data['event_id']);
         $this->assertSame(['start_date' => null, 'end_date' => null], $data['range']);
-        $this->assertSame(['scheduled_minutes' => $expected, 'approved_minutes' => null, 'unapproved_minutes' => null], $data['totals']);
+        $this->assertSame(['scheduled_minutes' => $expected, 'approved_minutes' => null, 'unapproved_minutes' => null, 'scheduled_cost_cents' => 53750, 'approved_cost_cents' => null, 'missing_rate_count' => 0], $data['totals']);
         $this->assertCount(28, $data['groups']);
         $this->assertSame(['Gate', 'Stage', ...array_map(fn ($i) => sprintf('Unused %02d', $i), range(0, 25))], array_column($data['groups'], 'name'));
         $this->assertSame($expected, array_sum(array_column($data['groups'], 'scheduled_minutes')));
         foreach ($data['groups'] as $row) {
-            $this->assertSame(['group_id', 'name', 'scheduled_minutes', 'approved_minutes', 'unapproved_minutes'], array_keys($row));
+            $this->assertSame(['group_id', 'name', 'scheduled_minutes', 'approved_minutes', 'unapproved_minutes', 'scheduled_cost_cents', 'approved_cost_cents', 'missing_rate_count'], array_keys($row));
             $this->assertNull($row['approved_minutes']);
             $this->assertNull($row['unapproved_minutes']);
         }
         $this->assertSame(0, $data['groups'][27]['scheduled_minutes']);
-        foreach (['people', 'days', 'shifts', 'assignments', 'hourly_pay', 'employment_type'] as $key) {
+        foreach (['people', 'days', 'shifts', 'assignments', 'hourly_pay'] as $key) {
             $response->assertJsonMissingPath('data.'.$key);
             $this->assertStringNotContainsString('"'.$key.'"', $response->getContent());
         }
@@ -118,8 +118,9 @@ class TeamHoursReportTest extends TestCase
     {
         $this->getJson(route('team.reports.data'))->assertOk()->assertExactJson(['data' => [
             'event_id' => $this->event->id,
+            'employment_type' => 'all',
             'range' => ['start_date' => null, 'end_date' => null],
-            'totals' => ['scheduled_minutes' => 0, 'approved_minutes' => null, 'unapproved_minutes' => null],
+            'totals' => ['scheduled_minutes' => 0, 'approved_minutes' => null, 'unapproved_minutes' => null, 'scheduled_cost_cents' => 0, 'approved_cost_cents' => null, 'missing_rate_count' => 0],
             'groups' => [],
         ]]);
     }
@@ -169,7 +170,7 @@ class TeamHoursReportTest extends TestCase
                 $aggregates = array_filter($queries, fn ($query) => str_contains($query['query'], 'scheduled_minutes'));
                 $this->assertCount(1, $aggregates);
                 $sql = array_values($aggregates)[0]['query'];
-                $this->assertDoesNotMatchRegularExpression('/hourly_pay|employment_type|"people"|"users"/i', $sql);
+                $this->assertDoesNotMatchRegularExpression('/"people"|"users"/i', $sql);
             } finally {
                 DB::disableQueryLog();
             }
@@ -177,7 +178,7 @@ class TeamHoursReportTest extends TestCase
         $this->assertSame($counts[0], $counts[1]);
     }
 
-    public function test_group_people_includes_hired_and_assigned_members_and_reconciles_without_pay_or_other_details(): void
+    public function test_group_people_includes_hired_and_assigned_members_and_reconciles_without_contact_or_other_details(): void
     {
         $group = $this->event->groups()->create(['name' => 'Gate']);
         $otherGroup = $this->event->groups()->create(['name' => 'Stage']);
@@ -204,7 +205,7 @@ class TeamHoursReportTest extends TestCase
 
         $response = $this->getJson(route('team.reports.groups.people', $group))->assertOk();
         $data = $response->json('data');
-        $this->assertSame(['event_id', 'range', 'group', 'totals', 'people'], array_keys($data));
+        $this->assertSame(['event_id', 'employment_type', 'range', 'group', 'totals', 'people'], array_keys($data));
         $this->assertSame($this->event->id, $data['event_id']);
         $this->assertSame(['start_date' => null, 'end_date' => null], $data['range']);
         $this->assertSame(['group_id' => $group->id, 'name' => 'Gate'], $data['group']);
@@ -216,7 +217,7 @@ class TeamHoursReportTest extends TestCase
         $this->assertSame('paid', $data['people'][0]['employment_type']);
         $this->assertSame('volunteer', $data['people'][1]['employment_type']);
         foreach ($data['people'] as $index => $person) {
-            $this->assertSame(['team_engagement_id', 'person_id', 'name', 'employment_type', 'member_url', 'scheduled_minutes', 'approved_minutes', 'unapproved_minutes'], array_keys($person));
+            $this->assertSame(['team_engagement_id', 'person_id', 'name', 'employment_type', 'hourly_pay', 'member_url', 'scheduled_minutes', 'approved_minutes', 'unapproved_minutes', 'scheduled_cost_cents', 'approved_cost_cents', 'missing_rate_count'], array_keys($person));
             $this->assertSame(route('team.members.show', $person['team_engagement_id']), $person['member_url']);
             $this->assertSame($index === 0 ? 195 : 0, $person['scheduled_minutes']);
             $this->assertNull($person['approved_minutes']);
@@ -224,7 +225,7 @@ class TeamHoursReportTest extends TestCase
         }
         $overview = $this->getJson(route('team.reports.data'))->assertOk()->json('data.groups');
         $this->assertSame(collect($overview)->firstWhere('group_id', $group->id)['scheduled_minutes'], $data['totals']['scheduled_minutes']);
-        foreach (['hourly_pay', 'email', 'phone', 'shifts', 'days', 'assignments'] as $field) {
+        foreach (['email', 'phone', 'shifts', 'days', 'assignments'] as $field) {
             $this->assertStringNotContainsString('"'.$field.'"', $response->getContent());
         }
     }
@@ -350,7 +351,7 @@ class TeamHoursReportTest extends TestCase
                 $counts[] = count($queries);
                 $aggregates = array_filter($queries, fn ($query) => str_contains($query['query'], 'scheduled_minutes'));
                 $this->assertCount(1, $aggregates);
-                $this->assertDoesNotMatchRegularExpression('/hourly_pay|email|phone/i', array_values($aggregates)[0]['query']);
+                $this->assertDoesNotMatchRegularExpression('/email|phone/i', array_values($aggregates)[0]['query']);
             } finally {
                 DB::disableQueryLog();
             }
@@ -365,7 +366,7 @@ class TeamHoursReportTest extends TestCase
         $this->get(route('team.reports', ['group_id' => $group->id, 'start_date' => '2027-01-01', 'end_date' => '2027-01-03']))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('Team/Reports')
-                ->where('filters', ['group_id' => $group->id, 'start_date' => '2027-01-01', 'end_date' => '2027-01-03'])
+                ->where('filters', ['employment_type' => 'all', 'group_id' => $group->id, 'start_date' => '2027-01-01', 'end_date' => '2027-01-03'])
                 ->where('groupOptions', [['group_id' => $group->id, 'name' => 'Gate']])
                 ->missing('people')->missing('shifts'));
         foreach ([['group_id' => $foreign->id], ['group_id' => 'bad'], ['start_date' => '2027-01-01'],
@@ -416,9 +417,9 @@ class TeamHoursReportTest extends TestCase
         $this->assertSame(route('team.members.show', $supervisor->team_engagement_id), $people[0]['member_url']);
         $this->assertContains('volunteer', array_column($people, 'employment_type'));
         $this->assertContains(0, array_column($people, 'scheduled_minutes'));
-        $this->assertSame(['event_id', 'shift_id', 'people'], array_keys($peopleResponse->json('data')));
+        $this->assertSame(['event_id', 'employment_type', 'shift_id', 'people'], array_keys($peopleResponse->json('data')));
         foreach ([$response, $peopleResponse] as $result) {
-            foreach (['hourly_pay', 'email', 'phone', 'groups', 'group_id', 'group_name', 'totals'] as $field) {
+            foreach (['email', 'phone', 'groups', 'group_id', 'group_name', 'totals'] as $field) {
                 $this->assertStringNotContainsString('"'.$field.'"', $result->getContent());
             }
             $this->assertStringNotContainsString('Secret group', $result->getContent());
@@ -491,7 +492,7 @@ class TeamHoursReportTest extends TestCase
                     $counts[$kind][] = count($queries);
                     $hours = array_values(array_filter($queries, fn ($query) => str_contains($query['query'], 'scheduled_minutes')));
                     $this->assertCount(1, $hours);
-                    $this->assertDoesNotMatchRegularExpression('/hourly_pay|email|phone/i', $hours[0]['query']);
+                    $this->assertDoesNotMatchRegularExpression('/email|phone/i', $hours[0]['query']);
                 } finally {
                     DB::disableQueryLog();
                 }
