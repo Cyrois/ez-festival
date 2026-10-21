@@ -73,6 +73,8 @@ class EventPermissionsTest extends TestCase
         }
         $this->assertContains('can:team.hours_report.view', Route::getRoutes()->getByName('team.reports')->gatherMiddleware());
         $this->assertContains('can:team.hours_report.view', Route::getRoutes()->getByName('team.reports.data')->gatherMiddleware());
+        $this->assertContains('can:team.hours_report.view', Route::getRoutes()->getByName('team.reports.shifts')->gatherMiddleware());
+        $this->assertContains('can:team.hours_report.view', Route::getRoutes()->getByName('team.reports.shifts.people')->gatherMiddleware());
         $this->assertContains('can:team.hours_report.view', Route::getRoutes()->getByName('team.reports.groups.people')->gatherMiddleware());
     }
 
@@ -480,6 +482,35 @@ class EventPermissionsTest extends TestCase
         $this->getJson(route('team.reports.data'))->assertForbidden();
         $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
             ->where('permissions', fn ($permissions) => ! $permissions['team.hours_report.view']));
+    }
+
+    public function test_shift_hours_report_permissions_member_links_and_locked_reads(): void
+    {
+        $group = $this->event->groups()->create(['name' => 'Gate']);
+        $shift = $this->event->shifts()->create(['location_id' => $this->event->locations()->create(['name' => 'Gate'])->id,
+            'starts_at' => '2026-10-01 08:00:00', 'ends_at' => '2026-10-01 12:00:00']);
+        $member = $this->createTeamEngagement(['event_id' => $this->event->id, 'group_id' => $group->id,
+            'person_id' => Person::create(['name' => 'Report person', 'email' => 'shift-report@example.test'])->id, 'status' => 'hired']);
+        $shift->assignments()->create(['team_engagement_id' => $member->id, 'starts_at' => $shift->starts_at, 'ends_at' => $shift->ends_at]);
+        $day = route('team.reports.shifts', ['date' => '2026-10-01']);
+        $people = route('team.reports.shifts.people', $shift);
+        foreach (['team.view', 'scheduling.view', 'forms.view', 'meals.report.view'] as $permission) {
+            $this->role->update(['permissions' => [$permission]]);
+            $this->getJson($day)->assertForbidden();
+            $this->getJson($people)->assertForbidden();
+        }
+        $this->role->update(['permissions' => ['team.hours_report.view']]);
+        $this->event->lock();
+        $this->getJson($day)->assertOk();
+        $this->getJson($people)->assertOk()->assertJsonPath('data.people.0.member_url', null);
+        $this->role->update(['permissions' => ['team.hours_report.view', 'team.view']]);
+        $this->getJson($people)->assertOk()->assertJsonPath('data.people.0.member_url', route('team.members.show', $member));
+        $this->role->update(['permissions' => []]);
+        $this->getJson($people)->assertForbidden();
+        $this->getJson($day)->assertForbidden();
+        $this->grantAdminAccess($this->user);
+        $this->getJson($people)->assertOk();
+        $this->getJson($day)->assertOk();
     }
 
     public function test_team_hours_report_permission_is_available_on_role_forms_and_round_trips(): void

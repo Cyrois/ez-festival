@@ -17,6 +17,7 @@ const props = defineProps({
     requestKey: { type: String, required: true },
     showingPeople: { type: Boolean, default: false },
     canViewTeam: { type: Boolean, default: false },
+    shiftPeople: { type: Boolean, default: false },
 });
 const emit = defineEmits(['select-group']);
 const hasRowAction = computed(() => !props.showingPeople || props.canViewTeam);
@@ -82,7 +83,7 @@ const tableOptions = computed(() => ({
 <template>
     <div class="space-y-2">
         <p
-            v-if="showingPeople && canViewTeam"
+            v-if="showingPeople && canViewTeam && !shiftPeople"
             class="text-xs text-muted"
         >
             {{ $t('team.reports.member_hint') }}
@@ -92,6 +93,7 @@ const tableOptions = computed(() => ({
             :data="rows"
             :columns="columns"
             :options="tableOptions"
+            :embedded="shiftPeople"
             :mobile-layout="showingPeople ? 'summary' : 'stacked'"
         >
             <template #nameCell="{ rowData }">
@@ -127,6 +129,13 @@ const tableOptions = computed(() => ({
                                 `team.advancement.employment_type.${rowData.employment_type}`,
                             )
                         }}
+                    </Badge>
+                    <Badge
+                        v-if="shiftPeople && rowData.is_supervisor"
+                        pill
+                        class="border-primary/20 bg-primary/10 text-primary"
+                    >
+                        {{ $t('team.scheduling.supervisor.tag') }}
                     </Badge>
                 </span>
             </template>

@@ -8,7 +8,15 @@ import {
     loadLanguageAsync,
     trans,
 } from 'laravel-vue-i18n';
-import { computed, onMounted, ref } from 'vue';
+import {
+    computed,
+    nextTick,
+    onBeforeUnmount,
+    onMounted,
+    ref,
+    shallowRef,
+    watch,
+} from 'vue';
 import { cn } from '../../../lib/utils';
 
 defineOptions({ inheritAttrs: false });
@@ -16,6 +24,9 @@ defineOptions({ inheritAttrs: false });
 DataTablesVue.use(DataTablesCore);
 
 const props = defineProps({
+    embedded: { type: Boolean, default: false },
+    expandedRowKey: { type: [String, Number], default: null },
+    rowKey: { type: String, default: 'id' },
     mobileLayout: {
         type: String,
         default: 'stacked',
@@ -44,11 +55,46 @@ const props = defineProps({
 });
 
 const dataTable = ref(null);
+const expansionTarget = shallowRef(null);
+const expandedRowData = computed(() =>
+    props.expandedRowKey === null
+        ? undefined
+        : props.data?.find((row) => row[props.rowKey] === props.expandedRowKey),
+);
+let expandedRow;
+const closeExpansion = () => {
+    expandedRow?.node()?.classList.remove('dt-expanded');
+    expandedRow?.child.remove();
+    expandedRow = null;
+    expansionTarget.value = null;
+};
+const syncExpansion = (table) => {
+    if (!table) return;
+    if (props.expandedRowKey === null) {
+        if (expandedRow) closeExpansion();
+        return;
+    }
+    const row = table.row(
+        (_, data) =>
+            props.expandedRowKey !== null &&
+            data[props.rowKey] === props.expandedRowKey,
+    );
+    if (row.any() && expandedRow?.node() === row.node() && row.child.isShown())
+        return;
+    closeExpansion();
+    if (!row.any()) return;
+    const target = document.createElement('div');
+    row.child(target, 'dt-expanded-child').show();
+    row.node().classList.add('dt-expanded');
+    expandedRow = row;
+    expansionTarget.value = target;
+};
 const ready = ref(isLoaded(getActiveLanguage()));
 const classes = computed(() =>
     cn(
         'dt-stacked w-full border-collapse text-left text-sm',
         props.mobileLayout === 'summary' && 'dt-summary',
+        props.embedded && 'dt-embedded',
         props.class,
     ),
 );
@@ -98,6 +144,7 @@ const options = computed(() => ({
             });
 
         props.options.drawCallback?.apply(this, args);
+        syncExpansion(table);
     },
     language: {
         emptyTable: trans('data_table.empty'),
@@ -133,6 +180,11 @@ const api = () => {
 
     return instance?.value || instance;
 };
+watch([() => props.expandedRowKey, () => props.data, dataTable], async () => {
+    await nextTick();
+    syncExpansion(api());
+});
+onBeforeUnmount(closeExpansion);
 
 const search = (value, resetPaging = true) => {
     api()?.search(value).draw(resetPaging);
@@ -193,4 +245,13 @@ defineExpose({
         class="h-40"
         aria-hidden="true"
     />
+    <Teleport
+        v-if="expansionTarget && expandedRowData"
+        :to="expansionTarget"
+    >
+        <slot
+            name="expandedRow"
+            :row-data="expandedRowData"
+        />
+    </Teleport>
 </template>

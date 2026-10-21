@@ -36,7 +36,7 @@ class TeamScheduledHoursQuery
             ->when($startDate !== null, fn (Builder $query) => $query->whereDate('s.starts_at', '>=', $startDate))
             ->when($endDate !== null, fn (Builder $query) => $query->whereDate('s.starts_at', '<=', $endDate))
             ->leftJoinSub($breaks, 'breaks', 'breaks.shift_assignment_id', '=', 'a.id')
-            ->select('a.id as assignment_id', 'a.shift_id', 'a.team_engagement_id', 't.person_id', 't.group_id', 's.starts_at as shift_starts_at')
+            ->select('a.id as assignment_id', 'a.shift_id', 'a.team_engagement_id', 'a.is_supervisor', 't.person_id', 't.group_id', 's.starts_at as shift_starts_at')
             ->selectRaw("DATE(s.starts_at) as day, {$clamp}(0, {$duration} - COALESCE(breaks.break_minutes, 0)) as scheduled_minutes");
 
         return DB::query()->fromSub($assignments, 'scheduled');
@@ -103,18 +103,43 @@ class TeamScheduledHoursQuery
 
     public function dayShifts(Event $event, string $day): Collection
     {
+        return $this->dayShiftQuery($event, $day)
+            ->select('shifts.id as shift_id')->selectRaw('COALESCE(totals.scheduled_minutes, 0) as scheduled_minutes')
+            ->get()->map(fn ($row): array => [
+                'shift_id' => (int) $row->shift_id, 'scheduled_minutes' => (int) $row->scheduled_minutes,
+            ]);
+    }
+
+    public function dayShiftReport(Event $event, string $day): Collection
+    {
+        return $this->dayShiftQuery($event, $day)
+            ->join('locations', fn ($join) => $join->on('locations.id', '=', 'shifts.location_id')->where('locations.event_id', $event->id))
+            ->leftJoin('people as supervisor', 'supervisor.id', '=', 'totals.supervisor_person_id')
+            ->select('shifts.id as shift_id', 'shifts.name', 'shifts.starts_at', 'shifts.ends_at', 'locations.name as location', 'supervisor.name as supervisor_name')
+            ->selectRaw('COALESCE(totals.scheduled_minutes, 0) as scheduled_minutes, COALESCE(totals.people_count, 0) as people_count')
+            ->get();
+    }
+
+    public function shiftPeople(Event $event, int $shiftId): Collection
+    {
+        return $this->forEvent($event)->where('scheduled.shift_id', $shiftId)
+            ->join('people', 'people.id', '=', 'scheduled.person_id')
+            ->join('team_engagements as members', 'members.id', '=', 'scheduled.team_engagement_id')
+            ->select('scheduled.team_engagement_id', 'scheduled.person_id', 'scheduled.is_supervisor', 'scheduled.scheduled_minutes', 'people.name', 'members.employment_type')
+            ->orderByDesc('scheduled.is_supervisor')->orderBy('people.name')->orderBy('scheduled.team_engagement_id')->get();
+    }
+
+    private function dayShiftQuery(Event $event, string $day): Builder
+    {
         $start = CarbonImmutable::createFromFormat('!Y-m-d', $day, 'UTC');
         $totals = $this->forEvent($event)->where('shift_starts_at', '>=', $start->format('Y-m-d H:i:s'))
             ->where('shift_starts_at', '<', $start->addDay()->format('Y-m-d H:i:s'))
-            ->select('shift_id')->selectRaw('SUM(scheduled_minutes) as scheduled_minutes')->groupBy('shift_id');
+            ->select('shift_id')->selectRaw('SUM(scheduled_minutes) as scheduled_minutes, COUNT(*) as people_count, MAX(CASE WHEN is_supervisor THEN person_id END) as supervisor_person_id')->groupBy('shift_id');
 
         return DB::table('shifts')->where('shifts.event_id', $event->id)
             ->where('shifts.starts_at', '>=', $start->format('Y-m-d H:i:s'))
             ->where('shifts.starts_at', '<', $start->addDay()->format('Y-m-d H:i:s'))
             ->leftJoinSub($totals, 'totals', 'totals.shift_id', '=', 'shifts.id')
-            ->select('shifts.id as shift_id')->selectRaw('COALESCE(totals.scheduled_minutes, 0) as scheduled_minutes')
-            ->orderBy('shifts.starts_at')->orderBy('shifts.id')->get()->map(fn ($row): array => [
-                'shift_id' => (int) $row->shift_id, 'scheduled_minutes' => (int) $row->scheduled_minutes,
-            ]);
+            ->orderBy('shifts.starts_at')->orderBy('shifts.id');
     }
 }
