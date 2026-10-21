@@ -138,31 +138,48 @@ const breadcrumbs = computed(() => [
 </script>
 
 <template>
-    <AppLayout
-        :title="$t('team.reports.title')"
-        :breadcrumbs="breadcrumbs"
-    >
-        <div class="container mx-auto space-y-6">
-            <div>
-                <h1 class="text-2xl font-bold text-charcoal">
-                    {{ $t('team.reports.title') }}
-                </h1>
-                <p
-                    class="mt-1 text-sm text-muted"
-                    :class="groupActive && showingPeople && 'max-md:hidden'"
+    <Tabs v-model="activeView">
+        <AppLayout
+            :title="$t('team.reports.title')"
+            :breadcrumbs="breadcrumbs"
+        >
+            <template #section-nav>
+                <TabList
+                    :aria-label="$t('team.reports.title')"
+                    class="border-b-0"
                 >
-                    {{
-                        $t('team.reports.description', {
-                            event: page.props.activeEvent.name,
-                        })
-                    }}
-                </p>
-            </div>
-            <Tabs v-model="activeView">
-                <TabList>
-                    <Tab value="group">{{ $t('team.reports.by_group') }}</Tab>
-                    <Tab value="shift">{{ $t('team.reports.by_shift') }}</Tab>
+                    <Tab
+                        value="group"
+                        :aria-current="groupActive ? 'page' : undefined"
+                        class="mb-0 min-h-11 shrink-0 whitespace-nowrap"
+                    >
+                        {{ $t('team.reports.by_group') }}
+                    </Tab>
+                    <Tab
+                        value="shift"
+                        :aria-current="!groupActive ? 'page' : undefined"
+                        class="mb-0 min-h-11 shrink-0 whitespace-nowrap"
+                    >
+                        {{ $t('team.reports.by_shift') }}
+                    </Tab>
                 </TabList>
+            </template>
+            <div class="container mx-auto space-y-6">
+                <div>
+                    <h1 class="text-2xl font-bold text-charcoal">
+                        {{ $t('team.reports.title') }}
+                    </h1>
+                    <p
+                        class="mt-1 text-sm text-muted"
+                        :class="groupActive && showingPeople && 'max-md:hidden'"
+                    >
+                        {{
+                            $t('team.reports.description', {
+                                event: page.props.activeEvent.name,
+                            })
+                        }}
+                    </p>
+                </div>
                 <TabPanel
                     value="group"
                     class="space-y-6"
@@ -244,7 +261,7 @@ const breadcrumbs = computed(() => [
                         @toggle-shift="shiftReport.toggleShift"
                     />
                 </TabPanel>
-            </Tabs>
-        </div>
-    </AppLayout>
+            </div>
+        </AppLayout>
+    </Tabs>
 </template>
