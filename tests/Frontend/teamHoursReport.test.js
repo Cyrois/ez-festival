@@ -19,6 +19,7 @@ for (const key of [
     'Option',
     'DocumentFragment',
     'getComputedStyle',
+    'localStorage',
 ])
     globalThis[key] = dom.window[key];
 Object.defineProperty(globalThis, 'navigator', {
@@ -26,7 +27,7 @@ Object.defineProperty(globalThis, 'navigator', {
     configurable: true,
 });
 dom.window.performance.getEntriesByType = () => [];
-const { createApp, h, nextTick, reactive } = await import('vue');
+const { createApp, nextTick, reactive } = await import('vue');
 const require = createRequire(import.meta.url);
 const locale = JSON.parse(
     readFileSync(new URL('../../lang/en.json', import.meta.url), 'utf8'),
@@ -56,12 +57,11 @@ const deps = (globalThis.__teamHoursTest = {
     ).navigateDataTableRow,
     trans: translate,
     cn: (...values) => values.filter(Boolean).join(' '),
-    AppLayout: {
-        setup:
-            (_, { slots }) =>
-            () =>
-                h('main', slots.default?.()),
-    },
+    Head: { render: () => null },
+    Toast: { render: () => null },
+    SidebarCollapseButton: { render: () => null },
+    UserAccountControls: { render: () => null },
+    useInertiaErrorToast: () => {},
     usePage: () => page,
     useFlashToast: () => ({ showFormError: (errors) => toasts.push(errors) }),
     DataTablesCore: (await import('datatables.net-dt')).default,
@@ -73,6 +73,8 @@ const deps = (globalThis.__teamHoursTest = {
     Link: 'a',
     buttonVariants,
 });
+Object.assign(deps, await import('../../resources/js/lib/appNavigation.js'));
+Object.assign(deps, await import('../../resources/js/composables/useSidebarCollapsed.js'));
 await import('../../resources/js/icons.js');
 const importSource = async (source) => {
     source = source
@@ -155,6 +157,9 @@ for (const name of [
 ]) {
     deps[name] = await compile('components/team/hours-report/' + name + '.vue');
 }
+deps.SidebarNavItem = await compile('components/navigation/SidebarNavItem.vue');
+deps.SectionNavigation = await compile('components/navigation/SectionNavigation.vue');
+deps.AppLayout = await compile('layouts/AppLayout.vue');
 const Report = await compile('pages/Team/Reports.vue');
 const tick = async () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
@@ -289,6 +294,65 @@ const pickGroup = async (name) => {
         .click();
     await tick();
 };
+
+test('report switch sits between the Personnel header and page body and retains accessible keyboard selection', async () => {
+    const app = mount();
+    try {
+        const header = document.querySelector('header');
+        const main = document.querySelector('main');
+        const row = header.nextElementSibling;
+        const list = row.querySelector('[role="tablist"]');
+        assert.equal(row.nextElementSibling, main);
+        assert.equal(main.querySelector('[role="tablist"]'), null);
+        assert.equal(document.querySelectorAll('[role="tablist"]').length, 1);
+        assert.deepEqual([...list.children].map((tab) => tab.textContent.trim()), ['By team', 'By shift']);
+        assert.equal(list.getAttribute('aria-label'), 'Personnel hours');
+        assert.equal(main.querySelector('h1').textContent.trim(), 'Personnel hours');
+        assert.ok(row.classList.contains('bg-ground'));
+        assert.ok(header.classList.contains('border-b'));
+        const tabs = [...list.querySelectorAll('[role="tab"]')];
+        assert.ok(tabs.every((tab) => tab.classList.contains('min-h-11')));
+        assert.equal(tabs[0].getAttribute('aria-current'), 'page');
+        assert.equal(tabs[1].hasAttribute('aria-current'), false);
+        tabs[0].focus();
+        tabs[0].dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+        await tick();
+        assert.equal(document.activeElement, tabs[1]);
+        assert.equal(tabs[1].getAttribute('aria-selected'), 'true');
+        assert.equal(tabs[1].getAttribute('aria-current'), 'page');
+        assert.equal(tabs[0].hasAttribute('aria-current'), false);
+        const panel = document.getElementById(tabs[1].getAttribute('aria-controls'));
+        assert.equal(panel.hidden, false);
+        assert.equal(panel.getAttribute('aria-labelledby'), tabs[1].id);
+        assert.equal(page.url, '/team/reports?view=shift&date=2026-10-01');
+    } finally {
+        app.unmount();
+    }
+});
+
+test('report switch stays visible while loading, failed and empty, including with a collapsed sidebar', async () => {
+    dom.window.localStorage.setItem('artist-tree.sidebar-collapsed', 'true');
+    const app = mount();
+    try {
+        const row = document.querySelector('header').nextElementSibling;
+        const main = document.querySelector('main');
+        assert.ok(main.parentElement.classList.contains('lg:ml-16'));
+        assert.equal(row.querySelectorAll('[role="tab"]').length, 2);
+        requests[0].reject(new Error('Offline'));
+        await tick();
+        assert.equal(document.querySelector('header').nextElementSibling, row);
+        const retry = [...main.querySelectorAll('button')].find((button) => button.textContent.trim() === 'Retry');
+        retry.click();
+        await tick();
+        await respond(1, []);
+        assert.equal(document.querySelector('header').nextElementSibling, row);
+        assert.equal(row.querySelectorAll('[role="tab"]').length, 2);
+        assert.equal(document.querySelector('table'), null);
+    } finally {
+        app.unmount();
+        dom.window.localStorage.removeItem('artist-tree.sidebar-collapsed');
+    }
+});
 
 test('first load shows group hours, both view tabs, and no export or shift prefetch', async () => {
     const app = mount();

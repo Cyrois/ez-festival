@@ -323,6 +323,13 @@ const railClass = computed(() => {
                 <UserAccountControls :user="user" />
             </header>
 
+            <div
+                v-if="$slots['section-nav']"
+                class="shrink-0 bg-ground px-4 md:px-6"
+            >
+                <slot name="section-nav" />
+            </div>
+
             <main class="content-body flex-1 py-6 md:py-8">
                 <div class="container mx-auto">
                     <slot />

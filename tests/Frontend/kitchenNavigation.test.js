@@ -57,6 +57,7 @@ const navigation = async (permissions, collapsed = false, isAdmin = false, url =
             href: link.getAttribute('href'),
             current: link.getAttribute('aria-current'),
         }));
+        assert.equal(dom.window.document.querySelector('header').nextElementSibling.tagName, 'MAIN', 'pages without a section-nav slot must not gain a second navigation row');
         return { sidebar: links('aside nav a'), tabs: links('header nav a') };
     } finally {
         dom.window.close();
