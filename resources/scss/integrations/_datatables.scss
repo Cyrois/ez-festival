@@ -93,16 +93,16 @@
         @apply flex-row;
     }
 
-    table.dataTable tbody td {
+    table.dataTable > tbody > tr > td {
         @apply border-b border-line text-sm text-charcoal;
     }
 
     /* Outrank DataTables' dt-empty-footer rule so the wrapper owns the bottom edge. */
-    div.dt-container table.dataTable tbody tr:last-child > * {
+    div.dt-container table.dataTable > tbody > tr:last-child > * {
         @apply border-b-0;
     }
 
-    table.dataTable tbody tr {
+    table.dataTable > tbody > tr {
         @apply h-11 transition-colors hover:bg-page;
 
         &:has([data-ui='avatar']) td {
@@ -119,7 +119,7 @@
         }
 
         div.dt-container table.dt-stacked,
-        div.dt-container table.dt-stacked tbody {
+        div.dt-container table.dt-stacked > tbody {
             @apply block w-full min-w-0;
         }
 
@@ -136,44 +136,49 @@
             @apply sr-only;
         }
 
-        div.dt-container table.dt-stacked tbody tr {
+        div.dt-container table.dt-stacked > tbody > tr {
             @apply block h-auto border-b border-line py-2;
         }
 
-        div.dt-container table.dt-stacked tbody tr:last-child {
+        div.dt-container table.dt-stacked > tbody > tr:last-child {
             @apply border-b-0;
         }
 
-        div.dt-container table.dt-stacked tbody tr > td {
+        div.dt-container table.dt-stacked > tbody > tr > td {
             @apply block min-w-0 border-0 px-4 py-2 text-left [overflow-wrap:anywhere] whitespace-normal;
         }
 
         div.dt-container
             table.dt-stacked
-            tbody
-            td[data-label]:not([data-label=''])::before {
+            > tbody
+            > tr
+            > td[data-label]:not([data-label=''])::before {
             @apply mb-1 block text-xs font-bold tracking-wide text-muted uppercase no-underline;
             content: attr(data-label);
         }
 
-        div.dt-container table.dt-stacked tbody td > div {
+        div.dt-container table.dt-stacked > tbody > tr > td > div {
             @apply max-w-full min-w-0;
         }
 
-        div.dt-container table.dt-stacked tbody td .whitespace-nowrap {
+        div.dt-container table.dt-stacked > tbody > tr > td .whitespace-nowrap {
             @apply whitespace-normal;
         }
 
         /* Optional summary records: a full-width name followed by three metrics. */
-        div.dt-container table.dt-stacked.dt-summary tbody tr {
+        div.dt-container table.dt-stacked.dt-summary > tbody > tr {
             @apply relative grid grid-cols-3;
         }
 
-        div.dt-container table.dt-stacked.dt-summary tbody tr > td {
+        div.dt-container table.dt-stacked.dt-summary > tbody > tr > td {
             @apply px-3 py-1;
         }
 
-        div.dt-container table.dt-stacked.dt-summary tbody tr > td:first-child {
+        div.dt-container
+            table.dt-stacked.dt-summary
+            > tbody
+            > tr
+            > td:first-child {
             @apply col-span-3;
 
             &::before {
@@ -181,15 +186,74 @@
             }
         }
 
-        div.dt-container table.dt-stacked.dt-summary tbody td.dt-row-action {
+        div.dt-container
+            table.dt-stacked.dt-summary
+            > tbody
+            > tr
+            > td.dt-row-action {
             @apply hidden;
         }
 
         div.dt-container
             table.dt-stacked.dt-summary
-            tbody
-            td[data-label]::before {
+            > tbody
+            > tr
+            > td[data-label]::before {
             @apply mb-0 tracking-normal;
+        }
+    }
+
+    /* Embedded tables share their expanded row's surface rather than adding a card. */
+    div.dt-container div.dt-layout-table > div:has(> table.dt-embedded) {
+        @apply rounded-none border-0 bg-transparent;
+    }
+
+    table.dataTable.dt-embedded,
+    table.dataTable.dt-embedded > thead th {
+        @apply bg-transparent;
+    }
+
+    /* Expanded rows own a Vue slot; nested tables retain their own mobile layout. */
+    table.dataTable > tbody > tr.dt-expanded,
+    table.dataTable > tbody > tr.dt-expanded-child {
+        @apply bg-primary/5;
+    }
+
+    table.dataTable > tbody > tr.dt-expanded-child > td {
+        @apply px-3 py-3 md:px-6;
+    }
+
+    table.dt-aligned-expansion > tbody > tr.dt-expanded-child > td {
+        @apply px-0;
+    }
+
+    @media (width < 48rem) {
+        table.dt-embedded.dt-summary > thead {
+            @apply sr-only;
+        }
+
+        div.dt-container table.dt-stacked > tbody > tr.dt-expanded-child {
+            @apply block p-0;
+        }
+
+        div.dt-container table.dt-stacked > tbody > tr.dt-expanded-child > td {
+            @apply block p-0;
+        }
+
+        div.dt-container
+            table.dt-stacked.dt-summary
+            > tbody
+            > tr
+            > td.dt-record-wide {
+            @apply col-span-3;
+        }
+
+        div.dt-container
+            table.dt-stacked.dt-summary
+            > tbody
+            > tr
+            > td.dt-expansion-action {
+            @apply absolute top-1 right-1 block;
         }
     }
 
@@ -197,22 +261,26 @@
      * Keep the leading record label consistent even when a slotted cell has
      * its own text and font utility classes.
      */
-    table.dataTable tbody tr[data-row-link] td:first-child,
-    table.dataTable tbody tr[data-row-link] td:first-child > :first-child,
-    table.dataTable tbody tr[data-row-link] td:first-child a {
+    table.dataTable > tbody > tr[data-row-link] > td:first-child,
+    table.dataTable > tbody > tr[data-row-link] > td:first-child > :first-child,
+    table.dataTable > tbody > tr[data-row-link] > td:first-child a {
         @apply font-semibold text-primary;
     }
 
-    table.dataTable tbody tr[data-row-link]:hover td:first-child,
-    table.dataTable tbody tr[data-row-link]:hover td:first-child > :first-child,
-    table.dataTable tbody tr[data-row-link]:hover td:first-child a {
+    table.dataTable > tbody > tr[data-row-link]:hover > td:first-child,
+    table.dataTable
+        > tbody
+        > tr[data-row-link]:hover
+        > td:first-child
+        > :first-child,
+    table.dataTable > tbody > tr[data-row-link]:hover > td:first-child a {
         @apply underline underline-offset-2;
     }
 
-    table.dataTable tbody td.dt-empty,
-    table.dataTable tbody td.dataTables_empty,
-    table.dataTable tbody tr:hover td.dt-empty,
-    table.dataTable tbody tr:hover td.dataTables_empty {
+    table.dataTable > tbody > tr > td.dt-empty,
+    table.dataTable > tbody > tr > td.dataTables_empty,
+    table.dataTable > tbody > tr:hover td.dt-empty,
+    table.dataTable > tbody > tr:hover td.dataTables_empty {
         @apply text-center align-middle font-normal text-muted no-underline;
     }
 
@@ -221,11 +289,11 @@
         @apply relative;
     }
 
-    div.dt-container table.dataTable tbody tr:has(.dt-loading) {
+    div.dt-container table.dataTable > tbody > tr:has(.dt-loading) {
         @apply h-22 py-0;
     }
 
-    div.dt-container table.dataTable tbody td:has(.dt-loading) {
+    div.dt-container table.dataTable > tbody > tr > td:has(.dt-loading) {
         @apply h-22 pb-8 text-center;
     }
 

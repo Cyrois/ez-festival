@@ -9,6 +9,7 @@ export function useHoursReportRequests({
     startDate,
     endDate,
     groups,
+    active = computed(() => true),
 }) {
     const { showFormError } = useFlashToast();
     const requests = shallowReactive(new Map());
@@ -68,6 +69,7 @@ export function useHoursReportRequests({
     };
     const load = async () => {
         if (
+            !active.value ||
             Object.keys(rangeErrors.value).length ||
             ['loading', 'loaded'].includes(current.value?.status)
         )
@@ -134,7 +136,7 @@ export function useHoursReportRequests({
     };
 
     watch(
-        [eventId, selectedGroup, startDate, endDate],
+        [eventId, selectedGroup, startDate, endDate, active],
         (values, previous) => {
             if (previous.length && values[0] !== previous[0]) {
                 cancelPending();

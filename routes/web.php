@@ -73,6 +73,8 @@ use App\Http\Controllers\Team\ShiftAssignmentController;
 use App\Http\Controllers\Team\ShiftController as TeamShiftController;
 use App\Http\Controllers\Team\ShiftCopyController;
 use App\Http\Controllers\Team\ShiftDataTableController as TeamShiftDataTableController;
+use App\Http\Controllers\Team\ShiftHoursPeopleController;
+use App\Http\Controllers\Team\ShiftHoursReportController;
 use App\Http\Controllers\TeamCheckInController;
 use App\Http\Controllers\UiKitController;
 use App\Http\Controllers\VendorCheckInController;
@@ -229,6 +231,8 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::get('forms/{teamForm}/edit', [TeamFormsController::class, 'edit'])->name('forms.edit');
             Route::get('reports', [TeamReportsController::class, 'index'])->name('reports');
             Route::get('reports/data', [HoursReportController::class, 'index'])->name('reports.data');
+            Route::get('reports/shifts', [ShiftHoursReportController::class, 'index'])->name('reports.shifts');
+            Route::get('reports/shifts/{shift}/people', [ShiftHoursPeopleController::class, 'index'])->name('reports.shifts.people');
             Route::get('reports/groups/{group}/people', [GroupHoursPeopleController::class, 'index'])->name('reports.groups.people');
             Route::get('configure', [TeamConfigureController::class, 'index'])->name('configure');
             Route::middleware('event.writable')->group(function () {

@@ -17,9 +17,14 @@ const props = defineProps({
     requestKey: { type: String, required: true },
     showingPeople: { type: Boolean, default: false },
     canViewTeam: { type: Boolean, default: false },
+    shiftPeople: { type: Boolean, default: false },
+    columnWidths: { type: Array, default: () => [] },
 });
 const emit = defineEmits(['select-group']);
 const hasRowAction = computed(() => !props.showingPeople || props.canViewTeam);
+const hasTrailingColumn = computed(
+    () => hasRowAction.value || props.shiftPeople,
+);
 const columns = computed(() => [
     {
         data: 'name',
@@ -33,7 +38,7 @@ const columns = computed(() => [
         title: trans(`team.reports.${type}`),
         render: { display: `#${type}Cell` },
     })),
-    ...(!hasRowAction.value
+    ...(!hasTrailingColumn.value
         ? []
         : [
               {
@@ -56,8 +61,9 @@ const tableOptions = computed(() => ({
         bottomEnd: null,
     },
     columnDefs: [
+        ...(props.shiftPeople ? [{ targets: 0, className: 'md:pl-10' }] : []),
         { targets: [1, 2, 3], className: 'text-right tabular-nums' },
-        ...(hasRowAction.value
+        ...(hasTrailingColumn.value
             ? [{ targets: 4, className: 'dt-row-action w-12 text-right' }]
             : []),
     ],
@@ -69,6 +75,7 @@ const tableOptions = computed(() => ({
                           row,
                           person,
                           (item) => item.member_url,
+                          { newTab: true },
                       );
               }
             : undefined
@@ -82,7 +89,7 @@ const tableOptions = computed(() => ({
 <template>
     <div class="space-y-2">
         <p
-            v-if="showingPeople && canViewTeam"
+            v-if="showingPeople && canViewTeam && !shiftPeople"
             class="text-xs text-muted"
         >
             {{ $t('team.reports.member_hint') }}
@@ -92,6 +99,8 @@ const tableOptions = computed(() => ({
             :data="rows"
             :columns="columns"
             :options="tableOptions"
+            :embedded="shiftPeople"
+            :column-widths="columnWidths"
             :mobile-layout="showingPeople ? 'summary' : 'stacked'"
         >
             <template #nameCell="{ rowData }">
@@ -101,6 +110,13 @@ const tableOptions = computed(() => ({
                             showingPeople && canViewTeam && rowData.member_url
                         "
                         :href="rowData.member_url"
+                        target="_blank"
+                        rel="noopener"
+                        :aria-label="
+                            $t('team.reports.view_member', {
+                                name: rowData.name,
+                            })
+                        "
                         class="font-semibold text-primary underline underline-offset-2"
                         >{{ rowData.name }}</Link
                     >
@@ -128,6 +144,13 @@ const tableOptions = computed(() => ({
                             )
                         }}
                     </Badge>
+                    <Badge
+                        v-if="shiftPeople && rowData.is_supervisor"
+                        pill
+                        class="border-primary/20 bg-primary/10 text-primary"
+                    >
+                        {{ $t('team.scheduling.supervisor.tag') }}
+                    </Badge>
                 </span>
             </template>
             <template #scheduledCell="{ rowData }">{{
@@ -147,6 +170,8 @@ const tableOptions = computed(() => ({
                 <Link
                     v-if="showingPeople && canViewTeam && rowData.member_url"
                     :href="rowData.member_url"
+                    target="_blank"
+                    rel="noopener"
                     class="inline-flex h-10 w-10 items-center justify-center rounded-lg text-primary focus-visible:outline-primary"
                     :aria-label="
                         $t('team.reports.view_member', {

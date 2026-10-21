@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Team\IndexTeamReportsRequest;
 use App\Repositories\GroupRepository;
 use App\Support\EventContext;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -17,6 +18,10 @@ class ReportsController extends Controller
         $data = $request->validated();
 
         return Inertia::render('Team/Reports', [
+            'shiftFilters' => [
+                'view' => $data['view'] ?? 'group',
+                'date' => $data['date'] ?? Carbon::now($event->timezone)->format('Y-m-d'),
+            ],
             'filters' => [
                 'group_id' => isset($data['group_id']) ? (int) $data['group_id'] : null,
                 'start_date' => $data['start_date'] ?? null,

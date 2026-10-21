@@ -45,6 +45,7 @@ const deps = (globalThis.__teamHoursTest = {
         },
     },
     cva,
+    TABS_KEY: Symbol('tabs'),
     FontAwesomeIcon: (await import('@fortawesome/vue-fontawesome'))
         .FontAwesomeIcon,
     activateDataTableRow: (
@@ -118,6 +119,10 @@ const compile = async (path) => {
     ).default;
 };
 for (const [name, path] of [
+    ['Tabs', 'components/ui/tabs/Tabs.vue'],
+    ['TabList', 'components/ui/tabs/TabList.vue'],
+    ['Tab', 'components/ui/tabs/Tab.vue'],
+    ['TabPanel', 'components/ui/tabs/TabPanel.vue'],
     ['CardTitle', 'components/ui/card/CardTitle.vue'],
     ['Card', 'components/ui/card/Card.vue'],
     ['Input', 'components/ui/input/Input.vue'],
@@ -136,11 +141,17 @@ deps.formatHoursReportDuration = (
 deps.useHoursReportRequests = (
     await compileModule('composables/useHoursReportRequests.js')
 ).useHoursReportRequests;
+deps.useShiftHoursReportRequests = (
+    await compileModule('composables/useShiftHoursReportRequests.js')
+).useShiftHoursReportRequests;
+Object.assign(deps, await import('../../resources/js/lib/scheduleTimeline.js'));
 for (const name of [
     'HoursReportFilters',
     'HoursReportSummary',
     'HoursReportLoadState',
     'HoursReportTable',
+    'ShiftHoursReportTable',
+    'ShiftHoursReport',
 ]) {
     deps[name] = await compile('components/team/hours-report/' + name + '.vue');
 }
@@ -151,6 +162,7 @@ const tick = async () => {
 };
 const mount = ({
     filters = {},
+    shiftFilters = { view: 'group', date: '2026-10-01' },
     groupOptions = [],
     url = '/team/reports',
     canViewTeam = false,
@@ -161,6 +173,7 @@ const mount = ({
         url,
         props: {
             filters,
+            shiftFilters,
             groupOptions,
             activeEvent: { id: 11, name: 'Sunrise Folk Fest' },
             permissions: {
@@ -173,7 +186,7 @@ const mount = ({
         new Promise((resolve, reject) => {
             requests.push({ url, options, resolve, reject });
         });
-    const app = createApp(Report, { filters, groupOptions });
+    const app = createApp(Report, { filters, shiftFilters, groupOptions });
     app.config.globalProperties.$t = translate;
     app.mount(document.getElementById('app'));
     return app;
@@ -277,7 +290,7 @@ const pickGroup = async (name) => {
     await tick();
 };
 
-test('first load shows loading, then every group with three hours columns and no later controls', async () => {
+test('first load shows group hours, both view tabs, and no export or shift prefetch', async () => {
     const app = mount();
     try {
         assert.equal(requests.length, 1);
@@ -320,7 +333,11 @@ test('first load shows loading, then every group with three hours columns and no
             document.querySelector('img, select, .dt-paging, .dt-search'),
             null,
         );
-        assert.equal(document.querySelectorAll('input').length, 2);
+        assert.equal(
+            document.querySelectorAll('[role=tabpanel]:not([hidden]) input')
+                .length,
+            2,
+        );
         assert.equal(document.querySelectorAll('tbody button').length, 12);
         assert.equal(
             document.querySelector('tbody button').getAttribute('aria-label'),
@@ -328,7 +345,7 @@ test('first load shows loading, then every group with three hours columns and no
         );
         assert.doesNotMatch(
             document.body.textContent,
-            /No group|By shift|Export CSV|Back to All groups|Paid|Volunteer/,
+            /No group|Export CSV|Back to All groups|Paid|Volunteer/,
         );
         assert.match(document.body.textContent, /Sunrise Folk Fest/);
     } finally {
@@ -346,7 +363,7 @@ test('a failed response shows Retry, repeated clicks send one request, and zero 
             /Couldn’t load group hours/,
         );
         assert.equal(document.querySelector('table'), null);
-        const retry = document.querySelector('button');
+        const retry = buttonWithText('Retry');
         retry.click();
         retry.click();
         assert.equal(requests.length, 2);
@@ -428,7 +445,7 @@ test('late results cannot replace the selected range or event, and unmount abort
             document.body.textContent,
             /Wrong event|Selected range/,
         );
-        document.querySelector('button').click();
+        buttonWithText('Retry').click();
         await respond(3, [group('Other event', 180)], 22);
         assert.equal(scheduledTotal(), '3 h 00');
         await setDate('hours-end-date', '2026-09-03');
@@ -460,7 +477,12 @@ test('server validation is shown on the field and through the shared error toast
         );
         assert.match(document.body.textContent, /Choose a valid end date/);
         assert.deepEqual(toasts, [{ end_date: 'Choose a valid end date.' }]);
-        assert.equal(document.querySelector('button, table'), null);
+        assert.equal(
+            document.querySelector(
+                '[role=tabpanel]:not([hidden]) button, table',
+            ),
+            null,
+        );
         await setDate('hours-start-date', '2026-10-01');
         await setDate('hours-end-date', '2026-10-02');
         assert.equal(requests.length, 2);
@@ -534,7 +556,7 @@ test('group rows open the complete people list directly with badges, group total
         );
         assert.doesNotMatch(
             document.body.textContent,
-            /By shift|Export CSV|No group|hourly_pay/,
+            /Export CSV|No group|hourly_pay/,
         );
         assert.equal(document.querySelector('select'), null);
         assert.equal(
@@ -747,7 +769,7 @@ test('wrong-group responses fail without caching and selected-group validation u
     }
 });
 
-test('member names and chevrons use same-tab member links only with Team view, with the summary mobile layout', async () => {
+test('member names and chevrons use new-tab member links only with Team view, with the summary mobile layout', async () => {
     const app = mount({ canViewTeam: true });
     try {
         await respond(0);
@@ -761,11 +783,12 @@ test('member names and chevrons use same-tab member links only with Team view, w
         assert.equal(links[0].textContent, 'Ava Chen');
         for (const link of links) {
             assert.equal(link.getAttribute('href'), '/team/members/87');
-            assert.equal(link.getAttribute('target'), null);
+            assert.equal(link.getAttribute('target'), '_blank');
+            assert.equal(link.getAttribute('rel'), 'noopener');
         }
         assert.equal(
             links[1].getAttribute('aria-label'),
-            'View Team member Ava Chen',
+            'View Team member Ava Chen (opens in a new tab)',
         );
         assert.equal(
             document.querySelector('table').classList.contains('dt-summary'),
@@ -871,5 +894,484 @@ test('deferred history updates retain the filters belonging to their own address
     } finally {
         app.unmount();
         deps.router.replace = replace;
+    }
+});
+
+const shift = (shift_id = 71, name = 'Gate A') => ({
+    shift_id,
+    name,
+    location: 'Main Gate',
+    starts_at: '2026-10-01T22:00',
+    ends_at: '2026-10-02T06:00',
+    people_count: 1,
+    supervisor_name: 'Ava Chen',
+    scheduled_minutes: 90,
+    approved_minutes: null,
+    unapproved_minutes: null,
+});
+const respondDay = async (index, shifts = [shift()], overrides = {}) => {
+    const date = new URL(
+        requests[index].url,
+        'http://localhost',
+    ).searchParams.get('date');
+    requests[index].resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+            data: { event_id: 11, date, shifts, ...overrides },
+        }),
+    });
+    await tick();
+};
+const respondShiftPeople = async (
+    index,
+    people = [{ ...person(), is_supervisor: true }],
+    overrides = {},
+) => {
+    const shift_id = Number(requests[index].url.split('/')[4]);
+    requests[index].resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+            data: { event_id: 11, shift_id, people, ...overrides },
+        }),
+    });
+    await tick();
+};
+const openShiftButton = () =>
+    document.querySelector('button[aria-label^="Open people"]');
+const selectView = async (name) => {
+    buttonWithText(name).click();
+    await tick();
+};
+
+test('By shift loads only the chosen day, expands the full roster, reconciles hours, and never shows groups or money', async () => {
+    const app = mount({
+        shiftFilters: { view: 'shift', date: '2026-10-01' },
+        canViewTeam: true,
+    });
+    try {
+        assert.equal(requests.length, 1);
+        assert.equal(requests[0].url, '/team/reports/shifts?date=2026-10-01');
+        assert.match(
+            document.querySelector('[role=status]').textContent,
+            /Loading shift hours/,
+        );
+        await respondDay(0, [
+            { ...shift(), location: '<img src=x onerror=alert(1)>' },
+            {
+                ...shift(72, 'Parking'),
+                people_count: 0,
+                scheduled_minutes: 0,
+                supervisor_name: null,
+            },
+        ]);
+        assert.equal(document.querySelectorAll('tbody tr').length, 2);
+        assert.match(document.querySelector('tbody').textContent, /Overnight/);
+        assert.equal(document.querySelector('img'), null);
+        assert.match(
+            document.querySelector('tbody').textContent,
+            /<img src=x onerror=alert/,
+        );
+        openShiftButton().click();
+        await tick();
+        assert.equal(requests.length, 2);
+        assert.equal(requests[1].url, '/team/reports/shifts/71/people');
+        await respondShiftPeople(
+            1,
+            Array.from({ length: 31 }, (_, i) => ({
+                ...person('Member ' + i, i === 0 ? 90 : 0),
+                team_engagement_id: i + 1,
+                is_supervisor: i === 0,
+                member_url: '/team/members/' + (i + 1),
+            })),
+        );
+        const child = document.getElementById('hours-shift-71-people');
+        assert.ok(child);
+        assert.equal(
+            child.querySelector('table').classList.contains('dt-embedded'),
+            true,
+        );
+        assert.equal(child.querySelector('.h-40'), null);
+        assert.equal(child.querySelectorAll('table > tbody > tr').length, 31);
+        assert.match(child.textContent, /Supervisor/);
+        assert.match(child.textContent, /Volunteer/);
+        assert.doesNotMatch(
+            child.textContent,
+            /group|Group|hourly_pay|Main Gate/,
+        );
+        assert.equal(
+            document
+                .querySelector('table > tbody > tr')
+                .cells[3].textContent.trim(),
+            '31',
+        );
+        for (const link of child.querySelectorAll('a')) {
+            assert.equal(link.getAttribute('target'), '_blank');
+            assert.equal(link.getAttribute('rel'), 'noopener');
+        }
+        assert.equal(
+            child.querySelector('a').getAttribute('href'),
+            '/team/members/1',
+        );
+        assert.equal(
+            child.querySelector('table').classList.contains('dt-summary'),
+            true,
+        );
+        assert.equal(document.querySelector('.dt-paging, .dt-search'), null);
+        document.querySelector('button[aria-label^="Close people"]').click();
+        await tick();
+        assert.equal(document.querySelector('.dt-expanded-child'), null);
+        openShiftButton().click();
+        await tick();
+        assert.equal(requests.length, 2);
+        assert.equal(
+            document
+                .getElementById('hours-shift-71-people')
+                .querySelectorAll('table > tbody > tr').length,
+            31,
+        );
+    } finally {
+        app.unmount();
+    }
+    assert.equal(document.querySelector('.dt-expanded-child'), null);
+});
+
+test('view and day revisits reuse both caches without prefetch and preserve independent group filters', async () => {
+    const app = mount();
+    try {
+        await respond(0);
+        await setDate('hours-start-date', '2027-01-01');
+        await setDate('hours-end-date', '2027-01-03');
+        await respond(1);
+        await selectView('By shift');
+        assert.equal(requests.length, 3);
+        await respondDay(2);
+        openShiftButton().click();
+        await tick();
+        await respondShiftPeople(3);
+        await selectView('By group');
+        assert.equal(
+            document.getElementById('hours-start-date').value,
+            '2027-01-01',
+        );
+        assert.equal(requests.length, 4);
+        await selectView('By shift');
+        assert.equal(requests.length, 4);
+        assert.ok(document.getElementById('hours-shift-71-people'));
+        await setDate('hours-shift-day', '2027-12-01');
+        assert.equal(requests.length, 5);
+        await respondDay(4, []);
+        assert.match(document.body.textContent, /No shifts on this day/);
+        await setDate('hours-shift-day', '2026-10-01');
+        openShiftButton().click();
+        await tick();
+        assert.equal(requests.length, 5);
+        assert.ok(document.getElementById('hours-shift-71-people'));
+        assert.equal(
+            document.getElementById('hours-shift-day').hasAttribute('min'),
+            false,
+        );
+        assert.equal(
+            document.getElementById('hours-shift-day').hasAttribute('max'),
+            false,
+        );
+    } finally {
+        app.unmount();
+    }
+});
+
+test('day and people failures retry once while pending, keep the shift row, and cache empty successes', async () => {
+    const app = mount({ shiftFilters: { view: 'shift', date: '2026-10-01' } });
+    try {
+        requests[0].resolve({ ok: false, status: 500 });
+        await tick();
+        buttonWithText('Retry').click();
+        buttonWithText('Retry').click();
+        assert.equal(requests.length, 2);
+        await respondDay(1);
+        openShiftButton().click();
+        await tick();
+        requests[2].reject(new Error('offline'));
+        await tick();
+        assert.match(
+            document.querySelector('[role=alert]').textContent,
+            /Couldn’t load Gate A’s people/,
+        );
+        assert.match(
+            document.querySelector('table > tbody > tr').textContent,
+            /1 h 30/,
+        );
+        buttonWithText('Retry').click();
+        buttonWithText('Retry').click();
+        assert.equal(requests.length, 4);
+        await respondShiftPeople(3, []);
+        assert.match(
+            document.getElementById('hours-shift-71-people').textContent,
+            /No records available/,
+        );
+        assert.match(
+            document.querySelector('table > tbody > tr').textContent,
+            /0 h 00/,
+        );
+        assert.equal(
+            document
+                .querySelector('table > tbody > tr')
+                .cells[3].textContent.trim(),
+            '0',
+        );
+        document.querySelector('button[aria-label^="Close people"]').click();
+        await tick();
+        openShiftButton().click();
+        await tick();
+        assert.equal(requests.length, 4);
+    } finally {
+        app.unmount();
+    }
+});
+
+test('late day and shift results are isolated, duplicate in-flight opens share a request, and event changes cancel them', async () => {
+    const app = mount({ shiftFilters: { view: 'shift', date: '2026-10-01' } });
+    try {
+        await respondDay(0, [shift(), shift(72, 'Night bar')]);
+        openShiftButton().click();
+        await tick();
+        document.querySelector('button[aria-label^="Close people"]').click();
+        await tick();
+        openShiftButton().click();
+        await tick();
+        assert.equal(requests.length, 2);
+        await setDate('hours-shift-day', '2026-10-02');
+        await respondDay(2, [shift(73, 'Next day')]);
+        await respondShiftPeople(1, [
+            { ...person('Stale person'), is_supervisor: false },
+        ]);
+        assert.doesNotMatch(document.body.textContent, /Stale person|Gate A/);
+        await setDate('hours-shift-day', '2026-10-03');
+        await setDate('hours-shift-day', '2026-10-04');
+        await respondDay(4, [shift(74, 'Latest')]);
+        await respondDay(3, [shift(75, 'Stale day')]);
+        assert.match(document.body.textContent, /Latest/);
+        assert.doesNotMatch(document.body.textContent, /Stale day/);
+        openShiftButton().click();
+        await tick();
+        page.props.activeEvent = { id: 22, name: 'Other event' };
+        await tick();
+        assert.equal(requests[5].options.signal.aborted, true);
+        await respondDay(6, [shift(76, 'Wrong event')]);
+        assert.match(
+            document.querySelector('[role=alert]').textContent,
+            /Couldn’t load shift hours/,
+        );
+        assert.doesNotMatch(document.body.textContent, /Wrong event|Latest/);
+    } finally {
+        app.unmount();
+    }
+});
+
+test('shift names are plain without Team view and URL/history restores the same view and day after a member visit', async () => {
+    let app = mount({ shiftFilters: { view: 'shift', date: '2027-01-02' } });
+    let saved;
+    try {
+        await respondDay(0);
+        openShiftButton().click();
+        await tick();
+        await respondShiftPeople(1);
+        assert.equal(document.querySelector('tbody a'), null);
+        assert.equal(page.url, '/team/reports?view=shift&date=2027-01-02');
+        saved = {
+            url: page.url,
+            shiftFilters: { ...page.props.shiftFilters },
+            filters: { ...page.props.filters },
+            canViewTeam: true,
+        };
+    } finally {
+        app.unmount();
+    }
+    app = mount(saved);
+    try {
+        assert.equal(
+            document.querySelector('[role=tab][aria-selected=true]')
+                .textContent,
+            'By shift',
+        );
+        assert.equal(
+            document.getElementById('hours-shift-day').value,
+            '2027-01-02',
+        );
+        assert.equal(requests.length, 1);
+        assert.equal(requests[0].url, '/team/reports/shifts?date=2027-01-02');
+        await respondDay(0);
+        openShiftButton().click();
+        await tick();
+        await respondShiftPeople(1, [
+            {
+                ...person(),
+                is_supervisor: false,
+                member_url: '/team/members/87',
+            },
+        ]);
+        const link = document.querySelector('tbody a');
+        assert.equal(link.getAttribute('href'), '/team/members/87');
+        assert.equal(link.getAttribute('target'), '_blank');
+        assert.equal(link.getAttribute('rel'), 'noopener');
+        assert.equal(
+            requests.length,
+            2,
+            'member links load no shift breakdown',
+        );
+    } finally {
+        app.unmount();
+    }
+});
+
+test('day validation uses the field and shared toast, and wrong-shift responses are retryable', async () => {
+    const app = mount({ shiftFilters: { view: 'shift', date: '2026-10-01' } });
+    try {
+        requests[0].resolve({
+            ok: false,
+            status: 422,
+            json: async () => ({ errors: { date: ['Choose a valid day.'] } }),
+        });
+        await tick();
+        assert.equal(
+            document
+                .getElementById('hours-shift-day')
+                .getAttribute('aria-invalid'),
+            'true',
+        );
+        assert.deepEqual(toasts, [{ date: 'Choose a valid day.' }]);
+        await setDate('hours-shift-day', '2026-10-02');
+        await respondDay(1);
+        openShiftButton().click();
+        await tick();
+        await respondShiftPeople(2, [person('Wrong person')], {
+            shift_id: 999,
+        });
+        assert.match(
+            document.querySelector('[role=alert]').textContent,
+            /Couldn’t load Gate A’s people/,
+        );
+        assert.doesNotMatch(document.body.textContent, /Wrong person/);
+        buttonWithText('Retry').click();
+        await respondShiftPeople(3);
+        assert.match(
+            document.getElementById('hours-shift-71-people').textContent,
+            /Ava Chen/,
+        );
+    } finally {
+        app.unmount();
+    }
+});
+
+test('switching opened shifts isolates pending people and redraws retain keyboard focus', async () => {
+    const app = mount({ shiftFilters: { view: 'shift', date: '2026-10-01' } });
+    try {
+        await respondDay(0, [shift(), shift(72, 'Night bar')]);
+        openShiftButton().focus();
+        openShiftButton().click();
+        await tick();
+        assert.equal(
+            document.activeElement.getAttribute('aria-label'),
+            'Close people for Gate A',
+        );
+        document
+            .querySelector('button[aria-label="Open people for Night bar"]')
+            .click();
+        await tick();
+        assert.equal(requests.length, 3);
+        await respondShiftPeople(1, [
+            { ...person('Gate person'), is_supervisor: false },
+        ]);
+        assert.doesNotMatch(
+            document.getElementById('hours-shift-72-people').textContent,
+            /Gate person/,
+        );
+        await respondShiftPeople(2, [
+            { ...person('Night person'), is_supervisor: false },
+        ]);
+        assert.match(
+            document.getElementById('hours-shift-72-people').textContent,
+            /Night person/,
+        );
+        openShiftButton().click();
+        await tick();
+        assert.equal(requests.length, 3);
+        assert.match(
+            document.getElementById('hours-shift-71-people').textContent,
+            /Gate person/,
+        );
+        await setDate('hours-shift-day', '2026-10-02');
+        assert.equal(requests.length, 4);
+    } finally {
+        app.unmount();
+    }
+    assert.equal(requests[3].options.signal.aborted, true);
+});
+
+test('shift rows expand inline, shift name links stay independent, and person rows open new tabs', async () => {
+    const originalOpen = window.open;
+    const opened = [];
+    window.open = (...args) => opened.push(args);
+    const app = mount({
+        shiftFilters: { view: 'shift', date: '2026-10-01' },
+        canViewTeam: true,
+    });
+    try {
+        await respondDay(0, [{ ...shift(), shift_url: '/team/shifts/71' }]);
+        const row = document.querySelector('table > tbody > tr');
+        const link = row.querySelector('a');
+        assert.equal(link.getAttribute('href'), '/team/shifts/71');
+        assert.equal(link.getAttribute('target'), '_blank');
+        assert.equal(link.getAttribute('rel'), 'noopener');
+        row.cells[1].click();
+        assert.deepEqual(opened, []);
+        assert.equal(page.url, '/team/reports?view=shift&date=2026-10-01');
+        assert.equal(requests.length, 2);
+        await tick();
+        await respondShiftPeople(1, [
+            {
+                ...person(),
+                is_supervisor: false,
+                member_url: '/team/members/87',
+            },
+        ]);
+        const shiftLink = document.querySelector('table > tbody > tr a');
+        shiftLink.addEventListener('click', (event) => event.preventDefault());
+        shiftLink.click();
+        await tick();
+        assert.ok(
+            document.getElementById('hours-shift-71-people'),
+            'the shift name link must not collapse the roster',
+        );
+        assert.equal(requests.length, 2);
+        const personRow = document
+            .getElementById('hours-shift-71-people')
+            .querySelector('table > tbody > tr');
+        personRow.cells[1].click();
+        assert.deepEqual(opened, [['/team/members/87', '_blank', 'noopener']]);
+        assert.equal(requests.length, 2);
+        assert.equal(page.url, '/team/reports?view=shift&date=2026-10-01');
+    } finally {
+        app.unmount();
+        window.open = originalOpen;
+    }
+});
+
+test('report-only shift rows have no navigation link but still expand their people', async () => {
+    const app = mount({ shiftFilters: { view: 'shift', date: '2026-10-01' } });
+    try {
+        await respondDay(0, [{ ...shift(), shift_url: null }]);
+        const row = document.querySelector('table > tbody > tr');
+        assert.equal(row.querySelector('a'), null);
+        assert.equal(row.hasAttribute('data-row-link'), true);
+        row.cells[0].click();
+        await tick();
+        assert.equal(requests.length, 2);
+        await respondShiftPeople(1);
+        assert.ok(document.getElementById('hours-shift-71-people'));
+        assert.equal(document.querySelector('tbody a'), null);
+    } finally {
+        app.unmount();
     }
 });

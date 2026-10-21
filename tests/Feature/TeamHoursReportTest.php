@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\TeamEngagementService;
 use App\Support\OrganizationContext;
 use App\Support\ShiftAssignmentHours;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -371,6 +372,123 @@ class TeamHoursReportTest extends TestCase
             ['start_date' => '2027-01-03', 'end_date' => '2027-01-01']] as $params) {
             $this->getJson(route('team.reports', $params))->assertUnprocessable();
         }
+    }
+
+    public function test_shift_day_and_people_reconcile_personal_breaks_without_groups_or_money(): void
+    {
+        $group = $this->event->groups()->create(['name' => 'Secret group']);
+        $night = $this->shift($this->event, '2026-09-30 22:00:00', '2026-10-01 06:00:00');
+        $night->update(['name' => 'Night bar']);
+        $supervisor = $this->assign($night, $group, breaks: [15, 30]);
+        $supervisor->update(['is_supervisor' => true]);
+        $supervisor->teamEngagement->person->update(['name' => 'Morgan']);
+        $supervisor->teamEngagement->update(['status' => 'declined']);
+        $late = $this->assign($night, $group, '2026-10-01 02:00:00', '2026-10-01 06:00:00', [30]);
+        $zero = $this->assign($night, $group, '2026-10-01 02:00:00', '2026-10-01 02:30:00', [60]);
+        $zero->teamEngagement->update(['employment_type' => 'volunteer', 'hourly_pay' => null]);
+        $empty = $this->shift($this->event, '2026-09-30 08:00:00', '2026-09-30 10:00:00');
+        $next = $this->shift($this->event);
+        $this->assign($next, $group);
+        $foreign = $this->event('Foreign');
+        $otherGroup = $foreign->groups()->create(['name' => 'Other']);
+        $otherShift = $this->shift($foreign, '2026-09-30 08:00:00', '2026-09-30 10:00:00');
+        $this->assign($otherShift, $otherGroup);
+        // Even malformed cross-event assignments cannot leak into counts or totals.
+        $this->assign($night, $otherGroup);
+        $expected = ShiftAssignmentHours::scheduledMinutes($supervisor, 45) + ShiftAssignmentHours::scheduledMinutes($late, 30);
+        $response = $this->getJson(route('team.reports.shifts', ['date' => '2026-09-30', 'event_id' => $foreign->id]))->assertOk();
+        $rows = collect($response->json('data.shifts'))->keyBy('shift_id');
+        $this->assertSame([$empty->id, $night->id], $rows->keys()->all());
+        $this->assertSame(0, $rows[$empty->id]['scheduled_minutes']);
+        $this->assertSame(0, $rows[$empty->id]['people_count']);
+        $this->assertNull($rows[$empty->id]['supervisor_name']);
+        $this->assertSame(3, $rows[$night->id]['people_count']);
+        $this->assertSame('Morgan', $rows[$night->id]['supervisor_name']);
+        $this->assertSame($expected, $rows[$night->id]['scheduled_minutes']);
+        $this->assertSame('2026-09-30T22:00', $rows[$night->id]['starts_at']);
+        $this->assertSame('2026-10-01T06:00', $rows[$night->id]['ends_at']);
+        $peopleResponse = $this->getJson(route('team.reports.shifts.people', $night))->assertOk();
+        $people = $peopleResponse->json('data.people');
+        $this->assertCount(3, $people);
+        $this->assertSame($expected, array_sum(array_column($people, 'scheduled_minutes')));
+        $this->assertSame($supervisor->team_engagement_id, $people[0]['team_engagement_id']);
+        $this->assertTrue($people[0]['is_supervisor']);
+        $this->assertSame(route('team.members.show', $supervisor->team_engagement_id), $people[0]['member_url']);
+        $this->assertContains('volunteer', array_column($people, 'employment_type'));
+        $this->assertContains(0, array_column($people, 'scheduled_minutes'));
+        $this->assertSame(['event_id', 'shift_id', 'people'], array_keys($peopleResponse->json('data')));
+        foreach ([$response, $peopleResponse] as $result) {
+            foreach (['hourly_pay', 'email', 'phone', 'groups', 'group_id', 'group_name', 'totals'] as $field) {
+                $this->assertStringNotContainsString('"'.$field.'"', $result->getContent());
+            }
+            $this->assertStringNotContainsString('Secret group', $result->getContent());
+        }
+        foreach ($people as $person) {
+            $this->assertNull($person['approved_minutes']);
+            $this->assertNull($person['unapproved_minutes']);
+        }
+        $this->getJson(route('team.reports.shifts', ['date' => '2026-10-01']))->assertOk()
+            ->assertJsonCount(1, 'data.shifts')->assertJsonPath('data.shifts.0.shift_id', $next->id);
+        $this->getJson(route('team.reports.shifts.people', $empty))->assertOk()->assertJsonPath('data.people', []);
+    }
+
+    public function test_shift_report_validates_dates_and_rejects_foreign_or_missing_shifts(): void
+    {
+        foreach ([[], ['date' => '2026-02-30'], ['date' => 'bad'], ['date' => '2026-1-01']] as $params) {
+            $this->getJson(route('team.reports.shifts', $params))->assertUnprocessable()->assertJsonValidationErrors('date');
+        }
+        $this->getJson(route('team.reports.shifts', ['date' => '2027-01-01']))->assertOk()->assertJsonPath('data.shifts', []);
+        $foreign = $this->shift($this->event('Foreign'));
+        $this->getJson(route('team.reports.shifts.people', $foreign))->assertNotFound();
+        $this->getJson(route('team.reports.shifts.people', $foreign->id + 100))->assertNotFound();
+        auth()->logout();
+        $this->getJson(route('team.reports.shifts', ['date' => '2026-10-01']))->assertUnauthorized();
+        $this->getJson(route('team.reports.shifts.people', $foreign))->assertUnauthorized();
+    }
+
+    public function test_shift_report_address_uses_event_local_today_without_clamping_and_restores_explicit_day(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2027-01-01 03:00:00', 'UTC'));
+        $this->get(route('team.reports'))->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('shiftFilters', ['view' => 'group', 'date' => '2026-12-31']));
+        $this->get(route('team.reports', ['view' => 'shift', 'date' => '2027-03-01']))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('shiftFilters', ['view' => 'shift', 'date' => '2027-03-01'])->missing('shifts')->missing('people'));
+        foreach ([['view' => 'other'], ['date' => '2026-02-30']] as $params) {
+            $this->getJson(route('team.reports', $params))->assertUnprocessable();
+        }
+    }
+
+    public function test_shift_report_queries_are_constant_for_three_and_three_hundred_people(): void
+    {
+        $group = $this->event->groups()->create(['name' => 'Gate']);
+        $shift = $this->shift($this->event);
+        $counts = [];
+        foreach ([3, 300] as $size) {
+            for ($i = ($size === 3 ? 0 : 3); $i < $size; $i++) {
+                $this->assign($shift, $group);
+            }
+            foreach (['day' => route('team.reports.shifts', ['date' => '2026-10-01']), 'people' => route('team.reports.shifts.people', $shift)] as $kind => $url) {
+                $this->actingAs($this->user->fresh());
+                $this->app->forgetScopedInstances();
+                Cache::flush();
+                DB::enableQueryLog();
+                DB::flushQueryLog();
+                try {
+                    $response = $this->getJson($url)->assertOk();
+                    $this->assertCount($kind === 'day' ? 1 : $size, $response->json('data.'.($kind === 'day' ? 'shifts' : 'people')));
+                    $queries = DB::getQueryLog();
+                    $counts[$kind][] = count($queries);
+                    $hours = array_values(array_filter($queries, fn ($query) => str_contains($query['query'], 'scheduled_minutes')));
+                    $this->assertCount(1, $hours);
+                    $this->assertDoesNotMatchRegularExpression('/hourly_pay|email|phone/i', $hours[0]['query']);
+                } finally {
+                    DB::disableQueryLog();
+                }
+            }
+        }
+        $this->assertSame($counts['day'][0], $counts['day'][1]);
+        $this->assertSame($counts['people'][0], $counts['people'][1]);
     }
 
     private function event(string $name): Event
