@@ -199,7 +199,7 @@ test('View-only displays disabled Claim controls and no-meal result has no count
         const input = document.querySelector('input'); input.value = '';
         input.dispatchEvent(new window.Event('input', { bubbles: true })); await tick();
         assert.equal(document.querySelector('table'), null);
-        assert.match(document.body.textContent, /Find a Team member/);
+        assert.match(document.body.textContent, /Find a person/);
     } finally { state.app.unmount(); }
     state = mount({ rows: [], matched: true });
     try {

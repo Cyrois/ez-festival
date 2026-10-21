@@ -58,7 +58,7 @@ class InventoryPermissionsTest extends TestCase
         $this->grantAdminAccess($this->user);
         $this->get(route('settings.roles.create'))->assertInertia(fn (Assert $page) => $page
             ->has('permissionGroups.inventory', 3)->where('permissionGroups.inventory.0.label', 'Pass stock within my shift')
-            ->where('permissionGroups.inventory.1.label', 'Pass stock within my group')
+            ->where('permissionGroups.inventory.1.label', 'Pass stock within my team')
             ->where('permissionGroups.inventory.2.label', 'Manage inventory')
             ->where('permissionGroups.inventory.2.includes', ['inventory.pass_shift', 'inventory.pass_group', 'checkin.edit', 'checkin.view']));
         foreach (['inventory.pass_shift', 'inventory.pass_group', 'inventory.manage'] as $key) {

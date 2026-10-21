@@ -99,7 +99,7 @@ test('section tabs are real keyboard-focusable links with one current destinatio
     const app = mountSection('team', '/team/shifts/53');
     try {
         await nextTick();
-        const nav = document.querySelector('nav[aria-label="Team"]');
+        const nav = document.querySelector('nav[aria-label="Personnel"]');
         assert.ok(nav.hasAttribute('data-unsaved-navigation'));
         assert.deepEqual([...nav.querySelectorAll('a')].map((link) => link.textContent.trim()), ['Advancement', 'Scheduling', 'Forms', 'Reports', 'Configure']);
         assert.equal(nav.querySelectorAll('[aria-current="page"]').length, 1);

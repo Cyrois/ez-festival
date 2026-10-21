@@ -522,8 +522,8 @@ class EventPermissionsTest extends TestCase
         $this->grantAdminAccess($this->user);
         $permission = [
             'key' => 'team.hours_report.view',
-            'label' => 'View Team hours report',
-            'tooltip' => "See everyone's scheduled and worked hours under Team. No pay.",
+            'label' => 'View Personnel hours report',
+            'tooltip' => "See everyone's scheduled and worked hours under Personnel. No pay.",
             'includes' => [],
         ];
         $this->get(route('settings.roles.create'))->assertInertia(fn (Assert $page) => $page

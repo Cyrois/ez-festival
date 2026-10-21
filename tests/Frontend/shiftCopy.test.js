@@ -566,11 +566,11 @@ test('copy dates move custom hours and breaks through midnight and DST while ful
 test('copied roster eligibility and submitted-row errors appear inline on the timeline', async () => {
     const props = baseProps();
     props.prefill.assignments[1].error =
-        'Choose a hired Team member in this event.';
+        'Choose a hired person in this event.';
     const app = mount(Create, props);
     assert.match(
         document.querySelector('[data-roster-row="person--2"]').textContent,
-        /hired Team member/,
+        /hired person/,
     );
     submit();
     writes[0].options.onError({
@@ -607,9 +607,9 @@ test('Copy hides overlaps for added people and applied or dragged hours, includi
         submit();
         const addition = writes[0].data.assignment_additions.find(row => row.team_engagement_id === 80);
         assert.equal(addition.hours_mode, 'custom');
-        writes[0].options.onError({ 'assignment_additions.3.team_engagement_id': 'Choose a hired Team member in this event.' });
+        writes[0].options.onError({ 'assignment_additions.3.team_engagement_id': 'Choose a hired person in this event.' });
         await nextTick();
-        assert.match(document.body.textContent, /Choose a hired Team member/);
+        assert.match(document.body.textContent, /Choose a hired person/);
         assert.equal(form.assignment_additions.length, 4);
         assert.equal(document.querySelector('[data-overlap-hatch]'), null);
     } finally { app.unmount(); }

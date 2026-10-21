@@ -121,7 +121,7 @@ test('Team no-pass banner appears only when no pass is held, including zero-line
         const app = await mount({ holder: person(hasPass) });
         try {
             const text = document.querySelector('#app').textContent;
-            assert.doesNotMatch(text, /Team member|Hired|Select a person/);
+            assert.doesNotMatch(text, /Person\b|Hired|Select a person/);
             assert.equal(text.includes(locale['check_in.no_pass_banner']), !hasPass);
             assert.equal(text.includes(locale['check_in.status.complete']), hasPass);
             assert.ok(text.includes(locale[hasPass ? 'check_in.status.complete' : 'check_in.status.no_pass']));
@@ -175,7 +175,7 @@ test('Team layout puts gated member link in the header and email/phone in the le
             assert.match(document.querySelector('aside').textContent, /maya@example.test/);
             assert.match(document.querySelector('aside').textContent, /555-1234/);
             assert.doesNotMatch(document.querySelector('section').textContent, /maya@example.test|555-1234/);
-            assert.doesNotMatch(document.querySelector('#app').textContent, /Team member|Hired/);
+            assert.doesNotMatch(document.querySelector('#app').textContent, /Person\b|Hired/);
         } finally { app.unmount(); }
     }
 });
