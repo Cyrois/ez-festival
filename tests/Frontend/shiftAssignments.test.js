@@ -827,7 +827,7 @@ test('Everyone shows nonmatching people with their roles; filtering or searching
         assert.equal(document.querySelector('#assign').disabled, true);
         assert.ok(
             document.body.textContent.includes(
-                'No hired Team members match ‘Nobody’.',
+                'No hired personnel match ‘Nobody’.',
             ),
         );
     } finally {

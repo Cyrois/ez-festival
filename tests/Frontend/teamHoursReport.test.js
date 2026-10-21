@@ -300,7 +300,7 @@ test('first load shows group hours, both view tabs, and no export or shift prefe
         );
         assert.match(
             document.querySelector('[role="status"]').textContent,
-            /Loading group hours/,
+            /Loading team hours/,
         );
         assert.equal(
             document.querySelector('[aria-busy="true"]')?.tagName,
@@ -321,7 +321,7 @@ test('first load shows group hours, both view tabs, and no export or shift prefe
             [...document.querySelectorAll('thead th')].map(
                 (cell) => cell.textContent,
             ),
-            ['Team group', 'Scheduled', 'Approved', 'Unapproved', ''],
+            ['Team', 'Scheduled', 'Approved', 'Unapproved', ''],
         );
         assert.deepEqual(
             [...document.querySelector('tbody tr').cells].map((cell) =>
@@ -345,7 +345,7 @@ test('first load shows group hours, both view tabs, and no export or shift prefe
         );
         assert.doesNotMatch(
             document.body.textContent,
-            /No group|Export CSV|Back to All groups|Paid|Volunteer/,
+            /No team|Export CSV|Back to All teams|Paid|Volunteer/,
         );
         assert.match(document.body.textContent, /Sunrise Folk Fest/);
     } finally {
@@ -360,7 +360,7 @@ test('a failed response shows Retry, repeated clicks send one request, and zero 
         await tick();
         assert.match(
             document.querySelector('[role="alert"]').textContent,
-            /Couldn’t load group hours/,
+            /Couldn’t load team hours/,
         );
         assert.equal(document.querySelector('table'), null);
         const retry = buttonWithText('Retry');
@@ -370,11 +370,11 @@ test('a failed response shows Retry, repeated clicks send one request, and zero 
         await tick();
         assert.match(
             document.querySelector('[role="status"]').textContent,
-            /Loading group hours/,
+            /Loading team hours/,
         );
         await respond(1, []);
         assert.equal(document.querySelector('[role="alert"], table'), null);
-        assert.match(document.body.textContent, /No Team groups yet/);
+        assert.match(document.body.textContent, /No teams yet/);
         assert.equal(scheduledTotal(), '0 h 00');
     } finally {
         app.unmount();
@@ -409,7 +409,7 @@ test('paired free dates validate before fetching, retain zero rows, and cache su
         assert.equal(scheduledTotal(), '0 h 00');
         assert.equal(document.querySelectorAll('tbody tr').length, 1);
         assert.match(document.querySelector('tbody').textContent, /Unused/);
-        assert.doesNotMatch(document.body.textContent, /No Team groups yet/);
+        assert.doesNotMatch(document.body.textContent, /No teams yet/);
         await setDate('hours-start-date', '');
         await setDate('hours-end-date', '');
         assert.equal(requests.length, 2);
@@ -521,7 +521,7 @@ test('group rows open the complete people list directly with badges, group total
             document.querySelector('[role="status"]').textContent,
             /Loading people’s hours/,
         );
-        assert.ok(buttonWithText('Back to All groups'));
+        assert.ok(buttonWithText('Back to All teams'));
         const people = Array.from({ length: 32 }, (_, i) => ({
             ...person(
                 i === 0 ? '<img src=x onerror=alert(1)>' : `Person ${i}`,
@@ -589,7 +589,7 @@ test('switching groups and Back reuse successful results without clearing other 
             document.querySelector('tbody').textContent,
             /Gate person/,
         );
-        buttonWithText('Back to All groups').click();
+        buttonWithText('Back to All teams').click();
         await tick();
         assert.equal(requests.length, 4);
         assert.equal(
@@ -666,13 +666,13 @@ test('failed groups retry once while pending and successful empty groups are rem
         await respondPeople(2);
         await pickGroup('Empty');
         await respondPeople(3, []);
-        assert.match(document.body.textContent, /No people in this group/);
+        assert.match(document.body.textContent, /No people in this team/);
         assert.equal(scheduledTotal(), '0 h 00');
         assert.equal(document.querySelector('table'), null);
         await pickGroup('Gate');
         await pickGroup('Empty');
         assert.equal(requests.length, 4);
-        assert.match(document.body.textContent, /No people in this group/);
+        assert.match(document.body.textContent, /No people in this team/);
     } finally {
         app.unmount();
     }
@@ -788,7 +788,7 @@ test('member names and chevrons use new-tab member links only with Team view, wi
         }
         assert.equal(
             links[1].getAttribute('aria-label'),
-            'View Team member Ava Chen (opens in a new tab)',
+            'View person Ava Chen (opens in a new tab)',
         );
         assert.equal(
             document.querySelector('table').classList.contains('dt-summary'),
@@ -800,7 +800,7 @@ test('member names and chevrons use new-tab member links only with Team view, wi
         );
         assert.match(
             document.body.textContent,
-            /A person’s name opens their Team member page/,
+            /A person’s name opens their personnel page/,
         );
         assert.equal(
             requests.length,
@@ -1050,7 +1050,7 @@ test('view and day revisits reuse both caches without prefetch and preserve inde
         openShiftButton().click();
         await tick();
         await respondShiftPeople(3);
-        await selectView('By group');
+        await selectView('By team');
         assert.equal(
             document.getElementById('hours-start-date').value,
             '2027-01-01',

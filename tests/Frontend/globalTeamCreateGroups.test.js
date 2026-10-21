@@ -86,7 +86,7 @@ test('Hired requires an event-scoped group picker and submits the chosen group f
         await change(row('Winter event').querySelector('select'), 3);
         let picker = row('Winter event').querySelectorAll('select')[1];
         assert.equal(picker.getAttribute('aria-required'), 'true');
-        assert.equal(row('Winter event').querySelector('label').textContent.trim(), 'Group*');
+        assert.equal(row('Winter event').querySelector('label').textContent.trim(), 'Team*');
         assert.deepEqual([...picker.options].map((option) => option.textContent), ['Kitchen']);
         await change(picker, 90);
         await submit();
@@ -117,8 +117,8 @@ test('Applied defaults to an optional empty group and changing status updates th
         await change(row('Summer event').querySelector('select'), 3);
         const picker = row('Summer event').querySelectorAll('select')[1];
         assert.equal(picker.getAttribute('aria-required'), 'false');
-        assert.equal(row('Summer event').querySelector('label').textContent.trim(), 'Group');
-        assert.equal(picker.options[0].textContent, 'No group');
+        assert.equal(row('Summer event').querySelector('label').textContent.trim(), 'Team');
+        assert.equal(picker.options[0].textContent, 'No team');
         await submit();
         assert.deepEqual(state.writes[0].data.event_access, [{ event_id: 7, role_id: 3, group_id: null }]);
         await change(document.querySelector('select'), 'hired');
@@ -126,7 +126,7 @@ test('Applied defaults to an optional empty group and changing status updates th
         assert.ok(![...picker.options].some((option) => option.value === ''));
         await change(document.querySelector('select'), 'applied');
         assert.equal(picker.getAttribute('aria-required'), 'false');
-        assert.equal(picker.options[0].textContent, 'No group');
+        assert.equal(picker.options[0].textContent, 'No team');
         await change(row('Summer event').querySelector('select'), '');
         assert.equal(row('Summer event').querySelectorAll('select').length, 1);
         await submit();
