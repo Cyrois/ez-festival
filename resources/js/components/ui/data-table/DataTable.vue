@@ -25,6 +25,7 @@ DataTablesVue.use(DataTablesCore);
 
 const props = defineProps({
     embedded: { type: Boolean, default: false },
+    columnWidths: { type: Array, default: () => [] },
     expandedRowKey: { type: [String, Number], default: null },
     rowKey: { type: String, default: 'id' },
     mobileLayout: {
@@ -56,6 +57,40 @@ const props = defineProps({
 
 const dataTable = ref(null);
 const expansionTarget = shallowRef(null);
+const expansionColumnWidths = shallowRef([]);
+let expansionResizeObserver;
+const measureExpansionColumns = (table) => {
+    const widths = table
+        .columns()
+        .header()
+        .toArray()
+        .map((header) => header.getBoundingClientRect().width);
+    if (!widths.some((width) => width > 0)) return;
+    if (
+        widths.some(
+            (width, index) =>
+                Math.abs(width - (expansionColumnWidths.value[index] ?? 0)) >
+                0.1,
+        )
+    )
+        expansionColumnWidths.value = widths;
+};
+const applyColumnWidths = (table) => {
+    if (!table || !props.columnWidths.length) return;
+    const columns = table
+        .table()
+        .node()
+        .querySelector(':scope > colgroup')?.children;
+    if (columns?.length !== props.columnWidths.length) return;
+    const totalWidth = props.columnWidths.reduce(
+        (total, width) => total + width,
+        0,
+    );
+    if (totalWidth <= 0) return;
+    [...columns].forEach((column, index) => {
+        column.style.width = `${(props.columnWidths[index] / totalWidth) * 100}%`;
+    });
+};
 const expandedRowData = computed(() =>
     props.expandedRowKey === null
         ? undefined
@@ -63,6 +98,9 @@ const expandedRowData = computed(() =>
 );
 let expandedRow;
 const closeExpansion = () => {
+    expansionResizeObserver?.disconnect();
+    expansionResizeObserver = null;
+    expansionColumnWidths.value = [];
     expandedRow?.node()?.classList.remove('dt-expanded');
     expandedRow?.child.remove();
     expandedRow = null;
@@ -88,6 +126,13 @@ const syncExpansion = (table) => {
     row.node().classList.add('dt-expanded');
     expandedRow = row;
     expansionTarget.value = target;
+    measureExpansionColumns(table);
+    if (typeof ResizeObserver !== 'undefined') {
+        expansionResizeObserver = new ResizeObserver(() =>
+            measureExpansionColumns(table),
+        );
+        expansionResizeObserver.observe(table.table().node());
+    }
 };
 const ready = ref(isLoaded(getActiveLanguage()));
 const classes = computed(() =>
@@ -95,6 +140,7 @@ const classes = computed(() =>
         'dt-stacked w-full border-collapse text-left text-sm',
         props.mobileLayout === 'summary' && 'dt-summary',
         props.embedded && 'dt-embedded',
+        props.columnWidths.length > 0 && 'table-fixed',
         props.class,
     ),
 );
@@ -144,6 +190,7 @@ const options = computed(() => ({
             });
 
         props.options.drawCallback?.apply(this, args);
+        applyColumnWidths(table);
         syncExpansion(table);
     },
     language: {
@@ -184,6 +231,13 @@ watch([() => props.expandedRowKey, () => props.data, dataTable], async () => {
     await nextTick();
     syncExpansion(api());
 });
+watch(
+    () => props.columnWidths,
+    async () => {
+        await nextTick();
+        applyColumnWidths(api());
+    },
+);
 onBeforeUnmount(closeExpansion);
 
 const search = (value, resetPaging = true) => {
@@ -229,6 +283,7 @@ defineExpose({
         :options="options"
         :class="classes"
         role="table"
+        @column-sizing="applyColumnWidths(api())"
     >
         <template
             v-for="(_, slotName) in $slots"
@@ -252,6 +307,7 @@ defineExpose({
         <slot
             name="expandedRow"
             :row-data="expandedRowData"
+            :column-widths="expansionColumnWidths"
         />
     </Teleport>
 </template>

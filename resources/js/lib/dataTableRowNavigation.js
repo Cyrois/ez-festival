@@ -17,9 +17,19 @@ export const activateDataTableRow = (row, rowData, action) => {
     });
 };
 
-export const navigateDataTableRow = (row, rowData, href) => {
+export const navigateDataTableRow = (
+    row,
+    rowData,
+    href,
+    { newTab = false } = {},
+) => {
     activateDataTableRow(row, rowData, (item, event) => {
         const destination = href(item);
+
+        if (newTab) {
+            window.open(destination, '_blank', 'noopener');
+            return;
+        }
 
         if (event.metaKey || event.ctrlKey) {
             window.open(destination, '_blank');
@@ -37,6 +47,7 @@ export const navigateDataTableRow = (row, rowData, href) => {
             return;
         }
 
-        window.open(href(rowData), '_blank');
+        if (newTab) window.open(href(rowData), '_blank', 'noopener');
+        else window.open(href(rowData), '_blank');
     });
 };

@@ -9,7 +9,7 @@ use Illuminate\Support\Collection;
 
 class TeamShiftHoursReportResource extends JsonResource
 {
-    public function __construct(Collection $shifts, private readonly int $eventId, private readonly string $day)
+    public function __construct(Collection $shifts, private readonly int $eventId, private readonly string $day, private readonly bool $canViewScheduling)
     {
         parent::__construct($shifts);
     }
@@ -22,6 +22,7 @@ class TeamShiftHoursReportResource extends JsonResource
             'shifts' => $this->resource->map(fn (object $shift): array => [
                 'shift_id' => (int) $shift->shift_id,
                 'name' => $shift->name,
+                'shift_url' => $this->canViewScheduling ? route('team.shifts.show', $shift->shift_id) : null,
                 'location' => $shift->location,
                 'starts_at' => CarbonImmutable::parse($shift->starts_at, 'UTC')->format('Y-m-d\TH:i'),
                 'ends_at' => CarbonImmutable::parse($shift->ends_at, 'UTC')->format('Y-m-d\TH:i'),

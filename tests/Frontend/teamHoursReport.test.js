@@ -769,7 +769,7 @@ test('wrong-group responses fail without caching and selected-group validation u
     }
 });
 
-test('member names and chevrons use same-tab member links only with Team view, with the summary mobile layout', async () => {
+test('member names and chevrons use new-tab member links only with Team view, with the summary mobile layout', async () => {
     const app = mount({ canViewTeam: true });
     try {
         await respond(0);
@@ -783,11 +783,12 @@ test('member names and chevrons use same-tab member links only with Team view, w
         assert.equal(links[0].textContent, 'Ava Chen');
         for (const link of links) {
             assert.equal(link.getAttribute('href'), '/team/members/87');
-            assert.equal(link.getAttribute('target'), null);
+            assert.equal(link.getAttribute('target'), '_blank');
+            assert.equal(link.getAttribute('rel'), 'noopener');
         }
         assert.equal(
             links[1].getAttribute('aria-label'),
-            'View Team member Ava Chen',
+            'View Team member Ava Chen (opens in a new tab)',
         );
         assert.equal(
             document.querySelector('table').classList.contains('dt-summary'),
@@ -1005,8 +1006,10 @@ test('By shift loads only the chosen day, expands the full roster, reconciles ho
                 .cells[3].textContent.trim(),
             '31',
         );
-        for (const link of child.querySelectorAll('a'))
-            assert.equal(link.getAttribute('target'), null);
+        for (const link of child.querySelectorAll('a')) {
+            assert.equal(link.getAttribute('target'), '_blank');
+            assert.equal(link.getAttribute('rel'), 'noopener');
+        }
         assert.equal(
             child.querySelector('a').getAttribute('href'),
             '/team/members/1',
@@ -1210,7 +1213,8 @@ test('shift names are plain without Team view and URL/history restores the same 
         ]);
         const link = document.querySelector('tbody a');
         assert.equal(link.getAttribute('href'), '/team/members/87');
-        assert.equal(link.getAttribute('target'), null);
+        assert.equal(link.getAttribute('target'), '_blank');
+        assert.equal(link.getAttribute('rel'), 'noopener');
         assert.equal(
             requests.length,
             2,
@@ -1303,4 +1307,71 @@ test('switching opened shifts isolates pending people and redraws retain keyboar
         app.unmount();
     }
     assert.equal(requests[3].options.signal.aborted, true);
+});
+
+test('shift rows expand inline, shift name links stay independent, and person rows open new tabs', async () => {
+    const originalOpen = window.open;
+    const opened = [];
+    window.open = (...args) => opened.push(args);
+    const app = mount({
+        shiftFilters: { view: 'shift', date: '2026-10-01' },
+        canViewTeam: true,
+    });
+    try {
+        await respondDay(0, [{ ...shift(), shift_url: '/team/shifts/71' }]);
+        const row = document.querySelector('table > tbody > tr');
+        const link = row.querySelector('a');
+        assert.equal(link.getAttribute('href'), '/team/shifts/71');
+        assert.equal(link.getAttribute('target'), '_blank');
+        assert.equal(link.getAttribute('rel'), 'noopener');
+        row.cells[1].click();
+        assert.deepEqual(opened, []);
+        assert.equal(page.url, '/team/reports?view=shift&date=2026-10-01');
+        assert.equal(requests.length, 2);
+        await tick();
+        await respondShiftPeople(1, [
+            {
+                ...person(),
+                is_supervisor: false,
+                member_url: '/team/members/87',
+            },
+        ]);
+        const shiftLink = document.querySelector('table > tbody > tr a');
+        shiftLink.addEventListener('click', (event) => event.preventDefault());
+        shiftLink.click();
+        await tick();
+        assert.ok(
+            document.getElementById('hours-shift-71-people'),
+            'the shift name link must not collapse the roster',
+        );
+        assert.equal(requests.length, 2);
+        const personRow = document
+            .getElementById('hours-shift-71-people')
+            .querySelector('table > tbody > tr');
+        personRow.cells[1].click();
+        assert.deepEqual(opened, [['/team/members/87', '_blank', 'noopener']]);
+        assert.equal(requests.length, 2);
+        assert.equal(page.url, '/team/reports?view=shift&date=2026-10-01');
+    } finally {
+        app.unmount();
+        window.open = originalOpen;
+    }
+});
+
+test('report-only shift rows have no navigation link but still expand their people', async () => {
+    const app = mount({ shiftFilters: { view: 'shift', date: '2026-10-01' } });
+    try {
+        await respondDay(0, [{ ...shift(), shift_url: null }]);
+        const row = document.querySelector('table > tbody > tr');
+        assert.equal(row.querySelector('a'), null);
+        assert.equal(row.hasAttribute('data-row-link'), true);
+        row.cells[0].click();
+        await tick();
+        assert.equal(requests.length, 2);
+        await respondShiftPeople(1);
+        assert.ok(document.getElementById('hours-shift-71-people'));
+        assert.equal(document.querySelector('tbody a'), null);
+    } finally {
+        app.unmount();
+    }
 });

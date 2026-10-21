@@ -1,6 +1,7 @@
 <script setup>
 import { computed, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
+import { Link } from '@inertiajs/vue3';
 import { DataTable } from '../../ui/data-table';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
@@ -25,6 +26,13 @@ const tableRows = computed(() =>
 );
 const shiftName = (shift) =>
     shift.name || trans('team.scheduling.unnamed_shift');
+const peopleColumnWidths = (widths) =>
+    widths.length === 9
+        ? [
+              widths.slice(0, 5).reduce((total, width) => total + width, 0),
+              ...widths.slice(5),
+          ]
+        : [];
 const columns = computed(() => [
     {
         data: 'name',
@@ -55,12 +63,23 @@ const columns = computed(() => [
     { data: null, title: '', render: { display: '#actionCell' } },
 ]);
 let focusedShift = null;
+const iconRotations = new Map();
+const rotationDuration = 200;
 watch(
     [() => props.rows, () => props.openedShift],
-    () => {
+    (values, previous) => {
         const button = document.activeElement;
         if (button?.matches('[data-shift-toggle]'))
             focusedShift = Number(button.dataset.shiftToggle);
+        if (values[1] !== previous[1]) {
+            for (const shiftId of [previous[1], values[1]]) {
+                if (shiftId !== null)
+                    iconRotations.set(shiftId, {
+                        startedAt: performance.now(),
+                        direction: shiftId === values[1] ? -1 : 1,
+                    });
+            }
+        }
     },
     { flush: 'sync' },
 );
@@ -84,6 +103,33 @@ const tableOptions = computed(() => ({
         },
     ],
     drawCallback: function () {
+        // Resume across DataTables redraws, including a quick people response.
+        for (const [shiftId, rotation] of iconRotations) {
+            const remaining =
+                rotationDuration - (performance.now() - rotation.startedAt);
+            if (
+                remaining <= 0 ||
+                window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+            ) {
+                iconRotations.delete(shiftId);
+                continue;
+            }
+            this.api()
+                .row((_, row) => row.shift_id === shiftId)
+                .node()
+                ?.querySelectorAll('[data-shift-toggle] svg')
+                .forEach((icon) => {
+                    icon.animate?.(
+                        [
+                            {
+                                transform: `rotate(${(rotation.direction * 180 * remaining) / rotationDuration}deg)`,
+                            },
+                            { transform: 'rotate(0deg)' },
+                        ],
+                        { duration: remaining, easing: 'linear' },
+                    );
+                });
+        }
         if (focusedShift === null) return;
         this.api()
             .row((_, row) => row.shift_id === focusedShift)
@@ -93,7 +139,6 @@ const tableOptions = computed(() => ({
         focusedShift = null;
     },
     createdRow: (row, shift) => {
-        row.classList.add('dt-expandable');
         activateDataTableRow(row, shift, (item) =>
             emit('toggle-shift', item.shift_id),
         );
@@ -109,12 +154,26 @@ const tableOptions = computed(() => ({
         row-key="shift_id"
         :expanded-row-key="openedShift"
         mobile-layout="summary"
+        class="dt-aligned-expansion"
     >
-        <template #nameCell="{ rowData }"
-            ><span class="font-semibold">{{
-                shiftName(rowData)
-            }}</span></template
-        >
+        <template #nameCell="{ rowData }">
+            <Link
+                v-if="rowData.shift_url"
+                :href="rowData.shift_url"
+                target="_blank"
+                rel="noopener"
+                :aria-label="
+                    $t('team.reports.view_shift', { name: shiftName(rowData) })
+                "
+                class="font-semibold text-primary underline underline-offset-2"
+                >{{ shiftName(rowData) }}</Link
+            >
+            <span
+                v-else
+                class="font-semibold"
+                >{{ shiftName(rowData) }}</span
+            >
+        </template>
         <template #timeCell="{ rowData }">
             <span class="whitespace-nowrap"
                 >{{ rowData.starts_at.slice(11, 16) }}–{{
@@ -169,17 +228,28 @@ const tableOptions = computed(() => ({
                 "
                 @click="emit('toggle-shift', rowData.shift_id)"
             >
-                <Icon
-                    :name="[
-                        'fas',
-                        openedShift === rowData.shift_id
-                            ? 'chevron-down'
-                            : 'chevron-right',
-                    ]"
-                />
+                <span
+                    aria-hidden="true"
+                    class="inline-flex flex-col gap-0.5"
+                >
+                    <Icon
+                        :name="[
+                            'fas',
+                            rowData.is_open ? 'chevron-down' : 'chevron-up',
+                        ]"
+                        class="h-2 w-3"
+                    />
+                    <Icon
+                        :name="[
+                            'fas',
+                            rowData.is_open ? 'chevron-up' : 'chevron-down',
+                        ]"
+                        class="h-2 w-3"
+                    />
+                </span>
             </Button>
         </template>
-        <template #expandedRow="{ rowData }">
+        <template #expandedRow="{ rowData, columnWidths }">
             <div
                 :id="`hours-shift-${rowData.shift_id}-people`"
                 :aria-label="
@@ -219,6 +289,7 @@ const tableOptions = computed(() => ({
                     showing-people
                     shift-people
                     :can-view-team="canViewTeam"
+                    :column-widths="peopleColumnWidths(columnWidths)"
                 />
             </div>
         </template>

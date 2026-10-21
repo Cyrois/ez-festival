@@ -501,10 +501,14 @@ class EventPermissionsTest extends TestCase
         }
         $this->role->update(['permissions' => ['team.hours_report.view']]);
         $this->event->lock();
-        $this->getJson($day)->assertOk();
+        $this->getJson($day)->assertOk()->assertJsonPath('data.shifts.0.shift_url', null);
         $this->getJson($people)->assertOk()->assertJsonPath('data.people.0.member_url', null);
         $this->role->update(['permissions' => ['team.hours_report.view', 'team.view']]);
         $this->getJson($people)->assertOk()->assertJsonPath('data.people.0.member_url', route('team.members.show', $member));
+        $this->getJson($day)->assertOk()->assertJsonPath('data.shifts.0.shift_url', null);
+        $this->role->update(['permissions' => ['team.hours_report.view', 'scheduling.view']]);
+        $this->getJson($day)->assertOk()->assertJsonPath('data.shifts.0.shift_url', route('team.shifts.show', $shift));
+        $this->getJson($people)->assertOk()->assertJsonPath('data.people.0.member_url', null);
         $this->role->update(['permissions' => []]);
         $this->getJson($people)->assertForbidden();
         $this->getJson($day)->assertForbidden();

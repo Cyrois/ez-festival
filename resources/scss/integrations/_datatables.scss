@@ -223,6 +223,10 @@
         @apply px-3 py-3 md:px-6;
     }
 
+    table.dt-aligned-expansion > tbody > tr.dt-expanded-child > td {
+        @apply px-0;
+    }
+
     @media (width < 48rem) {
         table.dt-embedded.dt-summary > thead {
             @apply sr-only;
@@ -271,15 +275,6 @@
         > :first-child,
     table.dataTable > tbody > tr[data-row-link]:hover > td:first-child a {
         @apply underline underline-offset-2;
-    }
-
-    table.dataTable > tbody > tr.dt-expandable[data-row-link] > td:first-child,
-    table.dataTable
-        > tbody
-        > tr.dt-expandable[data-row-link]
-        > td:first-child
-        > :first-child {
-        @apply text-charcoal no-underline;
     }
 
     table.dataTable > tbody > tr > td.dt-empty,

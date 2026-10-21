@@ -7,6 +7,7 @@ use App\Http\Requests\Team\IndexShiftHoursReportRequest;
 use App\Http\Resources\TeamShiftHoursReportResource;
 use App\Queries\TeamScheduledHoursQuery;
 use App\Support\EventContext;
+use Illuminate\Support\Facades\Gate;
 
 class ShiftHoursReportController extends Controller
 {
@@ -15,6 +16,6 @@ class ShiftHoursReportController extends Controller
         $event = $eventContext->requireCurrent($request->user());
         $day = $request->validated()['date'];
 
-        return new TeamShiftHoursReportResource($hours->dayShiftReport($event, $day), $event->id, $day);
+        return new TeamShiftHoursReportResource($hours->dayShiftReport($event, $day), $event->id, $day, Gate::allows('scheduling.view', $event));
     }
 }
