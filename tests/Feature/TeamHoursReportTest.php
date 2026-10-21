@@ -450,12 +450,22 @@ class TeamHoursReportTest extends TestCase
     {
         $this->travelTo(CarbonImmutable::parse('2027-01-01 03:00:00', 'UTC'));
         $this->get(route('team.reports'))->assertInertia(fn (AssertableInertia $page) => $page
-            ->where('shiftFilters', ['view' => 'group', 'date' => '2026-12-31']));
+            ->where('shiftFilters', ['view' => 'summary', 'date' => '2026-12-31']));
         $this->get(route('team.reports', ['view' => 'shift', 'date' => '2027-03-01']))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('shiftFilters', ['view' => 'shift', 'date' => '2027-03-01'])->missing('shifts')->missing('people'));
         foreach ([['view' => 'other'], ['date' => '2026-02-30']] as $params) {
             $this->getJson(route('team.reports', $params))->assertUnprocessable();
+        }
+    }
+
+    public function test_report_tabs_restore_explicit_and_legacy_addresses(): void
+    {
+        $group = $this->event->groups()->create(['name' => 'Gate']);
+        foreach ([['view' => 'summary'], ['view' => 'team'], ['group_id' => $group->id], ['view' => 'summary', 'group_id' => $group->id]] as $params) {
+            $expected = $params['view'] ?? 'team';
+            $this->get(route('team.reports', $params))->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('shiftFilters.view', $expected));
         }
     }
 

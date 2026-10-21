@@ -19,7 +19,7 @@ class ReportsController extends Controller
 
         return Inertia::render('Team/Reports', [
             'shiftFilters' => [
-                'view' => $data['view'] ?? 'group',
+                'view' => $data['view'] ?? (isset($data['group_id']) ? 'team' : 'summary'),
                 'date' => $data['date'] ?? Carbon::now($event->timezone)->format('Y-m-d'),
             ],
             'filters' => [

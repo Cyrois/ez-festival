@@ -1,9 +1,7 @@
 <script setup>
 import { computed } from 'vue';
-import { Button } from '../../ui/button';
 import { CustomDropdown } from '../../ui/custom-dropdown';
 import { FormField } from '../../ui/form-field';
-import { Icon } from '../../ui/icon';
 import { Input } from '../../ui/input';
 
 const groupId = defineModel('groupId', { type: [String, Number], default: '' });
@@ -11,9 +9,9 @@ const startDate = defineModel('startDate', { type: String, default: '' });
 const endDate = defineModel('endDate', { type: String, default: '' });
 const props = defineProps({
     groups: { type: Array, required: true },
+    showingPeople: { type: Boolean, default: false },
     errors: { type: Object, default: () => ({}) },
 });
-const showingPeople = computed(() => groupId.value !== '');
 const groupItems = computed(() =>
     props.groups.map((group) => ({ value: group.group_id, title: group.name })),
 );
@@ -21,15 +19,6 @@ const groupItems = computed(() =>
 
 <template>
     <div class="space-y-6">
-        <Button
-            v-if="showingPeople"
-            variant="ghost"
-            class="px-0 text-muted"
-            @click="groupId = ''"
-        >
-            <Icon :name="['fas', 'arrow-left']" />
-            {{ $t('team.reports.back') }}
-        </Button>
         <div>
             <div class="flex flex-wrap gap-3">
                 <FormField

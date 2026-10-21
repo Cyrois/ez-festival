@@ -167,20 +167,26 @@ const tick = async () => {
 };
 const mount = ({
     filters = {},
-    shiftFilters = { view: 'group', date: '2026-10-01' },
+    shiftFilters,
+    userId = 1,
+    eventId = 11,
+    keepStorage = false,
     groupOptions = [],
     url = '/team/reports',
     canViewTeam = false,
 } = {}) => {
     requests = [];
     toasts = [];
+    if (!keepStorage) Object.keys(localStorage).filter((key) => key.startsWith('artist-tree.hours-report.')).forEach((key) => localStorage.removeItem(key));
+    shiftFilters ??= { view: filters.group_id ? 'team' : 'summary', date: '2026-10-01' };
     page = reactive({
         url,
         props: {
             filters,
             shiftFilters,
             groupOptions,
-            activeEvent: { id: 11, name: 'Sunrise Folk Fest' },
+            activeEvent: { id: eventId, name: 'Sunrise Folk Fest' },
+            auth: { user: { id: userId } },
             permissions: {
                 'team.hours_report.view': true,
                 'team.view': canViewTeam,
@@ -305,7 +311,7 @@ test('report switch sits between the Personnel header and page body and retains 
         assert.equal(row.nextElementSibling, main);
         assert.equal(main.querySelector('[role="tablist"]'), null);
         assert.equal(document.querySelectorAll('[role="tablist"]').length, 1);
-        assert.deepEqual([...list.children].map((tab) => tab.textContent.trim()), ['By team', 'By shift']);
+        assert.deepEqual([...list.children].map((tab) => tab.textContent.trim()), ['Summary', 'By team', 'By shift']);
         assert.equal(list.getAttribute('aria-label'), 'Personnel hours');
         assert.equal(main.querySelector('h1').textContent.trim(), 'Personnel hours');
         assert.ok(row.classList.contains('bg-ground'));
@@ -313,17 +319,17 @@ test('report switch sits between the Personnel header and page body and retains 
         const tabs = [...list.querySelectorAll('[role="tab"]')];
         assert.ok(tabs.every((tab) => tab.classList.contains('min-h-11')));
         assert.equal(tabs[0].getAttribute('aria-current'), 'page');
-        assert.equal(tabs[1].hasAttribute('aria-current'), false);
+        assert.equal(tabs[2].hasAttribute('aria-current'), false);
         tabs[0].focus();
-        tabs[0].dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+        tabs[0].dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
         await tick();
-        assert.equal(document.activeElement, tabs[1]);
-        assert.equal(tabs[1].getAttribute('aria-selected'), 'true');
-        assert.equal(tabs[1].getAttribute('aria-current'), 'page');
+        assert.equal(document.activeElement, tabs[2]);
+        assert.equal(tabs[2].getAttribute('aria-selected'), 'true');
+        assert.equal(tabs[2].getAttribute('aria-current'), 'page');
         assert.equal(tabs[0].hasAttribute('aria-current'), false);
-        const panel = document.getElementById(tabs[1].getAttribute('aria-controls'));
+        const panel = document.getElementById(tabs[2].getAttribute('aria-controls'));
         assert.equal(panel.hidden, false);
-        assert.equal(panel.getAttribute('aria-labelledby'), tabs[1].id);
+        assert.equal(panel.getAttribute('aria-labelledby'), tabs[2].id);
         assert.equal(page.url, '/team/reports?view=shift&date=2026-10-01');
     } finally {
         app.unmount();
@@ -337,7 +343,7 @@ test('report switch stays visible while loading, failed and empty, including wit
         const row = document.querySelector('header').nextElementSibling;
         const main = document.querySelector('main');
         assert.ok(main.parentElement.classList.contains('lg:ml-16'));
-        assert.equal(row.querySelectorAll('[role="tab"]').length, 2);
+        assert.equal(row.querySelectorAll('[role="tab"]').length, 3);
         requests[0].reject(new Error('Offline'));
         await tick();
         assert.equal(document.querySelector('header').nextElementSibling, row);
@@ -346,7 +352,7 @@ test('report switch stays visible while loading, failed and empty, including wit
         await tick();
         await respond(1, []);
         assert.equal(document.querySelector('header').nextElementSibling, row);
-        assert.equal(row.querySelectorAll('[role="tab"]').length, 2);
+        assert.equal(row.querySelectorAll('[role="tab"]').length, 3);
         assert.equal(document.querySelector('table'), null);
     } finally {
         app.unmount();
@@ -585,7 +591,7 @@ test('group rows open the complete people list directly with badges, group total
             document.querySelector('[role="status"]').textContent,
             /Loading people’s hours/,
         );
-        assert.ok(buttonWithText('Back to All teams'));
+        assert.equal(buttonWithText('Back to All teams'), undefined);
         const people = Array.from({ length: 32 }, (_, i) => ({
             ...person(
                 i === 0 ? '<img src=x onerror=alert(1)>' : `Person ${i}`,
@@ -653,7 +659,7 @@ test('switching groups and Back reuse successful results without clearing other 
             document.querySelector('tbody').textContent,
             /Gate person/,
         );
-        buttonWithText('Back to All teams').click();
+        await selectView('Summary');
         await tick();
         assert.equal(requests.length, 4);
         assert.equal(
@@ -871,7 +877,7 @@ test('member names and chevrons use new-tab member links only with Team view, wi
             2,
             'rendering a member link must not fetch shifts',
         );
-        assert.equal(page.url, '/team/reports?group_id=1');
+        assert.equal(page.url, '/team/reports?view=team&group_id=1');
     } finally {
         app.unmount();
     }
@@ -892,7 +898,7 @@ test('the report address and Inertia history props restore the same group and da
         ]);
         assert.equal(
             page.url,
-            '/team/reports?group_id=1&start_date=2027-01-01&end_date=2027-01-03',
+            '/team/reports?view=team&group_id=1&start_date=2027-01-01&end_date=2027-01-03',
         );
         saved = {
             url: page.url,
@@ -948,8 +954,8 @@ test('deferred history updates retain the filters belonging to their own address
         await tick();
         const gateHistory = historyUpdates.at(-1);
         await pickGroup('Stage');
-        assert.equal(page.url, '/team/reports?group_id=2');
-        assert.equal(gateHistory.url, '/team/reports?group_id=1');
+        assert.equal(page.url, '/team/reports?view=team&group_id=2');
+        assert.equal(gateHistory.url, '/team/reports?view=team&group_id=1');
         assert.deepEqual(gateHistory.props({}).filters, {
             group_id: 1,
             start_date: null,
@@ -1114,7 +1120,7 @@ test('view and day revisits reuse both caches without prefetch and preserve inde
         openShiftButton().click();
         await tick();
         await respondShiftPeople(3);
-        await selectView('By team');
+        await selectView('Summary');
         assert.equal(
             document.getElementById('hours-start-date').value,
             '2027-01-01',
@@ -1438,4 +1444,32 @@ test('report-only shift rows have no navigation link but still expand their peop
     } finally {
         app.unmount();
     }
+});
+
+
+test('By team restores a team per user and event, chooses the first only for a new viewer, and prompts for a removed team', async () => {
+    const options = [group(), { ...group('Stage'), group_id: 2 }];
+    let app = mount({ groupOptions: options });
+    try {
+        await respond(0, options);
+        await selectView('By team');
+        assert.equal(requests[1].url, '/team/reports/groups/1/people?');
+        await pickGroup('Stage');
+        assert.equal(localStorage.getItem('artist-tree.hours-report.last-team.1.11'), '2');
+    } finally { app.unmount(); }
+    for (const [userId, eventId, expected] of [[1, 11, 2], [2, 11, 1], [1, 12, 1]]) {
+        app = mount({ groupOptions: options, userId, eventId, keepStorage: true, shiftFilters: { view: 'team', date: '2026-10-01' } });
+        try {
+            assert.equal(requests[0].url, `/team/reports/groups/${expected}/people?`);
+            assert.equal(buttonWithText('Back to All teams'), undefined);
+        } finally { app.unmount(); }
+    }
+    app = mount({ groupOptions: [group()], keepStorage: true, shiftFilters: { view: 'team', date: '2026-10-01' } });
+    try {
+        assert.equal(requests.length, 0);
+        assert.match(document.body.textContent, /Choose a team/);
+        assert.ok(document.getElementById('hours-group'));
+        await pickGroup('Gate');
+        assert.equal(requests[0].url, '/team/reports/groups/1/people?');
+    } finally { app.unmount(); }
 });

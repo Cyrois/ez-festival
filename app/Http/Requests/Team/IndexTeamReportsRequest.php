@@ -12,7 +12,7 @@ class IndexTeamReportsRequest extends IndexTeamHoursReportRequest
     {
         return [
             ...parent::rules(),
-            'view' => ['sometimes', Rule::in(['group', 'shift'])],
+            'view' => ['sometimes', Rule::in(['summary', 'team', 'shift'])],
             'date' => ['sometimes', 'date_format:Y-m-d'],
             'group_id' => ['nullable', 'integer', Rule::exists('groups', 'id')->where('event_id', app(EventContext::class)->current($this->user())?->id)],
         ];
