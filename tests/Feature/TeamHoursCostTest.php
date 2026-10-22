@@ -39,7 +39,7 @@ class TeamHoursCostTest extends TestCase
         $this->actingAs($this->user);
     }
 
-    public function test_costs_round_person_range_rows_before_team_and_event_totals_and_person_shift_rows_before_shift_totals(): void
+    public function test_costs_combine_same_location_minutes_before_team_totals_and_round_person_shift_rows_before_shift_totals(): void
     {
         $paid = $this->member('paid', '0.30');
         $first = $this->shift('2026-10-01 08:00:00', '2026-10-01 08:01:00');

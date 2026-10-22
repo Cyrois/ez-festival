@@ -61,6 +61,8 @@ use App\Http\Controllers\Team\FormsController as TeamFormsController;
 use App\Http\Controllers\Team\GroupController as TeamGroupController;
 use App\Http\Controllers\Team\GroupHoursPeopleController;
 use App\Http\Controllers\Team\HoursReportController;
+use App\Http\Controllers\Team\LocationHoursPeopleController;
+use App\Http\Controllers\Team\LocationHoursReportController;
 use App\Http\Controllers\Team\MemberController as TeamMemberController;
 use App\Http\Controllers\Team\MemberShiftDataTableController;
 use App\Http\Controllers\Team\MemberStatusController as TeamMemberStatusController;
@@ -231,6 +233,8 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::get('forms/{teamForm}/edit', [TeamFormsController::class, 'edit'])->name('forms.edit');
             Route::get('reports', [TeamReportsController::class, 'index'])->name('reports');
             Route::get('reports/data', [HoursReportController::class, 'index'])->name('reports.data');
+            Route::get('reports/locations', [LocationHoursReportController::class, 'index'])->name('reports.locations');
+            Route::get('reports/locations/{location}/people', [LocationHoursPeopleController::class, 'index'])->name('reports.locations.people');
             Route::get('reports/shifts', [ShiftHoursReportController::class, 'index'])->name('reports.shifts');
             Route::get('reports/shifts/{shift}/people', [ShiftHoursPeopleController::class, 'index'])->name('reports.shifts.people');
             Route::get('reports/groups/{group}/people', [GroupHoursPeopleController::class, 'index'])->name('reports.groups.people');

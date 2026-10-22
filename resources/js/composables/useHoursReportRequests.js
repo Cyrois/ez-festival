@@ -11,6 +11,7 @@ export function useHoursReportRequests({
     endDate,
     groups,
     active = computed(() => true),
+    scope = 'group',
 }) {
     const { showFormError } = useFlashToast();
     const requests = shallowReactive(new Map());
@@ -41,8 +42,8 @@ export function useHoursReportRequests({
             ]),
         )?.data;
         return (
-            overview?.groups.find(
-                (group) => group.group_id === selectedGroup.value,
+            overview?.[`${scope}s`].find(
+                (group) => group[`${scope}_id`] === selectedGroup.value,
             ) ?? null
         );
     });
@@ -63,7 +64,7 @@ export function useHoursReportRequests({
         () =>
             (showingPeople.value
                 ? report.value?.people
-                : report.value?.groups) ?? [],
+                : report.value?.[`${scope}s`]) ?? [],
     );
 
     let mounted = true;
@@ -102,8 +103,10 @@ export function useHoursReportRequests({
                 params.set('employment_type', requestedEmployment);
             const endpoint =
                 requestedGroup === ''
-                    ? '/team/reports/data'
-                    : `/team/reports/groups/${requestedGroup}/people`;
+                    ? scope === 'location'
+                        ? '/team/reports/locations'
+                        : '/team/reports/data'
+                    : `/team/reports/${scope}s/${requestedGroup}/people`;
             const response = await fetch(endpoint + '?' + params, {
                 headers: { Accept: 'application/json' },
                 signal: entry.controller.signal,
@@ -136,11 +139,15 @@ export function useHoursReportRequests({
                 data.range.start_date !== requestedStart ||
                 data.range.end_date !== requestedEnd ||
                 (requestedGroup !== '' &&
-                    data.group.group_id !== requestedGroup)
+                    data[scope][`${scope}_id`] !== requestedGroup)
             )
                 throw new Error('Hours report selection changed');
             requests.set(requestKey, { status: 'loaded', data });
-            if (requestedGroup === '' && requestedEmployment === 'all')
+            if (
+                scope === 'group' &&
+                requestedGroup === '' &&
+                requestedEmployment === 'all'
+            )
                 groups.value = data.groups;
         } catch (error) {
             if (isCurrentRequest() && error.name !== 'AbortError')

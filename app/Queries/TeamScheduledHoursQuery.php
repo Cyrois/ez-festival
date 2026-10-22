@@ -36,7 +36,7 @@ class TeamScheduledHoursQuery
             ->when($startDate !== null, fn (Builder $query) => $query->whereDate('s.starts_at', '>=', $startDate))
             ->when($endDate !== null, fn (Builder $query) => $query->whereDate('s.starts_at', '<=', $endDate))
             ->leftJoinSub($breaks, 'breaks', 'breaks.shift_assignment_id', '=', 'a.id')
-            ->select('a.id as assignment_id', 'a.shift_id', 'a.team_engagement_id', 'a.is_supervisor', 't.person_id', 't.group_id', 's.starts_at as shift_starts_at')
+            ->select('a.id as assignment_id', 'a.shift_id', 'a.team_engagement_id', 'a.is_supervisor', 't.person_id', 't.group_id', 's.location_id', 's.starts_at as shift_starts_at')
             ->selectRaw("DATE(s.starts_at) as day, {$clamp}(0, {$duration} - COALESCE(breaks.break_minutes, 0)) as scheduled_minutes");
 
         return DB::query()->fromSub($assignments, 'scheduled');
@@ -47,9 +47,59 @@ class TeamScheduledHoursQuery
         return (int) $this->forEvent($event)->sum('scheduled_minutes');
     }
 
+    /** Each location sums rounded person/location rows, without hydrating its roster. */
+    public function locations(Event $event, ?string $startDate = null, ?string $endDate = null, string $employmentType = 'all'): Collection
+    {
+        return DB::query()->fromSub($this->locationRosterQuery($event, $startDate, $endDate, $employmentType), 'roster')
+            ->join('locations', 'locations.id', '=', 'roster.location_id')
+            ->where('locations.event_id', $event->id)
+            ->select('locations.id as location_id', 'locations.name')
+            ->selectRaw('SUM(scheduled_minutes) as scheduled_minutes, SUM(scheduled_cost_cents) as scheduled_cost_cents, SUM(missing_rate_count) as missing_rate_count')
+            ->groupBy('locations.id', 'locations.name')->havingRaw('SUM(scheduled_minutes) > 0')
+            ->orderBy('locations.name')->orderBy('locations.id')->get();
+    }
+
+    public function locationPeople(Event $event, int $locationId, ?string $startDate = null, ?string $endDate = null, string $employmentType = 'all'): Collection
+    {
+        return $this->locationRosterQuery($event, $startDate, $endDate, $employmentType, $locationId)
+            ->join('people', 'people.id', '=', 'members.person_id')->addSelect('people.name')
+            ->orderBy('people.name')->orderBy('members.id')->get();
+    }
+
+    public function locationMissingRateCount(Event $event, ?string $startDate = null, ?string $endDate = null, string $employmentType = 'all'): int
+    {
+        $roster = $this->locationRosterQuery($event, $startDate, $endDate, $employmentType);
+        $visible = DB::query()->fromSub(clone $roster, 'visible')->select('location_id')
+            ->groupBy('location_id')->havingRaw('SUM(scheduled_minutes) > 0');
+
+        return DB::query()->fromSub($roster, 'roster')->whereIn('location_id', $visible)
+            ->where('missing_rate_count', 1)->distinct()->count('person_id');
+    }
+
+    private function locationRosterQuery(Event $event, ?string $startDate, ?string $endDate, string $employmentType, ?int $locationId = null, ?int $groupId = null): Builder
+    {
+        $hours = $this->forEvent($event, $startDate, $endDate)
+            ->when($locationId !== null, fn (Builder $query) => $query->where('location_id', $locationId))
+            ->when($groupId !== null, fn (Builder $query) => $query->where('group_id', $groupId))
+            ->select('location_id', 'team_engagement_id')
+            ->selectRaw('CAST(SUM(scheduled_minutes) AS BIGINT) as scheduled_minutes')
+            ->groupBy('location_id', 'team_engagement_id');
+
+        // Assignment presence qualifies a person, even if breaks reduce their hours to zero.
+        return DB::query()->fromSub($hours, 'hours')
+            ->join('team_engagements as members', 'members.id', '=', 'hours.team_engagement_id')
+            ->join('locations as scoped_locations', 'scoped_locations.id', '=', 'hours.location_id')
+            ->where('members.event_id', $event->id)->where('scoped_locations.event_id', $event->id)
+            ->when($employmentType !== 'all', fn (Builder $query) => $query->where('members.employment_type', $employmentType))
+            ->select('hours.location_id', 'members.id as team_engagement_id', 'members.person_id', 'members.employment_type', 'hours.scheduled_minutes')
+            ->selectRaw("CASE WHEN members.employment_type = 'paid' THEN members.hourly_pay END as hourly_pay")
+            ->selectRaw($this->costExpression('hours.scheduled_minutes').' as scheduled_cost_cents')
+            ->selectRaw("CASE WHEN members.employment_type = 'paid' AND members.hourly_pay IS NULL THEN 1 ELSE 0 END as missing_rate_count");
+    }
+
     public function groups(Event $event, ?string $startDate = null, ?string $endDate = null, string $employmentType = 'all'): Collection
     {
-        // Round each person's range cost before summing their team, including eligible zero-hour members.
+        // Sum the same rounded person/location costs as By location, including eligible zero-hour members.
         $totals = DB::query()->fromSub($this->reportRosterQuery($event, $startDate, $endDate, $employmentType), 'roster')
             ->select('group_id')->selectRaw('SUM(scheduled_minutes) as scheduled_minutes, SUM(scheduled_cost_cents) as scheduled_cost_cents, SUM(missing_rate_count) as missing_rate_count')
             ->groupBy('group_id');
@@ -101,9 +151,12 @@ class TeamScheduledHoursQuery
 
     private function reportRosterQuery(Event $event, ?string $startDate = null, ?string $endDate = null, string $employmentType = 'all', ?int $groupId = null): Builder
     {
-        $hours = $this->forEvent($event, $startDate, $endDate)
-            ->when($groupId !== null, fn (Builder $query) => $query->where('group_id', $groupId))
-            ->select('team_engagement_id')->selectRaw('CAST(SUM(scheduled_minutes) AS BIGINT) as scheduled_minutes')->groupBy('team_engagement_id');
+        $hours = DB::query()->fromSub(
+            $this->locationRosterQuery($event, $startDate, $endDate, $employmentType, groupId: $groupId),
+            'location_rows',
+        )->select('team_engagement_id')
+            ->selectRaw('CAST(SUM(scheduled_minutes) AS BIGINT) as scheduled_minutes, SUM(scheduled_cost_cents) as scheduled_cost_cents')
+            ->groupBy('team_engagement_id');
 
         return DB::table('team_engagements as members')
             ->join('groups', 'groups.id', '=', 'members.group_id')
@@ -115,7 +168,7 @@ class TeamScheduledHoursQuery
             ->select('members.id as team_engagement_id', 'members.person_id', 'members.group_id', 'members.employment_type')
             ->selectRaw("CASE WHEN members.employment_type = 'paid' THEN members.hourly_pay END as hourly_pay")
             ->selectRaw('COALESCE(hours.scheduled_minutes, 0) as scheduled_minutes')
-            ->selectRaw($this->costExpression('COALESCE(hours.scheduled_minutes, 0)').' as scheduled_cost_cents')
+            ->selectRaw('COALESCE(hours.scheduled_cost_cents, 0) as scheduled_cost_cents')
             ->selectRaw("CASE WHEN members.employment_type = 'paid' AND members.hourly_pay IS NULL THEN 1 ELSE 0 END as missing_rate_count");
     }
 

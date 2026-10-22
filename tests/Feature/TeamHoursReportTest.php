@@ -366,7 +366,7 @@ class TeamHoursReportTest extends TestCase
         $this->get(route('team.reports', ['group_id' => $group->id, 'start_date' => '2027-01-01', 'end_date' => '2027-01-03']))
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('Team/Reports')
-                ->where('filters', ['employment_type' => 'all', 'group_id' => $group->id, 'start_date' => '2027-01-01', 'end_date' => '2027-01-03'])
+                ->where('filters', ['location_id' => null, 'employment_type' => 'all', 'group_id' => $group->id, 'start_date' => '2027-01-01', 'end_date' => '2027-01-03'])
                 ->where('groupOptions', [['group_id' => $group->id, 'name' => 'Gate']])
                 ->missing('people')->missing('shifts'));
         foreach ([['group_id' => $foreign->id], ['group_id' => 'bad'], ['start_date' => '2027-01-01'],

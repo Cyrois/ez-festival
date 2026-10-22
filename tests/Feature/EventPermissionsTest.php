@@ -73,6 +73,8 @@ class EventPermissionsTest extends TestCase
         }
         $this->assertContains('can:team.hours_report.view', Route::getRoutes()->getByName('team.reports')->gatherMiddleware());
         $this->assertContains('can:team.hours_report.view', Route::getRoutes()->getByName('team.reports.data')->gatherMiddleware());
+        $this->assertContains('can:team.hours_report.view', Route::getRoutes()->getByName('team.reports.locations')->gatherMiddleware());
+        $this->assertContains('can:team.hours_report.view', Route::getRoutes()->getByName('team.reports.locations.people')->gatherMiddleware());
         $this->assertContains('can:team.hours_report.view', Route::getRoutes()->getByName('team.reports.shifts')->gatherMiddleware());
         $this->assertContains('can:team.hours_report.view', Route::getRoutes()->getByName('team.reports.shifts.people')->gatherMiddleware());
         $this->assertContains('can:team.hours_report.view', Route::getRoutes()->getByName('team.reports.groups.people')->gatherMiddleware());

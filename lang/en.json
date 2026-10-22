@@ -1894,5 +1894,13 @@
     "inventory.choose_move_target": "Choose a location or person",
     "inventory.confirm_move": "Move :quantity :item to :destination",
     "inventory.move_description": "Move stock you hold to a location, a manager, or another person you can pass to.",
-    "inventory.toast.moved": "Stock moved."
+    "inventory.toast.moved": "Stock moved.",
+    "team.reports.by_location": "By location",
+    "team.reports.location": "Location",
+    "team.reports.all_locations": "All locations",
+    "team.reports.location_total": ":name totals",
+    "team.reports.view_location": "View people at :name",
+    "team.reports.locations_empty": "No scheduled locations",
+    "team.reports.location_people_empty": "No people at this location",
+    "team.reports.locations_empty_description": "No assignments match this location, date range and employment filter."
 }

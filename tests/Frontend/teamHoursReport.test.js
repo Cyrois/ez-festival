@@ -173,6 +173,7 @@ const mount = ({
     eventId = 11,
     keepStorage = false,
     groupOptions = [],
+    locationOptions = [],
     url = '/team/reports',
     canViewTeam = false,
 } = {}) => {
@@ -186,6 +187,7 @@ const mount = ({
             filters,
             shiftFilters,
             groupOptions,
+            locationOptions,
             activeEvent: { id: eventId, name: 'Sunrise Folk Fest' },
             auth: { user: { id: userId } },
             permissions: {
@@ -199,7 +201,7 @@ const mount = ({
             requests.push({ url, options, resolve, reject });
         });
     const employmentOptions = ['all', 'paid', 'volunteer'].map((value) => ({ value, label: translate(`team.reports.filter.${value}`) }));
-    const app = createApp(Report, { filters, shiftFilters, groupOptions, employmentOptions });
+    const app = createApp(Report, { filters, shiftFilters, groupOptions, locationOptions, employmentOptions });
     app.config.globalProperties.$t = translate;
     app.mount(document.getElementById('app'));
     return app;
@@ -243,7 +245,7 @@ const respond = async (index, groups = [group()], eventId = 11) => {
                     approved_cost_cents: null,
                     missing_rate_count: groups.reduce((sum, row) => sum + (row.missing_rate_count ?? 0), 0),
                 },
-                groups,
+                ...(requests[index].url.startsWith('/team/reports/locations') ? { locations: groups } : { groups }),
             },
         }),
     });
@@ -283,8 +285,8 @@ const respondPeople = async (index, people = [person()], overrides = {}) => {
                     start_date: url.searchParams.get('start_date'),
                     end_date: url.searchParams.get('end_date'),
                 },
-                group: {
-                    group_id: Number(url.pathname.split('/')[4]),
+                [url.pathname.includes('/locations/') ? 'location' : 'group']: {
+                    [url.pathname.includes('/locations/') ? 'location_id' : 'group_id']: Number(url.pathname.split('/')[4]),
                     name: 'Gate',
                 },
                 totals: {
@@ -328,7 +330,7 @@ test('report switch sits between the Personnel header and page body and retains 
         assert.equal(row.nextElementSibling, main);
         assert.equal(main.querySelector('[role="tablist"]'), null);
         assert.equal(document.querySelectorAll('[role="tablist"]').length, 1);
-        assert.deepEqual([...list.children].map((tab) => tab.textContent.trim()), ['Summary', 'By team', 'By shift']);
+        assert.deepEqual([...list.children].map((tab) => tab.textContent.trim()), ['Summary', 'By team', 'By shift', 'By location']);
         assert.equal(list.getAttribute('aria-label'), 'Personnel hours');
         assert.equal(main.querySelector('h1').textContent.trim(), 'Personnel hours');
         assert.ok(row.classList.contains('bg-ground'));
@@ -340,14 +342,14 @@ test('report switch sits between the Personnel header and page body and retains 
         tabs[0].focus();
         tabs[0].dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
         await tick();
-        assert.equal(document.activeElement, tabs[2]);
-        assert.equal(tabs[2].getAttribute('aria-selected'), 'true');
-        assert.equal(tabs[2].getAttribute('aria-current'), 'page');
+        assert.equal(document.activeElement, tabs[3]);
+        assert.equal(tabs[3].getAttribute('aria-selected'), 'true');
+        assert.equal(tabs[3].getAttribute('aria-current'), 'page');
         assert.equal(tabs[0].hasAttribute('aria-current'), false);
-        const panel = document.getElementById(tabs[2].getAttribute('aria-controls'));
+        const panel = document.getElementById(tabs[3].getAttribute('aria-controls'));
         assert.equal(panel.hidden, false);
-        assert.equal(panel.getAttribute('aria-labelledby'), tabs[2].id);
-        assert.equal(page.url, '/team/reports?view=shift&date=2026-10-01');
+        assert.equal(panel.getAttribute('aria-labelledby'), tabs[3].id);
+        assert.equal(page.url, '/team/reports?view=location');
     } finally {
         app.unmount();
     }
@@ -360,7 +362,7 @@ test('report switch stays visible while loading, failed and empty, including wit
         const row = document.querySelector('header').nextElementSibling;
         const main = document.querySelector('main');
         assert.ok(main.parentElement.classList.contains('lg:ml-16'));
-        assert.equal(row.querySelectorAll('[role="tab"]').length, 3);
+        assert.equal(row.querySelectorAll('[role="tab"]').length, 4);
         requests[0].reject(new Error('Offline'));
         await tick();
         assert.equal(document.querySelector('header').nextElementSibling, row);
@@ -369,7 +371,7 @@ test('report switch stays visible while loading, failed and empty, including wit
         await tick();
         await respond(1, []);
         assert.equal(document.querySelector('header').nextElementSibling, row);
-        assert.equal(row.querySelectorAll('[role="tab"]').length, 3);
+        assert.equal(row.querySelectorAll('[role="tab"]').length, 4);
         assert.equal(document.querySelector('table'), null);
     } finally {
         app.unmount();
@@ -976,6 +978,7 @@ test('deferred history updates retain the filters belonging to their own address
         assert.deepEqual(gateHistory.props({}).filters, {
             employment_type: 'all',
             group_id: 1,
+            location_id: null,
             start_date: null,
             end_date: null,
         });
@@ -1597,4 +1600,132 @@ test('wrong employment responses fail with Retry and never fill another filter c
         buttonWithText('Retry').click();
         assert.equal(requests.length, 4);
     } finally { app.unmount(); }
+});
+
+const locationRow = (name = 'Gate', minutes = 90, id = 1) => ({
+    ...group(name, minutes), location_id: id,
+});
+const locationOptions = [locationRow(), locationRow('Stage', 120, 2)];
+const pickLocation = async (name) => {
+    document.getElementById('hours-location').click();
+    await tick();
+    [...document.querySelectorAll('[role="option"]')]
+        .find((option) => option.textContent.trim() === name).click();
+    await tick();
+};
+
+test('By location loads only on demand, retains range and employment across tabs, and lists real same-tab location links', async () => {
+    const app = mount({ locationOptions, filters: { start_date: '2026-09-01', end_date: '2026-09-02', employment_type: 'paid' } });
+    try {
+        assert.equal(requests.length, 1);
+        await respond(0);
+        await selectView('By location');
+        assert.equal(requests.length, 2);
+        const params = new URL(requests[1].url, 'http://localhost').searchParams;
+        assert.equal(params.get('start_date'), '2026-09-01');
+        assert.equal(params.get('end_date'), '2026-09-02');
+        assert.equal(params.get('employment_type'), 'paid');
+        await respond(1, [locationRow()]);
+        const links = [...document.querySelectorAll('tbody a')];
+        assert.equal(links.length, 2);
+        for (const link of links) {
+            assert.match(link.href, /view=location/);
+            assert.match(link.href, /location_id=1/);
+            assert.match(link.href, /start_date=2026-09-01/);
+            assert.match(link.href, /employment_type=paid/);
+            assert.equal(link.hasAttribute('target'), false);
+        }
+        assert.equal(links[1].getAttribute('aria-label'), 'View people at Gate');
+        assert.ok(document.querySelector('table').classList.contains('dt-summary'));
+        assert.ok(document.querySelector('dl').classList.contains('grid-cols-3'));
+        assert.equal(document.getElementById('hours-group'), null);
+        await selectView('Summary');
+        await selectView('By location');
+        assert.equal(requests.length, 2);
+        await setDate('hours-end-date', '2026-09-03');
+        assert.equal(requests.length, 3);
+        await respond(2, [locationRow()]);
+        await selectView('Summary');
+        assert.equal(document.getElementById('hours-end-date').value, '2026-09-03');
+        assert.match(requests[3].url, /end_date=2026-09-03/);
+    } finally { app.unmount(); }
+});
+
+test('one location at a time retains all person rows, switches through the picker, and All locations returns to the list', async () => {
+    const app = mount({ locationOptions, shiftFilters: { view: 'location', date: '2026-10-01' }, canViewTeam: true });
+    try {
+        assert.match(requests[0].url, /^\/team\/reports\/locations\?/);
+        await respond(0, [locationRow(), locationRow('Stage', 120, 2)]);
+        await pickLocation('Gate');
+        assert.match(page.url, /view=location&location_id=1/);
+        assert.match(requests[1].url, /locations\/1\/people/);
+        const people = Array.from({ length: 35 }, (_, i) => ({ ...person(`Person ${i}`, 90, 'paid'), team_engagement_id: i + 1, member_url: `/team/members/${i + 1}`, scheduled_cost_cents: 3675 }));
+        await respondPeople(1, people);
+        assert.equal(document.querySelectorAll('tbody tr').length, 35);
+        assert.equal(document.querySelectorAll('tbody a').length, 70);
+        for (const link of document.querySelectorAll('tbody a')) assert.equal(link.target, '_blank');
+        assert.match(document.querySelector('tbody [data-hourly-pay]').textContent, /24.50/);
+        assert.match(document.querySelector('tbody td:nth-child(2)').textContent, /36.75/);
+        assert.equal(document.querySelector('tbody td:nth-child(4) [data-hours-cost]'), null);
+        assert.equal(buttonWithText('Back to All locations'), undefined);
+        await pickLocation('Stage');
+        await respondPeople(2, [person('Stage worker')]);
+        assert.doesNotMatch(document.body.textContent, /Person 34/);
+        assert.match(document.body.textContent, /Stage worker/);
+        await pickLocation('Gate');
+        assert.equal(requests.length, 3);
+        await pickLocation('All locations');
+        assert.equal(requests.length, 3);
+        assert.equal(new URL(page.url, 'http://localhost').searchParams.has('location_id'), false);
+        assert.equal(document.querySelectorAll('tbody tr').length, 2);
+        assert.equal(document.querySelector('thead th').textContent.trim(), 'Location');
+    } finally { app.unmount(); }
+});
+
+test('location deep links restore the chosen location and report-only names stay plain; wrong-location responses can be retried', async () => {
+    const app = mount({ locationOptions, shiftFilters: { view: 'location', date: '2026-10-01' }, filters: { location_id: 2, employment_type: 'volunteer', start_date: '2026-10-01', end_date: '2026-10-02' } });
+    try {
+        assert.equal(document.querySelector('[role=tab][aria-current=page]').textContent, 'By location');
+        assert.match(document.getElementById('hours-location').textContent, /Stage/);
+        assert.equal(requests.length, 1);
+        await respondPeople(0, [person('Wrong location')], { location: { location_id: 1, name: 'Gate' } });
+        assert.match(document.querySelector('[role=alert]').textContent, /Stage/);
+        assert.doesNotMatch(document.body.textContent, /Wrong location/);
+        buttonWithText('Retry').click();
+        await tick();
+        await respondPeople(1, [person('Volunteer worker')]);
+        assert.equal(document.querySelector('tbody a'), null);
+        assert.equal(document.querySelector('tbody button'), null);
+        assert.equal(document.querySelector('tbody [data-hours-cost]'), null);
+        assert.equal(document.querySelector('dd [data-hours-cost]'), null);
+        assert.match(document.body.textContent, /Volunteer worker/);
+        const saved = new URL(page.url, 'http://localhost').searchParams;
+        assert.equal(saved.get('location_id'), '2');
+        assert.equal(saved.get('employment_type'), 'volunteer');
+        assert.equal(saved.get('end_date'), '2026-10-02');
+    } finally { app.unmount(); }
+});
+
+test('location links use current filters even while an Inertia address update is deferred', async () => {
+    const replace = deps.router.replace;
+    const app = mount({
+        locationOptions,
+        shiftFilters: { view: 'location', date: '2026-10-01' },
+        filters: { employment_type: 'paid' },
+        url: '/team/reports?view=location&employment_type=paid',
+    });
+    try {
+        await respond(0, [locationRow()]);
+        deps.router.replace = () => {};
+        await chooseEmployment('All');
+        await respond(1, [locationRow()]);
+        assert.match(page.url, /employment_type=paid/);
+        for (const link of document.querySelectorAll('tbody a')) {
+            assert.doesNotMatch(link.href, /employment_type=paid/);
+            assert.match(link.href, /location_id=1/);
+        }
+    } finally {
+        deps.router.replace = replace;
+        app.unmount();
+    }
 });
