@@ -144,6 +144,8 @@ final class RoutePermissions
         'team.configure' => 'team.view',
         'team.reports' => 'team.hours_report.view',
         'team.reports.data' => 'team.hours_report.view',
+        'team.reports.locations' => 'team.hours_report.view',
+        'team.reports.locations.people' => 'team.hours_report.view',
         'team.reports.shifts' => 'team.hours_report.view',
         'team.reports.shifts.people' => 'team.hours_report.view',
         'team.reports.groups.people' => 'team.hours_report.view',

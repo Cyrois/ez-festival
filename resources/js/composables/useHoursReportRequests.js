@@ -5,11 +5,13 @@ import { useFlashToast } from './useFlashToast';
 // One page visit owns its cache, in-flight requests, and cancellation boundary.
 export function useHoursReportRequests({
     eventId,
+    employmentType,
     selectedGroup,
     startDate,
     endDate,
     groups,
     active = computed(() => true),
+    scope = 'group',
 }) {
     const { showFormError } = useFlashToast();
     const requests = shallowReactive(new Map());
@@ -19,6 +21,7 @@ export function useHoursReportRequests({
             selectedGroup.value,
             startDate.value,
             endDate.value,
+            employmentType.value,
         ]),
     );
     const current = computed(() => requests.get(key.value));
@@ -30,11 +33,17 @@ export function useHoursReportRequests({
         if (report.value) return report.value.totals;
         if (!showingPeople.value) return null;
         const overview = requests.get(
-            JSON.stringify([eventId.value, '', startDate.value, endDate.value]),
+            JSON.stringify([
+                eventId.value,
+                '',
+                startDate.value,
+                endDate.value,
+                employmentType.value,
+            ]),
         )?.data;
         return (
-            overview?.groups.find(
-                (group) => group.group_id === selectedGroup.value,
+            overview?.[`${scope}s`].find(
+                (group) => group[`${scope}_id`] === selectedGroup.value,
             ) ?? null
         );
     });
@@ -55,7 +64,7 @@ export function useHoursReportRequests({
         () =>
             (showingPeople.value
                 ? report.value?.people
-                : report.value?.groups) ?? [],
+                : report.value?.[`${scope}s`]) ?? [],
     );
 
     let mounted = true;
@@ -79,6 +88,7 @@ export function useHoursReportRequests({
         const requestedGroup = selectedGroup.value;
         const requestedStart = startDate.value || null;
         const requestedEnd = endDate.value || null;
+        const requestedEmployment = employmentType.value;
         const entry = { status: 'loading', controller: new AbortController() };
         requests.set(requestKey, entry);
         const isCurrentRequest = () =>
@@ -89,10 +99,14 @@ export function useHoursReportRequests({
                 params.set('start_date', requestedStart);
                 params.set('end_date', requestedEnd);
             }
+            if (requestedEmployment !== 'all')
+                params.set('employment_type', requestedEmployment);
             const endpoint =
                 requestedGroup === ''
-                    ? '/team/reports/data'
-                    : `/team/reports/groups/${requestedGroup}/people`;
+                    ? scope === 'location'
+                        ? '/team/reports/locations'
+                        : '/team/reports/data'
+                    : `/team/reports/${scope}s/${requestedGroup}/people`;
             const response = await fetch(endpoint + '?' + params, {
                 headers: { Accept: 'application/json' },
                 signal: entry.controller.signal,
@@ -121,14 +135,20 @@ export function useHoursReportRequests({
             if (!isCurrentRequest()) return;
             if (
                 data.event_id !== requestedEvent ||
+                data.employment_type !== requestedEmployment ||
                 data.range.start_date !== requestedStart ||
                 data.range.end_date !== requestedEnd ||
                 (requestedGroup !== '' &&
-                    data.group.group_id !== requestedGroup)
+                    data[scope][`${scope}_id`] !== requestedGroup)
             )
                 throw new Error('Hours report selection changed');
             requests.set(requestKey, { status: 'loaded', data });
-            if (requestedGroup === '') groups.value = data.groups;
+            if (
+                scope === 'group' &&
+                requestedGroup === '' &&
+                requestedEmployment === 'all'
+            )
+                groups.value = data.groups;
         } catch (error) {
             if (isCurrentRequest() && error.name !== 'AbortError')
                 requests.set(requestKey, { status: 'failed' });
@@ -136,7 +156,7 @@ export function useHoursReportRequests({
     };
 
     watch(
-        [eventId, selectedGroup, startDate, endDate, active],
+        [eventId, selectedGroup, startDate, endDate, employmentType, active],
         (values, previous) => {
             if (previous.length && values[0] !== previous[0]) {
                 cancelPending();

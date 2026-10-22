@@ -2,15 +2,30 @@ import { computed, onUnmounted, ref, shallowReactive, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 import { useFlashToast } from './useFlashToast';
 
-export function useShiftHoursReportRequests({ eventId, selectedDate, active }) {
+export function useShiftHoursReportRequests({
+    eventId,
+    employmentType,
+    selectedDate,
+    active,
+}) {
     const requests = shallowReactive(new Map());
     const openedShift = ref(null);
     const { showFormError } = useFlashToast();
     const dayKey = computed(() =>
-        JSON.stringify(['day', eventId.value, selectedDate.value]),
+        JSON.stringify([
+            'day',
+            eventId.value,
+            selectedDate.value,
+            employmentType.value,
+        ]),
     );
     const peopleKey = (shiftId) =>
-        JSON.stringify(['people', eventId.value, shiftId]);
+        JSON.stringify([
+            'people',
+            eventId.value,
+            shiftId,
+            employmentType.value,
+        ]);
     const day = computed(() => requests.get(dayKey.value));
     const people = computed(() => requests.get(peopleKey(openedShift.value)));
     const dateError = computed(() =>
@@ -28,6 +43,14 @@ export function useShiftHoursReportRequests({ eventId, selectedDate, active }) {
                 supervisor_name:
                     loaded.people.find((person) => person.is_supervisor)
                         ?.name ?? null,
+                scheduled_cost_cents: loaded.people.reduce(
+                    (sum, person) => sum + (person.scheduled_cost_cents ?? 0),
+                    0,
+                ),
+                missing_rate_count: loaded.people.reduce(
+                    (sum, person) => sum + person.missing_rate_count,
+                    0,
+                ),
                 scheduled_minutes: loaded.people.reduce(
                     (total, person) => total + person.scheduled_minutes,
                     0,
@@ -75,29 +98,53 @@ export function useShiftHoursReportRequests({ eventId, selectedDate, active }) {
                 requests.set(requestKey, { status: 'failed' });
         }
     };
-    const loadDay = () => {
+    const loadDay = async () => {
         if (!active.value || !selectedDate.value) return;
         const event = eventId.value;
         const date = selectedDate.value;
-        return load(
+        const employment = employmentType.value;
+        const requestKey = dayKey.value;
+        const params = new URLSearchParams({ date });
+        if (employment !== 'all') params.set('employment_type', employment);
+        await load(
             dayKey.value,
-            '/team/reports/shifts?' + new URLSearchParams({ date }),
+            '/team/reports/shifts?' + params,
             (data) =>
                 data.event_id === event &&
                 data.date === date &&
+                data.employment_type === employment &&
                 Array.isArray(data.shifts),
         );
+        if (
+            dayKey.value !== requestKey ||
+            !active.value ||
+            day.value?.status !== 'loaded'
+        )
+            return;
+        if (
+            openedShift.value !== null &&
+            !day.value.data.shifts.some(
+                (shift) => shift.shift_id === openedShift.value,
+            )
+        )
+            openedShift.value = null;
+        if (openedShift.value !== null) loadPeople();
     };
     const loadPeople = () => {
         if (!active.value || openedShift.value === null) return;
         const event = eventId.value;
         const shift = openedShift.value;
+        const employment = employmentType.value;
+        const params = new URLSearchParams();
+        if (employment !== 'all') params.set('employment_type', employment);
         return load(
             peopleKey(shift),
-            `/team/reports/shifts/${shift}/people`,
+            `/team/reports/shifts/${shift}/people` +
+                (params.size ? '?' + params : ''),
             (data) =>
                 data.event_id === event &&
                 data.shift_id === shift &&
+                data.employment_type === employment &&
                 Array.isArray(data.people),
         );
     };
@@ -111,7 +158,7 @@ export function useShiftHoursReportRequests({ eventId, selectedDate, active }) {
         openedShift.value = null;
     };
     watch(
-        [eventId, selectedDate, active],
+        [eventId, selectedDate, employmentType, active],
         (values, previous) => {
             if (previous.length && values[0] !== previous[0]) clear();
             else if (previous.length && values[1] !== previous[1])

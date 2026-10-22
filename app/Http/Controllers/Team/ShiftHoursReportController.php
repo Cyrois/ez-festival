@@ -16,6 +16,6 @@ class ShiftHoursReportController extends Controller
         $event = $eventContext->requireCurrent($request->user());
         $day = $request->validated()['date'];
 
-        return new TeamShiftHoursReportResource($hours->dayShiftReport($event, $day), $event->id, $day, Gate::allows('scheduling.view', $event));
+        return new TeamShiftHoursReportResource($hours->dayShiftReport($event, $day, $request->employmentType()), $event->id, $day, Gate::allows('scheduling.view', $event), $request->employmentType());
     }
 }

@@ -1,4 +1,5 @@
 <script setup>
+import HoursReportCost from './HoursReportCost.vue';
 import { computed, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 import { Link } from '@inertiajs/vue3';
@@ -11,6 +12,7 @@ import { activateDataTableRow } from '../../../lib/dataTableRowNavigation';
 import { formatHoursReportDuration } from '../../../lib/hoursReport';
 
 const props = defineProps({
+    employmentType: { type: String, default: 'all' },
     rows: { type: Array, required: true },
     openedShift: { type: Number, default: null },
     people: { type: Object, default: null },
@@ -194,14 +196,21 @@ const tableOptions = computed(() => ({
         <template #supervisorCell="{ rowData }">{{
             rowData.supervisor_name || $t('data_table.empty_value')
         }}</template>
-        <template #scheduledCell="{ rowData }">{{
-            formatHoursReportDuration(rowData.scheduled_minutes)
-        }}</template>
-        <template #approvedCell
-            ><span class="text-muted">{{
-                $t('team.reports.unavailable')
-            }}</span></template
-        >
+        <template #scheduledCell="{ rowData }">
+            {{ formatHoursReportDuration(rowData.scheduled_minutes) }}
+            <HoursReportCost
+                :cents="rowData.scheduled_cost_cents"
+                :visible="employmentType !== 'volunteer'"
+                :missing-rate-count="rowData.missing_rate_count"
+            />
+        </template>
+        <template #approvedCell="{ rowData }">
+            <span class="text-muted">{{ $t('team.reports.unavailable') }}</span>
+            <HoursReportCost
+                :cents="rowData.approved_cost_cents"
+                :visible="employmentType !== 'volunteer'"
+            />
+        </template>
         <template #unapprovedCell
             ><span class="text-muted">{{
                 $t('team.reports.unavailable')
@@ -285,7 +294,8 @@ const tableOptions = computed(() => ({
                 <HoursReportTable
                     v-else-if="people?.status === 'loaded'"
                     :rows="people.data.people"
-                    :request-key="String(openedShift)"
+                    :request-key="JSON.stringify([openedShift, employmentType])"
+                    :employment-type="employmentType"
                     showing-people
                     shift-people
                     :can-view-team="canViewTeam"

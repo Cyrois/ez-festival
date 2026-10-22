@@ -130,7 +130,7 @@ class TeamScheduledHoursQueryTest extends TestCase
         $this->assertSame(420, $this->hours->eventTotal($this->event));
     }
 
-    public function test_each_projection_is_one_query_for_three_and_three_hundred_people_and_reads_no_money(): void
+    public function test_each_projection_is_one_query_for_three_and_three_hundred_people_and_reads_no_contact_details(): void
     {
         $group = $this->event->groups()->create(['name' => 'Gate']);
         $shift = $this->shift($this->event);
@@ -144,7 +144,7 @@ class TeamScheduledHoursQueryTest extends TestCase
                     $this->assign($shift, $this->member($group));
                 }
             }
-            foreach ([fn () => $this->hours->eventTotal($this->event), fn () => $this->hours->groups($this->event),
+            foreach ([fn () => $this->hours->eventTotal($this->event), fn () => $this->hours->groups($this->event), fn () => $this->hours->eventCostTotals($this->event),
                 fn () => $this->hours->groupDays($this->event, $group->id), fn () => $this->hours->groupPeople($this->event, $group->id)->get(),
                 fn () => $this->hours->personShifts($this->event, $member->id), fn () => $this->hours->dayShifts($this->event, '2026-10-01')] as $projection) {
                 DB::enableQueryLog();
@@ -153,7 +153,7 @@ class TeamScheduledHoursQueryTest extends TestCase
                     $projection();
                     $queries = DB::getQueryLog();
                     $this->assertCount(1, $queries);
-                    $this->assertDoesNotMatchRegularExpression('/hourly_pay|employment_type|"people"|"users"/i', $queries[0]['query']);
+                    $this->assertDoesNotMatchRegularExpression('/"people"|"users"/i', $queries[0]['query']);
                 } finally {
                     DB::disableQueryLog();
                 }

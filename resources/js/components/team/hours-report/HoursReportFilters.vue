@@ -1,39 +1,61 @@
 <script setup>
+import HoursReportEmploymentFilter from './HoursReportEmploymentFilter.vue';
 import { computed } from 'vue';
-import { Button } from '../../ui/button';
+import { trans } from 'laravel-vue-i18n';
 import { CustomDropdown } from '../../ui/custom-dropdown';
 import { FormField } from '../../ui/form-field';
-import { Icon } from '../../ui/icon';
 import { Input } from '../../ui/input';
 
+const employmentType = defineModel('employmentType', {
+    type: String,
+    default: 'all',
+});
+const locationId = defineModel('locationId', {
+    type: [String, Number],
+    default: '',
+});
 const groupId = defineModel('groupId', { type: [String, Number], default: '' });
 const startDate = defineModel('startDate', { type: String, default: '' });
 const endDate = defineModel('endDate', { type: String, default: '' });
 const props = defineProps({
-    groups: { type: Array, required: true },
+    employmentOptions: { type: Array, default: () => [] },
+    groups: { type: Array, default: () => [] },
+    locations: { type: Array, default: () => [] },
+    byLocation: { type: Boolean, default: false },
+    showingPeople: { type: Boolean, default: false },
     errors: { type: Object, default: () => ({}) },
 });
-const showingPeople = computed(() => groupId.value !== '');
 const groupItems = computed(() =>
     props.groups.map((group) => ({ value: group.group_id, title: group.name })),
 );
+const locationItems = computed(() => [
+    { value: '', title: trans('team.reports.all_locations') },
+    ...props.locations.map((location) => ({
+        value: location.location_id,
+        title: location.name,
+    })),
+]);
 </script>
 
 <template>
     <div class="space-y-6">
-        <Button
-            v-if="showingPeople"
-            variant="ghost"
-            class="px-0 text-muted"
-            @click="groupId = ''"
-        >
-            <Icon :name="['fas', 'arrow-left']" />
-            {{ $t('team.reports.back') }}
-        </Button>
         <div>
             <div class="flex flex-wrap gap-3">
                 <FormField
-                    v-if="showingPeople"
+                    v-if="byLocation"
+                    v-slot="{ id }"
+                    :label="$t('team.reports.location')"
+                    html-for="hours-location"
+                    class="w-full sm:w-64"
+                >
+                    <CustomDropdown
+                        :id="id"
+                        v-model="locationId"
+                        :items="locationItems"
+                    />
+                </FormField>
+                <FormField
+                    v-if="showingPeople && !byLocation"
                     v-slot="{ id }"
                     :label="$t('team.reports.group_picker')"
                     html-for="hours-group"
@@ -73,6 +95,10 @@ const groupItems = computed(() =>
                         :invalid="invalid"
                     />
                 </FormField>
+                <HoursReportEmploymentFilter
+                    v-model="employmentType"
+                    :options="employmentOptions"
+                />
             </div>
             <p class="mt-3 text-xs text-muted">
                 {{ $t('team.reports.range_hint') }}

@@ -10,7 +10,11 @@ import {
     activateDataTableRow,
     navigateDataTableRow,
 } from '../../../lib/dataTableRowNavigation';
-import { formatHoursReportDuration } from '../../../lib/hoursReport';
+import HoursReportCost from './HoursReportCost.vue';
+import {
+    formatHoursReportPay,
+    formatHoursReportDuration,
+} from '../../../lib/hoursReport';
 
 const props = defineProps({
     rows: { type: Array, required: true },
@@ -18,6 +22,9 @@ const props = defineProps({
     showingPeople: { type: Boolean, default: false },
     canViewTeam: { type: Boolean, default: false },
     shiftPeople: { type: Boolean, default: false },
+    employmentType: { type: String, default: 'all' },
+    locationRows: { type: Boolean, default: false },
+    rowHref: { type: Function, default: null },
     columnWidths: { type: Array, default: () => [] },
 });
 const emit = defineEmits(['select-group']);
@@ -29,7 +36,11 @@ const columns = computed(() => [
     {
         data: 'name',
         title: trans(
-            props.showingPeople ? 'team.reports.person' : 'team.reports.group',
+            props.showingPeople
+                ? 'team.reports.person'
+                : props.locationRows
+                  ? 'team.reports.location'
+                  : 'team.reports.group',
         ),
         render: { display: '#nameCell' },
     },
@@ -79,10 +90,13 @@ const tableOptions = computed(() => ({
                       );
               }
             : undefined
-        : (row, group) =>
-              activateDataTableRow(row, group, (item) => {
-                  emit('select-group', item.group_id);
-              }),
+        : props.locationRows
+          ? (row, location) =>
+                navigateDataTableRow(row, location, props.rowHref)
+          : (row, group) =>
+                activateDataTableRow(row, group, (item) => {
+                    emit('select-group', item.group_id);
+                }),
 }));
 </script>
 
@@ -101,7 +115,9 @@ const tableOptions = computed(() => ({
             :options="tableOptions"
             :embedded="shiftPeople"
             :column-widths="columnWidths"
-            :mobile-layout="showingPeople ? 'summary' : 'stacked'"
+            :mobile-layout="
+                showingPeople || locationRows ? 'summary' : 'stacked'
+            "
         >
             <template #nameCell="{ rowData }">
                 <span class="inline-flex flex-wrap items-center gap-2">
@@ -117,6 +133,12 @@ const tableOptions = computed(() => ({
                                 name: rowData.name,
                             })
                         "
+                        class="font-semibold text-primary underline underline-offset-2"
+                        >{{ rowData.name }}</Link
+                    >
+                    <Link
+                        v-else-if="locationRows && !showingPeople"
+                        :href="rowHref(rowData)"
                         class="font-semibold text-primary underline underline-offset-2"
                         >{{ rowData.name }}</Link
                     >
@@ -152,14 +174,37 @@ const tableOptions = computed(() => ({
                         {{ $t('team.scheduling.supervisor.tag') }}
                     </Badge>
                 </span>
+                <span
+                    v-if="showingPeople"
+                    data-hourly-pay
+                    class="block text-xs text-muted"
+                    >{{ formatHoursReportPay(rowData) }}</span
+                >
             </template>
-            <template #scheduledCell="{ rowData }">{{
-                formatHoursReportDuration(rowData.scheduled_minutes)
-            }}</template>
-            <template #approvedCell>
+            <template #scheduledCell="{ rowData }">
+                {{ formatHoursReportDuration(rowData.scheduled_minutes) }}
+                <HoursReportCost
+                    :cents="rowData.scheduled_cost_cents"
+                    :visible="
+                        employmentType !== 'volunteer' &&
+                        (!showingPeople || rowData.employment_type === 'paid')
+                    "
+                    :missing-rate-count="
+                        showingPeople ? 0 : rowData.missing_rate_count
+                    "
+                />
+            </template>
+            <template #approvedCell="{ rowData }">
                 <span class="text-muted">{{
                     $t('team.reports.unavailable')
                 }}</span>
+                <HoursReportCost
+                    :cents="rowData.approved_cost_cents"
+                    :visible="
+                        employmentType !== 'volunteer' &&
+                        (!showingPeople || rowData.employment_type === 'paid')
+                    "
+                />
             </template>
             <template #unapprovedCell>
                 <span class="text-muted">{{
@@ -177,6 +222,16 @@ const tableOptions = computed(() => ({
                         $t('team.reports.view_member', {
                             name: rowData.name,
                         })
+                    "
+                >
+                    <Icon :name="['fas', 'chevron-right']" />
+                </Link>
+                <Link
+                    v-else-if="locationRows && !showingPeople"
+                    :href="rowHref(rowData)"
+                    class="inline-flex h-10 w-10 items-center justify-center rounded-lg text-primary focus-visible:outline-primary"
+                    :aria-label="
+                        $t('team.reports.view_location', { name: rowData.name })
                     "
                 >
                     <Icon :name="['fas', 'chevron-right']" />

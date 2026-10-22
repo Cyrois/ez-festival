@@ -2,11 +2,14 @@
 
 namespace App\Http\Requests\Team;
 
+use App\Http\Requests\Team\Concerns\FiltersTeamHoursReport;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 
 class IndexTeamHoursReportRequest extends FormRequest
 {
+    use FiltersTeamHoursReport;
+
     public function authorize(): bool
     {
         return Gate::allows('team.hours_report.view');
@@ -15,6 +18,7 @@ class IndexTeamHoursReportRequest extends FormRequest
     public function rules(): array
     {
         return [
+            ...$this->employmentTypeRules(),
             'start_date' => ['nullable', 'required_with:end_date', 'date_format:Y-m-d'],
             'end_date' => ['nullable', 'required_with:start_date', 'date_format:Y-m-d', 'after_or_equal:start_date'],
         ];
