@@ -55,6 +55,14 @@ item cache advances to v6 and item edits retain after-commit invalidation.
 Nullable is the permanent product meaning of no configured warning, not a
 temporary migration state. No new foreign keys or deletion-order changes apply.
 
+For installations upgrading from before #198, the compatibility migration
+`2026_10_17_000001_preserve_legacy_issued_sources.php` must also deploy with this
+branch. It sorts before the original issued-location removal and preserves
+pre-ledger source metadata without changing balances. It introduces the legacy
+source foreign keys and corresponding child-first event deletion; see the #198
+deployment notes. Existing Hired members also need their actual group assigned
+before the later hired-group constraint migration can run.
+
 Migration rollback removes only the new low-stock setting; stock, movements,
 issued records and unique-code settings remain. Preserve configured levels
 before rollback if needed. The old issued-log route and exclusive supporting

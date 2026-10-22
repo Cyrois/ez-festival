@@ -41,10 +41,29 @@ new holder/balance storage is introduced. Existing ledger rows are unchanged.
 
 Before dropping the column, the migration requires every non-null historical
 issued location to have a matching linked give-out from that location holder.
-It refuses deployment if history is missing; reconcile it before proceeding.
+The compatibility migration
+`2026_10_17_000001_preserve_legacy_issued_sources.php` sorts before the original
+removal migration. It preserves locations for older issues without movements in
+`legacy_issued_entitlement_sources`, then clears only those old column values
+after copying them. The original shipped migration and its guard are unchanged.
+Already-upgraded databases get an empty source table. A source conflicting with
+a linked movement or the item's event still refuses migration for reconciliation.
 Do not create artificial ledger debits just to pass the guard. Back up first.
 SQLite's table rebuild preserves dependent ledger triggers and verifies foreign
 keys; PostgreSQL alters the existing table directly.
+
+Check-in Audit reads the archived location as Giver only when no ledger giver
+exists. Search and sorting use the same fallback. Checked in by remains the
+issued record's actor; Recorded by remains unavailable without a movement.
+The archive creates no movement, holder or balance adjustment, and old issues
+without movements do not become invented rows in Movement history.
+
+Both location-delete validation and its service treat archived sources as
+history, so the restricted foreign key cannot surface as a 500. Event deletion
+clears sources before issued records and locations. Archived sources have
+permanent foreign keys to the issued record and location, with no duplicated
+event or organization identity. Once the old location column is gone, rollback
+refuses to discard a nonempty source archive; restore a backup or fix forward.
 
 Deploy schema, backend and frontend together with check-in writes paused during
 the cutover: the old application reads and writes the removed column. Resume

@@ -18,6 +18,8 @@ class CheckInEntitlementsQuery
             ->join('pass_types as pt', 'pt.id', '=', 'pa.pass_type_id')
             ->join('entitlement_items as ei', 'ei.id', '=', 'expected_entitlements.entitlement_item_id')
             ->leftJoin('issued_entitlements as ie', 'ie.expected_entitlement_id', '=', 'expected_entitlements.id')
+            ->leftJoin('legacy_issued_entitlement_sources as legacy', 'legacy.issued_entitlement_id', '=', 'ie.id')
+            ->leftJoin('locations as legacy_location', 'legacy_location.id', '=', 'legacy.location_id')
             ->leftJoin('stock_movements as sm', 'sm.issued_entitlement_id', '=', 'ie.id')
             ->leftJoin('stock_holders as giver_holder', 'giver_holder.id', '=', 'sm.from_holder_id')
             ->leftJoin('people as giver', 'giver.id', '=', 'giver_holder.person_id')
@@ -35,7 +37,7 @@ class CheckInEntitlementsQuery
             $query->where(function ($query) use ($pattern): void {
                 $query->whereRaw("LOWER(ei.name) LIKE ? ESCAPE '!'", [$pattern])
                     ->orWhereRaw("LOWER(ie.code) LIKE ? ESCAPE '!'", [$pattern])
-                    ->orWhereRaw("LOWER(COALESCE(giver.name, giver_location.name, '')) LIKE ? ESCAPE '!'", [$pattern])
+                    ->orWhereRaw("LOWER(COALESCE(giver.name, giver_location.name, legacy_location.name, '')) LIKE ? ESCAPE '!'", [$pattern])
                     ->orWhereRaw("LOWER(receiver.name) LIKE ? ESCAPE '!'", [$pattern])
                     ->orWhereRaw("LOWER(recorder.name) LIKE ? ESCAPE '!'", [$pattern])
                     ->orWhereRaw("CASE WHEN ie.id IS NULL THEN 'pending' ELSE 'issued' END LIKE ? ESCAPE '!'", [$pattern]);
@@ -47,7 +49,7 @@ class CheckInEntitlementsQuery
         $sort = match ($column) {
             1 => "CASE WHEN ie.id IS NULL THEN 'pending' ELSE 'issued' END",
             2 => "LOWER(COALESCE(ie.code, ''))",
-            3 => "LOWER(COALESCE(giver.name, giver_location.name, ''))",
+            3 => "LOWER(COALESCE(giver.name, giver_location.name, legacy_location.name, ''))",
             4 => "CASE WHEN ie.id IS NULL THEN '' ELSE LOWER(COALESCE(receiver.name, '')) END",
             5 => "LOWER(COALESCE(recorder.name, ''))",
             6 => 'ie.issued_at',
@@ -61,6 +63,7 @@ class CheckInEntitlementsQuery
             ->with([
                 'passAssignment.passType:id,name', 'passAssignment.person:id,name',
                 'issuedEntitlement.issuedBy:id,name',
+                'issuedEntitlement.legacySource.location:id,name',
                 'issuedEntitlement.giveOutMovement.fromHolder.person:id,name',
                 'issuedEntitlement.giveOutMovement.fromHolder.location:id,name',
                 'issuedEntitlement.giveOutMovement.actor:id,name',

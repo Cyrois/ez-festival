@@ -266,6 +266,7 @@ These are recurring Codex mistakes on this repo. Treat them as hard stops — do
 
 - Stock belongs to a person within an event, or to a location. `stock_holders` uses exactly one of `person_id` / `location_id`; never Team engagement or admin account holder identities.
 - Joining the Team must leave the person's holder, balance, and movement history unchanged. Do not create a membership-related stock transfer or merge.
+- Pre-ledger issued records may preserve their source in `legacy_issued_entitlement_sources`. Read it as the Check-in audit Giver fallback and keep deletion guards; never manufacture give-out movements or debit current stock merely to migrate old source metadata.
 
 ## Inventory history (Calvin, 2026-10-21, #199)
 

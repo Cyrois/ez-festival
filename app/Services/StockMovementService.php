@@ -151,7 +151,8 @@ class StockMovementService
 
     public function locationHasHistory(Location $location): bool
     {
-        return StockHolder::query()->where('event_id', $location->event_id)->where('location_id', $location->id)->get()
-            ->contains(fn (StockHolder $holder): bool => $holder->hasHistory());
+        return DB::table('legacy_issued_entitlement_sources')->where('location_id', $location->id)->exists()
+            || StockHolder::query()->where('event_id', $location->event_id)->where('location_id', $location->id)->get()
+                ->contains(fn (StockHolder $holder): bool => $holder->hasHistory());
     }
 }
