@@ -105,7 +105,7 @@ class CheckInInventoryTest extends TestCase
         foreach (['holdings', 'receivers', 'availability'] as $route) {
             $this->getJson(route('check-in.inventory.'.$route))->assertForbidden();
         }
-        foreach (['stock', 'movements'] as $route) {
+        foreach (['stock'] as $route) {
             $this->getJson(route('check-in.inventory.holders.'.$route, $otherHolder))->assertForbidden();
         }
         $this->post(route('check-in.inventory.pulls.store', $this->event), $this->pullData())->assertForbidden();
@@ -234,7 +234,7 @@ class CheckInInventoryTest extends TestCase
         $this->pull($this->receiver, 2);
         $holder = StockHolder::where('person_id', $this->receiver->person_id)->sole();
         $this->getJson(route('check-in.inventory.holders.stock', $holder))->assertOk()->assertJsonPath('data.0.balance', 2);
-        $this->getJson(route('check-in.inventory.holders.movements', $holder))->assertOk()->assertJsonPath('data.0.type', 'pull');
+        $this->getJson(route('check-in.history.data', ['holder' => 'person:'.$this->receiver->person_id]))->assertOk()->assertJsonPath('data.0.type', 'pull');
         $foreign = $this->newEvent('Other');
         $foreignHolder = app(StockMovementService::class)->forPerson($foreign, $this->receiver->person);
         $this->getJson(route('check-in.inventory.holders.stock', $foreignHolder))->assertNotFound();

@@ -34,7 +34,11 @@ const ui = (name) => {
     if (name === 'Input') return { props: ['modelValue', 'disabled'], setup: (props, { attrs }) => () => h('input', { ...attrs, value: props.modelValue, disabled: props.disabled }) };
     if (name === 'LabelCombobox') return { inheritAttrs: false, props: ['disabled'], setup: (props) => () => h('input', { 'data-label-picker': '', disabled: props.disabled }) };
     if (name === 'CustomDropdown') return { setup: (_, { attrs }) => () => h('div', { ...attrs, 'data-dropdown': '' }) };
-    if (name === 'DataTable') return { props: ['options', 'ajax'], setup: (props, { slots }) => () => h('div', { 'data-server-side': String(props.options?.serverSide ?? false), 'data-ajax': props.ajax }, slots.actionsCell?.({ rowData: { id: 8, name: 'Wristband' } })) };
+    if (name === 'DataTable') return { props: ['options', 'ajax'], setup: (props, { slots }) => {
+        const request = { draw: 1, start: 0, length: props.options?.pageLength ?? 10, search: { value: '', regex: false } };
+        props.ajax?.data?.(request);
+        return () => h('div', { 'data-server-side': String(props.options?.serverSide ?? false), 'data-ajax': props.ajax?.url ?? props.ajax, 'data-request': JSON.stringify(request) }, slots.actionsCell?.({ rowData: { id: 8, name: 'Wristband' } }));
+    } };
     if (name === 'Icon') return { render: () => null };
     return box(name === 'CardTitle' ? 'h2' : 'div');
 };
@@ -58,6 +62,7 @@ const compile = async (path, layout = false) => {
         .replace(/import \{ navigateDataTableRow \} from ['"][^'"]+['"];?/, 'const navigateDataTableRow = () => {};')
         .replace(/import \{ entitlementColumns \} from ['"][^'"]+['"];?/, 'const entitlementColumns = () => [];')
         .replace(/import AppLayout from ['"][^'"]+['"];?/, 'const AppLayout = { inheritAttrs: false, props: ["breadcrumbs"], setup: (props, { slots }) => () => { globalThis.credentialsTest.state.breadcrumbs = props.breadcrumbs; return slots.default?.(); } };');
+    source = source.replace(/import InventoryHistoryTable from ['"][^'"]+['"];?/, 'const InventoryHistoryTable = globalThis.credentialsTest.box();');
     if (layout) {
         source = source
             .replace(/from ['"]\.\.\/lib\/appNavigation['"]/, `from '${new URL('../../resources/js/lib/appNavigation.js', import.meta.url).href}'`)
@@ -80,7 +85,7 @@ const mount = (component, props) => {
     return app;
 };
 const clickText = (text) => { const target = [...document.querySelectorAll('button')].find((button) => button.textContent.trim() === text); assert.ok(target, text); target.click(); };
-const itemProps = { event: { id: 3 }, item: { id: 8, name: 'Wristband', labels: [] }, stats: { in_stock: 2, expected: 0, issued: 0 }, locations: [], locations_for_adjust: [], issued_log_url: '/credentials/entitlements/8/issued' };
+const itemProps = { event: { id: 3 }, item: { id: 8, name: 'Wristband', labels: [] }, stats: { in_stock: 2, expected: 0, issued: 0 }, locations: [], locations_for_adjust: [], history_url: '/credentials/entitlements/8/history', history_options_url: '/credentials/entitlements/8/history/options', holdings_url: '/credentials/entitlements/8/holdings', movementTypes: [] };
 
 test('item-only creation omits opening stock controls and uses a readable row and breadcrumb', async () => {
     state.page.props.permissions = { 'credentials.entitlements.edit': true };
@@ -118,7 +123,7 @@ test('stock-only item disables details but permits the adjustment deep link and 
         assert.equal(document.querySelector('a[href="/settings/locations"]'), null);
         assert.doesNotMatch(document.body.textContent, /Delete item/);
         assert.equal(document.querySelector('[form="entitlement-details"]'), null);
-        assert.equal(document.querySelector('[data-server-side="true"]').dataset.ajax, itemProps.issued_log_url);
+        assert.equal(document.querySelector('[data-server-side="true"]').dataset.ajax, itemProps.holdings_url);
     } finally { app.unmount(); }
 });
 
@@ -217,7 +222,7 @@ test('inventory manager item view cannot edit, adjust, delete, or open a deep-li
         assert.equal(document.querySelector('[form="entitlement-details"]'), null);
         assert.equal(document.querySelector('[data-dialog]'), null);
         assert.doesNotMatch(document.body.textContent, /Delete item|Adjust stock/);
-        assert.equal(document.querySelector('[data-server-side="true"]').dataset.ajax, itemProps.issued_log_url);
+        assert.equal(document.querySelector('[data-server-side="true"]').dataset.ajax, itemProps.holdings_url);
         assert.deepEqual(state.calls, []);
     } finally { app.unmount(); }
 });
@@ -228,5 +233,18 @@ test('inventory managers who can adjust stock can reach Locations from an empty 
     const app = mount(Item, { ...itemProps, canEditItems: false, canAdjustStock: true, open_adjust: true });
     try {
         assert.ok(document.querySelector('[data-dialog] a[href="/settings/locations"]'));
+    } finally { app.unmount(); }
+});
+
+
+test('item people holdings send the bounded flat-search DataTable contract', () => {
+    const app = mount(Item, { ...itemProps, canEditItems: false });
+    try {
+        const table = document.querySelector('[data-server-side="true"]');
+        assert.equal(table.dataset.ajax, itemProps.holdings_url);
+        assert.deepEqual(JSON.parse(table.dataset.request), { draw: 1, start: 0, length: 10, search: '' });
+        const level = document.querySelector('input[type="number"][min="0"]');
+        assert.ok(level.disabled);
+        assert.equal(level.getAttribute('max'), '2147483647');
     } finally { app.unmount(); }
 });

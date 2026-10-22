@@ -80,7 +80,7 @@ class CredentialsPermissionsTest extends TestCase
             $this->get(route('credentials.entitlements'))->assertStatus($items || $stock ? 200 : 403);
             $this->get(route('credentials.entitlements.show', $this->item))->assertStatus($items || $stock ? 200 : 403);
             $this->get('/credentials/entitlements/'.$this->item->id.'/edit')->assertNotFound();
-            $this->getJson(route('credentials.entitlements.issued', ['entitlementItem' => $this->item, 'draw' => 1, 'start' => 0, 'length' => 25]))->assertStatus($items || $stock ? 200 : 403);
+            $this->getJson(route('credentials.entitlements.history', ['entitlementItem' => $this->item, 'draw' => 1, 'start' => 0, 'length' => 10]))->assertStatus($items || $stock ? 200 : 403);
             $this->get(route('credentials.products'))->assertForbidden();
             $this->get(route('settings.locations'))->assertForbidden();
             $this->put(route('credentials.passes.update', [$this->event, $this->pass]), ['name' => 'Artist'])->assertStatus($passes ? 302 : 403);
@@ -222,36 +222,29 @@ class CredentialsPermissionsTest extends TestCase
         $this->assertDatabaseHas('pass_types', ['id' => $this->pass->id]);
     }
 
-    public function test_issued_log_is_bounded_ordered_scoped_and_refuses_unbounded_requests(): void
+    public function test_item_history_is_bounded_ordered_scoped_and_refuses_unbounded_requests(): void
     {
         $this->role->update(['permissions' => ['credentials.stock.adjust']]);
-        $patron = $this->event->patrons()->create(['person_id' => $this->user->person_id]);
-        $assignment = $this->pass->assignments()->create(['event_patron_id' => $patron->id, 'person_id' => $this->user->person_id]);
-        $firstId = null;
+        $location = $this->event->locations()->create(['name' => 'Gate']);
+        $ids = [];
         for ($index = 0; $index < 32; $index++) {
-            $expected = $assignment->expectedEntitlements()->create(['entitlement_item_id' => $this->item->id, 'status' => 'consumed']);
-            $issue = $expected->issuedEntitlement()->create([
-                'entitlement_item_id' => $this->item->id, 'code' => 'ISSUE-'.$index,
-                'issued_by' => $this->user->id, 'issued_at' => now()->subMinutes($index),
-            ]);
-            $firstId ??= $issue->id;
+            $ids[] = $this->seedStock($this->item, $location, 1, $this->user)->id;
         }
         $other = $this->event->entitlementItems()->create(['name' => 'Other item']);
-        $expected = $assignment->expectedEntitlements()->create(['entitlement_item_id' => $other->id, 'status' => 'consumed']);
-        $expected->issuedEntitlement()->create(['entitlement_item_id' => $other->id, 'code' => 'FOREIGN', 'issued_by' => $this->user->id, 'issued_at' => now()]);
-        $params = ['entitlementItem' => $this->item, 'draw' => 4, 'start' => 0, 'length' => 25];
-        $this->getJson(route('credentials.entitlements.issued', $params))->assertOk()
+        $this->seedStock($other, $location, 1, $this->user);
+        $params = ['entitlementItem' => $this->item, 'draw' => 4, 'start' => 0, 'length' => 10];
+        $this->getJson(route('credentials.entitlements.history', $params))->assertOk()
             ->assertJsonPath('draw', 4)->assertJsonPath('recordsTotal', 32)->assertJsonPath('recordsFiltered', 32)
-            ->assertJsonCount(25, 'data')->assertJsonPath('data.0.id', $firstId)
-            ->assertJsonPath('data.0.pass_name', 'Artist')->assertJsonMissingPath('data.0.issued_by.email');
-        $this->getJson(route('credentials.entitlements.issued', [...$params, 'start' => 25]))->assertOk()
-            ->assertJsonCount(7, 'data')->assertJsonPath('data.0.code', 'ISSUE-25');
-        foreach ([-1, 0, 101] as $length) {
-            $this->getJson(route('credentials.entitlements.issued', [...$params, 'length' => $length]))->assertUnprocessable()->assertJsonValidationErrors('length');
+            ->assertJsonCount(10, 'data')->assertJsonPath('data.0.id', $ids[31])
+            ->assertJsonPath('data.0.recorded_by', $this->user->name)->assertJsonMissingPath('data.0.actor.email');
+        $this->getJson(route('credentials.entitlements.history', [...$params, 'start' => 30]))->assertOk()
+            ->assertJsonCount(2, 'data')->assertJsonPath('data.0.id', $ids[1]);
+        foreach ([-1, 0, 25, 101] as $length) {
+            $this->getJson(route('credentials.entitlements.history', [...$params, 'length' => $length]))->assertUnprocessable()->assertJsonValidationErrors('length');
         }
-        $this->getJson(route('credentials.entitlements.issued', [...$params, 'start' => -1]))->assertUnprocessable()->assertJsonValidationErrors('start');
+        $this->getJson(route('credentials.entitlements.history', [...$params, 'start' => -1]))->assertUnprocessable()->assertJsonValidationErrors('start');
         $this->role->update(['permissions' => []]);
-        $this->getJson(route('credentials.entitlements.issued', $params))->assertForbidden();
+        $this->getJson(route('credentials.entitlements.history', $params))->assertForbidden();
     }
 
     public function test_revocation_and_off_roles_apply_on_the_next_request(): void

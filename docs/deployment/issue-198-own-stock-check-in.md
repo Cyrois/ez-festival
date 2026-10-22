@@ -17,6 +17,11 @@ Calvin confirmed in the #198 specification conversation on October 17, 2026:
   original Code, Checked in by and Checked in at fields. Checked in by comes
   from the issued record, including historical records without a movement.
 
+October 21 update: remove Recorded by from the Check-in Audit table because
+new check-ins always consume the acting person's own stock, already shown as
+Giver. Keep the actor in stored audit data and retain Recorded by in Inventory
+History, where adjustments and transfers can involve other holders.
+
 The Consume dialog shows `You have N left` only inside the dialog. Pending
 actions are disabled when the actor cannot consume or holds none. Inactive
 holders see the locked 57f explanation. The server derives the source from the
@@ -39,10 +44,10 @@ checking someone in does not credit their stock.
 issued location index, foreign key and column. No temporary nullable column or
 new holder/balance storage is introduced. Existing ledger rows are unchanged.
 
-Before dropping the column, the migration requires every non-null historical
-issued location to have a matching linked give-out from that location holder.
-It refuses deployment if history is missing; reconcile it before proceeding.
-Do not create artificial ledger debits just to pass the guard. Back up first.
+The application is pre-production. The migration drops development-only source
+locations directly, without backfills, compatibility storage or fabricated
+movements. Check-in Audit resolves Giver from the linked movement only; issues
+without one have no Giver value. Checked in by remains the issued record's actor.
 SQLite's table rebuild preserves dependent ledger triggers and verifies foreign
 keys; PostgreSQL alters the existing table directly.
 
@@ -76,8 +81,8 @@ No new navigation, dependencies or `given_by` field are added.
   inherited permissions, missing/zero stock and no fallback, actor-only response
   data, stale/revoked permissions, foreign IDs, invalid recipients, validation,
   duplicate issuance, locks, historical location audit and deletion guards.
-- Migration coverage: refuses unrepresented history, preserves linked history
-  and ledger balances, removes the column and refuses lossy rollback.
+- Migration coverage: removes development source locations without changing
+  linked movements or balances, and refuses lossy rollback.
 - PostgreSQL concurrency coverage: duplicate issuance, last unit shared by two
   entitlements, Consume versus Return in both arrival orders, and permission
   revocation while a Consume waits for the event lock.

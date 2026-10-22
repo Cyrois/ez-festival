@@ -10,6 +10,9 @@ use App\Http\Controllers\Auth\InvitePasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\TemporaryPasswordController;
 use App\Http\Controllers\CheckIn\InventoryController;
+use App\Http\Controllers\CheckIn\InventoryHistoryController;
+use App\Http\Controllers\CheckIn\InventoryHistoryExportController;
+use App\Http\Controllers\CheckIn\InventoryHistoryOptionsController;
 use App\Http\Controllers\CheckIn\InventoryHoldingsController;
 use App\Http\Controllers\CheckIn\InventoryMovementController;
 use App\Http\Controllers\CheckIn\InventoryMoveOptionsController;
@@ -20,7 +23,7 @@ use App\Http\Controllers\CheckInController;
 use App\Http\Controllers\CheckInDataTableController;
 use App\Http\Controllers\CheckInEntitlementDataTableController;
 use App\Http\Controllers\Credentials\EntitlementItemController;
-use App\Http\Controllers\Credentials\IssuedEntitlementController;
+use App\Http\Controllers\Credentials\EntitlementItemHoldingsController;
 use App\Http\Controllers\Credentials\PassTypeController;
 use App\Http\Controllers\Credentials\ProductsController;
 use App\Http\Controllers\CurrentEventController;
@@ -159,13 +162,18 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::get('check-in/data', [CheckInDataTableController::class, 'index'])->name('check-in.data');
         Route::get('check-in', [CheckInController::class, 'index'])->name('check-in.index');
         Route::get('check-in/my-stock', [InventoryController::class, 'index'])->name('check-in.my-stock');
+        Route::prefix('check-in/history')->name('check-in.history.')->group(function () {
+            Route::get('/', [InventoryHistoryController::class, 'index'])->name('index');
+            Route::get('data', [InventoryHistoryController::class, 'show'])->name('data');
+            Route::get('options', [InventoryHistoryOptionsController::class, 'index'])->name('options');
+            Route::get('export', [InventoryHistoryExportController::class, 'index'])->name('export');
+        });
         Route::prefix('check-in/inventory')->name('check-in.inventory.')->group(function () {
             Route::get('/', [InventoryController::class, 'index'])->middleware('can:inventory.manage')->name('index');
             Route::get('stock', [InventoryController::class, 'show'])->name('stock');
             Route::get('movements', [InventoryController::class, 'show'])->name('movements');
             Route::get('holdings', [InventoryHoldingsController::class, 'index'])->name('holdings');
             Route::get('holders/{holder}/stock', [InventoryHoldingsController::class, 'show'])->name('holders.stock');
-            Route::get('holders/{holder}/movements', [InventoryHoldingsController::class, 'show'])->name('holders.movements');
             Route::get('receivers', [InventoryOptionsController::class, 'index'])->name('receivers');
             Route::get('move-receivers', [InventoryMoveOptionsController::class, 'index'])->name('move-receivers');
             Route::get('holders/{holder}/receivers', [InventoryTakeBackController::class, 'index'])->name('holders.receivers');
@@ -278,8 +286,12 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             ->name('credentials.entitlements');
         Route::get('credentials/entitlements/{entitlementItem}', [EntitlementItemController::class, 'show'])
             ->name('credentials.entitlements.show');
-        Route::get('credentials/entitlements/{entitlementItem}/issued', [IssuedEntitlementController::class, 'index'])
-            ->name('credentials.entitlements.issued');
+        Route::get('credentials/entitlements/{entitlementItem}/history', [InventoryHistoryController::class, 'show'])
+            ->name('credentials.entitlements.history');
+        Route::get('credentials/entitlements/{entitlementItem}/history/options', [InventoryHistoryOptionsController::class, 'index'])
+            ->name('credentials.entitlements.history.options');
+        Route::get('credentials/entitlements/{entitlementItem}/holdings', [EntitlementItemHoldingsController::class, 'index'])
+            ->name('credentials.entitlements.holdings');
         Route::post('events/{event}/credentials/entitlements', [EntitlementItemController::class, 'store'])
             ->middleware('event.writable')
             ->name('credentials.entitlements.store');

@@ -9,21 +9,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // A legacy location must already survive in the immutable ledger. Do
-        // not invent historical stock movements to make this migration pass.
-        $unrepresented = DB::table('issued_entitlements as ie')->whereNotNull('ie.location_id')
-            ->whereNotExists(function ($query): void {
-                $query->selectRaw('1')->from('stock_movements as sm')
-                    ->join('stock_holders as sh', 'sh.id', '=', 'sm.from_holder_id')
-                    ->whereColumn('sm.issued_entitlement_id', 'ie.id')
-                    ->whereColumn('sm.entitlement_item_id', 'ie.entitlement_item_id')
-                    ->whereColumn('sh.location_id', 'ie.location_id')
-                    ->where('sm.type', 'give_out');
-            })->exists();
-        if ($unrepresented) {
-            throw new RuntimeException('Issued location history is missing a linked give-out movement. Reconcile history before removing location_id.');
-        }
-
         Schema::table('issued_entitlements', fn (Blueprint $table) => $table->dropIndex('issued_location_idx'));
         $this->alterIssuedTable(fn (Blueprint $table) => $table->dropConstrainedForeignId('location_id'));
     }

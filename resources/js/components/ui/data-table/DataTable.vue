@@ -262,12 +262,17 @@ const setColumnsVisible = (columns, visible) => {
     api()?.columns(columns).visible(visible);
 };
 
+const setPageLength = (length) => {
+    api()?.page.len(length).page('first').draw();
+};
+
 defineExpose({
     dataTable,
     filterRows,
     reload,
     search,
     setColumnsVisible,
+    setPageLength,
 });
 </script>
 

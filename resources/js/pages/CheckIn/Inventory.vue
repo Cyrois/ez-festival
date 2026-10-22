@@ -158,12 +158,6 @@ const saved = () => {
                         :endpoint="`/check-in/inventory/holders/${holder.id}/stock`"
                         :timezone="event.timezone"
                     />
-                    <InventoryStockTable
-                        :key="`${holder.id}-history-${version}`"
-                        :endpoint="`/check-in/inventory/holders/${holder.id}/movements`"
-                        :timezone="event.timezone"
-                        history
-                    />
                 </div>
             </Dialog>
             <InventoryMovementDialog

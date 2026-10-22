@@ -127,7 +127,7 @@ class EntitlementItemsTest extends TestCase
         );
     }
 
-    public function test_item_page_exposes_live_quantities_locations_usage_and_issued_log(): void
+    public function test_item_page_exposes_live_quantities_locations_usage_and_history(): void
     {
         [$user, $event] = $this->createEventContext();
         $headquarters = $event->locations()->create(['name' => 'Headquarters']);
@@ -176,15 +176,14 @@ class EntitlementItemsTest extends TestCase
                 ->where('locations.2.in_stock', 0)
                 ->where('pass_usage.0.pass_type_name', 'Artist')
                 ->where('pass_usage.0.line_count', 2)
-                ->where('issued_log_url', route('credentials.entitlements.issued', $item))
+                ->where('history_url', route('credentials.entitlements.history', $item))
                 ->missing('issued_log')
                 ->where('is_read_only', false),
         );
-        $this->getJson(route('credentials.entitlements.issued', [
-            'entitlementItem' => $item, 'draw' => 1, 'start' => 0, 'length' => 25,
-        ]))->assertOk()->assertJsonPath('data.0.pass_name', 'Artist')
-            ->assertJsonPath('data.0.code', 'WH-4812')
-            ->assertJsonPath('data.0.issued_by.name', $user->name);
+        $this->getJson(route('credentials.entitlements.history', [
+            'entitlementItem' => $item, 'draw' => 1, 'start' => 0, 'length' => 10,
+        ]))->assertOk()->assertJsonPath('recordsTotal', 2)
+            ->assertJsonPath('data.0.type', 'add');
     }
 
     public function test_create_writes_an_opening_adjustment_and_uses_event_item_labels(): void

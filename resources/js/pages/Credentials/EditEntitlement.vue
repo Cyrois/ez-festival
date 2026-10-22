@@ -14,6 +14,8 @@ import { Switch } from '../../components/ui/switch';
 import { LabelCombobox } from '../../components/ui/label-combobox';
 import { Popup } from '../../components/ui/popup';
 import { DataTable } from '../../components/ui/data-table';
+import InventoryHistoryTable from '../../components/check-in/InventoryHistoryTable.vue';
+import { Badge } from '../../components/ui/badge';
 import { Dialog } from '../../components/ui/dialog';
 import { credentialsHome } from '../../lib/credentialsNavigation';
 import { toastFormErrors } from '../../lib/fieldError';
@@ -42,7 +44,11 @@ const props = defineProps({
     labelColors: { type: Array, default: () => [] },
     stats: { type: Object, required: true },
     locations: { type: Array, default: () => [] },
-    issued_log_url: { type: String, required: true },
+    history_url: { type: String, required: true },
+    history_options_url: { type: String, required: true },
+    holdings_url: { type: String, required: true },
+    history_export_url: { type: String, default: null },
+    movementTypes: { type: Array, required: true },
     pass_usage: { type: Array, default: () => [] },
     locations_for_adjust: { type: Array, default: () => [] },
     adjust_location_id: { type: Number, default: null },
@@ -61,6 +67,7 @@ const deleteForm = useForm({});
 const form = useForm({
     name: props.item.name,
     needs_unique_code: props.item.needs_unique_code,
+    low_stock_level: props.item.low_stock_level ?? '',
     label_ids: props.item.labels.map((label) => label.id),
     new_labels: [],
 });
@@ -218,44 +225,23 @@ const destroyItem = () => {
         },
     );
 };
-const issuedColumns = computed(() => [
+const peopleColumns = computed(() => [
     {
-        data: 'when',
-        title: trans('credentials.entitlements.view.table.when'),
-        render: { display: '#whenCell' },
+        data: 'name',
+        title: trans('inventory.columns.person'),
+        render: { display: '#personCell' },
     },
-    {
-        data: 'pass_name',
-        title: trans('credentials.entitlements.view.table.pass'),
-        render: { display: '#passCell' },
-    },
-    {
-        data: 'code',
-        title: trans('credentials.entitlements.view.table.code'),
-        render: { display: '#codeCell' },
-    },
-    {
-        data: 'issued_by',
-        title: trans('credentials.entitlements.view.table.issued_by'),
-        render: { display: '#issuerCell' },
-    },
+    { data: 'balance', title: trans('inventory.columns.held') },
 ]);
-const issuedOptions = computed(() => ({
+const peopleOptions = computed(() => ({
     serverSide: true,
     searching: false,
     ordering: false,
     lengthChange: false,
-    pageLength: 25,
+    pageLength: 10,
     layout: { topStart: null, topEnd: null },
-    language: {
-        emptyTable: trans('credentials.entitlements.view.issued_empty'),
-    },
+    language: { emptyTable: trans('inventory.history.no_people') },
 }));
-const formatWhen = (value) =>
-    new Intl.DateTimeFormat(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(new Date(value));
 </script>
 
 <template>
@@ -341,6 +327,34 @@ const formatWhen = (value) =>
                             :disabled="!canEdit || form.processing"
                             allow-create
                         />
+                    </FormField>
+
+                    <FormField
+                        class="mt-5"
+                        :label="
+                            $t(
+                                'credentials.entitlements.fields.low_stock_level',
+                            )
+                        "
+                        :hint="
+                            $t(
+                                'credentials.entitlements.fields.low_stock_level_hint',
+                            )
+                        "
+                        :error="form.errors.low_stock_level"
+                    >
+                        <template #default="{ id, invalid }">
+                            <Input
+                                :id="id"
+                                v-model="form.low_stock_level"
+                                type="number"
+                                min="0"
+                                max="2147483647"
+                                step="1"
+                                :invalid="invalid"
+                                :disabled="!canEdit || form.processing"
+                            />
+                        </template>
                     </FormField>
 
                     <FormField
@@ -510,46 +524,54 @@ const formatWhen = (value) =>
                 </p>
             </section>
 
-            <section
-                class="mt-7"
-                aria-labelledby="issued-log-heading"
-            >
-                <h2
-                    id="issued-log-heading"
-                    class="m-0 text-lg font-bold"
-                >
-                    {{ $t('credentials.entitlements.view.issued') }}
-                </h2>
-                <p class="mt-1 mb-3 text-sm text-muted">
-                    {{ $t('credentials.entitlements.view.issued_lead') }}
+            <Card class="mt-7">
+                <CardTitle class="mb-2">{{
+                    $t('inventory.history.held_by_people')
+                }}</CardTitle>
+                <p class="mb-4 text-sm text-muted">
+                    {{
+                        $t('inventory.history.people_total', {
+                            count: stats.held_by_people ?? 0,
+                        })
+                    }}
                 </p>
                 <DataTable
-                    :ajax="issued_log_url"
-                    :columns="issuedColumns"
-                    :options="issuedOptions"
+                    :ajax="{
+                        url: holdings_url,
+                        data: (data) => {
+                            data.search = '';
+                        },
+                    }"
+                    :columns="peopleColumns"
+                    :options="peopleOptions"
                 >
-                    <template #whenCell="{ cellData }">{{
-                        formatWhen(cellData)
-                    }}</template>
-                    <template #passCell="{ cellData }">{{
-                        cellData ??
-                        $t('credentials.entitlements.view.not_recorded')
-                    }}</template>
-                    <template #codeCell="{ cellData }"
-                        ><span class="font-mono">{{
-                            cellData ??
-                            $t('credentials.entitlements.view.not_recorded')
-                        }}</span></template
-                    >
-                    <template #issuerCell="{ cellData }">{{
-                        cellData?.name ??
-                        $t('credentials.entitlements.view.not_recorded')
-                    }}</template>
+                    <template #personCell="{ rowData }">
+                        {{ rowData.name }}
+                        <Badge
+                            v-if="rowData.inactive"
+                            pill
+                            variant="warning"
+                            class="ml-2"
+                            >{{ $t('inventory.inactive') }}</Badge
+                        >
+                    </template>
                 </DataTable>
-                <p class="mt-2 mb-0 text-xs text-muted">
-                    {{ $t('credentials.entitlements.view.issued_hint') }}
-                </p>
-            </section>
+            </Card>
+
+            <Card class="mt-7">
+                <CardTitle class="mb-4">{{
+                    $t('inventory.history.movements')
+                }}</CardTitle>
+                <InventoryHistoryTable
+                    :endpoint="history_url"
+                    :options-endpoint="history_options_url"
+                    :export-url="history_export_url"
+                    :timezone="event.timezone"
+                    :items="[item]"
+                    :item-id="item.id"
+                    :movement-types="movementTypes"
+                />
+            </Card>
 
             <div
                 v-if="canEdit"

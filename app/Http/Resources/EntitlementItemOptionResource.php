@@ -13,6 +13,7 @@ class EntitlementItemOptionResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'low_stock_level' => $this->low_stock_level,
             'labels' => EntitlementLabels::ordered($this->labels),
         ];
     }
