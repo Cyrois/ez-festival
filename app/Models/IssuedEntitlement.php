@@ -34,11 +34,6 @@ class IssuedEntitlement extends Model
         return $this->hasOne(StockMovement::class);
     }
 
-    public function legacySource(): HasOne
-    {
-        return $this->hasOne(LegacyIssuedEntitlementSource::class);
-    }
-
     public function issuedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'issued_by');

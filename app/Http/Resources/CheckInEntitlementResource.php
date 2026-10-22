@@ -24,8 +24,7 @@ class CheckInEntitlementResource extends JsonResource
             'can_consume' => $this->can_consume,
             'consume_blocked_reason' => $this->consume_blocked_reason,
             'issued' => $issued ? [
-                'giver' => $movement?->fromHolder?->person?->name ?? $movement?->fromHolder?->location?->name
-                    ?? $issued->legacySource?->location?->name,
+                'giver' => $movement?->fromHolder?->person?->name ?? $movement?->fromHolder?->location?->name,
                 'receiver' => $this->passAssignment->person?->name,
                 'code' => $issued->code,
                 'issued_by' => $issued->issuedBy?->name,

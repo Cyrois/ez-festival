@@ -74,7 +74,8 @@ test('history uses ten-row server paging, renders codes beside recipients and es
     try {
         assert.equal(historyRequests()[0].searchParams.get('length'), '10');
         assert.equal(document.querySelector('[data-cell="receiverCell"]').textContent.trim(), '<img src=x> BAND-42');
-        assert.ok(document.body.textContent.includes('<script>note</script>'));
+        assert.equal(document.querySelector('[data-cell="noteCell"]'), null);
+        assert.ok(!document.body.textContent.includes('<script>note</script>'));
         assert.equal(document.querySelector('script, img, b'), null);
         assert.match(document.querySelector('[data-cell="whenCell"]').textContent, /Oct 2, 2026/);
         assert.equal(document.querySelector('input[type="search"]'), null);

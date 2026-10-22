@@ -116,6 +116,7 @@ These are recurring Codex mistakes on this repo. Treat them as hard stops — do
 
 ### Migrations & schema
 
+- **Pre-production (Calvin, 2026-10-21): Nothing has been deployed to production. Do not add legacy-data backfills, compatibility tables or fallback code solely to preserve development data. Keep migrations and the current data model simple until production deployment is confirmed.**
 - **Never rewrite an already-shipped `create_*` migration** that may have run in any environment. Change defaults/columns with a **new** forward migration.
 - Production runs on **PostgreSQL**; SQLite is only supported for automated tests. Index, constraint, and foreign-key names must be at most 63 bytes because PostgreSQL silently truncates longer names. Pass an explicit short name when Laravel's generated name would exceed that limit.
 - Deleting an event goes through `EventService::delete`. When adding an event-scoped table with a `restrict` foreign key, delete its rows there in child-first order and cover it in the comprehensive event-deletion test.
@@ -266,7 +267,6 @@ These are recurring Codex mistakes on this repo. Treat them as hard stops — do
 
 - Stock belongs to a person within an event, or to a location. `stock_holders` uses exactly one of `person_id` / `location_id`; never Team engagement or admin account holder identities.
 - Joining the Team must leave the person's holder, balance, and movement history unchanged. Do not create a membership-related stock transfer or merge.
-- Pre-ledger issued records may preserve their source in `legacy_issued_entitlement_sources`. Read it as the Check-in audit Giver fallback and keep deletion guards; never manufacture give-out movements or debit current stock merely to migrate old source metadata.
 
 ## Inventory history (Calvin, 2026-10-21, #199)
 

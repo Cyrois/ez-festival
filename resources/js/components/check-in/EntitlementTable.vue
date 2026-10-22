@@ -124,14 +124,6 @@ const columns = computed(() => [
         render: { display: '#participantCell' },
     },
     {
-        data: 'issued.recorded_by',
-        width: '12rem',
-        defaultContent: '',
-        title: trans('inventory.columns.recorded_by'),
-        visible: auditView.value,
-        render: { display: '#participantCell' },
-    },
-    {
         data: 'issued.issued_at',
         width: '14rem',
         defaultContent: '',

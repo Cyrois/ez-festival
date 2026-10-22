@@ -90,8 +90,6 @@ class EventService
 
             DB::table('stock_movements')->where('event_id', $event->id)->delete();
             DB::table('entitlement_code_reservations')->where('event_id', $event->id)->delete();
-            DB::table('legacy_issued_entitlement_sources')->whereIn('issued_entitlement_id', DB::table('issued_entitlements')
-                ->whereIn('entitlement_item_id', $entitlementItemIds())->select('id'))->delete();
 
             DB::table('issued_entitlements')
                 ->whereIn('entitlement_item_id', $entitlementItemIds())

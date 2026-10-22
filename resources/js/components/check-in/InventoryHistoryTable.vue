@@ -246,14 +246,14 @@ const columns = computed(() => [
         render: { display: '#whenCell' },
     },
     {
-        data: 'type',
-        title: trans('inventory.columns.movement'),
-        render: { display: '#typeCell' },
-    },
-    {
         data: 'item',
         title: trans('inventory.columns.item'),
         render: { display: '#itemCell' },
+    },
+    {
+        data: 'type',
+        title: trans('inventory.columns.movement'),
+        render: { display: '#typeCell' },
     },
     { data: 'quantity', title: trans('inventory.columns.quantity') },
     {
@@ -270,11 +270,6 @@ const columns = computed(() => [
         data: 'recorded_by',
         title: trans('inventory.columns.recorded_by'),
         render: { display: '#actorCell' },
-    },
-    {
-        data: 'note',
-        title: trans('inventory.columns.note'),
-        render: { display: '#noteCell' },
     },
 ]);
 const options = computed(() => ({
@@ -469,11 +464,6 @@ const formatWhen = (value) =>
             <template #actorCell="{ rowData }">{{
                 rowData.recorded_by ?? '—'
             }}</template>
-            <template #noteCell="{ rowData }"
-                ><span class="whitespace-pre-wrap">{{
-                    rowData.note ?? '—'
-                }}</span></template
-            >
         </DataTable>
     </div>
 </template>

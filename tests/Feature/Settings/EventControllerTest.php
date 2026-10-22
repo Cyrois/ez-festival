@@ -221,15 +221,6 @@ class EventControllerTest extends TestCase
             'issued_by' => $user->id,
         ]);
         EntitlementCode::reserve($event->id, $issued->code);
-        $legacyExpected = $expected->passAssignment->expectedEntitlements()->create([
-            'entitlement_item_id' => $expected->entitlement_item_id, 'status' => 'consumed',
-        ]);
-        $legacyIssued = $legacyExpected->issuedEntitlement()->create([
-            'entitlement_item_id' => $expected->entitlement_item_id, 'code' => 'LEGACY-DELETE-TEST', 'issued_by' => $user->id,
-        ]);
-        DB::table('legacy_issued_entitlement_sources')->insert([
-            'issued_entitlement_id' => $legacyIssued->id, 'location_id' => $location->id,
-        ]);
         $stocks = app(StockMovementService::class);
         $locationHolder = $stocks->forLocation($event, $location->id);
         $personHolder = $stocks->forPerson($event, $user->person);
@@ -300,8 +291,6 @@ class EventControllerTest extends TestCase
         $this->assertModelMissing($event);
         $this->assertModelMissing($location);
         $this->assertModelMissing($issued);
-        $this->assertModelMissing($legacyIssued);
-        $this->assertDatabaseCount('legacy_issued_entitlement_sources', 0);
         $this->assertDatabaseCount('entitlement_code_reservations', 0);
         $this->assertModelMissing($shift);
         $this->assertDatabaseCount('pass_assignments', 0);

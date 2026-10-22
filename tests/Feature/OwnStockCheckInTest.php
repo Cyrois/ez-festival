@@ -163,7 +163,7 @@ class OwnStockCheckInTest extends TestCase
             ->assertJsonPath('recordsFiltered', 1);
     }
 
-    public function test_location_drop_refuses_unrepresented_history_and_preserves_linked_history(): void
+    public function test_location_drop_removes_development_sources_without_changing_the_ledger(): void
     {
         [$event, $actor, , $expected, $location] = $this->context();
         $migration = require database_path('migrations/2026_10_17_000002_remove_location_from_issued_entitlements.php');
@@ -172,13 +172,13 @@ class OwnStockCheckInTest extends TestCase
             'entitlement_item_id' => $expected->entitlement_item_id, 'code' => 'HISTORY', 'issued_by' => $actor->id,
         ]);
         DB::table('issued_entitlements')->where('id', $issued->id)->update(['location_id' => $location->id]);
-        try {
-            $migration->up();
-            $this->fail('Unrepresented history must prevent a destructive column drop.');
-        } catch (\RuntimeException $exception) {
-            $this->assertStringContainsString('history', $exception->getMessage());
-        }
-        $this->assertTrue(Schema::hasColumn('issued_entitlements', 'location_id'));
+        $unlinkedExpected = $expected->passAssignment->expectedEntitlements()->create([
+            'entitlement_item_id' => $expected->entitlement_item_id, 'status' => 'consumed',
+        ]);
+        $unlinkedIssued = $unlinkedExpected->issuedEntitlement()->create([
+            'entitlement_item_id' => $expected->entitlement_item_id, 'code' => 'DEVELOPMENT', 'issued_by' => $actor->id,
+        ]);
+        DB::table('issued_entitlements')->where('id', $unlinkedIssued->id)->update(['location_id' => $location->id]);
         $this->seedStock($expected->entitlementItem, $location, 1, $actor);
         app(StockMovementService::class)->move($expected->entitlementItem, MovementType::GiveOut, 1,
             StockHolder::where('location_id', $location->id)->sole(), null, $actor, issued: $issued);
@@ -188,6 +188,8 @@ class OwnStockCheckInTest extends TestCase
         $this->assertSame($before, DB::table('stock_movements')->orderBy('id')->get()->toJson());
         $this->assertSame($location->name, $issued->fresh()->giveOutMovement->fromHolder->location->name);
         $this->assertSame('HISTORY', $issued->fresh()->code);
+        $this->assertSame('DEVELOPMENT', $unlinkedIssued->fresh()->code);
+        $this->assertNull($unlinkedIssued->fresh()->giveOutMovement);
         try {
             $migration->down();
             $this->fail('Rollback cannot invent source locations after check-in has been used.');
