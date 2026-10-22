@@ -32,6 +32,7 @@ test('detail and edit routes keep exactly one section tab selected', () => {
         ['/check-in/team/12', 'check_in', 'check_in.people'],
         ['/check-in/my-stock', 'check_in', 'check_in.my_stock'],
         ['/check-in/inventory', 'check_in', 'check_in.inventory'],
+        ['/check-in/history', 'check_in', 'check_in.history'],
         ['/check-in/inventory/holders/53/stock', 'check_in', 'check_in.inventory'],
         ['/team/members/create', 'team', 'team.advancement'],
         ['/team/members/53?tab=shifts', 'team', 'team.advancement'],
@@ -166,4 +167,12 @@ test('in-page tabs keep their tab semantics and keyboard selection', async () =>
         assert.ok(document.querySelector('[role="tablist"]'));
         assert.ok(document.querySelector('[aria-controls]'));
     } finally { app.unmount(); }
+});
+
+
+test('History is a separate manager-only tab after current Inventory', () => {
+    const manager = navigation().find((item) => item.key === 'check_in');
+    assert.deepEqual(manager.tabs.map((tab) => tab.href), ['/check-in', '/check-in/my-stock', '/check-in/inventory', '/check-in/history']);
+    const staff = navigation({ permissions: { 'checkin.view': true, 'checkin.edit': true } }).find((item) => item.key === 'check_in');
+    assert.deepEqual(staff.tabs.map((tab) => tab.href), ['/check-in', '/check-in/my-stock']);
 });

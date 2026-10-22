@@ -16,6 +16,7 @@ class UpdateEntitlementItemRequest extends StoreEntitlementItemRequest
         $rules = parent::rules();
         unset($rules['opening_balance'], $rules['location_id']);
         $rules['needs_unique_code'] = ['sometimes', 'boolean'];
+        $rules['low_stock_level'] = ['sometimes', 'nullable', 'integer', 'min:0', 'max:2147483647'];
 
         return $rules;
     }

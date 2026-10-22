@@ -5,7 +5,6 @@ namespace App\Http\Controllers\CheckIn;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CheckIn\ManageInventoryRequest;
 use App\Http\Resources\InventoryDataTableResource;
-use App\Http\Resources\StockMovementResource;
 use App\Models\StockHolder;
 use App\Queries\InventoryQuery;
 use App\Support\EventContext;
@@ -29,12 +28,11 @@ class InventoryHoldingsController extends Controller
     {
         $context->requireCurrentEvent($request->user(), $holder->event);
         $filters = $request->validated();
-        $history = $request->routeIs('check-in.inventory.holders.movements');
-        $builder = $history ? $query->movements($holder) : $query->items($holder->event_id, $holder->id);
+        $builder = $query->items($holder->event_id, $holder->id);
         $total = (clone $builder)->count();
         $rows = $builder->offset($filters['start'] ?? 0)->limit($filters['length'] ?? 25)->get();
 
         return new InventoryDataTableResource(['draw' => (int) ($filters['draw'] ?? 0), 'total' => $total, 'filtered' => $total,
-            'rows' => $history ? StockMovementResource::collection($rows) : $query->itemRows($holder->event_id, $rows)]);
+            'rows' => $query->itemRows($holder->event_id, $rows)]);
     }
 }

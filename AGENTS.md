@@ -267,6 +267,13 @@ These are recurring Codex mistakes on this repo. Treat them as hard stops — do
 - Stock belongs to a person within an event, or to a location. `stock_holders` uses exactly one of `person_id` / `location_id`; never Team engagement or admin account holder identities.
 - Joining the Team must leave the person's holder, balance, and movement history unchanged. Do not create a membership-related stock transfer or merge.
 
+## Inventory history (Calvin, 2026-10-21, #199)
+
+- Check-in's top navigation is **Check-in | My stock | Inventory | History**. Inventory shows current holdings; History is a separate top-level tab for `inventory.manage` and admins. This supersedes the proposed Holdings / Movement history sub-tabs inside Inventory on #225. Low-stock warnings belong to current Inventory holdings (#225).
+- Item pages retain their own item-scoped history. Both history tables use server pagination with 10 rows by default and only 10 / 20 / 50 choices. Event-wide history and CSV require `inventory.manage`; item history uses the existing item-view gate.
+- The Holder filter matches visible Giver or Receiver, including checked-in people who never held stock. Issued codes appear beside Receiver. Free-text history search remains #213.
+- Low stock level is optional, in whole units from 0 through 2147483647; blank means no warning. Edit it on the item page under Labels beside Needs a unique code, using the existing item-edit permission. Other item viewers see it read-only, locked events refuse edits, and Create leaves it unset. Warning rendering remains #225.
+
 
 ## Personnel hours pay and cost (Calvin, 2026-10-20, #190)
 

@@ -93,14 +93,14 @@ class EntitlementLabelsTest extends TestCase
         $this->labels['A']->update(['name' => 'Zebra', 'color' => 'rose']);
         $this->labels['b']->delete();
         $ordered = EntitlementLabels::ordered($this->item->fresh()->labels);
-        foreach (['check-in.inventory.movements' => [], 'check-in.inventory.holders.movements' => $holder] as $route => $params) {
+        foreach (['check-in.inventory.movements' => [], 'check-in.history.data' => ['holder' => 'person:'.$this->actor->person_id]] as $route => $params) {
             $this->getJson(route($route, $params))->assertOk()->assertJsonPath('data.0.labels', $ordered)->assertJsonPath('data.0.quantity', 3);
         }
         $this->event->lock();
         $this->getJson(route('check-in.inventory.stock'))->assertOk()->assertJsonPath('data.0.labels', $ordered);
         $viewer = $this->grantRoleAccess(User::factory()->create(), ['checkin.view']);
         $this->actingAs($viewer)->getJson(route('check-in.inventory.holdings'))->assertForbidden();
-        $this->getJson(route('check-in.inventory.holders.movements', $holder))->assertForbidden();
+        $this->getJson(route('check-in.history.data'))->assertForbidden();
     }
 
     public function test_label_mutations_invalidate_the_cached_list_and_foreign_labels_are_not_loaded(): void

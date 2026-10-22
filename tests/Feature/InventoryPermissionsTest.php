@@ -72,7 +72,7 @@ class InventoryPermissionsTest extends TestCase
             ->assertSessionHasErrors('permissions.0');
     }
 
-    public function test_manager_entitlements_are_read_only_including_deep_links_and_issued_log(): void
+    public function test_manager_entitlements_are_read_only_including_deep_links_and_history(): void
     {
         $item = $this->event->entitlementItems()->create(['name' => 'Wristband']);
         $location = $this->event->locations()->create(['name' => 'Gate']);
@@ -81,7 +81,7 @@ class InventoryPermissionsTest extends TestCase
         $this->get(route('credentials.entitlements.show', $item, false).'?adjust=1&loc='.$location->id)
             ->assertInertia(fn (Assert $page) => $page->where('is_read_only', false)
                 ->where('canEditItems', false)->where('canAdjustStock', false)->where('open_adjust', false));
-        $this->getJson(route('credentials.entitlements.issued', $item).'?'.http_build_query(['draw' => 1, 'start' => 0, 'length' => 10]))
+        $this->getJson(route('credentials.entitlements.history', $item).'?'.http_build_query(['draw' => 1, 'start' => 0, 'length' => 10]))
             ->assertOk()->assertJsonCount(0, 'data');
         $this->assertFalse(app('router')->has('credentials.entitlements.edit'));
         $this->get('/credentials/entitlements/'.$item->id.'/edit')->assertNotFound();

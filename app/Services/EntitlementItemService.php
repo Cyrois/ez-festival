@@ -7,7 +7,6 @@ use App\Models\EntitlementItem;
 use App\Models\EntitlementItemLabel;
 use App\Models\Event;
 use App\Models\ExpectedEntitlement;
-use App\Models\IssuedEntitlement;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -80,6 +79,7 @@ class EntitlementItemService
             $item->update([
                 'name' => $data['name'],
                 'needs_unique_code' => $data['needs_unique_code'] ?? $item->needs_unique_code,
+                'low_stock_level' => array_key_exists('low_stock_level', $data) ? $data['low_stock_level'] : $item->low_stock_level,
             ]);
             $this->syncLabels($item, $data, $event);
         }, 3);
@@ -163,18 +163,6 @@ class EntitlementItemService
         return $item->issuedEntitlements()->count();
     }
 
-    /** @return array{total: int, issues: Collection<int, IssuedEntitlement>} */
-    public function issuedLog(EntitlementItem $item, int $start, int $length): array
-    {
-        $query = $item->issuedEntitlements();
-        $total = $query->count();
-        $issues = $query->with(['expectedEntitlement.passAssignment.passType:id,name', 'issuedBy:id,name'])
-            ->latest('issued_at')->orderByDesc('id')
-            ->offset($start)->limit($length)->get();
-
-        return compact('total', 'issues');
-    }
-
     /** @return array<int, array{pass_type_name: string, line_count: int}> */
     public function passLineUsage(EntitlementItem $item): array
     {
@@ -220,6 +208,6 @@ class EntitlementItemService
 
     private function listKey(int $eventId): string
     {
-        return "lists.events.{$eventId}.entitlement-items.v5";
+        return "lists.events.{$eventId}.entitlement-items.v6";
     }
 }

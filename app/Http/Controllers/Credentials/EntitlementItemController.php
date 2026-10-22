@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Credentials;
 
+use App\Enums\StockMovement;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Credentials\AdjustEntitlementItemRequest;
 use App\Http\Requests\Credentials\DestroyEntitlementItemRequest;
@@ -10,6 +11,7 @@ use App\Http\Requests\Credentials\UpdateEntitlementItemRequest;
 use App\Http\Resources\EntitlementItemResource;
 use App\Models\EntitlementItem;
 use App\Models\Event;
+use App\Queries\InventoryQuery;
 use App\Services\EntitlementItemService;
 use App\Support\EntitlementLabels;
 use App\Support\EventContext;
@@ -24,6 +26,7 @@ class EntitlementItemController extends Controller
     public function __construct(
         private readonly EventContext $eventContext,
         private readonly EntitlementItemService $items,
+        private readonly InventoryQuery $inventory,
     ) {}
 
     public function index(): Response
@@ -130,7 +133,7 @@ class EntitlementItemController extends Controller
         $requestedLocationId = request()->integer('loc');
 
         return [
-            'event' => $event->only('id', 'name'),
+            'event' => $event->only('id', 'name', 'timezone'),
             'item' => (new EntitlementItemResource($item))->resolve(),
             'labels' => EntitlementLabels::ordered($event->entitlementItemLabels()->get(['id', 'name', 'color'])),
             'labelColors' => LabelColors::ALL,
@@ -138,9 +141,14 @@ class EntitlementItemController extends Controller
                 'in_stock' => $inStock,
                 'expected' => $this->items->expectedCount($item),
                 'issued' => $this->items->issuedCount($item),
+                'held_by_people' => (int) $this->inventory->peopleHoldingItem($item)->reorder()->sum('balance'),
             ],
             'locations' => $locations,
-            'issued_log_url' => route('credentials.entitlements.issued', $item),
+            'history_url' => route('credentials.entitlements.history', $item),
+            'history_options_url' => route('credentials.entitlements.history.options', $item),
+            'holdings_url' => route('credentials.entitlements.holdings', $item),
+            'history_export_url' => Gate::allows('inventory.manage', $event) ? route('check-in.history.export', ['item_id' => $item->id]) : null,
+            'movementTypes' => array_column(StockMovement::cases(), 'value'),
             'pass_usage' => $this->items->passLineUsage($item),
             'locations_for_adjust' => $eventLocations
                 ->map(fn ($location): array => [

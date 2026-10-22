@@ -139,7 +139,7 @@ for (const collapsed of [false, true]) {
             [{ 'checkin.view': true }, '/check-in', ['Check-in'], '/check-in'],
             [{ 'checkin.view': true, 'checkin.edit': true }, '/check-in/team/12?person=53', ['Check-in', 'My stock'], '/check-in'],
             [{ 'checkin.view': true, 'checkin.edit': true }, '/check-in/my-stock', ['Check-in', 'My stock'], '/check-in/my-stock'],
-            [{ 'checkin.view': true, 'checkin.edit': true, 'inventory.manage': true }, '/check-in/inventory', ['Check-in', 'My stock', 'Inventory'], '/check-in/inventory'],
+            [{ 'checkin.view': true, 'checkin.edit': true, 'inventory.manage': true }, '/check-in/inventory', ['Check-in', 'My stock', 'Inventory', 'History'], '/check-in/inventory'],
         ]) {
             const { sidebar, tabs } = await navigation(permissions, collapsed, false, url);
             const checkIn = sidebar.find((link) => link.label === locale['nav.check_in']);

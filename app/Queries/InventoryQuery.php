@@ -21,7 +21,7 @@ class InventoryQuery
     public function itemOptions(Event $event): \Illuminate\Database\Eloquent\Collection
     {
         return $event->entitlementItems()->withEventLabels($event->id)
-            ->orderBy('name')->get(['id', 'name']);
+            ->orderBy('name')->get(['id', 'name', 'low_stock_level']);
     }
 
     public function items(int $eventId, int $holderId): Builder
@@ -94,6 +94,26 @@ class InventoryQuery
         return $rows->map(fn ($row): array => [
             'id' => (int) $row->id, 'name' => $row->name, 'balance' => (int) $row->balance,
             'labels' => $labels->get($row->id, []),
+        ]);
+    }
+
+    public function peopleHoldingItem(EntitlementItem $item): Builder
+    {
+        return DB::query()->fromSub($this->stock->balancesQuery($item->event_id), 'b')
+            ->join('stock_holders as h', 'h.id', '=', 'b.holder_id')
+            ->join('people as p', 'p.id', '=', 'h.person_id')
+            ->where('h.event_id', $item->event_id)->where('b.entitlement_item_id', $item->id)
+            ->where('b.balance', '>', 0)->select('p.id', 'p.name', 'b.balance')
+            ->orderByRaw('LOWER(p.name)')->orderBy('p.id');
+    }
+
+    public function peopleHoldingItemRows(Event $event, Collection $rows): Collection
+    {
+        $eligible = $this->targets->receivers($event)->whereIn('p.id', $rows->pluck('id'))->pluck('p.id')->all();
+
+        return $rows->map(fn ($row) => [
+            'id' => (int) $row->id, 'name' => $row->name, 'balance' => (int) $row->balance,
+            'inactive' => ! in_array($row->id, $eligible),
         ]);
     }
 

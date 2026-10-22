@@ -22,7 +22,11 @@ export function getAppNavigation({
                     key: 'check_in.people',
                     href: '/check-in',
                     enabled: true,
-                    exclude: ['/check-in/my-stock', '/check-in/inventory'],
+                    exclude: [
+                        '/check-in/my-stock',
+                        '/check-in/inventory',
+                        '/check-in/history',
+                    ],
                 },
                 {
                     key: 'check_in.my_stock',
@@ -32,6 +36,11 @@ export function getAppNavigation({
                 {
                     key: 'check_in.inventory',
                     href: '/check-in/inventory',
+                    enabled: true,
+                },
+                {
+                    key: 'check_in.history',
+                    href: '/check-in/history',
                     enabled: true,
                 },
             ],
@@ -143,7 +152,10 @@ export function getAppNavigation({
                         (tab) =>
                             tab.key === 'check_in.people' ||
                             permissions[
-                                tab.key === 'check_in.inventory'
+                                [
+                                    'check_in.inventory',
+                                    'check_in.history',
+                                ].includes(tab.key)
                                     ? 'inventory.manage'
                                     : 'checkin.edit'
                             ],

@@ -19,6 +19,8 @@ class StockMovementResource extends JsonResource
             'receiver' => $this->toHolder?->person?->name ?? $this->toHolder?->location?->name
                 ?? $this->issuedEntitlement?->expectedEntitlement?->passAssignment?->person?->name,
             'recorded_by' => $this->actor?->name,
+            'note' => $this->note,
+            'code' => $this->issuedEntitlement?->code,
             'taken_from_me' => $this->type === StockMovement::TakeBack
                 && $this->fromHolder?->person_id === $request->user()->person_id,
         ];
