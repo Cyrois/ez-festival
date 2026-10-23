@@ -18,29 +18,12 @@ class InventoryMovementService
 {
     public function __construct(private readonly StockMovementService $stock, private readonly InventoryTargetsQuery $targets) {}
 
-    public function pull(Event $event, User $actor, array $data): StockMovement
-    {
-        return DB::transaction(function () use ($event, $actor, $data): StockMovement {
-            $event = $this->lockEvent($event);
-            $this->lockParticipants($event, [$actor->person_id, $data['person_id']]);
-            abort_unless($this->allows($event, $actor, 'inventory.manage'), 403);
-            if (! $this->targets->canReceive($event, (int) $data['person_id'])) {
-                throw ValidationException::withMessages(['person_id' => __('inventory.errors.receiver_unavailable')]);
-            }
-            $item = $event->entitlementItems()->findOrFail($data['entitlement_item_id']);
-            $from = $this->stock->forLocation($event, (int) $data['location_id']);
-            $to = $this->stock->forPerson($event, Person::findOrFail($data['person_id']));
-
-            return $this->stock->move($item, MovementType::Pull, (int) $data['quantity'], $from, $to, $actor);
-        }, 3);
-    }
-
     public function returnStock(Event $event, User $actor, array $data): StockMovement
     {
         return DB::transaction(function () use ($event, $actor, $data): StockMovement {
             $event = $this->lockEvent($event);
             $this->lockParticipants($event, [$actor->person_id, $data['person_id'] ?? null]);
-            abort_unless($this->allows($event, $actor, 'checkin.edit'), 403);
+            abort_unless($this->targets->allows($event, $actor, 'checkin.edit'), 403);
             $item = $event->entitlementItems()->findOrFail($data['entitlement_item_id']);
             $from = $this->ownHolder($event, $actor);
             if (! empty($data['person_id'])) {
@@ -61,7 +44,7 @@ class InventoryMovementService
         return DB::transaction(function () use ($event, $actor, $data): StockMovement {
             $event = $this->lockEvent($event);
             $this->lockParticipants($event, [$actor->person_id, $data['person_id']]);
-            abort_unless($this->allows($event, $actor, 'inventory.pass_shift') || $this->allows($event, $actor, 'inventory.pass_group'), 403);
+            abort_unless($this->targets->allows($event, $actor, 'inventory.pass_shift') || $this->targets->allows($event, $actor, 'inventory.pass_group'), 403);
             if (! $this->targets->canPassTo($event, $actor, (int) $data['person_id'])) {
                 throw ValidationException::withMessages(['person_id' => __('inventory.errors.pass_unavailable')]);
             }
@@ -77,32 +60,6 @@ class InventoryMovementService
         }, 3);
     }
 
-    public function takeBack(Event $event, User $actor, StockHolder $source, array $data): StockMovement
-    {
-        return DB::transaction(function () use ($event, $actor, $source, $data): StockMovement {
-            $event = $this->lockEvent($event);
-            $source = StockHolder::where('event_id', $event->id)->whereNotNull('person_id')->findOrFail($source->id);
-            $this->lockParticipants($event, [$actor->person_id, $source->person_id, $data['person_id'] ?? null]);
-            abort_unless($this->allows($event, $actor, 'inventory.manage'), 403);
-            $item = $event->entitlementItems()->findOrFail($data['entitlement_item_id']);
-            if (($data['destination'] ?? null) === 'location') {
-                $to = $this->stock->forLocation($event, (int) ($data['location_id'] ?? 0));
-            } else {
-                $personId = match ($data['destination'] ?? null) {
-                    'me' => $actor->person_id,
-                    'person' => (int) ($data['person_id'] ?? 0),
-                    default => throw ValidationException::withMessages(['destination' => __('inventory.errors.invalid_movement')]),
-                };
-                if ($personId === $source->person_id || ! $this->targets->canReceive($event, $personId)) {
-                    throw ValidationException::withMessages(['person_id' => __('inventory.errors.receiver_unavailable')]);
-                }
-                $to = $this->stock->forPerson($event, Person::findOrFail($personId));
-            }
-
-            return $this->stock->move($item, MovementType::TakeBack, (int) $data['quantity'], $source, $to, $actor, $data['note'] ?? null);
-        }, 3);
-    }
-
     /** Each submitted set is one transaction, including holder creation and cache invalidation. */
     public function give(Event $event, User $actor, array $data): void
     {
@@ -110,7 +67,7 @@ class InventoryMovementService
             $event = $this->lockEvent($event);
             $personId = (int) $data['person_id'];
             $this->lockParticipants($event, [$actor->person_id, $personId]);
-            $manager = $this->allows($event, $actor, 'inventory.manage');
+            $manager = $this->targets->allows($event, $actor, 'inventory.manage');
             app(InventoryHoldingsAccess::class)->authorizePerson($event, $actor, $data, $personId, $manager);
             if (! $this->targets->canReceive($event, $personId)) {
                 throw ValidationException::withMessages(['person_id' => __('inventory.errors.receiver_unavailable')]);
@@ -121,6 +78,9 @@ class InventoryMovementService
             foreach ($lines as $index => $line) {
                 $locationId = $line['location_id'] ?? null;
                 abort_unless($manager || empty($locationId), 403);
+                if (empty($locationId) && $personId === $actor->person_id) {
+                    throw ValidationException::withMessages(["items.$index.location_id" => __('inventory.errors.self_give')]);
+                }
                 $from = ! empty($locationId) ? $this->stock->forLocation($event, (int) $locationId)
                     : StockHolder::where('event_id', $event->id)->where('person_id', $actor->person_id)->first();
                 $type = ! empty($locationId) ? MovementType::Pull
@@ -137,7 +97,7 @@ class InventoryMovementService
             $sourceId = (int) $data['person_id'];
             $receiverId = ($data['destination'] ?? null) === 'me' ? $actor->person_id : (int) ($data['receiver_id'] ?? 0);
             $this->lockParticipants($event, [$actor->person_id, $sourceId, $receiverId]);
-            $manager = $this->allows($event, $actor, 'inventory.manage');
+            $manager = $this->targets->allows($event, $actor, 'inventory.manage');
             $access = app(InventoryHoldingsAccess::class);
             $access->authorizePerson($event, $actor, $data, $sourceId, $manager);
             $lines = $this->batchLines($event, $data, true);
@@ -169,7 +129,7 @@ class InventoryMovementService
             $event = $this->lockEvent($event);
             $personId = (int) $data['person_id'];
             $this->lockParticipants($event, [$actor->person_id, $personId]);
-            abort_unless($this->allows($event, $actor, 'inventory.manage'), 403);
+            abort_unless($this->targets->allows($event, $actor, 'inventory.manage'), 403);
             $lines = $this->batchLines($event, $data);
             $direction = $data['direction'] ?? null;
             if (! in_array($direction, ['from_location', 'to_location'], true)) {
@@ -253,11 +213,5 @@ class InventoryMovementService
         Role::whereIn('id', $members->pluck('role_id')->filter())->orderBy('id')->lockForUpdate()->get();
         Person::whereIn('id', $personIds)->orderBy('id')->lockForUpdate()->get();
         User::whereIn('person_id', $personIds)->orderBy('id')->lockForUpdate()->get();
-    }
-
-    /** Fresh transaction checks; request-cached permissions are only for preflight/UI. */
-    private function allows(Event $event, User $actor, string $permission): bool
-    {
-        return in_array($permission, $this->targets->permissions($event, $actor), true);
     }
 }

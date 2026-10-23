@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\DB;
 
 class InventoryHoldingsAccess
 {
+    public function __construct(private readonly InventoryTargetsQuery $targets) {}
+
     public function supervisedShifts(Event $event, User $actor): Builder
     {
         return DB::table('shift_assignments as supervisor')
@@ -20,17 +22,19 @@ class InventoryHoldingsAccess
             ->where('supervisor_user.id', $actor->id)->where('supervisor_person.can_log_in', true)->where('supervisor_role.active', true)
             ->join('shifts as supervised_shift', 'supervised_shift.id', '=', 'supervisor.shift_id')
             ->where('supervisor_member.event_id', $event->id)->where('supervised_shift.event_id', $event->id)
+            ->where('supervisor_member.status', 'hired')
             ->where('supervisor_member.person_id', $actor->person_id)->where('supervisor.is_supervisor', true);
     }
 
     public function canView(Event $event, User $actor): bool
     {
-        return $actor->can('inventory.manage', $event) || $this->supervisedShifts($event, $actor)->exists();
+        // Managers retain role-based read access; stock actions require Hired status.
+        return $this->targets->allows($event, $actor, 'inventory.manage', requireHired: false) || $this->supervisedShifts($event, $actor)->exists();
     }
 
     public function canAct(Event $event, User $actor, array $scope): bool
     {
-        return in_array('inventory.manage', app(InventoryTargetsQuery::class)->permissions($event, $actor), true)
+        return $this->targets->allows($event, $actor, 'inventory.manage')
             || (! empty($scope['shift_id']) && $this->supervisedShifts($event, $actor)->where('supervisor.shift_id', $scope['shift_id'])->exists());
     }
 
@@ -51,10 +55,9 @@ class InventoryHoldingsAccess
     public function authorizeScope(Event $event, User $actor, array $scope, bool $manager): void
     {
         abort_unless((! empty($scope['shift_id'])) !== (! empty($scope['group_id'])), 422);
+        $table = empty($scope['shift_id']) ? 'groups' : 'shifts';
+        abort_unless(DB::table($table)->where('event_id', $event->id)->where('id', $scope['shift_id'] ?? $scope['group_id'])->exists(), 404);
         if ($manager) {
-            $table = empty($scope['shift_id']) ? 'groups' : 'shifts';
-            abort_unless(DB::table($table)->where('event_id', $event->id)->where('id', $scope['shift_id'] ?? $scope['group_id'])->exists(), 404);
-
             return;
         }
         abort_unless(! empty($scope['shift_id']) && empty($scope['group_id'])

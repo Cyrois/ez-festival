@@ -12,6 +12,8 @@ use App\Models\StockMovement;
 use App\Models\TeamEngagement;
 use App\Models\User;
 use App\Queries\InventoryHoldingsQuery;
+use App\Queries\InventoryScopeQuery;
+use App\Services\InventoryHoldingsAccess;
 use App\Services\InventoryMovementService;
 use App\Services\StockMovementService;
 use App\Support\OrganizationContext;
@@ -101,6 +103,70 @@ class InventoryHoldingsTest extends TestCase
         $this->assertDatabaseCount('stock_holders', 1);
         $this->getJson(route('check-in.inventory.holdings'))->assertUnprocessable();
         $this->getJson(route('check-in.inventory.holdings', ['shift_id' => $this->shift->id, 'group_id' => $this->record($this->person)->group_id]))->assertUnprocessable();
+    }
+
+    public function test_foreign_and_missing_scopes_return_not_found_for_managers_and_supervisors(): void
+    {
+        $foreign = Event::create(['name' => 'Other', 'starts_on' => '2027-01-01', 'ends_on' => '2027-01-02', 'timezone' => 'UTC']);
+        $location = $foreign->locations()->create(['name' => 'Other gate']);
+        $shift = $foreign->shifts()->create(['location_id' => $location->id, 'starts_at' => '2027-01-01 10:00', 'ends_at' => '2027-01-01 12:00']);
+        $group = $foreign->groups()->create(['name' => 'Other team']);
+        foreach ([$this->manager, $this->supervisor] as $actor) {
+            $this->actingAs($actor);
+            foreach ([['shift_id' => $shift->id], ['group_id' => $group->id], ['shift_id' => 2147483647], ['group_id' => 2147483647]] as $scope) {
+                $this->getJson(route('check-in.inventory.holdings', $scope))->assertNotFound();
+                $this->getJson(route('check-in.inventory.holdings.stock', [...$scope, 'person_id' => $this->person->person_id]))->assertNotFound();
+                $this->postJson(route('check-in.inventory.gives.store', $this->event), [...$this->giveData(), 'shift_id' => null, ...$scope])->assertNotFound();
+                $this->postJson(route('check-in.inventory.take-backs.store', $this->event), [...$this->takeData(1), 'shift_id' => null, ...$scope])->assertNotFound();
+            }
+        }
+        $this->assertDatabaseCount('stock_movements', 2);
+    }
+
+    public function test_unhired_supervisors_lose_scope_and_movement_access_even_with_stale_models(): void
+    {
+        $this->seedHeldStock($this->item, $this->location, 3, $this->supervisor);
+        $this->seedHeldStock($this->item, $this->location, 2, $this->person);
+        $this->actingAs($this->supervisor);
+        $this->getJson(route('check-in.inventory.holdings', ['shift_id' => $this->shift->id]))->assertOk();
+        $give = ['shift_id' => $this->shift->id, 'person_id' => $this->person->person_id,
+            'items' => [['entitlement_item_id' => $this->item->id, 'quantity' => 1]]];
+        $access = app(InventoryHoldingsAccess::class);
+        foreach (['applied', 'reviewing', 'declined'] as $status) {
+            $this->record($this->supervisor)->update(['status' => $status]);
+            $this->assertFalse($access->canView($this->event, $this->supervisor));
+            $this->assertFalse($access->canAct($this->event, $this->supervisor, $give));
+            $this->assertSame([], app(InventoryScopeQuery::class)->options($this->event, $this->supervisor, ['type' => 'shift'])->pluck('s.id')->all());
+            $this->getJson(route('check-in.inventory.scopes', ['type' => 'shift']))->assertForbidden();
+            $this->getJson(route('check-in.inventory.holdings', ['shift_id' => $this->shift->id]))->assertForbidden();
+            $this->postJson(route('check-in.inventory.gives.store', $this->event), $give)->assertForbidden();
+            $this->postJson(route('check-in.inventory.take-backs.store', $this->event), $this->takeData(1))->assertForbidden();
+            foreach (['give' => $give, 'takeBackItems' => $this->takeData(1)] as $method => $data) {
+                try {
+                    app(InventoryMovementService::class)->{$method}($this->event, $this->supervisor, $data);
+                    $this->fail('Unhired supervisors must lose stock access.');
+                } catch (HttpException $error) {
+                    $this->assertSame(403, $error->getStatusCode());
+                }
+            }
+        }
+        $this->assertSame(3, $this->balance($this->supervisor, $this->item));
+        $this->assertSame(2, $this->balance($this->person, $this->item));
+    }
+
+    public function test_self_give_requires_location_stock_and_has_a_clear_error(): void
+    {
+        $this->assign($this->shift, $this->manager);
+        $this->seedHeldStock($this->item, $this->location, 3, $this->manager);
+        $data = ['shift_id' => $this->shift->id, 'person_id' => $this->manager->person_id,
+            'items' => [['entitlement_item_id' => $this->item->id, 'quantity' => 1]]];
+        $this->postJson(route('check-in.inventory.gives.store', $this->event), $data)->assertUnprocessable()
+            ->assertJsonValidationErrors('items.0.location_id')
+            ->assertJsonPath('errors', ['items.0.location_id' => [__('inventory.errors.self_give')]]);
+        $this->assertSame(3, $this->balance($this->manager, $this->item));
+        $data['items'][0]['location_id'] = $this->location->id;
+        $this->post(route('check-in.inventory.gives.store', $this->event), $data)->assertSessionHasNoErrors();
+        $this->assertSame(4, $this->balance($this->manager, $this->item));
     }
 
     public function test_manager_give_is_atomic_and_rows_reconcile_across_shift_and_team(): void
@@ -270,7 +336,7 @@ class InventoryHoldingsTest extends TestCase
         $this->assertSame([$this->shift->id, $future->id, $past->id], $this->getJson(route('check-in.inventory.scopes', ['type' => 'shift']))->assertOk()->json('data.*.id'));
         $foreign = Event::create(['name' => 'Foreign', 'starts_on' => '2027-01-01', 'ends_on' => '2027-01-02', 'timezone' => 'UTC']);
         $group = $foreign->groups()->create(['name' => 'Foreign group']);
-        $this->getJson(route('check-in.inventory.holdings', ['group_id' => $group->id]))->assertUnprocessable();
+        $this->getJson(route('check-in.inventory.holdings', ['group_id' => $group->id]))->assertNotFound();
         $this->travelBack();
     }
 

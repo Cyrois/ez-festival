@@ -60,23 +60,28 @@ Kits (#226), whole-shift close-out, historical Holdings, Holdings export,
 location-to-location movements, unit-code handling, My stock enhancements (#211),
 and History filters/export changes.
 
+## Review follow-up
+
+Foreign or missing shift/team scopes return 404 for both managers and supervisors.
+Supervisors must have a Hired engagement to view or act on their assigned shifts;
+this is checked again on service writes. Team rosters still include all statuses.
+Manager reads retain active-role access, while stock actions require Hired status.
+Both paths now use the same fresh permission resolver with an explicit read option.
+
+Scope options and adjustment-people queries live in Query classes. Self-give from
+own stock returns a translated source error; location-to-self Give remains valid.
+Retired single-item pull/takeBack service methods are removed, and their tests use
+the current batch APIs. PostgreSQL race tests cover multi-item Give, Take back and
+Adjust, including both adjustment directions and rollback of losing submissions.
+
 ## Verification
 
-- Full SQLite: 919 passed, 34 PostgreSQL-only skips (13,482 assertions).
-- Full PostgreSQL before final follow-ups: 947 passed (13,820 assertions).
-- Final inventory PostgreSQL regressions: 55 passed (942 assertions), including
-  a real concurrent multi-item Give proving the losing submission fully rolls back.
-- Frontend coverage mounts the real DataTable for pagination, safe colored headers,
-  column filtering, inactive actions, phone-card markup and threshold boundaries;
-  batch dialogs cover source availability, Take back defaults/zero quantities,
-  errors, resets, scopes and Adjust direction/note behavior.
-- The full frontend suite has nine pre-existing failures in teamCheckIn.test.js.
-  Re-running that file with the original HEAD DataTable reproduces all nine.
-  The existing EntitlementTable is missing its Recorded by column while its audit
-  indexes/tests still expect it. That unrelated repair is not included here.
-- Synthetic browser verification used only ez_festival_225_preview for stock moves.
-  Verified manager picker/grid, zero-stock warnings, Give, full Take back prefill,
-  Adjust's empty Person/default direction, refreshed counts and ledger readback.
-  Verified supervisor-only navigation and no History, Team picker or Locations.
-  The browser check caught and fixed nullable empty-search handling in remote
-  options; an HTTP regression test now sends the UI's actual empty-search query.
+- Full SQLite: 922 passed, 36 PostgreSQL-only skips (13,552 assertions).
+- Full PostgreSQL 17: 958 passed (13,974 assertions), including real concurrent
+  multi-item Give, Take back and Adjust submissions.
+- Tracked frontend suite: 337 passed, nine existing failures in
+  `teamCheckIn.test.js`, matching the review baseline. No frontend source changed.
+- Build, Pint, Prettier, ESLint and `git diff --check` pass.
+- Added feature coverage checks foreign/missing scopes on reads and writes,
+  supervisor status revocation through HTTP and direct service calls, and the
+  self-give error while preserving location-to-self Give.

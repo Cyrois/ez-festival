@@ -52,9 +52,9 @@ class InventoryPersonMovementsTest extends TestCase
         $this->location = $this->event->locations()->create(['name' => 'Gate']);
         $this->item = $this->event->entitlementItems()->create(['name' => 'Wristband']);
         $this->seedStock($this->item, $this->location, 20, $this->manager);
-        app(InventoryMovementService::class)->pull($this->event, $this->manager, [
-            'location_id' => $this->location->id, 'person_id' => $this->source->person_id,
-            'entitlement_item_id' => $this->item->id, 'quantity' => 10,
+        app(InventoryMovementService::class)->adjustInventory($this->event, $this->manager, [
+            'direction' => 'from_location', 'location_id' => $this->location->id, 'person_id' => $this->source->person_id,
+            'items' => [['entitlement_item_id' => $this->item->id, 'quantity' => 10]],
         ]);
         $this->actingAs($this->source);
     }

@@ -78,9 +78,9 @@ class EntitlementLabelsTest extends TestCase
     {
         $location = $this->event->locations()->create(['name' => 'Gate']);
         $this->seedStock($this->item, $location, 10, $this->actor);
-        app(InventoryMovementService::class)->pull($this->event, $this->actor, [
-            'entitlement_item_id' => $this->item->id, 'location_id' => $location->id,
-            'person_id' => $this->actor->person_id, 'quantity' => 3,
+        app(InventoryMovementService::class)->adjustInventory($this->event, $this->actor, [
+            'direction' => 'from_location', 'location_id' => $location->id, 'person_id' => $this->actor->person_id,
+            'items' => [['entitlement_item_id' => $this->item->id, 'quantity' => 3]],
         ]);
         $holder = StockHolder::where('person_id', $this->actor->person_id)->sole();
         $ordered = EntitlementLabels::ordered($this->item->labels);

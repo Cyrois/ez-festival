@@ -5,6 +5,7 @@ namespace App\Queries;
 use App\Models\Event;
 use App\Services\InventoryHoldingsAccess;
 use App\Services\StockMovementService;
+use App\Support\SqlLike;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +29,19 @@ class InventoryHoldingsQuery
         return DB::table('locations as l')->where('l.event_id', $event->id)
             ->leftJoin('stock_holders as holder', fn ($join) => $join->on('holder.location_id', '=', 'l.id')->where('holder.event_id', $event->id))
             ->select('l.id', 'l.name', 'holder.id as holder_id')->orderByRaw('LOWER(l.name)')->orderBy('l.id');
+    }
+
+    public function adjustmentPeople(Event $event, string $direction, string $search = ''): Builder
+    {
+        if ($direction === 'from_location') {
+            return $this->targets->receivers($event, search: $search);
+        }
+
+        return DB::table('people as p')->whereExists(fn ($holders) => $holders->selectRaw('1')->from('stock_holders as holder')
+            ->joinSub($this->stock->balancesQuery($event->id), 'balance', 'balance.holder_id', '=', 'holder.id')
+            ->where('holder.event_id', $event->id)->whereColumn('holder.person_id', 'p.id')->where('balance.balance', '>', 0))
+            ->whereRaw("LOWER(p.name) LIKE ? ESCAPE '!'", ['%'.SqlLike::escape(mb_strtolower($search)).'%'])
+            ->select('p.id', 'p.name')->orderByRaw('LOWER(p.name)')->orderBy('p.id');
     }
 
     public function rows(Event $event, Collection $rows, bool $people = true): Collection

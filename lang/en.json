@@ -1788,6 +1788,7 @@
     "inventory.errors.holder_unavailable": "This stock holder is not available in this event.",
     "inventory.errors.quantity_invalid": "Enter a whole quantity between 1 and 2147483647.",
     "inventory.errors.invalid_movement": "This stock movement is not valid.",
+    "inventory.errors.self_give": "Choose a location to give stock to yourself. You cannot give from your own stock.",
     "inventory.errors.issue_unavailable": "This issued entitlement does not match the stock item.",
     "inventory.errors.reason_required": "Enter a reason for removing stock.",
     "inventory.notes.seed_opening": "Seeded opening balance",

@@ -19,10 +19,10 @@ class InventoryTakeBackController extends Controller
     public function index(HoldingsPersonRequest $request, EventContext $context, InventoryTargetsQuery $targets, InventoryHoldingsAccess $access): AnonymousResourceCollection
     {
         $event = $context->requireCurrent($request->user());
-        $manager = $request->user()->can('inventory.manage', $event);
+        $manager = $targets->allows($event, $request->user(), 'inventory.manage', requireHired: false);
         $access->authorizePerson($event, $request->user(), $request->validated(), $request->integer('person_id'), $manager);
         $query = $targets->receivers($event, $request->integer('person_id'), ($request->validated('search') ?? ''));
-        if (! in_array('inventory.manage', $targets->permissions($event, $request->user()), true)) {
+        if (! $targets->allows($event, $request->user(), 'inventory.manage')) {
             $query->whereIn('p.id', $access->roster($event, $request->validated())->select('member.person_id'));
         }
 

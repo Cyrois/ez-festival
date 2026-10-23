@@ -290,7 +290,7 @@ These are recurring Codex mistakes on this repo. Treat them as hard stops — do
 - Reuse `team.hours_report.view` for location data and pay, including locked events. Person names and chevrons open member pages in a new tab only with `team.view`. Location rows link to the report's people view, never By shift. Keep picker options separate from filtered location rows.
 - Rounding update (Calvin, 2026-10-21): Summary must reconcile with By location, including sub-cent cases. Round each person's combined selected-range minutes at each location half up to integer cents, then sum those location costs into their By team person row, team totals and Summary event totals. Budget uses the same calculation across the whole event. At 0.30/hour, one minute at each of two locations is 0.01 at each location and 0.02 in Summary. Apply date and employment filters before calculating; use integer-cent arithmetic to avoid floating-point drift.
 
-## Holdings implementation decisions (Calvin, 2026-10-21, #225)
+## Holdings implementation decisions
 
 - Low stock level is also optional on item Create and is saved there with the same 0–2147483647 whole-unit validation as Edit. This supersedes “Create leaves it unset” above.
 - Holdings keeps server pagination in the shared DataTable for selected shift/team rosters, including phone cards. No complete-roster pagination exception applies here.

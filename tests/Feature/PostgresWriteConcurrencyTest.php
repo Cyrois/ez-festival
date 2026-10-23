@@ -151,18 +151,18 @@ class PostgresWriteConcurrencyTest extends TestCase
         $this->assertSame('Global Edit', $person->fresh()->name);
     }
 
-    public function test_inventory_pulls_competing_for_last_units_are_atomic(): void
+    public function test_inventory_adjustments_competing_for_last_units_are_atomic(): void
     {
         [$event, $actor] = $this->context();
         $this->grantAdminAccess($actor);
         $location = $event->locations()->create(['name' => 'Stock gate']);
         $item = $event->entitlementItems()->create(['name' => 'Last pull']);
         $this->seedStock($item, $location, 1, $actor);
-        $data = ['location_id' => $location->id, 'entitlement_item_id' => $item->id,
-            'person_id' => $actor->person_id, 'quantity' => 1];
+        $data = ['direction' => 'from_location', 'location_id' => $location->id,
+            'person_id' => $actor->person_id, 'items' => [['entitlement_item_id' => $item->id, 'quantity' => 1]]];
         $results = $this->concurrently(
-            fn () => app(InventoryMovementService::class)->pull($event, $actor, $data),
-            fn () => app(InventoryMovementService::class)->pull($event, $actor, $data),
+            fn () => app(InventoryMovementService::class)->adjustInventory($event, $actor, $data),
+            fn () => app(InventoryMovementService::class)->adjustInventory($event, $actor, $data),
         );
         $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
         $this->assertSame(['events', 'events'], array_column($results, 'first_lock'));
@@ -204,10 +204,10 @@ class PostgresWriteConcurrencyTest extends TestCase
         $location = $event->locations()->create(['name' => 'Stock gate']);
         $item = $event->entitlementItems()->create(['name' => 'Last return']);
         $this->seedStock($item, $location, 1, $actor);
-        $data = ['location_id' => $location->id, 'entitlement_item_id' => $item->id,
-            'person_id' => $actor->person_id, 'quantity' => 1];
-        app(InventoryMovementService::class)->pull($event, $actor, $data);
-        unset($data['person_id']);
+        $data = ['direction' => 'from_location', 'location_id' => $location->id,
+            'person_id' => $actor->person_id, 'items' => [['entitlement_item_id' => $item->id, 'quantity' => 1]]];
+        app(InventoryMovementService::class)->adjustInventory($event, $actor, $data);
+        $data = ['location_id' => $location->id, 'entitlement_item_id' => $item->id, 'quantity' => 1];
         $results = $this->concurrently(
             fn () => app(InventoryMovementService::class)->returnStock($event, $actor, $data),
             fn () => app(InventoryMovementService::class)->returnStock($event, $actor, $data),
@@ -217,7 +217,68 @@ class PostgresWriteConcurrencyTest extends TestCase
         $this->assertSame(0, app(StockMovementService::class)->balance($item, StockHolder::where('person_id', $actor->person_id)->sole()));
     }
 
-    public function test_inventory_pull_prevents_concurrent_unhiring_and_unhiring_prevents_a_later_pull(): void
+    public function test_multi_item_take_backs_roll_back_the_entire_losing_submission(): void
+    {
+        [$event, $manager, $source, , $last, $holder] = $this->personMovementContext();
+        $location = $event->locations()->sole();
+        $first = $event->entitlementItems()->create(['name' => 'Plenty to take back']);
+        $this->seedHeldStock($first, $location, 3, $source);
+        $data = [
+            'group_id' => TeamEngagement::where('event_id', $event->id)->where('person_id', $source->person_id)->sole()->group_id,
+            'person_id' => $source->person_id, 'destination' => 'location', 'location_id' => $location->id,
+            'items' => [['entitlement_item_id' => $first->id, 'quantity' => 1], ['entitlement_item_id' => $last->id, 'quantity' => 1]],
+        ];
+        $results = $this->concurrently(
+            fn () => app(InventoryMovementService::class)->takeBackItems($event, $manager, $data),
+            fn () => app(InventoryMovementService::class)->takeBackItems($event, $manager, $data),
+        );
+        $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+        $this->assertSame(['events', 'events'], array_column($results, 'first_lock'));
+        $this->assertSame(2, DB::table('stock_movements')->where('event_id', $event->id)->where('type', 'take_back')->count());
+        $this->assertSame(2, app(StockMovementService::class)->balance($first, $holder));
+        $this->assertSame(0, app(StockMovementService::class)->balance($last, $holder));
+        $locationHolder = StockHolder::where('event_id', $event->id)->where('location_id', $location->id)->sole();
+        $this->assertSame(1, app(StockMovementService::class)->balance($first, $locationHolder));
+        $this->assertSame(1, app(StockMovementService::class)->balance($last, $locationHolder));
+    }
+
+    public function test_multi_item_adjustments_roll_back_the_entire_losing_submission_in_both_directions(): void
+    {
+        foreach (['from_location', 'to_location'] as $direction) {
+            [$event, $actor] = $this->context();
+            $this->grantAdminAccess($actor);
+            $location = $event->locations()->create(['name' => 'Adjust gate']);
+            $first = $event->entitlementItems()->create(['name' => 'Plenty to adjust']);
+            $last = $event->entitlementItems()->create(['name' => 'Last to adjust']);
+            if ($direction === 'from_location') {
+                $this->seedStock($first, $location, 3, $actor);
+                $this->seedStock($last, $location, 1, $actor);
+            } else {
+                $this->seedHeldStock($first, $location, 3, $actor);
+                $this->seedHeldStock($last, $location, 1, $actor);
+            }
+            $data = ['direction' => $direction, 'location_id' => $location->id, 'person_id' => $actor->person_id,
+                'items' => [['entitlement_item_id' => $first->id, 'quantity' => 1], ['entitlement_item_id' => $last->id, 'quantity' => 1]]];
+            $results = $this->concurrently(
+                fn () => app(InventoryMovementService::class)->adjustInventory($event, $actor, $data),
+                fn () => app(InventoryMovementService::class)->adjustInventory($event, $actor, $data),
+            );
+            $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+            $this->assertSame(['events', 'events'], array_column($results, 'first_lock'));
+            $type = $direction === 'from_location' ? 'pull' : 'return';
+            $this->assertSame(2, DB::table('stock_movements')->where('event_id', $event->id)->where('type', $type)->count());
+            $source = StockHolder::where('event_id', $event->id)
+                ->where($direction === 'from_location' ? 'location_id' : 'person_id', $direction === 'from_location' ? $location->id : $actor->person_id)->sole();
+            $destination = StockHolder::where('event_id', $event->id)
+                ->where($direction === 'from_location' ? 'person_id' : 'location_id', $direction === 'from_location' ? $actor->person_id : $location->id)->sole();
+            $this->assertSame(2, app(StockMovementService::class)->balance($first, $source));
+            $this->assertSame(0, app(StockMovementService::class)->balance($last, $source));
+            $this->assertSame(1, app(StockMovementService::class)->balance($first, $destination));
+            $this->assertSame(1, app(StockMovementService::class)->balance($last, $destination));
+        }
+    }
+
+    public function test_inventory_adjustment_prevents_concurrent_unhiring_and_unhiring_prevents_a_later_adjustment(): void
     {
         foreach ([true, false] as $pullFirst) {
             [$event, $actor] = $this->context();
@@ -229,8 +290,9 @@ class PostgresWriteConcurrencyTest extends TestCase
             $location = $event->locations()->create(['name' => 'Gate']);
             $item = $event->entitlementItems()->create(['name' => 'Wristband']);
             $this->seedStock($item, $location, 1, $actor);
-            $data = ['location_id' => $location->id, 'entitlement_item_id' => $item->id, 'person_id' => $recipient->person_id, 'quantity' => 1];
-            $pull = fn () => app(InventoryMovementService::class)->pull($event, $actor, $data);
+            $data = ['direction' => 'from_location', 'location_id' => $location->id, 'person_id' => $recipient->person_id,
+                'items' => [['entitlement_item_id' => $item->id, 'quantity' => 1]]];
+            $pull = fn () => app(InventoryMovementService::class)->adjustInventory($event, $actor, $data);
             $remove = fn () => app(TeamEngagementService::class)->updateStatus($member, 'declined');
             $results = $this->concurrently($pullFirst ? $pull : $remove, $pullFirst ? $remove : $pull);
             $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
@@ -239,7 +301,7 @@ class PostgresWriteConcurrencyTest extends TestCase
         }
     }
 
-    public function test_inventory_pull_observes_role_revocation_committed_while_waiting(): void
+    public function test_inventory_adjustment_observes_role_revocation_committed_while_waiting(): void
     {
         [$event, $actor] = $this->context();
         $this->grantAdminAccess($actor);
@@ -250,19 +312,20 @@ class PostgresWriteConcurrencyTest extends TestCase
         $location = $event->locations()->create(['name' => 'Gate']);
         $item = $event->entitlementItems()->create(['name' => 'Wristband']);
         $this->seedStock($item, $location, 1, $actor);
-        $data = ['location_id' => $location->id, 'entitlement_item_id' => $item->id, 'person_id' => $recipient->person_id, 'quantity' => 1];
+        $data = ['direction' => 'from_location', 'location_id' => $location->id, 'person_id' => $recipient->person_id,
+            'items' => [['entitlement_item_id' => $item->id, 'quantity' => 1]]];
         $results = $this->concurrently(
             fn () => DB::transaction(function () use ($event, $role): void {
                 Event::whereKey($event->id)->lockForUpdate()->firstOrFail();
                 app(RoleService::class)->setActive($role, false);
             }),
-            fn () => app(InventoryMovementService::class)->pull($event, $actor, $data),
+            fn () => app(InventoryMovementService::class)->adjustInventory($event, $actor, $data),
         );
         $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
         $this->assertSame(0, $item->movements()->where('type', 'pull')->count());
     }
 
-    public function test_inventory_pull_and_global_access_removal_cannot_strand_stock(): void
+    public function test_inventory_adjustment_and_global_access_removal_cannot_strand_stock(): void
     {
         foreach (['admin', 'event_role'] as $kind) {
             foreach ([true, false] as $pullFirst) {
@@ -280,12 +343,12 @@ class PostgresWriteConcurrencyTest extends TestCase
                 $location = $event->locations()->create(['name' => 'Gate']);
                 $item = $event->entitlementItems()->create(['name' => 'Wristband']);
                 $this->seedStock($item, $location, 1, $actor);
-                $pullData = ['location_id' => $location->id, 'entitlement_item_id' => $item->id,
-                    'person_id' => $recipient->person_id, 'quantity' => 1];
+                $pullData = ['direction' => 'from_location', 'location_id' => $location->id,
+                    'person_id' => $recipient->person_id, 'items' => [['entitlement_item_id' => $item->id, 'quantity' => 1]]];
                 $change = ['name' => $recipient->name, 'can_log_in' => true,
                     'event_access' => [['event_id' => $event->id, 'role_id' => null]],
                     ...($kind === 'admin' ? ['is_admin' => false] : [])];
-                $pull = fn () => app(InventoryMovementService::class)->pull($event, $actor, $pullData);
+                $pull = fn () => app(InventoryMovementService::class)->adjustInventory($event, $actor, $pullData);
                 $remove = fn () => app(GlobalTeamService::class)->update($recipient->person, $change, $actor);
                 $results = $this->concurrently($pullFirst ? $pull : $remove, $pullFirst ? $remove : $pull);
                 $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
@@ -342,13 +405,14 @@ class PostgresWriteConcurrencyTest extends TestCase
             fn () => app(InventoryMovementService::class)->passStock($event, $source, [
                 'person_id' => $target->person_id, 'entitlement_item_id' => $item->id, 'quantity' => 1,
             ]),
-            fn () => app(InventoryMovementService::class)->takeBack($event, $manager, $holder, [
-                'destination' => 'me', 'entitlement_item_id' => $item->id, 'quantity' => 1,
+            fn () => app(InventoryMovementService::class)->takeBackItems($event, $manager, [
+                'group_id' => TeamEngagement::where('event_id', $event->id)->where('person_id', $source->person_id)->sole()->group_id,
+                'person_id' => $source->person_id, 'destination' => 'me',
+                'items' => [['entitlement_item_id' => $item->id, 'quantity' => 1]],
             ]),
         );
         $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
         $this->assertSame(['events', 'events'], array_column($results, 'first_lock'));
-        $this->assertSame([true, true], array_column($results, 'holder_locked'));
         $this->assertSame(0, app(StockMovementService::class)->balance($item, $holder));
         $this->assertSame(1, $item->movements()->whereIn('type', ['transfer', 'take_back'])->count());
     }
@@ -399,7 +463,11 @@ class PostgresWriteConcurrencyTest extends TestCase
                 }),
                 fn () => $type === 'return'
                     ? app(InventoryMovementService::class)->returnStock($event, $source, ['person_id' => $receiver->person_id, 'entitlement_item_id' => $item->id, 'quantity' => 1])
-                    : app(InventoryMovementService::class)->takeBack($event, $manager, $holder, ['destination' => 'person', 'person_id' => $receiver->person_id, 'entitlement_item_id' => $item->id, 'quantity' => 1]),
+                    : app(InventoryMovementService::class)->takeBackItems($event, $manager, [
+                        'group_id' => TeamEngagement::where('event_id', $event->id)->where('person_id', $source->person_id)->sole()->group_id,
+                        'person_id' => $source->person_id, 'destination' => 'person', 'receiver_id' => $receiver->person_id,
+                        'items' => [['entitlement_item_id' => $item->id, 'quantity' => 1]],
+                    ]),
             );
             $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
             $this->assertSame(0, $item->movements()->where('type', $type)->count());
@@ -421,7 +489,8 @@ class PostgresWriteConcurrencyTest extends TestCase
         $location = $event->locations()->create(['name' => 'Gate']);
         $item = $event->entitlementItems()->create(['name' => 'Last person unit']);
         $this->seedStock($item, $location, 1, $manager);
-        app(InventoryMovementService::class)->pull($event, $manager, ['location_id' => $location->id, 'person_id' => $source->person_id, 'entitlement_item_id' => $item->id, 'quantity' => 1]);
+        app(InventoryMovementService::class)->adjustInventory($event, $manager, ['direction' => 'from_location', 'location_id' => $location->id, 'person_id' => $source->person_id,
+            'items' => [['entitlement_item_id' => $item->id, 'quantity' => 1]]]);
         $holder = StockHolder::where('event_id', $event->id)->where('person_id', $source->person_id)->sole();
 
         return [$event, $manager, $source, $target, $item, $holder];

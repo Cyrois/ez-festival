@@ -9,32 +9,21 @@ use App\Http\Resources\InventoryDataTableResource;
 use App\Http\Resources\InventoryReceiverResource;
 use App\Models\Event;
 use App\Models\StockHolder;
+use App\Queries\InventoryHoldingsQuery;
 use App\Queries\InventoryQuery;
-use App\Queries\InventoryTargetsQuery;
 use App\Services\InventoryMovementService;
-use App\Services\StockMovementService;
 use App\Support\EventContext;
-use App\Support\SqlLike;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Support\Facades\DB;
 
 class InventoryAdjustmentController extends Controller
 {
-    public function index(InventoryAdjustmentOptionsRequest $request, EventContext $context, InventoryTargetsQuery $targets, StockMovementService $stock): AnonymousResourceCollection
+    public function index(InventoryAdjustmentOptionsRequest $request, EventContext $context, InventoryHoldingsQuery $query): AnonymousResourceCollection
     {
         $event = $context->requireCurrent($request->user());
-        if ($request->validated('direction') === 'from_location') {
-            $query = $targets->receivers($event, search: ($request->validated('search') ?? ''));
-        } else {
-            $query = DB::table('people as p')->whereExists(fn ($holders) => $holders->selectRaw('1')->from('stock_holders as holder')
-                ->joinSub($stock->balancesQuery($event->id), 'balance', 'balance.holder_id', '=', 'holder.id')
-                ->where('holder.event_id', $event->id)->whereColumn('holder.person_id', 'p.id')->where('balance.balance', '>', 0))
-                ->whereRaw("LOWER(p.name) LIKE ? ESCAPE '!'", ['%'.SqlLike::escape(mb_strtolower(($request->validated('search') ?? ''))).'%'])
-                ->select('p.id', 'p.name')->orderByRaw('LOWER(p.name)')->orderBy('p.id');
-        }
+        $people = $query->adjustmentPeople($event, $request->validated('direction'), $request->validated('search') ?? '');
 
-        return InventoryReceiverResource::collection($query->paginate(25));
+        return InventoryReceiverResource::collection($people->paginate(25));
     }
 
     public function show(InventoryAdjustmentOptionsRequest $request, EventContext $context, InventoryQuery $query): InventoryDataTableResource

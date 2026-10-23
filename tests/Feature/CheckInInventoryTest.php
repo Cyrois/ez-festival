@@ -192,7 +192,7 @@ class CheckInInventoryTest extends TestCase
         $this->getJson(route('check-in.history.data', ['holder' => 'person:'.$this->receiver->person_id]))->assertOk()->assertJsonPath('data.0.type', 'pull');
         $foreign = $this->newEvent('Other');
         $foreignHolder = app(StockMovementService::class)->forPerson($foreign, $this->receiver->person);
-        $this->getJson(route('check-in.inventory.holdings.stock', ['person_id' => $this->receiver->person_id, 'group_id' => $this->fixtureGroupId($foreign->id)]))->assertUnprocessable();
+        $this->getJson(route('check-in.inventory.holdings.stock', ['person_id' => $this->receiver->person_id, 'group_id' => $this->fixtureGroupId($foreign->id)]))->assertNotFound();
         $this->getJson(route('check-in.inventory.availability'))->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.balance', 8);
         $return = $this->pullData(quantity: 1);
         unset($return['person_id']);
@@ -320,7 +320,7 @@ class CheckInInventoryTest extends TestCase
 
     private function pull(User $receiver, int $quantity): void
     {
-        app(InventoryMovementService::class)->pull($this->event, $this->manager, $this->pullData($receiver, $quantity));
+        app(InventoryMovementService::class)->adjustInventory($this->event, $this->manager, $this->adjustData($this->pullData($receiver, $quantity)));
     }
 
     private function balance(User $user): int
