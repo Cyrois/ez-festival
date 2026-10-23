@@ -22,9 +22,7 @@ class PersonService
     /** @param array{name: string, email: string, phone?: string|null} $data */
     public function updateProfile(Person $person, array $data): void
     {
-        $person->email = $this->normalizeEmail($data['email']);
-        $this->fillNameAndPhone($person, $data);
-        $person->save();
+        app(ProfileService::class)->update($person, $data);
     }
 
     public function findByEmail(?string $email): ?Person

@@ -168,11 +168,12 @@ class GlobalTeamService
             }
 
             $wasEnabled = $person->can_log_in;
-            $person->update([
+            app(ProfileService::class)->update($person, [
                 'name' => $data['name'],
+                'email' => $person->email,
                 'phone' => $this->normalizePhone($data['phone'] ?? null),
-                'can_log_in' => $data['can_log_in'],
             ]);
+            $person->update(['can_log_in' => $data['can_log_in']]);
 
             if ($willBeAdmin && $target === null) {
                 $target = $this->invitations->ensureLogin($person);
