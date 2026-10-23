@@ -61,6 +61,7 @@ const navItems = computed(() =>
         features: features.value,
         permissions: page.props.permissions,
         isAdmin: user.value?.is_admin,
+        canViewInventory: page.props.canViewInventory,
     }),
 );
 const currentSection = computed(() =>

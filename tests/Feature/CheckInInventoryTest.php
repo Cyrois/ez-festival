@@ -78,7 +78,7 @@ class CheckInInventoryTest extends TestCase
     {
         $admin = $this->grantAdminAccess(User::factory()->create());
         foreach ([$this->receiver, $this->manager, $admin] as $receiver) {
-            $this->post(route('check-in.inventory.pulls.store', $this->event), $this->pullData($receiver, 2))
+            $this->post(route('check-in.inventory.adjustments.store', $this->event), $this->adjustData($this->pullData($receiver, 2)))
                 ->assertRedirect()->assertSessionHasNoErrors();
             $movement = StockMovement::latest('id')->first();
             $this->assertSame(MovementType::Pull, $movement->type);
@@ -102,56 +102,11 @@ class CheckInInventoryTest extends TestCase
         $this->getJson(route('check-in.inventory.movements'))->assertOk()->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.receiver', $this->receiver->name)
             ->assertJsonPath('data.0.recorded_by', $this->manager->name);
-        foreach (['holdings', 'receivers', 'availability'] as $route) {
+        foreach (['holdings', 'adjustment-people', 'availability'] as $route) {
             $this->getJson(route('check-in.inventory.'.$route))->assertForbidden();
         }
-        foreach (['stock'] as $route) {
-            $this->getJson(route('check-in.inventory.holders.'.$route, $otherHolder))->assertForbidden();
-        }
-        $this->post(route('check-in.inventory.pulls.store', $this->event), $this->pullData())->assertForbidden();
-    }
-
-    public function test_holdings_filters_keep_all_item_totals_locations_first_and_exclude_empty_holders(): void
-    {
-        $this->pull($this->receiver, 3);
-        $second = $this->event->entitlementItems()->create(['name' => 'Voucher']);
-        $this->seedStock($second, $this->location, 4);
-        app(StockMovementService::class)->move($second, MovementType::Pull, 4,
-            StockHolder::where('location_id', $this->location->id)->sole(),
-            StockHolder::where('person_id', $this->receiver->person_id)->sole(), $this->manager);
-        app(StockMovementService::class)->forPerson($this->event, $this->manager->person);
-        $this->getJson(route('check-in.inventory.holdings'))->assertOk()->assertJsonCount(2, 'data')
-            ->assertJsonPath('data.0.holder_type', 'location')->assertJsonPath('data.1.total', 7);
-        $this->getJson(route('check-in.inventory.holdings', ['item' => $this->item->id, 'holder_type' => 'person']))
-            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.total', 7)->assertJsonCount(2, 'data.0.items')
-            ->assertJsonPath('recordsTotal', 1)->assertJsonPath('data.0.holder_type', 'person');
-        $this->getJson(route('check-in.inventory.holdings', ['holder_type' => 'location']))
-            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.holder_type', 'location')
-            ->assertJsonPath('recordsTotal', 1);
-        $this->getJson(route('check-in.inventory.holdings', ['holder_type' => 'person', 'search' => 'Not found']))
-            ->assertOk()->assertJsonCount(0, 'data')->assertJsonPath('recordsTotal', 1)->assertJsonPath('recordsFiltered', 0);
-        $this->receiver->person()->update(['name' => '100%_name!']);
-        $this->getJson(route('check-in.inventory.holdings', ['search' => '%_']))->assertOk()->assertJsonCount(1, 'data');
-        $this->getJson(route('check-in.inventory.holdings', ['search' => 'Not found']))->assertJsonCount(0, 'data');
-    }
-
-    public function test_holdings_and_receiver_search_are_paged_and_send_names_without_personal_details(): void
-    {
-        for ($i = 0; $i < 28; $i++) {
-            $user = $this->member(['inventory.pass_group']);
-            $user->person()->update(['name' => sprintf('Receiver %02d', $i)]);
-            $this->seedStock($this->item, $this->location, 1);
-            $this->pull($user, 1);
-        }
-        $this->getJson(route('check-in.inventory.holdings', ['start' => 25, 'length' => 10]))
-            ->assertOk()->assertJsonCount(4, 'data')->assertJsonPath('recordsTotal', 29);
-        $this->getJson(route('check-in.inventory.holdings', ['holder_type' => 'person', 'start' => 25, 'length' => 10]))
-            ->assertOk()->assertJsonCount(3, 'data')->assertJsonPath('recordsTotal', 28);
-        $this->getJson(route('check-in.inventory.holdings', ['holder_type' => 'location', 'start' => 0, 'length' => 25]))
-            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('recordsTotal', 1);
-        $response = $this->getJson(route('check-in.inventory.receivers', ['search' => 'Receiver', 'page' => 2]))
-            ->assertOk()->assertJsonCount(3, 'data');
-        $this->assertSame(['id', 'name'], array_keys($response->json('data.0')));
+        $this->getJson(route('check-in.inventory.holdings.stock', ['person_id' => $this->manager->person_id]))->assertForbidden();
+        $this->post(route('check-in.inventory.adjustments.store', $this->event), $this->adjustData($this->pullData()))->assertForbidden();
     }
 
     public function test_partial_and_full_return_use_only_actor_stock_and_allow_empty_destination(): void
@@ -177,19 +132,19 @@ class CheckInInventoryTest extends TestCase
     public function test_invalid_quantities_and_foreign_or_ineligible_ids_leave_ledger_unchanged(): void
     {
         foreach ([0, -1, 1.5, 'abc', '2147483648', null] as $quantity) {
-            $this->post(route('check-in.inventory.pulls.store', $this->event), $this->pullData(quantity: $quantity))
-                ->assertSessionHasErrors('quantity');
+            $this->post(route('check-in.inventory.adjustments.store', $this->event), $this->adjustData($this->pullData(quantity: $quantity)))
+                ->assertSessionHasErrors('items.0.quantity');
         }
-        $this->post(route('check-in.inventory.pulls.store', $this->event), $this->pullData(quantity: 11))->assertSessionHasErrors('quantity');
+        $this->post(route('check-in.inventory.adjustments.store', $this->event), $this->adjustData($this->pullData(quantity: 11)))->assertSessionHasErrors('items.0.quantity');
         $foreign = $this->newEvent('Other');
         $foreignLocation = $foreign->locations()->create(['name' => 'Other Gate']);
         $foreignItem = $foreign->entitlementItems()->create(['name' => 'Other item']);
         foreach (['location_id' => $foreignLocation->id, 'entitlement_item_id' => $foreignItem->id] as $field => $id) {
             $data = $this->pullData();
             $data[$field] = $id;
-            $this->post(route('check-in.inventory.pulls.store', $this->event), $data)->assertSessionHasErrors($field);
+            $this->post(route('check-in.inventory.adjustments.store', $this->event), $this->adjustData($data))->assertSessionHasErrors($field === 'entitlement_item_id' ? 'items.0.entitlement_item_id' : $field);
         }
-        $this->post(route('check-in.inventory.pulls.store', $foreign), $this->pullData())->assertNotFound();
+        $this->post(route('check-in.inventory.adjustments.store', $foreign), $this->adjustData($this->pullData()))->assertNotFound();
         foreach (['view', 'not_hired', 'role_off', 'login_off', 'no_account', 'foreign_event'] as $type) {
             $user = $this->member($type === 'view' ? ['checkin.view'] : ['checkin.edit']);
             $member = $this->teamMember($user);
@@ -201,7 +156,7 @@ class CheckInInventoryTest extends TestCase
                 'foreign_event' => $member->update(['event_id' => $foreign->id, 'group_id' => $this->fixtureGroupId($foreign->id)]),
                 default => null,
             };
-            $this->post(route('check-in.inventory.pulls.store', $this->event), $this->pullData($user))->assertSessionHasErrors('person_id');
+            $this->post(route('check-in.inventory.adjustments.store', $this->event), $this->adjustData($this->pullData($user)))->assertSessionHasErrors('person_id');
         }
         $this->assertDatabaseCount('stock_movements', 1);
         $this->assertDatabaseCount('stock_holders', 1);
@@ -211,7 +166,7 @@ class CheckInInventoryTest extends TestCase
     {
         $this->pull($this->receiver, 3);
         $this->teamMember($this->receiver)->role->update(['permissions' => ['checkin.view']]);
-        $this->getJson(route('check-in.inventory.holdings'))->assertOk()->assertJsonPath('data.1.inactive', true);
+        $this->getJson(route('check-in.inventory.holdings', ['group_id' => $this->teamMember($this->receiver)->group_id]))->assertOk()->assertJson(fn ($json) => $json->where('data', fn ($rows) => collect($rows)->firstWhere('id', $this->receiver->person_id)['inactive'])->etc());
         $this->actingAs($this->receiver)->put(route('check-in.inventory.returns.update', $this->event), $this->pullData())->assertForbidden();
         $this->get(route('check-in.my-stock'))->assertForbidden();
         $this->get(route('check-in.inventory.index'))->assertForbidden();
@@ -223,8 +178,8 @@ class CheckInInventoryTest extends TestCase
         $this->pull($this->receiver, 1);
         $this->event->lock();
         $this->get(route('check-in.inventory.index'))->assertOk();
-        $this->getJson(route('check-in.inventory.holdings'))->assertOk();
-        $this->postJson(route('check-in.inventory.pulls.store', $this->event), $this->pullData())->assertForbidden();
+        $this->getJson(route('check-in.inventory.holdings', ['group_id' => $this->teamMember($this->receiver)->group_id]))->assertOk();
+        $this->postJson(route('check-in.inventory.adjustments.store', $this->event), $this->adjustData($this->pullData()))->assertForbidden();
         $this->putJson(route('check-in.inventory.returns.update', $this->event), $this->pullData())->assertForbidden();
         $this->assertDatabaseCount('stock_movements', 2);
     }
@@ -233,11 +188,11 @@ class CheckInInventoryTest extends TestCase
     {
         $this->pull($this->receiver, 2);
         $holder = StockHolder::where('person_id', $this->receiver->person_id)->sole();
-        $this->getJson(route('check-in.inventory.holders.stock', $holder))->assertOk()->assertJsonPath('data.0.balance', 2);
+        $this->getJson(route('check-in.inventory.holdings.stock', ['person_id' => $this->receiver->person_id, 'group_id' => $this->teamMember($this->receiver)->group_id]))->assertOk()->assertJsonPath('data.0.balance', 2);
         $this->getJson(route('check-in.history.data', ['holder' => 'person:'.$this->receiver->person_id]))->assertOk()->assertJsonPath('data.0.type', 'pull');
         $foreign = $this->newEvent('Other');
         $foreignHolder = app(StockMovementService::class)->forPerson($foreign, $this->receiver->person);
-        $this->getJson(route('check-in.inventory.holders.stock', $foreignHolder))->assertNotFound();
+        $this->getJson(route('check-in.inventory.holdings.stock', ['person_id' => $this->receiver->person_id, 'group_id' => $this->fixtureGroupId($foreign->id)]))->assertNotFound();
         $this->getJson(route('check-in.inventory.availability'))->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.balance', 8);
         $return = $this->pullData(quantity: 1);
         unset($return['person_id']);
@@ -325,8 +280,8 @@ class CheckInInventoryTest extends TestCase
     {
         $this->teamMember($this->manager)->update(['status' => 'applied']);
         $this->get(route('check-in.inventory.index'))->assertInertia(fn (Assert $p) => $p
-            ->where('canManage', true)->where('canPull', false)->where('canMove', false));
-        $this->post(route('check-in.inventory.pulls.store', $this->event), $this->pullData())->assertForbidden();
+            ->where('canManage', true)->where('canAdjust', false)->where('canMove', false));
+        $this->post(route('check-in.inventory.adjustments.store', $this->event), $this->adjustData($this->pullData()))->assertForbidden();
         $this->assertDatabaseCount('stock_movements', 1);
     }
 
@@ -357,9 +312,15 @@ class CheckInInventoryTest extends TestCase
             'person_id' => ($receiver ?? $this->receiver)->person_id, 'quantity' => $quantity];
     }
 
+    private function adjustData(array $data): array
+    {
+        return ['direction' => 'from_location', 'person_id' => $data['person_id'], 'location_id' => $data['location_id'],
+            'items' => [['entitlement_item_id' => $data['entitlement_item_id'], 'quantity' => $data['quantity']]]];
+    }
+
     private function pull(User $receiver, int $quantity): void
     {
-        app(InventoryMovementService::class)->pull($this->event, $this->manager, $this->pullData($receiver, $quantity));
+        app(InventoryMovementService::class)->adjustInventory($this->event, $this->manager, $this->adjustData($this->pullData($receiver, $quantity)));
     }
 
     private function balance(User $user): int

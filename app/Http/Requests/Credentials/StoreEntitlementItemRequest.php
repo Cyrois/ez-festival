@@ -34,6 +34,7 @@ class StoreEntitlementItemRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
+            'low_stock_level' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:2147483647'],
             'opening_balance' => ['required', 'integer', 'min:0', 'max:2147483647'],
             'location_id' => [
                 'nullable',

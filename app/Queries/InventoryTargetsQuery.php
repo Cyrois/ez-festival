@@ -15,8 +15,13 @@ class InventoryTargetsQuery
 {
     public const SHIFT_GRACE_MINUTES = 30;
 
+    public function allows(Event $event, User $actor, string $permission, bool $requireHired = true): bool
+    {
+        return in_array($permission, $this->permissions($event, $actor, $requireHired), true);
+    }
+
     /** Fresh eligibility for writes as well as picker queries; never use request-cached grants here. */
-    public function permissions(Event $event, User $actor): array
+    public function permissions(Event $event, User $actor, bool $requireHired = true): array
     {
         $user = User::with('person')->find($actor->id);
         if ($user === null || $user->person_id !== $actor->person_id || ! $user->person?->can_log_in) {
@@ -27,7 +32,7 @@ class InventoryTargetsQuery
         }
         $member = TeamEngagement::with('role')->where('event_id', $event->id)->where('person_id', $user->person_id)->first();
 
-        return $member?->status === 'hired' && $member->role?->active
+        return $member !== null && (! $requireHired || $member->status === 'hired') && $member->role?->active
             ? Permissions::expand($member->role->permissions ?? []) : [];
     }
 

@@ -9,15 +9,19 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\InvitePasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\TemporaryPasswordController;
+use App\Http\Controllers\CheckIn\InventoryAdjustmentController;
 use App\Http\Controllers\CheckIn\InventoryController;
+use App\Http\Controllers\CheckIn\InventoryGiveController;
 use App\Http\Controllers\CheckIn\InventoryHistoryController;
 use App\Http\Controllers\CheckIn\InventoryHistoryExportController;
 use App\Http\Controllers\CheckIn\InventoryHistoryOptionsController;
 use App\Http\Controllers\CheckIn\InventoryHoldingsController;
+use App\Http\Controllers\CheckIn\InventoryLocationsController;
 use App\Http\Controllers\CheckIn\InventoryMovementController;
 use App\Http\Controllers\CheckIn\InventoryMoveOptionsController;
 use App\Http\Controllers\CheckIn\InventoryOptionsController;
 use App\Http\Controllers\CheckIn\InventoryPassController;
+use App\Http\Controllers\CheckIn\InventoryScopeController;
 use App\Http\Controllers\CheckIn\InventoryTakeBackController;
 use App\Http\Controllers\CheckInController;
 use App\Http\Controllers\CheckInDataTableController;
@@ -169,23 +173,28 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::get('export', [InventoryHistoryExportController::class, 'index'])->name('export');
         });
         Route::prefix('check-in/inventory')->name('check-in.inventory.')->group(function () {
-            Route::get('/', [InventoryController::class, 'index'])->middleware('can:inventory.manage')->name('index');
+            Route::get('/', [InventoryController::class, 'index'])->middleware('can:view-inventory-holdings')->name('index');
             Route::get('stock', [InventoryController::class, 'show'])->name('stock');
             Route::get('movements', [InventoryController::class, 'show'])->name('movements');
             Route::get('holdings', [InventoryHoldingsController::class, 'index'])->name('holdings');
-            Route::get('holders/{holder}/stock', [InventoryHoldingsController::class, 'show'])->name('holders.stock');
-            Route::get('receivers', [InventoryOptionsController::class, 'index'])->name('receivers');
+            Route::get('holdings/stock', [InventoryHoldingsController::class, 'show'])->name('holdings.stock');
+            Route::get('scopes', [InventoryScopeController::class, 'index'])->name('scopes');
+            Route::get('locations', [InventoryLocationsController::class, 'index'])->name('locations');
+            Route::get('adjustment-people', [InventoryAdjustmentController::class, 'index'])->name('adjustment-people');
+            Route::get('adjustment-stock', [InventoryAdjustmentController::class, 'show'])->name('adjustment-stock');
             Route::get('move-receivers', [InventoryMoveOptionsController::class, 'index'])->name('move-receivers');
-            Route::get('holders/{holder}/receivers', [InventoryTakeBackController::class, 'index'])->name('holders.receivers');
+            Route::get('holdings/receivers', [InventoryTakeBackController::class, 'index'])->name('holdings.receivers');
             Route::get('availability', [InventoryOptionsController::class, 'show'])->name('availability');
         });
-        Route::post('events/{event}/check-in/inventory/pulls', [InventoryMovementController::class, 'store'])
-            ->middleware('event.writable')->name('check-in.inventory.pulls.store');
+        Route::post('events/{event}/check-in/inventory/adjustments', [InventoryAdjustmentController::class, 'store'])
+            ->middleware('event.writable')->name('check-in.inventory.adjustments.store');
+        Route::post('events/{event}/check-in/inventory/gives', [InventoryGiveController::class, 'store'])
+            ->middleware('event.writable')->name('check-in.inventory.gives.store');
         Route::put('events/{event}/check-in/inventory/returns', [InventoryMovementController::class, 'update'])
             ->middleware('event.writable')->name('check-in.inventory.returns.update');
         Route::post('events/{event}/check-in/inventory/transfers', [InventoryPassController::class, 'store'])
             ->middleware('event.writable')->name('check-in.inventory.transfers.store');
-        Route::post('events/{event}/check-in/inventory/holders/{holder}/take-backs', [InventoryTakeBackController::class, 'store'])
+        Route::post('events/{event}/check-in/inventory/take-backs', [InventoryTakeBackController::class, 'store'])
             ->middleware('event.writable')->name('check-in.inventory.take-backs.store');
 
         Route::get('check-in/artists/{engagement}', [ArtistCheckInController::class, 'show'])->name('check-in.show');

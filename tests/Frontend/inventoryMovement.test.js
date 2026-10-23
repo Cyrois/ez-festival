@@ -104,29 +104,6 @@ test('Move rejects invalid quantities and cancellation makes no request', async 
     } finally { app.unmount(); }
 });
 
-test('Pull restricts location/item choices, confirms actor intent and surfaces stale-stock errors', async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = async (url) => ({ ok: true, json: async () => url.includes('availability') ? { data: [{ location_id: 3, entitlement_item_id: 2, balance: 8 }] } : { data: [{ id: 9, name: 'Morgan' }], links: { next: null } } });
-    const { app } = await mount('pull');
-    try {
-        await tick();
-        const location = [...document.querySelectorAll('select')][0];
-        assert.equal(location.textContent.includes('Empty returns'), false);
-        form.location_id = 3; await tick();
-        form.person_id = 9; form.entitlement_item_id = 2; form.quantity = 8; await tick();
-        document.querySelector('#confirm').click(); await tick();
-        assert.match(document.body.textContent, /Give 8 .* from Main gate to Morgan/);
-        assert.equal(requests.length, 0);
-        document.querySelector('#confirm').click(); await tick();
-        assert.equal(requests[0].method, 'post');
-        assert.equal(requests[0].url, '/events/7/check-in/inventory/pulls');
-        requests[0].options.onError({ quantity: 'Stock changed' }); await tick();
-        assert.deepEqual(errors, [{ quantity: 'Stock changed' }]);
-        assert.ok(document.querySelector('select'), 'Failure returns to editable fields');
-    } finally { app.unmount(); globalThis.fetch = originalFetch; }
-});
-
-
 test('reopening starts with empty choices even after Inertia adopts submitted values as defaults', async () => {
     const { app, open } = await mount('move');
     try {
@@ -144,24 +121,6 @@ test('reopening starts with empty choices even after Inertia adopts submitted va
     } finally { app.unmount(); }
 });
 
-
-test('cancelling a pending Pull cannot leave a subsequent Move disabled by stale loading', async () => {
-    const originalFetch = globalThis.fetch;
-    const pending = [];
-    globalThis.fetch = () => new Promise((resolve) => pending.push(resolve));
-    const { app, open, mode } = await mount('pull');
-    try {
-        open.value = false; await tick();
-        mode.value = 'move'; open.value = true; await tick();
-        form.location_id = 4; form.entitlement_item_id = 2; await tick();
-        assert.equal(form.quantity, 1);
-        assert.equal(document.querySelector('#confirm').disabled, false);
-    } finally {
-        app.unmount();
-        for (const resolve of pending) resolve({ ok: true, json: async () => ({ data: [], links: { next: null } }) });
-        globalThis.fetch = originalFetch;
-    }
-});
 
 test('Move stock lists managers beside locations and confirms a manager return without a location', async () => {
     const originalFetch = globalThis.fetch;
@@ -210,43 +169,4 @@ test('Move starts at one, includes its scoped people, confirms and clears an exp
         assert.equal(open.value, true);
         assert.match(urls[0], /\/move-receivers\?/);
     } finally { app.unmount(); globalThis.fetch = originalFetch; }
-});
-
-test('Take back defaults to all source stock, supports every destination and submits the optional note', async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = async () => ({ ok: true, json: async () => ({ data: [{ id: 9, name: 'Riley' }], links: { next: null } }) });
-    for (const destination of ['me', 'location', 'person']) {
-        const { app } = await mount('take_back', { ownPersonId: 5, holder: { id: 20, person_id: 6, name: '<b>Morgan</b>', items: [{ id: 2, name: 'Wristband', balance: 7 }] } });
-        try {
-            await tick();
-            form.entitlement_item_id = 2; await tick();
-            assert.equal(form.quantity, 7);
-            form.destination = destination; await tick();
-            if (destination === 'location') form.location_id = 4;
-            if (destination === 'person') form.person_id = 9;
-            form.quantity = 3; form.note = 'Late handover'; await tick();
-            document.querySelector('#confirm').click(); await tick();
-            assert.match(document.body.textContent, /Take back 3 Wristband from <b>Morgan<\/b> to/);
-            assert.equal(document.querySelector('b'), null);
-            document.querySelector('#confirm').click(); await tick();
-            assert.equal(requests[0].url, '/events/7/check-in/inventory/holders/20/take-backs');
-            assert.equal(requests[0].data.destination, destination);
-            assert.equal(requests[0].data.note, 'Late handover');
-        } finally { app.unmount(); }
-    }
-    globalThis.fetch = originalFetch;
-});
-
-test('Take back cannot choose Me when viewing your own holder and reopening clears destination and note', async () => {
-    const { app, open } = await mount('take_back', { ownPersonId: 5, holder: { id: 20, person_id: 5, name: 'Me', items: [{ id: 2, name: 'Wristband', balance: 7 }] } });
-    try {
-        assert.equal(document.querySelector('input[type="radio"][value="me"]').disabled, true);
-        form.entitlement_item_id = 2; await tick();
-        assert.equal(document.querySelector('#confirm').disabled, true);
-        form.destination = 'location'; await tick();
-        form.location_id = 3; form.note = 'Previous';
-        open.value = false; await tick(); open.value = true; await tick();
-        assert.equal(form.location_id, ''); assert.equal(form.person_id, ''); assert.equal(form.note, '');
-        assert.equal(document.querySelector('#confirm').disabled, true);
-    } finally { app.unmount(); }
 });

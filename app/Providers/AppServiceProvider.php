@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\Event;
 use App\Models\User;
 use App\Services\EventAccessService;
+use App\Services\InventoryHoldingsAccess;
 use App\Support\OrganizationContext;
 use App\Support\PermissionEvent;
 use App\Support\Permissions;
@@ -59,6 +60,8 @@ class AppServiceProvider extends ServiceProvider
                 return app(EventAccessService::class)->allows($user, $permission, $event);
             });
         }
+        Gate::define('view-inventory-holdings', fn (User $user, ?Event $event = null): bool => ($event ??= app(PermissionEvent::class)->resolve(app(Request::class))) !== null
+            && app(InventoryHoldingsAccess::class)->canView($event, $user));
         Gate::define('view-entitlements', fn (User $user, ?Event $event = null): bool => Gate::forUser($user)->any([
             'credentials.entitlements.edit', 'credentials.stock.adjust', 'inventory.manage',
         ], $event));

@@ -4,6 +4,7 @@ export function getAppNavigation({
     features = {},
     permissions = {},
     isAdmin = false,
+    canViewInventory = false,
 } = {}) {
     return [
         {
@@ -148,9 +149,15 @@ export function getAppNavigation({
             if (item.key === 'check_in') {
                 return {
                     ...item,
+                    href: permissions['checkin.view']
+                        ? '/check-in'
+                        : '/check-in/inventory',
                     tabs: item.tabs.filter(
                         (tab) =>
-                            tab.key === 'check_in.people' ||
+                            (tab.key === 'check_in.people' &&
+                                permissions['checkin.view']) ||
+                            (tab.key === 'check_in.inventory' &&
+                                canViewInventory) ||
                             permissions[
                                 [
                                     'check_in.inventory',
@@ -199,7 +206,11 @@ export function getAppNavigation({
                 check_in: 'checkin.view',
                 patrons: 'patrons.view',
             }[item.key];
-            return !permission || permissions?.[permission];
+            return (
+                !permission ||
+                permissions?.[permission] ||
+                (item.key === 'check_in' && canViewInventory)
+            );
         });
 }
 

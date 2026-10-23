@@ -1,157 +1,244 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 import { Card, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
-import { Icon } from '../ui/icon';
-import { Input } from '../ui/input';
+import { Button } from '../ui/button';
 import { CustomDropdown } from '../ui/custom-dropdown';
 import { DataTable } from '../ui/data-table';
 import { EntitlementItemName } from '../ui/entitlement-labels';
-import { activateDataTableRow } from '../../lib/dataTableRowNavigation';
+import InventoryStockCount from './InventoryStockCount.vue';
 
 const props = defineProps({
-    holderType: { type: String, required: true },
     items: { type: Array, required: true },
+    scope: { type: Object, default: () => ({}) },
+    locations: { type: Boolean, default: false },
+    locked: { type: Boolean, default: false },
+    canAdjust: { type: Boolean, default: false },
     version: { type: Number, default: 0 },
 });
-const emit = defineEmits(['select-holder']);
-const sectionTitle = computed(() =>
+const emit = defineEmits(['give', 'take-back', 'adjust']);
+const table = ref(null);
+const catalogueKey = computed(() =>
+    props.items.map((item) => item.id).join(','),
+);
+const visibleItems = ref(props.items.map((item) => item.id));
+watch(catalogueKey, () => {
+    visibleItems.value = props.items.map((item) => item.id);
+});
+const failed = ref(false);
+const canAct = ref(false);
+let sequence = 0;
+const title = computed(() =>
     trans(
-        props.holderType === 'person'
-            ? 'inventory.people'
-            : 'inventory.locations_storage',
+        props.locations ? 'inventory.locations_storage' : 'inventory.holdings',
     ),
 );
-const search = ref('');
-const item = ref('');
-const holdingsTable = ref(null);
-const filtersChanged = () => holdingsTable.value?.reload();
-const itemOptions = computed(() => [
-    { value: '', title: trans('inventory.all_items') },
-    ...props.items.map((item) => ({
-        value: item.id,
-        title: item.name,
-        labels: item.labels ?? [],
-    })),
-]);
 const columns = computed(() => [
     {
         data: 'name',
         title: trans(
-            `inventory.columns.${props.holderType === 'person' ? 'person' : 'location'}`,
+            props.locations
+                ? 'inventory.columns.location'
+                : 'inventory.columns.person',
         ),
-        render: { display: '#holderCell' },
+        render: { display: '#personCell' },
     },
-    {
-        data: 'items',
-        title: trans('inventory.columns.items'),
-        orderable: false,
-        searchable: false,
-        render: { display: '#itemsCell' },
-    },
-    { data: 'total', title: trans('inventory.columns.total') },
-    {
+    ...props.items.map((item) => ({
         data: null,
         title: '',
-        orderable: false,
-        searchable: false,
-        defaultContent: '',
-        render: { display: '#openCell' },
-    },
+        item,
+        render: { display: '#itemCell' },
+    })),
+    ...(!props.locations
+        ? [
+              {
+                  data: null,
+                  title: '',
+                  className: 'dt-actions',
+                  render: { display: '#actionsCell' },
+              },
+          ]
+        : []),
 ]);
-const holdingsOptions = computed(() => ({
+const options = computed(() => ({
     serverSide: true,
     ordering: false,
     searching: false,
     lengthChange: false,
     pageLength: 25,
-    columnDefs: [{ targets: 3, className: 'text-right', width: '1%' }],
-    createdRow: (row, data) =>
-        activateDataTableRow(row, data, (data) => {
-            emit('select-holder', data);
-        }),
-    language: { emptyTable: trans('inventory.no_holdings') },
-}));
-const holdingsAjax = {
-    url: '/check-in/inventory/holdings',
-    data: (data) => {
-        data.search = search.value;
-        data.item = item.value || null;
-        data.holder_type = props.holderType;
+    layout: { topStart: null, topEnd: null },
+    language: {
+        emptyTable: trans(
+            props.locations ? 'inventory.no_locations' : 'inventory.no_roster',
+        ),
     },
+}));
+const ajax = async (data, callback) => {
+    const request = ++sequence;
+    const parameters = new URLSearchParams({
+        draw: data.draw,
+        start: data.start,
+        length: data.length,
+        ...props.scope,
+    });
+    try {
+        const response = await fetch(
+            `/check-in/inventory/${props.locations ? 'locations' : 'holdings'}?${parameters}`,
+            { headers: { Accept: 'application/json' } },
+        );
+        if (!response.ok) throw new Error();
+        const result = await response.json();
+        if (request !== sequence) return;
+        failed.value = false;
+        canAct.value = result.canAct === true;
+        callback(result);
+    } catch {
+        if (request !== sequence) return;
+        failed.value = true;
+        callback({
+            draw: data.draw,
+            recordsTotal: 0,
+            recordsFiltered: 0,
+            data: [],
+        });
+    }
 };
+const count = (person, item) =>
+    person.items.find((stock) => stock.id === item.id)?.balance ?? 0;
+const hasStock = (person) => person.items.some((stock) => stock.balance > 0);
+const visibility = () =>
+    props.items.forEach((item, index) =>
+        table.value?.setColumnsVisible(
+            [index + 1],
+            visibleItems.value.includes(item.id),
+        ),
+    );
+watch(visibleItems, visibility);
+watch(
+    () => props.version,
+    () => table.value?.reload(false),
+);
+onBeforeUnmount(() => {
+    ++sequence;
+});
 </script>
 
 <template>
-    <Card
-        role="region"
-        :aria-label="sectionTitle"
-    >
-        <CardTitle class="mb-4">{{ sectionTitle }}</CardTitle>
-        <div class="mb-4 grid gap-3 md:grid-cols-2">
-            <Input
-                v-if="holderType === 'person'"
-                v-model="search"
-                type="search"
-                :placeholder="$t('inventory.search_people')"
-                :aria-label="$t('inventory.search_people')"
-                @update:model-value="filtersChanged"
-            />
-            <CustomDropdown
-                v-model="item"
-                :items="itemOptions"
-                :aria-label="$t('inventory.columns.item')"
-                @update:model-value="filtersChanged"
-            />
+    <Card>
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <CardTitle>{{ title }}</CardTitle>
+            <Button
+                v-if="locations"
+                :disabled="locked || !canAdjust"
+                @click="emit('adjust')"
+                >{{ $t('inventory.adjust') }}</Button
+            >
         </div>
-        <DataTable
-            :key="`${holderType}-${version}`"
-            ref="holdingsTable"
-            :ajax="holdingsAjax"
-            :columns="columns"
-            :options="holdingsOptions"
+        <CustomDropdown
+            v-if="locations || items.length >= 10"
+            v-model="visibleItems"
+            :items="
+                items.map((item) => ({
+                    value: item.id,
+                    title: item.name,
+                    labels: item.labels ?? [],
+                }))
+            "
+            :aria-label="$t('inventory.columns.items')"
+            :placeholder="
+                visibleItems.length === items.length
+                    ? $t('inventory.all_items')
+                    : $t('inventory.selected_items', {
+                          count: visibleItems.length,
+                          total: items.length,
+                      })
+            "
+            :show-selected="false"
+            class="mb-4 max-w-md"
+            multiple
+        />
+        <p
+            v-if="failed"
+            class="mb-3 text-sm text-danger"
+            role="alert"
         >
-            <template #holderCell="{ rowData }">
-                <span class="font-medium">{{ rowData.name }}</span>
-                <Badge
-                    v-if="rowData.inactive"
-                    variant="warning"
-                    pill
-                    >{{
-                        $t('inventory.inactive_holds', {
-                            count: rowData.total,
-                        })
-                    }}</Badge
-                >
-            </template>
-            <template #itemsCell="{ rowData }">
+            {{ $t('inventory.holdings_error') }}
+            <Button
+                variant="ghost"
+                @click="table?.reload(false)"
+                >{{ $t('inventory.history.retry') }}</Button
+            >
+        </p>
+        <DataTable
+            :key="catalogueKey"
+            ref="table"
+            :ajax="ajax"
+            :columns="columns"
+            :options="options"
+            mobile-layout="cards"
+            sticky-columns
+            @init="visibility"
+        >
+            <template #header="{ column }">
                 <EntitlementItemName
-                    v-for="stock in rowData.items"
-                    :key="stock.id"
-                    :name="
-                        $t('inventory.item_count', {
-                            item: stock.name,
-                            count: stock.balance,
-                        })
-                    "
-                    :labels="stock.labels ?? []"
-                    class="mb-2 last:mb-0"
+                    v-if="column.item"
+                    :name="column.item.name"
+                    :labels="column.item.labels ?? []"
+                    stacked
                 />
             </template>
-            <template #openCell="{ rowData }">
-                <button
-                    type="button"
-                    class="inline-flex text-muted hover:text-primary"
-                    :aria-label="
-                        $t('inventory.open_holder', {
-                            name: rowData.name,
-                        })
-                    "
-                    @click="emit('select-holder', rowData)"
+            <template #personCell="{ rowData }">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="font-semibold">{{ rowData.name }}</span>
+                    <Badge
+                        v-if="rowData.inactive"
+                        variant="warning"
+                        pill
+                        >{{ $t('inventory.inactive') }}</Badge
+                    >
+                    <Badge
+                        v-if="rowData.is_supervisor"
+                        pill
+                        >{{ $t('inventory.supervisor') }}</Badge
+                    >
+                </div>
+            </template>
+            <template #itemCell="{ rowData, colIndex }">
+                <div
+                    class="flex items-center justify-between gap-3 md:justify-end"
                 >
-                    <Icon :name="['fas', 'chevron-right']" />
-                </button>
+                    <EntitlementItemName
+                        :name="items[colIndex - 1].name"
+                        :labels="items[colIndex - 1].labels ?? []"
+                        class="md:hidden"
+                    />
+                    <InventoryStockCount
+                        :count="count(rowData, items[colIndex - 1])"
+                        :level="
+                            locations
+                                ? null
+                                : items[colIndex - 1].low_stock_level
+                        "
+                    />
+                </div>
+            </template>
+            <template #actionsCell="{ rowData }">
+                <div class="flex gap-2 md:justify-end">
+                    <Button
+                        class="max-md:flex-1"
+                        :disabled="locked || !canAct || rowData.inactive"
+                        @click="emit('give', rowData)"
+                        >{{ $t('inventory.give') }}</Button
+                    >
+                    <Button
+                        variant="outline"
+                        class="max-md:flex-1"
+                        :disabled="locked || !canAct || !hasStock(rowData)"
+                        @click="emit('take-back', rowData)"
+                        >{{ $t('inventory.take_back') }}</Button
+                    >
+                </div>
             </template>
         </DataTable>
     </Card>

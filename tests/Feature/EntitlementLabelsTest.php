@@ -78,18 +78,17 @@ class EntitlementLabelsTest extends TestCase
     {
         $location = $this->event->locations()->create(['name' => 'Gate']);
         $this->seedStock($this->item, $location, 10, $this->actor);
-        app(InventoryMovementService::class)->pull($this->event, $this->actor, [
-            'entitlement_item_id' => $this->item->id, 'location_id' => $location->id,
-            'person_id' => $this->actor->person_id, 'quantity' => 3,
+        app(InventoryMovementService::class)->adjustInventory($this->event, $this->actor, [
+            'direction' => 'from_location', 'location_id' => $location->id, 'person_id' => $this->actor->person_id,
+            'items' => [['entitlement_item_id' => $this->item->id, 'quantity' => 3]],
         ]);
         $holder = StockHolder::where('person_id', $this->actor->person_id)->sole();
         $ordered = EntitlementLabels::ordered($this->item->labels);
         $this->get(route('check-in.my-stock'))->assertInertia(fn (Assert $p) => $p
             ->where('ownItems.0.labels', $ordered)->where('items.0.labels', $ordered));
         $this->getJson(route('check-in.inventory.stock'))->assertJsonPath('data.0.balance', 3)->assertJsonPath('data.0.labels', $ordered);
-        $this->getJson(route('check-in.inventory.holders.stock', $holder))->assertJsonPath('data.0.labels', $ordered);
-        $this->getJson(route('check-in.inventory.holdings', ['holder_type' => 'person']))
-            ->assertJsonPath('data.0.total', 3)->assertJsonPath('data.0.items.0.labels', $ordered);
+        $this->getJson(route('check-in.inventory.adjustment-stock', ['direction' => 'to_location', 'person_id' => $this->actor->person_id]))->assertJsonPath('data.0.labels', $ordered);
+        $this->get(route('check-in.inventory.index'))->assertInertia(fn (Assert $p) => $p->where('items.0.labels', $ordered));
         $this->labels['A']->update(['name' => 'Zebra', 'color' => 'rose']);
         $this->labels['b']->delete();
         $ordered = EntitlementLabels::ordered($this->item->fresh()->labels);

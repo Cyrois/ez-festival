@@ -56,6 +56,7 @@ const table = ref(null);
 const createForm = useForm({
     name: '',
     opening_balance: 0,
+    low_stock_level: '',
     location_id: '',
     label_ids: [],
     new_labels: [],
@@ -350,6 +351,29 @@ const createItem = () => {
                         :disabled="createForm.processing"
                         allow-create
                     />
+                </FormField>
+                <FormField
+                    :label="
+                        $t('credentials.entitlements.fields.low_stock_level')
+                    "
+                    :hint="
+                        $t(
+                            'credentials.entitlements.fields.low_stock_level_hint',
+                        )
+                    "
+                    :error="createForm.errors.low_stock_level"
+                >
+                    <template #default="{ id, invalid }">
+                        <Input
+                            :id="id"
+                            v-model="createForm.low_stock_level"
+                            type="number"
+                            min="0"
+                            max="2147483647"
+                            step="1"
+                            :invalid="invalid"
+                        />
+                    </template>
                 </FormField>
                 <FormField
                     v-if="canAdjustStock"

@@ -10,7 +10,7 @@ class InventoryRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Gate::allows('checkin.edit');
+        return Gate::allows($this->routeIs('check-in.inventory.index') ? 'view-inventory-holdings' : 'checkin.edit');
     }
 
     public function rules(): array

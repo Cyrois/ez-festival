@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Services\EventAccessService;
 use App\Services\FeatureFlagService;
+use App\Services\InventoryHoldingsAccess;
 use App\Support\OrganizationContext;
 use App\Support\ReturnNavigation;
 use Illuminate\Http\Request;
@@ -57,6 +58,7 @@ class HandleInertiaRequests extends Middleware
                 'warning_title' => fn () => $request->session()->get('warning_title'),
                 'error' => fn () => $request->session()->get('error'),
             ],
+            'canViewInventory' => $user && $event ? fn () => app(InventoryHoldingsAccess::class)->canView($event, $user) : false,
             'permissions' => $user ? fn () => app(EventAccessService::class)->map($user, $event) : [],
             'auth' => [
                 'user' => $user
