@@ -42,7 +42,6 @@ use App\Http\Controllers\Kitchen\MealOverrideController;
 use App\Http\Controllers\Kitchen\MealTypeController;
 use App\Http\Controllers\PassAssignmentController;
 use App\Http\Controllers\PatronController;
-use App\Http\Controllers\Reports\MealReportExportController;
 use App\Http\Controllers\Reports\ReportController;
 use App\Http\Controllers\Settings\AccountController;
 use App\Http\Controllers\Settings\ArtistTypeController as SettingsArtistTypeController;
@@ -132,7 +131,6 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
 
     Route::middleware(['organization', 'setup.complete', 'login.access', 'event.access', HandleReturnNavigation::class])->group(function () {
         Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
-        Route::get('reports/meals/export', [MealReportExportController::class, 'index'])->name('reports.meals.export');
         Route::get('meals', [KitchenController::class, 'index'])->name('meals.index');
         Route::get('meals/people', [KitchenPersonController::class, 'index'])->name('meals.people.index');
         Route::get('meals/people/{member}', [KitchenPersonController::class, 'show'])->name('meals.people.show');

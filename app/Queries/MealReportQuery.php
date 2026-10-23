@@ -13,8 +13,9 @@ class MealReportQuery
     /** One row per named meal, aggregated in one snapshot without loading grants or people. */
     public function rows(Event $event): Collection
     {
-        $projected = $this->entitlements->forEvent($event)
-            ->select('grants.meal_id')->selectRaw('COUNT(*) as projected')
+        $assigned = $this->entitlements->forEvent($event, includeOverrides: true)
+            ->select('grants.meal_id')
+            ->selectRaw('COUNT(*) as assigned, SUM(CASE WHEN grants.is_override THEN 0 ELSE 1 END) as projected')
             ->groupBy('grants.meal_id');
 
         // Retain claims even after their Scheduling source is removed. Group by the
@@ -26,11 +27,12 @@ class MealReportQuery
         return DB::table('meals')->where('meals.event_id', $event->id)
             ->join('meal_types', 'meal_types.id', '=', 'meals.meal_type_id')
             ->where('meal_types.event_id', $event->id)
-            ->leftJoinSub($projected, 'projection', 'projection.meal_id', '=', 'meals.id')
+            ->leftJoinSub($assigned, 'assignment_counts', 'assignment_counts.meal_id', '=', 'meals.id')
             ->leftJoinSub($used, 'claims', 'claims.meal_id', '=', 'meals.id')
             ->select('meals.id as meal_id', 'meals.name as meal_name', 'meals.meal_type_id', 'meal_types.name as meal_type')
-            ->selectRaw('DATE(meals.date) as meal_date, COALESCE(projection.projected, 0) as projected, COALESCE(claims.used, 0) as used, COALESCE(claims.extras, 0) as extras')
+            ->selectRaw('DATE(meals.date) as meal_date, COALESCE(assignment_counts.assigned, 0) as assigned, COALESCE(assignment_counts.projected, 0) as projected, COALESCE(claims.used, 0) as used, COALESCE(claims.extras, 0) as extras')
             ->orderBy('meals.date')->orderBy('meal_types.starts_at')->orderBy('meal_types.ends_at')
+            ->orderBy('meal_types.id')
             ->orderBy('meals.starts_at')->orderBy('meals.name')->orderBy('meals.id')
             ->get()->map(fn ($row): array => [
                 'meal_id' => (int) $row->meal_id,
@@ -38,11 +40,12 @@ class MealReportQuery
                 'date' => $row->meal_date,
                 'meal_type_id' => (int) $row->meal_type_id,
                 'meal_type' => $row->meal_type,
+                'assigned' => (int) $row->assigned,
                 'projected' => (int) $row->projected,
                 'used' => (int) $row->used,
                 'remaining' => max((int) $row->projected - (int) $row->used, 0),
                 'extras' => (int) $row->extras,
-                'total' => (int) $row->projected - (int) $row->used - (int) $row->extras,
+                'total' => (int) $row->projected - (int) $row->used,
             ]);
     }
 }

@@ -88,7 +88,7 @@ class EventPermissionsTest extends TestCase
             ->missing('permissions.role')
             ->missing('permissions.events'));
         $this->get(route('artists.index'))->assertOk();
-        foreach (['artists.create', 'vendors.advancing', 'check-in.index', 'team.advancement', 'team.reports', 'patrons.index', 'reports.index', 'reports.meals.export', 'credentials.passes', 'credentials.entitlements', 'credentials.products', 'settings.events.index', 'settings.roles', 'settings.roles.create', 'setup.event'] as $route) {
+        foreach (['artists.create', 'vendors.advancing', 'check-in.index', 'team.advancement', 'team.reports', 'patrons.index', 'reports.index', 'credentials.passes', 'credentials.entitlements', 'credentials.products', 'settings.events.index', 'settings.roles', 'settings.roles.create', 'setup.event'] as $route) {
             $this->get(route($route))->assertForbidden();
         }
         $this->get(route('settings.account'))->assertOk();
@@ -403,7 +403,7 @@ class EventPermissionsTest extends TestCase
             ->component('Team/Reports')
             ->where('permissions', fn ($permissions) => $permissions['team.hours_report.view']
                 && ! $permissions['team.view'] && ! $permissions['scheduling.view'] && ! $permissions['forms.view']));
-        foreach (['team.advancement', 'team.scheduling', 'team.forms', 'team.configure', 'reports.index', 'reports.meals.export'] as $route) {
+        foreach (['team.advancement', 'team.scheduling', 'team.forms', 'team.configure', 'reports.index'] as $route) {
             $this->get(route($route))->assertForbidden();
         }
 

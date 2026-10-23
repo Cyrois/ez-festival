@@ -21,6 +21,7 @@ use App\Services\MealService;
 use App\Support\OrganizationContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Route;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -55,10 +56,10 @@ class MealReportTest extends TestCase
         $this->travelTo(Carbon::parse('2026-10-02 13:05', $this->event->timezone));
     }
 
-    public function test_empty_event_has_no_rows_and_an_authorized_export_has_only_the_header(): void
+    public function test_empty_event_has_no_days_or_rows(): void
     {
+        $this->assertSame([], $this->reportDays());
         $this->assertSame([], $this->reportRows());
-        $this->assertSame("Meal,Date,\"Meal type\",Projected,Used,Remaining,Extras,Total\n", $this->get(route('reports.meals.export'))->assertOk()->streamedContent());
     }
 
     public function test_every_configured_meal_has_its_own_zero_row_in_window_order(): void
@@ -74,6 +75,7 @@ class MealReportTest extends TestCase
         $this->assertSame(['2026-10-02', '2026-10-02', '2026-10-02', '2026-10-04'], array_column($rows, 'date'));
         foreach ($rows as $row) {
             $this->assertSame([0, 0, 0, 0, 0], $this->counts($row));
+            $this->assertSame(0, $row['assigned']);
         }
     }
 
@@ -112,6 +114,7 @@ class MealReportTest extends TestCase
         $used->update(['is_active' => false]);
         $unused->update(['is_active' => false]);
         $this->assertSame([0, 1, 0, 0, -1], $this->counts($this->reportRows()[0]));
+        $this->assertSame(0, $this->reportRows()[0]['assigned']);
 
         foreach ([$used, $unused] as $grant) {
             ShiftMeal::findOrFail($grant->shift_meal_id)->delete();
@@ -119,6 +122,7 @@ class MealReportTest extends TestCase
             $this->event->shifts()->findOrFail($grant->source_shift_id)->delete();
         }
         $this->assertSame([0, 1, 0, 0, -1], $this->counts($this->reportRows()[0]));
+        $this->assertSame(0, $this->reportRows()[0]['assigned']);
     }
 
     public function test_saved_claim_date_and_type_survive_later_named_meal_edits(): void
@@ -155,7 +159,7 @@ class MealReportTest extends TestCase
         $rows = $this->reportRows();
         $this->assertCount(2, $rows);
         $this->assertSame([$first->id, $second->id], array_column($rows, 'meal_id'));
-        $this->assertSame([1, 2, 0, 1, -2], $this->counts($rows[0]));
+        $this->assertSame([1, 2, 0, 1, -1], $this->counts($rows[0]));
         $this->assertSame([1, 1, 0, 0, 0], $this->counts($rows[1]));
     }
 
@@ -165,14 +169,17 @@ class MealReportTest extends TestCase
         $normal = app(MealAssignmentService::class)->assign($this->event, $this->member, $meal);
         app(MealClaimService::class)->claim($this->event, $this->member, $this->user, $normal->id);
         $override = app(MealOverrideService::class)->give($this->event, $this->member, $this->user, $meal->id);
-        $this->assertSame([1, 2, 0, 1, -2], $this->counts($this->reportRows()[0]));
+        $this->assertSame([1, 2, 0, 1, -1], $this->counts($this->reportRows()[0]));
+        $this->assertSame(2, $this->reportRows()[0]['assigned']);
         app(MealClaimService::class)->unclaim($this->event, $this->member, $this->user, $override['assignment_id'], $override['claim_token']);
         $this->assertSame([1, 1, 0, 0, 0], $this->counts($this->reportRows()[0]));
+        $this->assertSame(2, $this->reportRows()[0]['assigned']);
         app(MealClaimService::class)->claim($this->event, $this->member, $this->user, $override['assignment_id'], true);
-        $this->assertSame([1, 2, 0, 1, -2], $this->counts($this->reportRows()[0]));
+        $this->assertSame([1, 2, 0, 1, -1], $this->counts($this->reportRows()[0]));
+        $this->assertSame(2, $this->reportRows()[0]['assigned']);
     }
 
-    public function test_remaining_is_clamped_but_total_preserves_negative_values_without_summary_rows(): void
+    public function test_named_meal_remaining_is_clamped_but_total_preserves_negative_values(): void
     {
         $lunch = $this->grant($this->meal('Friday lunch', '2026-10-02'));
         app(MealClaimService::class)->claim($this->event, $this->member, $this->user, $lunch->id);
@@ -191,6 +198,7 @@ class MealReportTest extends TestCase
         $meal = $this->meal('Friday lunch', '2026-10-02');
         app(MealOverrideService::class)->give($this->event, $this->member, $this->user, $meal->id, false);
         $this->assertSame([0, 0, 0, 0, 0], $this->counts($this->reportRows()[0]));
+        $this->assertSame(1, $this->reportRows()[0]['assigned']);
     }
 
     public function test_overnight_claims_count_under_the_meal_start_date(): void
@@ -204,41 +212,7 @@ class MealReportTest extends TestCase
         $this->assertSame([1, 1, 0, 0, 0], $this->counts($rows[0]));
     }
 
-    public function test_csv_matches_all_rows_uses_iso_dates_and_escapes_type_names(): void
-    {
-        $type = $this->event->mealTypes()->where('name', 'Lunch')->sole();
-        $type->update(['name' => "Lunch, \"late\"\ncrew"]);
-        $meal = app(MealService::class)->create($this->event, [
-            'name' => 'Friday lunch', 'meal_type_id' => $type->id, 'date' => '2026-10-02', 'starts_at' => '12:00', 'ends_at' => '14:00',
-        ]);
-        $this->grant($meal);
-        $this->meal('Sunday dinner', '2026-10-04', 'Dinner');
-        $rows = $this->reportRows();
-        $response = $this->get(route('reports.meals.export'))->assertOk();
-        $response->assertDownload('meal-report-sunrise-folk-fest-2026.csv');
-        $this->assertSame('text/csv; charset=UTF-8', $response->headers->get('Content-Type'));
-        $csv = $this->csvRows($response->streamedContent());
-        $this->assertSame(['Meal', 'Date', 'Meal type', 'Projected', 'Used', 'Remaining', 'Extras', 'Total'], array_shift($csv));
-        $this->assertCount(count($rows), $csv);
-        foreach ($rows as $index => $row) {
-            $this->assertSame(array_map('strval', $this->counts($row)), array_slice($csv[$index], 3));
-            $this->assertSame($row['date'], $csv[$index][1]);
-            $this->assertSame($row['meal_name'], $csv[$index][0]);
-            $this->assertSame($row['meal_type'], $csv[$index][2]);
-        }
-    }
-
-    public function test_export_treats_formula_prefixes_in_type_names_as_text(): void
-    {
-        $meal = $this->meal('Friday lunch', '2026-10-02');
-        $meal->update(['name' => '+1+1']);
-        $meal->mealType->update(['name' => '=1+1']);
-        $csv = $this->csvRows($this->get(route('reports.meals.export'))->streamedContent());
-        $this->assertSame("'+1+1", $csv[1][0]);
-        $this->assertSame("'=1+1", $csv[1][2]);
-    }
-
-    public function test_current_event_scopes_all_configured_projected_and_used_rows_and_export(): void
+    public function test_current_event_scopes_all_configured_assigned_projected_and_used_rows(): void
     {
         $this->grant($this->meal('Friday lunch', '2026-10-02'));
         $foreign = app(EventService::class)->create([
@@ -255,28 +229,27 @@ class MealReportTest extends TestCase
         $rows = $this->reportRows();
         $this->assertCount(1, $rows);
         $this->assertSame([1, 0, 1, 0, 1], $this->counts($rows[0]));
-        $this->assertStringNotContainsString('Dinner', $this->get(route('reports.meals.export'))->streamedContent());
+        $this->assertSame(1, $rows[0]['assigned']);
+        $this->assertSame(1, $this->reportDays()[0]['totals']['assigned']);
     }
 
-    public function test_kitchen_permissions_without_report_access_refuse_page_and_export_before_loading_data(): void
+    public function test_kitchen_permissions_without_report_access_refuse_page_before_loading_data(): void
     {
         $this->mock(MealReportQuery::class)->shouldNotReceive('rows');
         foreach (['meals.view', 'meals.edit', 'meals.claim', 'meals.override', 'meals.undo_claim'] as $permission) {
             $this->grantRoleAccess($this->user, [$permission]);
             $this->get(route('reports.index'))->assertForbidden();
-            $this->get(route('reports.meals.export'))->assertForbidden();
             $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
                 ->where('permissions', fn ($permissions) => $permissions['meals.view'] && ! $permissions['meals.report.view'])
                 ->missing('meals'));
         }
     }
 
-    public function test_view_meal_report_alone_is_sufficient_and_revocation_refuses_page_and_export(): void
+    public function test_view_meal_report_alone_is_sufficient_and_revocation_refuses_page(): void
     {
         $this->meal('Friday lunch', '2026-10-02');
         $this->grantRoleAccess($this->user, ['meals.report.view']);
         $this->assertCount(1, $this->reportRows());
-        $this->get(route('reports.meals.export'))->assertOk();
         $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
             ->where('permissions', fn ($permissions) => $permissions['meals.report.view'] && ! $permissions['meals.view'])
             ->missing('meals'));
@@ -285,7 +258,6 @@ class MealReportTest extends TestCase
         }
         $this->user->person->teamEngagements()->where('event_id', $this->event->id)->sole()->role->update(['permissions' => ['team.view']]);
         $this->get(route('reports.index'))->assertForbidden();
-        $this->get(route('reports.meals.export'))->assertForbidden();
         $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
             ->where('permissions', fn ($permissions) => ! $permissions['meals.report.view'] && ! $permissions['meals.view'])
             ->missing('meals'));
@@ -297,10 +269,8 @@ class MealReportTest extends TestCase
         $this->event->lock();
         $this->grantRoleAccess($this->user, ['meals.report.view']);
         $this->assertCount(1, $this->reportRows());
-        $this->get(route('reports.meals.export'))->assertOk();
         $this->grantAdminAccess($this->user);
         $this->assertCount(1, $this->reportRows());
-        $this->get(route('reports.meals.export'))->assertOk();
     }
 
     public function test_report_permission_does_not_carry_between_events_or_survive_role_deactivation(): void
@@ -320,41 +290,154 @@ class MealReportTest extends TestCase
         $this->get(route('reports.index'))->assertOk();
         $this->user->setCurrentEvent($otherEvent);
         $this->get(route('reports.index'))->assertForbidden();
-        $this->get(route('reports.meals.export'))->assertForbidden();
 
         $this->user->setCurrentEvent($this->event);
         $reportRole->update(['active' => false]);
         $this->get(route('reports.index'))->assertForbidden();
-        $this->get(route('reports.meals.export'))->assertForbidden();
         $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
             ->where('permissions', fn ($permissions) => ! $permissions['meals.report.view']));
     }
 
-    private function reportRows(): array
+    public function test_assigned_counts_each_source_and_removed_overrides_disappear(): void
+    {
+        $meal = $this->meal('Friday lunch', '2026-10-02');
+        $shift = $this->grant($meal);
+        $direct = app(MealAssignmentService::class)->assign($this->event, $this->member, $meal);
+        foreach ([$shift, $direct] as $assignment) {
+            app(MealClaimService::class)->claim($this->event, $this->member, $this->user, $assignment->id, true);
+        }
+        app(MealOverrideService::class)->give($this->event, $this->member, $this->user, $meal->id);
+        $unused = app(MealOverrideService::class)->give($this->event, $this->member, $this->user, $meal->id, false);
+
+        $row = $this->reportRows()[0];
+        $this->assertSame(4, $row['assigned']);
+        $this->assertSame([2, 3, 0, 1, -1], $this->counts($row));
+        $this->assertSame(2, app(MealEntitlementQuery::class)->forEvent($this->event)->count());
+
+        app(MealOverrideService::class)->remove($this->event, $this->member, $this->user, $unused['assignment_id']);
+        $this->assertSame(3, $this->reportRows()[0]['assigned']);
+        $this->assertSame([2, 3, 0, 1, -1], $this->counts($this->reportRows()[0]));
+    }
+
+    public function test_removed_shift_recipients_do_not_count_as_assigned_but_keep_claims(): void
+    {
+        $meal = $this->meal('Friday lunch', '2026-10-02');
+        $used = $this->grant($meal);
+        $unused = $this->grant($meal);
+        app(MealClaimService::class)->claim($this->event, $this->member, $this->user, $used->id);
+        foreach ([$used, $unused] as $assignment) {
+            app(MealAssignmentService::class)->syncShiftMeal(ShiftMeal::findOrFail($assignment->shift_meal_id), []);
+        }
+
+        $row = $this->reportRows()[0];
+        $this->assertSame(0, $row['assigned']);
+        $this->assertSame([0, 1, 0, 0, -1], $this->counts($row));
+        $days = $this->reportDays();
+        $this->assertSame($days[0]['totals'], $days[0]['meal_types'][0]['totals']);
+        $this->assertSame(0, $days[0]['totals']['assigned']);
+        $this->assertSame(-1, $days[0]['totals']['total']);
+    }
+
+    public function test_tallies_and_day_totals_recalculate_remaining_instead_of_summing_clamped_rows(): void
+    {
+        $first = $this->meal('Lunch A', '2026-10-02');
+        $second = $this->meal('Lunch B', '2026-10-02');
+        for ($index = 0; $index < 3; $index++) {
+            $assignment = app(MealAssignmentService::class)->assign($this->event, $this->member, $first);
+            app(MealClaimService::class)->claim($this->event, $this->member, $this->user, $assignment->id, true);
+            if ($index > 0) {
+                $assignment->update(['is_active' => false]);
+            }
+        }
+        for ($index = 0; $index < 5; $index++) {
+            app(MealAssignmentService::class)->assign($this->event, $this->member, $second);
+        }
+        $dinner = $this->meal('Dinner', '2026-10-02', 'Dinner');
+        for ($index = 0; $index < 4; $index++) {
+            app(MealOverrideService::class)->give($this->event, $this->member, $this->user, $dinner->id);
+        }
+        $this->meal('Sunday lunch', '2026-10-04');
+
+        $days = $this->reportDays();
+        $this->assertSame(['2026-10-02', '2026-10-04'], array_column($days, 'date'));
+        $this->assertSame(['Lunch', 'Dinner'], array_column($days[0]['meal_types'], 'meal_type'));
+        $group = $days[0]['meal_types'][0];
+        $this->assertSame([$first->id, $second->id], array_column($group['meals'], 'meal_id'));
+        $this->assertSame([0, 5], array_column($group['meals'], 'remaining'));
+        $totals = ['assigned' => 6, 'projected' => 6, 'used' => 3, 'extras' => 0, 'remaining' => 3, 'total' => 3];
+        $this->assertSame($totals, $group['totals']);
+        $this->assertSame(['assigned' => 10, 'projected' => 6, 'used' => 7, 'extras' => 4, 'remaining' => 0, 'total' => -1], $days[0]['totals']);
+        $this->assertSame(0, $days[1]['totals']['assigned']);
+    }
+
+    public function test_claimed_overrides_are_subtracted_once_in_named_meal_type_and_day_totals(): void
+    {
+        $meal = $this->meal('Friday lunch', '2026-10-02');
+        for ($index = 0; $index < 3; $index++) {
+            app(MealOverrideService::class)->give($this->event, $this->member, $this->user, $meal->id);
+        }
+        $day = $this->reportDays()[0];
+        $group = $day['meal_types'][0];
+        foreach ([$group['meals'][0], $group['totals'], $day['totals']] as $row) {
+            $this->assertSame(3, $row['assigned']);
+            $this->assertSame([0, 3, 0, 3, -3], $this->counts($row));
+        }
+    }
+
+    public function test_overnight_shift_assignments_group_by_the_meals_own_date(): void
+    {
+        $meal = $this->meal('Saturday breakfast', '2026-10-03', 'Breakfast', '07:00', '10:00');
+        $assignment = $this->grant($meal);
+        $shift = $this->event->shifts()->findOrFail($assignment->source_shift_id);
+        $shift->update(['starts_at' => Carbon::parse('2026-10-02 22:00', $this->event->timezone)->utc()]);
+
+        $day = $this->reportDays()[0];
+        $this->assertSame('2026-10-03', $day['date']);
+        $this->assertSame('Breakfast', $day['meal_types'][0]['meal_type']);
+        $this->assertSame(1, $day['totals']['assigned']);
+    }
+
+    public function test_meal_types_with_equal_windows_stay_in_separate_groups_and_zero_meals_stay_visible(): void
+    {
+        $lunch = $this->event->mealTypes()->where('name', 'Lunch')->sole();
+        $dinner = $this->event->mealTypes()->where('name', 'Dinner')->sole();
+        $dinner->update(['starts_at' => $lunch->starts_at, 'ends_at' => $lunch->ends_at]);
+        $this->meal('Z lunch', '2026-10-02');
+        $this->meal('A dinner', '2026-10-02', 'Dinner');
+        $this->meal('A lunch', '2026-10-02');
+        $this->meal('Midnight', '2026-10-02', 'Midnight', '23:00', '01:00');
+
+        $day = $this->reportDays()[0];
+        $this->assertSame([$lunch->id, $dinner->id, $this->event->mealTypes()->where('name', 'Midnight')->sole()->id], array_column($day['meal_types'], 'meal_type_id'));
+        $this->assertSame(['A lunch', 'Z lunch'], array_column($day['meal_types'][0]['meals'], 'meal_name'));
+        foreach ($day['meal_types'] as $group) {
+            $this->assertSame([0, 0, 0, 0, 0], $this->counts($group['totals']));
+            $this->assertSame(0, $group['totals']['assigned']);
+        }
+    }
+
+    public function test_export_url_is_not_found_and_its_route_no_longer_exists(): void
+    {
+        $this->get('/reports/meals/export')->assertNotFound();
+        $this->assertFalse(Route::has('reports.meals.export'));
+    }
+
+    private function reportDays(): array
     {
         $response = $this->get(route('reports.index'))->assertOk();
-        $response->assertInertia(fn (Assert $page) => $page->component('Reports/Index')->has('meals.rows'));
+        $response->assertInertia(fn (Assert $page) => $page->component('Reports/Index')->has('meals.days'));
 
-        return $response->inertiaProps('meals')['rows'];
+        return $response->inertiaProps('meals')['days'];
+    }
+
+    private function reportRows(): array
+    {
+        return collect($this->reportDays())->flatMap(fn (array $day) => collect($day['meal_types'])->flatMap(fn (array $group) => $group['meals']))->all();
     }
 
     private function counts(array $row): array
     {
         return [$row['projected'], $row['used'], $row['remaining'], $row['extras'], $row['total']];
-    }
-
-    private function csvRows(string $content): array
-    {
-        $stream = fopen('php://temp', 'w+');
-        fwrite($stream, $content);
-        rewind($stream);
-        $rows = [];
-        while (($row = fgetcsv($stream, escape: '')) !== false) {
-            $rows[] = $row;
-        }
-        fclose($stream);
-
-        return $rows;
     }
 
     private function meal(string $name, string $date, string $type = 'Lunch', string $start = '12:00', string $end = '14:00'): Meal

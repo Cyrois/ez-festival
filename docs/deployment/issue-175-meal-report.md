@@ -1,5 +1,7 @@
 # Meals 7 (#175): meal report
 
+Historical behavior below is superseded by [#256](issue-256-meal-report.md) for grouping, Assigned, Total, phone layout and CSV removal.
+
 Meals Report (`/reports`) contains the Meals card. The page and CSV export
 (`/reports/meals/export`) use `meals.report.view` after #191, including for locked
 events. Calvin's Oct 8 navigation correction places the link under Kitchen as
