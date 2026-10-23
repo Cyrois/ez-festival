@@ -296,7 +296,6 @@ These are recurring Codex mistakes on this repo. Treat them as hard stops — do
 - Holdings keeps server pagination in the shared DataTable for selected shift/team rosters, including phone cards. No complete-roster pagination exception applies here.
 - Supervisors without Manage inventory can Give from their own stock and Take back only within their selected supervised shift, without a time window or pass permission. Their person destinations must be eligible people on that selected shift; supervision alone does not grant receiving eligibility. History, Locations / storage and Adjust remain manager-only.
 
-
 ## Meals report update (Calvin, 2026-10-22, #256)
 
 - This supersedes #175's Total formula and prohibition on day totals. Group the complete current-event report by the named meal's current date, then meal type in time-window order. Keep separate named-meal rows and zero-count configured meals, add meal-type tallies and Day totals, and omit days without meals. No event grand total.

@@ -1,6 +1,6 @@
 # Meals report (#256)
 
-Kitchen → Report (`/reports`) retains `meals.report.view`, including report-only roles, admins and locked events. SQL aggregates one row per configured named meal for the current event, including zero-count meals. The resource groups those rows by the meal's current date and meal type in configured time-window order. There is no pagination, search, user sorting or report cache.
+Kitchen → Report (`/reports`) retains `meals.report.view`, including report-only roles, admins and locked events. SQL aggregates one row per configured named meal for the current event, including zero-count meals. `MealReportQuery` groups those rows by the meal's current date and meal type in configured time-window order and calculates all per-meal, type and day totals. The resource only exposes the prepared days. There is no pagination, search, user sorting or report cache.
 
 Assigned counts every active grant from shifts, direct assignments and overrides, claimed or not. Removed shift grants and deleted overrides do not count. Projected remains active non-override grants. Used retains every claim, including retired shift grants; Extras remains its claimed-override subset. Remaining is max(Projected − Used, 0). Total is Projected − Used, without clamping. Type and Day totals sum Assigned, Projected, Used and Extras and recalculate Remaining and Total from those sums.
 

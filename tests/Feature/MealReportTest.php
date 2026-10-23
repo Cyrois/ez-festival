@@ -58,6 +58,7 @@ class MealReportTest extends TestCase
 
     public function test_empty_event_has_no_days_or_rows(): void
     {
+        $this->assertSame([], app(MealReportQuery::class)->days($this->event)->all());
         $this->assertSame([], $this->reportDays());
         $this->assertSame([], $this->reportRows());
     }
@@ -235,7 +236,7 @@ class MealReportTest extends TestCase
 
     public function test_kitchen_permissions_without_report_access_refuse_page_before_loading_data(): void
     {
-        $this->mock(MealReportQuery::class)->shouldNotReceive('rows');
+        $this->mock(MealReportQuery::class)->shouldNotReceive('days', 'rows');
         foreach (['meals.view', 'meals.edit', 'meals.claim', 'meals.override', 'meals.undo_claim'] as $permission) {
             $this->grantRoleAccess($this->user, [$permission]);
             $this->get(route('reports.index'))->assertForbidden();
@@ -358,7 +359,7 @@ class MealReportTest extends TestCase
         }
         $this->meal('Sunday lunch', '2026-10-04');
 
-        $days = $this->reportDays();
+        $days = app(MealReportQuery::class)->days($this->event)->all();
         $this->assertSame(['2026-10-02', '2026-10-04'], array_column($days, 'date'));
         $this->assertSame(['Lunch', 'Dinner'], array_column($days[0]['meal_types'], 'meal_type'));
         $group = $days[0]['meal_types'][0];
@@ -368,6 +369,7 @@ class MealReportTest extends TestCase
         $this->assertSame($totals, $group['totals']);
         $this->assertSame(['assigned' => 10, 'projected' => 6, 'used' => 7, 'extras' => 4, 'remaining' => 0, 'total' => -1], $days[0]['totals']);
         $this->assertSame(0, $days[1]['totals']['assigned']);
+        $this->assertSame($days, $this->reportDays());
     }
 
     public function test_claimed_overrides_are_subtracted_once_in_named_meal_type_and_day_totals(): void
