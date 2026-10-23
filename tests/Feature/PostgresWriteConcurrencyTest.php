@@ -170,6 +170,33 @@ class PostgresWriteConcurrencyTest extends TestCase
         $this->assertSame(0, app(StockMovementService::class)->balance($item, StockHolder::where('location_id', $location->id)->sole()));
     }
 
+    public function test_multi_item_gives_roll_back_the_entire_losing_submission_for_last_stock(): void
+    {
+        [$event, $actor] = $this->context();
+        $this->grantRoleAccess($actor, ['inventory.manage']);
+        $this->grantAdminAccess($actor);
+        $groupId = TeamEngagement::where('event_id', $event->id)->where('person_id', $actor->person_id)->sole()->group_id;
+        $location = $event->locations()->create(['name' => 'Batch stock gate']);
+        $first = $event->entitlementItems()->create(['name' => 'Plenty']);
+        $last = $event->entitlementItems()->create(['name' => 'Last unit']);
+        $this->seedStock($first, $location, 3, $actor);
+        $this->seedStock($last, $location, 1, $actor);
+        $data = ['group_id' => $groupId, 'person_id' => $actor->person_id, 'items' => [
+            ['entitlement_item_id' => $first->id, 'location_id' => $location->id, 'quantity' => 1],
+            ['entitlement_item_id' => $last->id, 'location_id' => $location->id, 'quantity' => 1],
+        ]];
+        $results = $this->concurrently(
+            fn () => app(InventoryMovementService::class)->give($event, $actor, $data),
+            fn () => app(InventoryMovementService::class)->give($event, $actor, $data),
+        );
+        $this->assertSame(['committed', 'validation'], array_column($results, 'status'), json_encode($results));
+        $this->assertSame(['events', 'events'], array_column($results, 'first_lock'));
+        $this->assertSame(2, DB::table('stock_movements')->where('event_id', $event->id)->where('type', 'pull')->count());
+        $holder = StockHolder::where('event_id', $event->id)->where('person_id', $actor->person_id)->sole();
+        $this->assertSame(1, app(StockMovementService::class)->balance($first, $holder));
+        $this->assertSame(1, app(StockMovementService::class)->balance($last, $holder));
+    }
+
     public function test_inventory_returns_competing_for_last_unit_are_atomic(): void
     {
         [$event, $actor] = $this->context();

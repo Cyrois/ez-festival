@@ -49,7 +49,7 @@ class EntitlementItemService
             if ($opening < 0 || $opening > 2147483647) {
                 throw ValidationException::withMessages(['opening_balance' => __('inventory.errors.quantity_invalid')]);
             }
-            $item = $event->entitlementItems()->create(['name' => $data['name']]);
+            $item = $event->entitlementItems()->create(['name' => $data['name'], 'low_stock_level' => $data['low_stock_level'] ?? null]);
 
             if ($opening > 0) {
                 $this->stocks->move($item, StockMovementType::Add, $opening, null,

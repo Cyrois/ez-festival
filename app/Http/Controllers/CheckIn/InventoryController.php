@@ -29,10 +29,10 @@ class InventoryController extends Controller
             'canManage' => $canManage,
             'ownItems' => $holder === null ? [] : $query->itemRows($event->id, $query->items($event->id, $holder->id)->get()),
             'canMove' => $canOperate,
-            'canPull' => $canManage && $canOperate,
-            'canTakeBack' => $canManage && $canOperate,
+            'canAdjust' => ! $event->isLocked() && in_array('inventory.manage', $targets->permissions($event, $request->user()), true),
+            'canReceive' => $targets->canReceive($event, $request->user()->person_id),
             'ownPersonId' => $request->user()->person_id,
-            'items' => $canManage ? EntitlementItemOptionResource::collection($query->itemOptions($event))->resolve()
+            'items' => ($canManage || ! $request->routeIs('check-in.my-stock')) ? EntitlementItemOptionResource::collection($query->itemOptions($event))->resolve()
                 : ($holder === null ? [] : $query->itemRows($event->id, $query->items($event->id, $holder->id)->get())),
             'locations' => $event->locations()->orderBy('name')->get(['id', 'name']),
         ]);

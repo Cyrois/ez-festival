@@ -316,7 +316,8 @@ class TeamCheckInTest extends TestCase
             ->where('memberUrl', route('team.members.show', $member))
             ->where('canViewShifts', false)->missing('checkInShifts')
             ->missing('engagement.people.0.email')->missing('engagement.people.0.phone'));
-        $this->assertFalse(collect(DB::getQueryLog())->contains(fn ($query) => str_contains($query['query'], 'shift_assignments')));
+        // Navigation checks the viewer's supervisor flag, without loading any roster.
+        $this->assertFalse(collect(DB::getQueryLog())->contains(fn ($query) => str_contains($query['query'], 'shift_assignments') && ! str_contains($query['query'], 'is_supervisor')));
         DB::disableQueryLog();
         $this->grantRoleAccess($user, ['checkin.view', 'team.personal_info', 'scheduling.view']);
         $this->get(route('check-in.teams.show', $member))->assertInertia(fn (Assert $page) => $page

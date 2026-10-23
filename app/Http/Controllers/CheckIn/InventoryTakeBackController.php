@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\CheckIn;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\CheckIn\ManageInventoryRequest;
-use App\Http\Requests\CheckIn\TakeBackStockRequest;
+use App\Http\Requests\CheckIn\HoldingsPersonRequest;
+use App\Http\Requests\CheckIn\InventoryBatchRequest;
 use App\Http\Resources\InventoryReceiverResource;
 use App\Models\Event;
-use App\Models\StockHolder;
 use App\Queries\InventoryTargetsQuery;
+use App\Services\InventoryHoldingsAccess;
 use App\Services\InventoryMovementService;
 use App\Support\EventContext;
 use Illuminate\Http\RedirectResponse;
@@ -16,19 +16,23 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class InventoryTakeBackController extends Controller
 {
-    public function index(ManageInventoryRequest $request, StockHolder $holder, EventContext $context, InventoryTargetsQuery $targets): AnonymousResourceCollection
+    public function index(HoldingsPersonRequest $request, EventContext $context, InventoryTargetsQuery $targets, InventoryHoldingsAccess $access): AnonymousResourceCollection
     {
-        $context->requireCurrentEvent($request->user(), $holder->event);
-        abort_if($holder->person_id === null, 404);
+        $event = $context->requireCurrent($request->user());
+        $manager = $request->user()->can('inventory.manage', $event);
+        $access->authorizePerson($event, $request->user(), $request->validated(), $request->integer('person_id'), $manager);
+        $query = $targets->receivers($event, $request->integer('person_id'), ($request->validated('search') ?? ''));
+        if (! in_array('inventory.manage', $targets->permissions($event, $request->user()), true)) {
+            $query->whereIn('p.id', $access->roster($event, $request->validated())->select('member.person_id'));
+        }
 
-        return InventoryReceiverResource::collection($targets->receivers($holder->event, $holder->person_id, $request->validated('search') ?? '')->paginate(25));
+        return InventoryReceiverResource::collection($query->paginate(25));
     }
 
-    public function store(TakeBackStockRequest $request, Event $event, StockHolder $holder, EventContext $context, InventoryMovementService $movements): RedirectResponse
+    public function store(InventoryBatchRequest $request, Event $event, EventContext $context, InventoryMovementService $movements): RedirectResponse
     {
         $context->requireCurrentEvent($request->user(), $event, writable: true);
-        abort_unless($holder->event_id === $event->id && $holder->person_id !== null, 404);
-        $movements->takeBack($event, $request->user(), $holder, $request->validated());
+        $movements->takeBackItems($event, $request->user(), $request->validated());
 
         return back();
     }

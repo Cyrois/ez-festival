@@ -119,7 +119,7 @@ class InventoryPersonMovementsTest extends TestCase
             $this->post(route('check-in.inventory.transfers.store', $this->event), $this->data($target))->assertSessionHasErrors('person_id');
         }
         $this->getJson(route('check-in.inventory.holdings'))->assertForbidden();
-        $this->getJson(route('check-in.inventory.holders.receivers', $this->holder()))->assertForbidden();
+        $this->getJson(route('check-in.inventory.holdings.receivers', ['person_id' => $this->source->person_id, 'group_id' => $this->memberRecord($this->source)->group_id]))->assertForbidden();
     }
 
     public function test_group_pass_works_off_shift_and_different_groups_do_not_match(): void
@@ -174,8 +174,8 @@ class InventoryPersonMovementsTest extends TestCase
         $this->get(route('check-in.my-stock'))->assertInertia(fn (Assert $p) => $p->where('canMove', true)->missing('canPass'));
         $this->getJson(route('check-in.inventory.move-receivers'))->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $this->manager->person_id)->assertJsonPath('data.0.is_manager', true);
         $this->post(route('check-in.inventory.transfers.store', $this->event), $this->data($this->manager))->assertForbidden();
-        $this->post(route('check-in.inventory.take-backs.store', [$this->event, $this->holder()]), $this->takeBackData())->assertForbidden();
-        $this->getJson(route('check-in.inventory.receivers'))->assertForbidden();
+        $this->post(route('check-in.inventory.take-backs.store', $this->event), $this->takeBackData())->assertForbidden();
+        $this->getJson(route('check-in.inventory.adjustment-people', ['direction' => 'from_location']))->assertForbidden();
     }
 
     public function test_managers_and_admins_pass_to_any_eligible_person_without_shift_or_group(): void
@@ -219,11 +219,11 @@ class InventoryPersonMovementsTest extends TestCase
         $target = $this->member(['checkin.edit']);
         $holder = $this->holder();
         $this->actingAs($this->manager);
-        $ids = $this->getJson(route('check-in.inventory.holders.receivers', $holder))->assertOk()->json('data.*.id');
+        $ids = $this->getJson(route('check-in.inventory.holdings.receivers', ['person_id' => $this->source->person_id, 'group_id' => $this->memberRecord($this->source)->group_id]))->assertOk()->json('data.*.id');
         $this->assertNotContains($this->source->person_id, $ids);
         foreach (['me', 'location', 'person'] as $destination) {
             $data = $this->takeBackData($destination, $target);
-            $this->post(route('check-in.inventory.take-backs.store', [$this->event, $holder]), $data)->assertSessionHasNoErrors();
+            $this->post(route('check-in.inventory.take-backs.store', $this->event), $data)->assertSessionHasNoErrors();
             $move = StockMovement::latest('id')->first();
             $this->assertSame(MovementType::TakeBack, $move->type);
             $this->assertSame($this->manager->id, $move->actor_user_id);
@@ -245,8 +245,8 @@ class InventoryPersonMovementsTest extends TestCase
     {
         $this->role($this->source)->update(['permissions' => ['checkin.view']]);
         $this->put(route('check-in.inventory.returns.update', $this->event), $this->data($this->manager))->assertForbidden();
-        $this->actingAs($this->manager)->post(route('check-in.inventory.take-backs.store', [$this->event, $this->holder()]), [
-            ...$this->takeBackData(), 'quantity' => 10,
+        $this->actingAs($this->manager)->post(route('check-in.inventory.take-backs.store', $this->event), [
+            ...$this->takeBackData(quantity: 10),
         ])->assertSessionHasNoErrors();
         $this->assertFalse(app(HeldStockGuard::class)->hasStock($this->source->person_id, $this->event->id));
         app(HeldStockGuard::class)->ensureClear($this->source->person_id, $this->event->id, 'role_id');
@@ -258,23 +258,18 @@ class InventoryPersonMovementsTest extends TestCase
     public function test_invalid_quantities_foreign_event_ids_and_self_take_back_leave_ledger_unchanged(): void
     {
         $this->actingAs($this->manager);
-        $holder = $this->holder();
-        foreach ([0, -1, 1.5, 11, 2147483648] as $quantity) {
-            $this->post(route('check-in.inventory.take-backs.store', [$this->event, $holder]), [...$this->takeBackData(), 'quantity' => $quantity])->assertSessionHasErrors('quantity');
+        foreach ([-1, 1.5, 11, 2147483648] as $quantity) {
+            $this->post(route('check-in.inventory.take-backs.store', $this->event), $this->takeBackData(quantity: $quantity))->assertSessionHasErrors('items.0.quantity');
         }
-        $this->post(route('check-in.inventory.take-backs.store', [$this->event, $holder]), $this->takeBackData('person', $this->source))->assertSessionHasErrors('person_id');
-        $this->post(route('check-in.inventory.take-backs.store', [$this->event, $holder]), [...$this->takeBackData(), 'note' => str_repeat('x', 256)])->assertSessionHasErrors('note');
+        $this->post(route('check-in.inventory.take-backs.store', $this->event), $this->takeBackData(quantity: 0))->assertSessionHasErrors('items');
+        $this->post(route('check-in.inventory.take-backs.store', $this->event), $this->takeBackData('person', $this->source))->assertSessionHasErrors('receiver_id');
+        $this->post(route('check-in.inventory.take-backs.store', $this->event), [...$this->takeBackData(), 'note' => str_repeat('x', 256)])->assertSessionHasErrors('note');
         $foreign = Event::create(['name' => 'Other', 'starts_on' => '2027-07-01', 'ends_on' => '2027-07-02', 'timezone' => 'UTC']);
-        $foreignHolder = app(StockMovementService::class)->forPerson($foreign, $this->source->person);
         $foreignLocation = $foreign->locations()->create(['name' => 'Other Gate']);
         $foreignItem = $foreign->entitlementItems()->create(['name' => 'Other item']);
-        $this->post(route('check-in.inventory.take-backs.store', [$this->event, $foreignHolder]), $this->takeBackData())->assertNotFound();
-        $this->post(route('check-in.inventory.take-backs.store', [$foreign, $foreignHolder]), [...$this->takeBackData(), 'entitlement_item_id' => $foreignItem->id])->assertNotFound();
-        foreach (['location_id' => $foreignLocation->id, 'entitlement_item_id' => $foreignItem->id] as $key => $id) {
-            $this->post(route('check-in.inventory.take-backs.store', [$this->event, $holder]), [...$this->takeBackData('location'), $key => $id])->assertSessionHasErrors($key);
-        }
-        $locationHolder = StockHolder::where('location_id', $this->location->id)->sole();
-        $this->post(route('check-in.inventory.take-backs.store', [$this->event, $locationHolder]), $this->takeBackData())->assertNotFound();
+        $this->post(route('check-in.inventory.take-backs.store', $foreign), $this->takeBackData())->assertNotFound();
+        $this->post(route('check-in.inventory.take-backs.store', $this->event), [...$this->takeBackData('location'), 'location_id' => $foreignLocation->id])->assertSessionHasErrors('location_id');
+        $this->post(route('check-in.inventory.take-backs.store', $this->event), [...$this->takeBackData(), 'items' => [['entitlement_item_id' => $foreignItem->id, 'quantity' => 1]]])->assertSessionHasErrors('items.0.entitlement_item_id');
         $this->assertDatabaseCount('stock_movements', 2);
     }
 
@@ -297,7 +292,7 @@ class InventoryPersonMovementsTest extends TestCase
         $this->put(route('check-in.inventory.returns.update', $this->event), $this->data($this->manager))->assertSessionHasErrors('person_id');
         $admin = $this->grantAdminAccess(User::factory()->create());
         $this->role($target)->update(['active' => false]);
-        $this->actingAs($admin)->post(route('check-in.inventory.take-backs.store', [$this->event, $this->holder()]), $this->takeBackData('person', $target))->assertSessionHasErrors('person_id');
+        $this->actingAs($admin)->post(route('check-in.inventory.take-backs.store', $this->event), $this->takeBackData('person', $target))->assertSessionHasErrors('receiver_id');
         $this->assertDatabaseCount('stock_movements', 2);
     }
 
@@ -306,8 +301,8 @@ class InventoryPersonMovementsTest extends TestCase
         $this->event->lock();
         $this->put(route('check-in.inventory.returns.update', $this->event), $this->data($this->manager))->assertForbidden();
         $this->actingAs($this->manager)->post(route('check-in.inventory.transfers.store', $this->event), $this->data($this->source))->assertForbidden();
-        $this->post(route('check-in.inventory.take-backs.store', [$this->event, $this->holder()]), $this->takeBackData())->assertForbidden();
-        $this->getJson(route('check-in.inventory.holdings'))->assertOk();
+        $this->post(route('check-in.inventory.take-backs.store', $this->event), $this->takeBackData())->assertForbidden();
+        $this->getJson(route('check-in.inventory.holdings', ['group_id' => $this->memberRecord($this->source)->group_id]))->assertOk();
         $this->assertDatabaseCount('stock_movements', 2);
     }
 
@@ -322,7 +317,7 @@ class InventoryPersonMovementsTest extends TestCase
         $literal->person()->update(['name' => '100%_manager!']);
         $this->getJson(route('check-in.inventory.move-receivers', ['search' => 'Receiver', 'page' => 2]))->assertJsonCount(2, 'data');
         $this->getJson(route('check-in.inventory.move-receivers', ['search' => '%_']))->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $literal->person_id);
-        $this->post(route('check-in.inventory.take-backs.store', [$this->event, $this->holder()]), $this->takeBackData())->assertSessionHasNoErrors();
+        $this->post(route('check-in.inventory.take-backs.store', $this->event), $this->takeBackData())->assertSessionHasNoErrors();
         app(EventService::class)->delete($this->event);
         $this->assertDatabaseMissing('stock_movements', ['event_id' => $this->event->id]);
         $this->assertDatabaseMissing('stock_holders', ['event_id' => $this->event->id]);
@@ -333,11 +328,12 @@ class InventoryPersonMovementsTest extends TestCase
         return ['person_id' => $target->person_id, 'entitlement_item_id' => $this->item->id, 'quantity' => $quantity];
     }
 
-    private function takeBackData(string $destination = 'me', ?User $target = null): array
+    private function takeBackData(string $destination = 'me', ?User $target = null, mixed $quantity = 1): array
     {
-        return ['destination' => $destination, 'entitlement_item_id' => $this->item->id, 'quantity' => 1, 'note' => 'End of shift',
+        return ['destination' => $destination, 'person_id' => $this->source->person_id, 'group_id' => $this->memberRecord($this->source)->group_id,
+            'items' => [['entitlement_item_id' => $this->item->id, 'quantity' => $quantity]], 'note' => 'End of shift',
             ...($destination === 'location' ? ['location_id' => $this->location->id] : []),
-            ...($destination === 'person' ? ['person_id' => $target->person_id] : [])];
+            ...($destination === 'person' ? ['receiver_id' => $target->person_id] : [])];
     }
 
     private function member(array $permissions, ?Group $group = null): User

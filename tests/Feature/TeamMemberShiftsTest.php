@@ -111,7 +111,8 @@ class TeamMemberShiftsTest extends TestCase
         DB::flushQueryLog();
         $this->get(route('team.members.show', $this->member))->assertInertia(fn (Assert $page) => $page
             ->where('canViewShifts', false)->missing('shifts')->missing('engagement.shift_assignments'));
-        $this->assertFalse(collect(DB::getQueryLog())->contains(fn ($query) => str_contains($query['query'], 'shift_assignments')));
+        // Navigation checks the viewer's supervisor flag, without loading any roster.
+        $this->assertFalse(collect(DB::getQueryLog())->contains(fn ($query) => str_contains($query['query'], 'shift_assignments') && ! str_contains($query['query'], 'is_supervisor')));
         DB::disableQueryLog();
         $this->getJson($this->url())->assertForbidden()->assertJsonMissingPath('data');
     }

@@ -245,7 +245,7 @@ class InventoryHistoryTest extends TestCase
         $this->put(route('credentials.entitlements.update', [$this->event, $this->item]), ['name' => 'Renamed'])->assertSessionHasNoErrors();
         $this->assertSame(3, $this->item->fresh()->low_stock_level);
         $this->post(route('credentials.entitlements.store', $this->event), ['name' => 'New', 'low_stock_level' => 9])->assertSessionHasNoErrors();
-        $this->assertNull(EntitlementItem::where('name', 'New')->sole()->low_stock_level);
+        $this->assertSame(9, EntitlementItem::where('name', 'New')->sole()->low_stock_level);
     }
 
     public function test_low_stock_level_validates_permission_event_lock_and_values_without_changing_stock(): void
@@ -264,6 +264,24 @@ class InventoryHistoryTest extends TestCase
         $this->putJson(route('credentials.entitlements.update', [$this->event, $this->item]), $payload)->assertForbidden();
         $this->assertNull($this->item->fresh()->low_stock_level);
         $this->assertDatabaseCount('stock_movements', 1);
+    }
+
+    public function test_create_low_stock_level_validates_whole_units_and_preserves_blank_and_zero(): void
+    {
+        $this->grantRoleAccess($this->manager, ['credentials.entitlements.edit']);
+        foreach ([-1, 2.5, 'text', 2147483648] as $level) {
+            $this->postJson(route('credentials.entitlements.store', $this->event), ['name' => 'Invalid', 'low_stock_level' => $level])
+                ->assertUnprocessable()->assertJsonValidationErrors('low_stock_level');
+        }
+        $this->assertDatabaseMissing('entitlement_items', ['name' => 'Invalid']);
+        foreach (['' => null, '0' => 0, '2147483647' => 2147483647] as $input => $expected) {
+            $name = trim('New level '.$input);
+            $this->post(route('credentials.entitlements.store', $this->event), ['name' => $name, 'low_stock_level' => $input])->assertSessionHasNoErrors();
+            $this->assertSame($expected, EntitlementItem::where('name', $name)->sole()->low_stock_level);
+        }
+        $this->event->lock();
+        $this->postJson(route('credentials.entitlements.store', $this->event), ['name' => 'Locked', 'low_stock_level' => 5])->assertForbidden();
+        $this->assertDatabaseMissing('entitlement_items', ['name' => 'Locked']);
     }
 
     public function test_low_stock_migration_preserves_existing_data_and_rollback_only_removes_new_setting(): void

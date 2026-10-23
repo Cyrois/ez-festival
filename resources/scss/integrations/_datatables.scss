@@ -301,3 +301,54 @@
         @apply top-auto bottom-0 mt-0 h-22 pt-12;
     }
 }
+
+@layer utilities {
+    /* Opt-in matrix behavior for dynamic item columns; other tables keep their defaults. */
+    @media (width >= 48rem) {
+        .dt-matrix-container div.dt-layout-table > div {
+            @apply max-h-[70vh] overflow-auto;
+        }
+
+        table.dataTable.dt-matrix {
+            @apply border-separate border-spacing-0;
+        }
+
+        table.dataTable.dt-matrix > thead > tr > th {
+            @apply sticky top-0 z-20 min-w-36;
+        }
+
+        table.dataTable.dt-matrix > thead > tr > th:first-child {
+            @apply left-0 z-30 min-w-52;
+        }
+
+        table.dataTable.dt-matrix > tbody > tr > td:first-child {
+            @apply sticky left-0 z-10 min-w-52 bg-ground;
+        }
+
+        table.dataTable.dt-matrix > tbody > tr:hover > td:first-child {
+            @apply bg-page;
+        }
+
+        table.dataTable.dt-matrix .dt-actions {
+            @apply sticky right-0 z-10 bg-ground;
+        }
+
+        table.dataTable.dt-matrix > thead .dt-actions {
+            @apply z-30 bg-page;
+        }
+    }
+
+    @media (width < 48rem) {
+        div.dt-container table.dt-cards > tbody > tr {
+            @apply mb-3 rounded-lg border border-line py-3;
+        }
+
+        div.dt-container table.dt-cards > tbody > tr > td[data-label]::before {
+            @apply hidden;
+        }
+
+        div.dt-container div.dt-layout-table > div:has(table.dt-cards) {
+            @apply border-0 bg-transparent;
+        }
+    }
+}

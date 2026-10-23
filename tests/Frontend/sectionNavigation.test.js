@@ -176,3 +176,12 @@ test('History is a separate manager-only tab after current Inventory', () => {
     const staff = navigation({ permissions: { 'checkin.view': true, 'checkin.edit': true } }).find((item) => item.key === 'check_in');
     assert.deepEqual(staff.tabs.map((tab) => tab.href), ['/check-in', '/check-in/my-stock']);
 });
+
+
+test('supervisor-only navigation opens scoped Inventory without broadening Check-in or History', () => {
+    const supervisor = navigation({ permissions: { 'team.view': true }, canViewInventory: true }).find((item) => item.key === 'check_in');
+    assert.equal(supervisor.href, '/check-in/inventory');
+    assert.deepEqual(supervisor.tabs.map((tab) => tab.href), ['/check-in/inventory']);
+    const ordinary = navigation({ permissions: { 'team.view': true }, canViewInventory: false });
+    assert.equal(ordinary.some((item) => item.key === 'check_in'), false);
+});

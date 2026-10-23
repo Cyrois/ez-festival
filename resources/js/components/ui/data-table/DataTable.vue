@@ -15,6 +15,7 @@ import {
     onMounted,
     ref,
     shallowRef,
+    useSlots,
     watch,
 } from 'vue';
 import { cn } from '../../../lib/utils';
@@ -24,6 +25,7 @@ defineOptions({ inheritAttrs: false });
 DataTablesVue.use(DataTablesCore);
 
 const props = defineProps({
+    stickyColumns: { type: Boolean, default: false },
     embedded: { type: Boolean, default: false },
     columnWidths: { type: Array, default: () => [] },
     expandedRowKey: { type: [String, Number], default: null },
@@ -31,7 +33,7 @@ const props = defineProps({
     mobileLayout: {
         type: String,
         default: 'stacked',
-        validator: (value) => ['stacked', 'summary'].includes(value),
+        validator: (value) => ['stacked', 'summary', 'cards'].includes(value),
     },
     ajax: {
         type: [String, Object, Function],
@@ -55,8 +57,19 @@ const props = defineProps({
     },
 });
 
+const slots = useSlots();
 const dataTable = ref(null);
 const expansionTarget = shallowRef(null);
+const headerTargets = shallowRef([]);
+const syncHeaders = (table) => {
+    const targets = table
+        .columns()
+        .header()
+        .toArray()
+        .map((header) => header.querySelector('.dt-column-title') || header);
+    if (targets.some((target, index) => target !== headerTargets.value[index]))
+        headerTargets.value = targets;
+};
 const expansionColumnWidths = shallowRef([]);
 let expansionResizeObserver;
 const measureExpansionColumns = (table) => {
@@ -139,6 +152,8 @@ const classes = computed(() =>
     cn(
         'dt-stacked w-full border-collapse text-left text-sm',
         props.mobileLayout === 'summary' && 'dt-summary',
+        props.mobileLayout === 'cards' && 'dt-cards',
+        props.stickyColumns && 'dt-matrix',
         props.embedded && 'dt-embedded',
         props.columnWidths.length > 0 && 'table-fixed',
         props.class,
@@ -156,6 +171,9 @@ const options = computed(() => ({
     },
     drawCallback: function (...args) {
         const table = this.api();
+        if (props.stickyColumns)
+            table.table().container().classList.add('dt-matrix-container');
+        if (slots.header) syncHeaders(table);
         const info = table.page.info();
         if (
             props.options.stateSave &&
@@ -305,6 +323,19 @@ defineExpose({
         class="h-40"
         aria-hidden="true"
     />
+    <template v-if="$slots.header">
+        <Teleport
+            v-for="(target, index) in headerTargets"
+            :key="index"
+            :to="target"
+        >
+            <slot
+                name="header"
+                :column="columns?.[index]"
+                :index="index"
+            />
+        </Teleport>
+    </template>
     <Teleport
         v-if="expansionTarget && expandedRowData"
         :to="expansionTarget"

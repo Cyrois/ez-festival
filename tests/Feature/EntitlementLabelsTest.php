@@ -87,9 +87,8 @@ class EntitlementLabelsTest extends TestCase
         $this->get(route('check-in.my-stock'))->assertInertia(fn (Assert $p) => $p
             ->where('ownItems.0.labels', $ordered)->where('items.0.labels', $ordered));
         $this->getJson(route('check-in.inventory.stock'))->assertJsonPath('data.0.balance', 3)->assertJsonPath('data.0.labels', $ordered);
-        $this->getJson(route('check-in.inventory.holders.stock', $holder))->assertJsonPath('data.0.labels', $ordered);
-        $this->getJson(route('check-in.inventory.holdings', ['holder_type' => 'person']))
-            ->assertJsonPath('data.0.total', 3)->assertJsonPath('data.0.items.0.labels', $ordered);
+        $this->getJson(route('check-in.inventory.adjustment-stock', ['direction' => 'to_location', 'person_id' => $this->actor->person_id]))->assertJsonPath('data.0.labels', $ordered);
+        $this->get(route('check-in.inventory.index'))->assertInertia(fn (Assert $p) => $p->where('items.0.labels', $ordered));
         $this->labels['A']->update(['name' => 'Zebra', 'color' => 'rose']);
         $this->labels['b']->delete();
         $ordered = EntitlementLabels::ordered($this->item->fresh()->labels);
