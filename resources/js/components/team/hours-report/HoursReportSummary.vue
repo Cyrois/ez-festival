@@ -20,21 +20,22 @@ defineProps({
         <Card
             v-for="type in ['scheduled', 'approved', 'unapproved']"
             :key="type"
+            class="min-w-0"
             :class="(showingPeople || compact) && 'max-md:px-2.5 max-md:py-3'"
         >
             <dt
-                class="text-xs font-semibold text-muted uppercase"
+                class="text-xs font-semibold text-muted uppercase max-md:[overflow-wrap:anywhere]"
                 :class="(showingPeople || compact) && 'max-md:text-[10px]'"
             >
                 {{ $t(`team.reports.${type}`) }}
             </dt>
             <dd
-                class="mt-1 text-2xl font-bold tabular-nums"
+                class="mt-1 text-2xl font-bold tabular-nums max-md:[overflow-wrap:anywhere]"
                 :class="(showingPeople || compact) && 'max-md:text-lg'"
             >
                 <span
                     v-if="loading && !summary && type === 'scheduled'"
-                    class="block h-8 w-28 animate-pulse rounded bg-line"
+                    class="block h-8 w-28 max-w-full animate-pulse rounded bg-line"
                     aria-hidden="true"
                 />
                 <span v-else-if="summary && type === 'scheduled'">{{

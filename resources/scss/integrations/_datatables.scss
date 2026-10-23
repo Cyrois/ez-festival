@@ -184,6 +184,11 @@
             &::before {
                 @apply hidden;
             }
+
+            &:has(~ td.dt-summary-action),
+            &:has(~ td.dt-expansion-action) {
+                @apply min-h-12 pr-14;
+            }
         }
 
         div.dt-container
@@ -192,6 +197,15 @@
             > tr
             > td.dt-row-action {
             @apply hidden;
+        }
+
+        /* Opt-in record actions stay beside the name without covering metrics. */
+        div.dt-container
+            table.dt-stacked.dt-summary
+            > tbody
+            > tr
+            > td.dt-summary-action {
+            @apply absolute top-1 right-1 block w-auto p-0;
         }
 
         div.dt-container
@@ -253,7 +267,7 @@
             > tbody
             > tr
             > td.dt-expansion-action {
-            @apply absolute top-1 right-1 block;
+            @apply absolute top-1 right-1 block w-auto p-0;
         }
     }
 

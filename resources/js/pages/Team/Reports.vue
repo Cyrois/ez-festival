@@ -357,6 +357,7 @@ const breadcrumbs = computed(() => [
                         >
                             <HoursReportSummary
                                 :summary="summary"
+                                compact
                                 :employment-type="employmentType"
                                 :showing-people="showingPeople"
                                 :loading="loading"

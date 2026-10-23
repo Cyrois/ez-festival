@@ -42,11 +42,13 @@ const dateLabel = computed(() =>
                 html-for="hours-shift-day"
                 :label="$t('team.reports.day')"
                 :error="dateError"
+                class="w-full min-w-0 sm:w-auto"
             >
                 <div class="flex flex-wrap items-center gap-3">
                     <Button
                         variant="outline-primary"
                         size="icon"
+                        class="max-md:h-11 max-md:w-11"
                         :disabled="!selectedDate"
                         :aria-label="$t('team.scheduling.grid.previous_day')"
                         @click="selectedDate = scheduleDay(selectedDate, -1)"
@@ -57,6 +59,7 @@ const dateLabel = computed(() =>
                     <Button
                         variant="outline-primary"
                         size="icon"
+                        class="max-md:h-11 max-md:w-11"
                         :disabled="!selectedDate"
                         :aria-label="$t('team.scheduling.grid.next_day')"
                         @click="selectedDate = scheduleDay(selectedDate, 1)"
@@ -69,7 +72,7 @@ const dateLabel = computed(() =>
                         type="date"
                         :invalid="Boolean(dateError)"
                         :aria-label="$t('team.scheduling.grid.select_day')"
-                        class="w-full sm:w-40"
+                        class="w-full min-w-0 max-md:h-11 sm:w-40"
                     />
                 </div>
             </FormField>
@@ -98,6 +101,7 @@ const dateLabel = computed(() =>
                 {{ $t('team.reports.shifts_load_failed') }}
                 <Button
                     variant="link"
+                    class="max-md:min-h-11 max-md:min-w-11"
                     @click="emit('load-day')"
                     >{{ $t('team.reports.retry') }}</Button
                 >

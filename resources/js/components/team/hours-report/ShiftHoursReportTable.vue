@@ -220,6 +220,7 @@ const tableOptions = computed(() => ({
             <Button
                 variant="ghost"
                 size="icon"
+                class="max-md:h-11 max-md:w-11"
                 :data-shift-toggle="rowData.shift_id"
                 :aria-expanded="openedShift === rowData.shift_id"
                 :aria-controls="
@@ -287,6 +288,7 @@ const tableOptions = computed(() => ({
                     }}
                     <Button
                         variant="link"
+                        class="max-md:min-h-11 max-md:min-w-11"
                         @click="emit('load-people')"
                         >{{ $t('team.reports.retry') }}</Button
                     >

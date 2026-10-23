@@ -17,12 +17,13 @@ const emit = defineEmits(['retry']);
             <div
                 v-for="row in 5"
                 :key="row"
-                class="grid grid-cols-4 gap-6 border-b border-line py-5 last:border-0"
+                class="grid grid-cols-3 gap-3 border-b border-line py-5 last:border-0 md:grid-cols-4 md:gap-6"
             >
                 <span
                     v-for="column in 4"
                     :key="column"
                     class="h-3 animate-pulse rounded bg-line"
+                    :class="column === 1 && 'max-md:col-span-3 max-md:w-1/2'"
                 />
             </div>
         </div>
@@ -49,7 +50,7 @@ const emit = defineEmits(['retry']);
                 v-if="showingPeople"
                 :name="['fas', 'circle-exclamation']"
             />
-            <span>{{
+            <span class="min-w-0 max-md:[overflow-wrap:anywhere]">{{
                 $t(
                     showingPeople
                         ? 'team.reports.people_load_failed'
@@ -59,6 +60,7 @@ const emit = defineEmits(['retry']);
             }}</span>
             <Button
                 :variant="showingPeople ? 'link' : 'outline'"
+                class="max-md:min-h-11 max-md:min-w-11"
                 :class="showingPeople && 'h-auto px-0 underline'"
                 :loading="loading"
                 @click="emit('retry')"
