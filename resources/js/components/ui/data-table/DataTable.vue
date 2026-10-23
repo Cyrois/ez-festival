@@ -258,6 +258,11 @@ const reload = (resetPaging = true) => {
     api()?.ajax.reload(null, resetPaging);
 };
 
+// Set ordering before a reload without issuing a second server-side request.
+const setOrder = (order) => {
+    api()?.order(order);
+};
+
 const setColumnsVisible = (columns, visible) => {
     api()?.columns(columns).visible(visible);
 };
@@ -271,6 +276,7 @@ defineExpose({
     filterRows,
     reload,
     search,
+    setOrder,
     setColumnsVisible,
     setPageLength,
 });

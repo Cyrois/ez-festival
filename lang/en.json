@@ -1629,6 +1629,8 @@
     "meals.types.edit_name": "Edit :name",
     "meals.types.empty": "No meal types yet.",
     "meals.types.overnight_hint": "An end earlier than the start runs into the next day. Times use the event’s timezone.",
+    "meals.types.ends_next_day": "ends next day",
+    "meals.types.rename_keeps": "Renaming keeps everything that uses this meal type.",
     "meals.types.read_only": "You need Set up meals to change meal types.",
     "meals.types.saved": "Meal type saved.",
     "meals.types.errors.name_taken": "A meal type with this name already exists in this event.",

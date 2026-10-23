@@ -77,7 +77,12 @@ const tableOptions = computed(() => ({
     serverSide: true,
     lengthChange: false,
     pageLength: 25,
-    order: [],
+    order: [[1, 'asc']],
+    stateLoadCallback: (...args) => {
+        const state = landingState.stateLoadCallback(...args);
+
+        return state ? { ...state, order: [[1, 'asc']] } : null;
+    },
     layout: { topStart: null, topEnd: null },
     columnDefs: [{ targets: 2, className: 'text-right' }],
     createdRow: (row, type) => {
@@ -109,6 +114,7 @@ const submit = () => {
             dialogOpen.value = false;
             form.reset();
             await nextTick();
+            table.value?.setOrder([[1, 'asc']]);
             table.value?.reload(editingId.value === null);
             mealsCard.value?.reload();
         },
@@ -202,6 +208,12 @@ const submit = () => {
                         <span class="whitespace-nowrap">
                             {{ rowData.starts_at }}–{{ rowData.ends_at }}
                         </span>
+                        <span
+                            v-if="rowData.ends_at <= rowData.starts_at"
+                            class="ml-1 text-xs text-muted"
+                        >
+                            {{ $t('meals.types.ends_next_day') }}
+                        </span>
                     </template>
                     <template #actionsCell="{ rowData }">
                         <span
@@ -261,6 +273,9 @@ const submit = () => {
                     v-slot="{ id, invalid }"
                     :label="$t('meals.types.name')"
                     :error="form.errors.name"
+                    :hint="
+                        editingId !== null ? $t('meals.types.rename_keeps') : ''
+                    "
                     required
                 >
                     <Input

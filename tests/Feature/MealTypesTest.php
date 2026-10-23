@@ -64,6 +64,29 @@ class MealTypesTest extends TestCase
         $this->table(['length' => -1])->assertUnprocessable()->assertJsonValidationErrors('length');
     }
 
+    public function test_list_orders_by_start_time_after_adding_and_editing_and_supports_header_sorting(): void
+    {
+        $this->post(route('meals.types.store', $this->event), [
+            'name' => 'Brunch', 'starts_at' => '10:00', 'ends_at' => '11:00',
+        ])->assertSessionHasNoErrors();
+        $type = $this->event->mealTypes()->where('name', 'Brunch')->sole();
+
+        $this->assertSame(['Breakfast', 'Brunch', 'Lunch', 'Dinner', 'Midnight'],
+            array_column($this->table()->assertOk()->json('data'), 'name'));
+        $this->table(['start' => 1, 'length' => 1])->assertJsonPath('data.0.id', $type->id);
+
+        $this->put(route('meals.types.update', [$this->event, $type]), [
+            'name' => 'Brunch', 'starts_at' => '21:00', 'ends_at' => '22:00',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame(['Breakfast', 'Lunch', 'Dinner', 'Brunch', 'Midnight'],
+            array_column($this->table()->assertOk()->json('data'), 'name'));
+        $this->assertSame(['Breakfast', 'Brunch', 'Dinner', 'Lunch', 'Midnight'],
+            array_column($this->table(['order' => [['column' => 0, 'dir' => 'asc']]])->assertOk()->json('data'), 'name'));
+        $this->assertSame(['Midnight', 'Brunch', 'Dinner', 'Lunch', 'Breakfast'],
+            array_column($this->table(['order' => [['column' => 1, 'dir' => 'desc']]])->assertOk()->json('data'), 'name'));
+    }
+
     public function test_add_and_update_preserve_the_id_and_allow_touching_boundaries(): void
     {
         $this->post(route('meals.types.store', $this->event), [
