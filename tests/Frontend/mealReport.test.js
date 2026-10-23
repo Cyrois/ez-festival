@@ -38,50 +38,113 @@ const card = compile('../../resources/js/components/ui/card/Card.vue', [
     [/import CardTitle from ['"].*?['"];?/, `import CardTitle from '${cardTitle}';`],
 ]);
 const badge = compile('../../resources/js/components/ui/badge/Badge.vue');
-const button = compile('../../resources/js/components/ui/button/Button.vue', [
-    [/import \{ Link \} from ['"].*?['"];?/, 'const Link = "a";'],
-    [/from ['"]\.\/buttonVariants['"]/, `from '${new URL('../../resources/js/components/ui/button/buttonVariants.js', import.meta.url).href}'`],
-]);
 const empty = compile('../../resources/js/components/ui/empty-state/EmptyState.vue');
-const tooltip = compile('../../resources/js/components/ui/tooltip/Tooltip.vue');
+const reportLib = `data:text/javascript;base64,${Buffer.from(readFileSync(new URL('../../resources/js/lib/mealReport.js', import.meta.url), 'utf8').replace(/import .*? from ['"]laravel-vue-i18n['"];?/, 'const getActiveLanguage = () => "en";')).toString('base64')}`;
+const counts = compile('../../resources/js/components/reports/MealReportCounts.vue', [
+    [/from ['"]\.\.\/\.\.\/lib\/mealReport['"]/, `from '${reportLib}'`],
+]);
 const page = compile('../../resources/js/pages/Reports/Index.vue', [
     [/import AppLayout from ['"].*?['"];?/, 'const AppLayout = globalThis.mealReportLayout;'],
     [/import \{ Badge \} from ['"].*?['"];?/, `import Badge from '${badge}';`],
-    [/import \{ Button \} from ['"].*?['"];?/, `import Button from '${button}';`],
     [/import \{ Card, CardTitle \} from ['"].*?['"];?/, `import Card from '${card}'; import CardTitle from '${cardTitle}';`],
     [/import \{ DataTable \} from ['"].*?['"];?/, `import DataTable from '${dataTable}';`],
     [/import \{ EmptyState \} from ['"].*?['"];?/, `import EmptyState from '${empty}';`],
-    [/import \{ Tooltip \} from ['"].*?['"];?/, `import Tooltip from '${tooltip}';`],
+    [/import MealReportCounts from ['"].*?['"];?/, `import MealReportCounts from '${counts}';`],
     [/from ['"]\.\.\/\.\.\/lib\/mealDates['"]/, `from '${new URL('../../resources/js/lib/mealDates.js', import.meta.url).href}'`],
+    [/from ['"]\.\.\/\.\.\/lib\/mealReport['"]/, `from '${reportLib}'`],
     [/import \{ getActiveLanguage, trans \} from ['"]laravel-vue-i18n['"];?/, 'const trans = globalThis.mealReportTranslate; const getActiveLanguage = () => "en";'],
 ]);
 const { default: Report } = await import(page);
 const tick = async () => { await new Promise((resolve) => setTimeout(resolve, 20)); await nextTick(); };
-const mount = (rows) => {
-    const props = reactive({ meals: { rows } });
+const mount = (days) => {
+    const props = reactive({ meals: { days } });
     const app = createApp({ setup: () => () => h(Report, props) });
     app.config.globalProperties.$t = globalThis.mealReportTranslate;
     app.mount(document.getElementById('app'));
     return { app, props };
 };
-const row = (changes = {}) => ({ date: '2026-10-02', meal_name: 'Crew lunch', meal_type: 'Lunch', projected: 2, used: 1, remaining: 1, extras: 0, total: 1, ...changes });
+const totals = (changes = {}) => ({ assigned: 3, projected: 2, used: 1, remaining: 1, extras: 0, total: 1, ...changes });
+const row = (changes = {}) => ({ date: '2026-10-02', meal_id: 1, meal_type_id: 1, meal_name: 'Crew lunch', meal_type: 'Lunch', ...totals(), ...changes });
+const group = (changes = {}) => ({ meal_type_id: 1, meal_type: 'Lunch', meals: [row()], totals: totals(), ...changes });
+const day = (changes = {}) => ({ date: '2026-10-02', meal_types: [group()], totals: totals(), ...changes });
+const cells = (selector) => [...document.querySelector(selector).cells].slice(2).map((cell) => cell.textContent.trim());
+const labelledCounts = (element) => Object.fromEntries([...element.querySelectorAll('dl > div')].map((item) => [item.querySelector('dt').textContent.trim(), item.querySelector('dd').textContent.trim()]));
 
-test('whole report renders more than ten rows without summary rows or paging, and a native CSV download link', async () => {
-    const rows = Array.from({ length: 12 }, (_, index) => row({ meal_name: `Meal ${index + 1}` }));
-    const { app } = mount(rows);
+test('full report shows day headings, expanded meal groups, Assigned first and day totals without paging or export', async () => {
+    const lunchMeals = Array.from({ length: 12 }, (_, index) => row({ meal_id: index + 1, meal_name: `Meal ${index + 1}` }));
+    const { app } = mount([
+        day({ meal_types: [group({ meals: lunchMeals }), group({ meal_type_id: 2, meal_type: 'Dinner', meals: [row({ meal_id: 13, meal_name: 'Crew dinner', meal_type: 'Dinner' })] })] }),
+        day({ date: '2026-10-04', meal_types: [group({ meals: [row({ meal_id: 14, date: '2026-10-04', meal_name: 'Sunday lunch' })] })] }),
+    ]);
     try {
         await tick();
-        assert.equal(document.querySelectorAll('tbody tr').length, 12);
-        assert.equal(document.querySelector('.dt-paging, input, select'), null);
-        assert.deepEqual([...document.querySelectorAll('thead th')].map((cell) => cell.textContent), ['Meal', 'Date', 'Meal type', 'Projected', 'Used', 'Remaining', 'Extras', 'Total']);
-        assert.deepEqual([...document.querySelector('tbody tr').cells].map((cell) => cell.dataset.label), ['Meal', 'Date', 'Meal type', 'Projected', 'Used', 'Remaining', 'Extras', 'Total']);
-        assert.match(document.querySelector('tbody').textContent, /Fri, Oct 2/);
-        assert.equal([...document.querySelectorAll('tbody tr')].filter((row) => row.cells[1].textContent.includes('Fri, Oct 2')).length, 12);
+        assert.equal(document.querySelectorAll('[data-meal-report-kind="meal"]').length, 14);
+        assert.equal(document.querySelectorAll('[data-meal-report-kind="meal_type"]').length, 3);
+        assert.equal(document.querySelectorAll('[data-meal-report-kind="day_total"]').length, 2);
+        assert.deepEqual([...document.querySelectorAll('[data-meal-report-day]')].map((row) => row.textContent.trim()), ['Fri, Oct 2', 'Sun, Oct 4']);
+        assert.equal(document.querySelector('[data-meal-report-day] th').colSpan, 8);
+        assert.deepEqual([...document.querySelectorAll('thead th')].map((cell) => cell.textContent), ['Meal', 'Meal type', 'Assigned', 'Projected', 'Used', 'Remaining', 'Extras', 'Total']);
         assert.match(document.querySelector('tbody').textContent, /Meal 12/);
-        assert.doesNotMatch(document.querySelector('tbody').textContent, /Fri total|Event total/);
+        assert.equal(document.querySelector('.dt-paging, input, select, a, button'), null);
+        assert.doesNotMatch(document.body.textContent, /Export CSV|Nothing to export|Event total|Counter override/);
+        assert.match(document.body.textContent, /Meals to serve per day and meal time, from shifts, direct meals and extra meals\./);
+        assert.match(document.body.textContent, /Total is Projected minus Used and may be negative\./);
         assert.equal(document.querySelector('h1').textContent.trim(), 'Meals Report');
-        assert.equal(document.querySelector('a').getAttribute('href'), '/reports/meals/export');
-        assert.equal(document.querySelector('a').getAttribute('aria-disabled'), null);
+    } finally { app.unmount(); }
+});
+
+test('phone has one labelled card per type with named meals inside and one Day total card per day', async () => {
+    const negative = totals({ assigned: 3, projected: 0, used: 3, remaining: 0, extras: 3, total: -3 });
+    const { app } = mount([day({ meal_types: [group({ meals: [row({ meal_name: 'Lunch A', ...negative }), row({ meal_id: 2, meal_name: 'Lunch B' })], totals: negative })], totals: negative })]);
+    try {
+        await tick();
+        assert.equal(document.querySelectorAll('[data-meal-type-card]').length, 1);
+        assert.equal(document.querySelectorAll('[data-meal-type-card] [data-meal-detail]').length, 2);
+        assert.equal(document.querySelectorAll('[data-day-total-card]').length, 1);
+        const type = document.querySelector('[data-meal-type-card]');
+        assert.match(type.textContent, /Lunch.*2 meals/s);
+        assert.deepEqual(labelledCounts(type.querySelector('dl')), { Assigned: '3', Projected: '0', Used: '-3', Remaining: '0', Extras: '-3', Total: '-3' });
+        assert.deepEqual(labelledCounts(document.querySelector('[data-day-total-card]')), { Assigned: '3', Projected: '0', Used: '-3', Remaining: '0', Extras: '-3', Total: '-3' });
+        assert.deepEqual(cells('[data-meal-report-kind="meal_type"]'), ['3', '0', '-3', '0', '-3', '-3']);
+        assert.deepEqual(cells('[data-meal-report-kind="day_total"]'), ['3', '0', '-3', '0', '-3', '-3']);
+    } finally { app.unmount(); }
+});
+
+test('empty report has no export control and configured zero meals render a complete group', async () => {
+    const { app, props } = mount([]);
+    try {
+        await tick();
+        assert.match(document.body.textContent, /No meals yet\./);
+        assert.equal(document.querySelector('table, a, button, [role="tooltip"], [data-day-total-card]'), null);
+        const zero = totals({ assigned: 0, projected: 0, used: 0, remaining: 0, extras: 0, total: 0 });
+        props.meals.days = [day({ meal_types: [group({ meals: [row(zero)], totals: zero })], totals: zero })];
+        await tick();
+        assert.equal(document.querySelectorAll('[data-meal-report-kind="meal"]').length, 1);
+        assert.deepEqual(cells('[data-meal-report-kind="meal"]'), ['0', '0', '-0', '0', '-0', '0']);
+        assert.equal(document.querySelectorAll('[data-meal-type-card]').length, 1);
+        assert.equal(document.querySelector('a, button'), null);
+    } finally { app.unmount(); }
+});
+
+test('names render as text and refreshed report data replaces headings, groups and both layouts counts', async () => {
+    const name = '<img src=x onerror=alert(1)>';
+    const { app, props } = mount([day({ meal_types: [group({ meal_type: name, meals: [row({ meal_name: name, meal_type: name })] })] })]);
+    try {
+        await tick();
+        assert.equal(document.querySelector('img'), null);
+        assert.match(document.querySelector('tbody').textContent, /<img src=x onerror=alert\(1\)>/);
+        assert.match(document.querySelector('[data-meal-type-card]').textContent, /<img src=x onerror=alert\(1\)>/);
+        const changed = totals({ assigned: 4, projected: 2, used: 3, remaining: 0, extras: 2, total: -1 });
+        props.meals.days = [day({ date: '2026-10-03', meal_types: [group({ meals: [row({ date: '2026-10-03', ...changed })], totals: changed })], totals: changed })];
+        await tick();
+        assert.equal(document.querySelectorAll('[data-meal-report-day]').length, 1);
+        assert.match(document.querySelector('[data-meal-report-day]').textContent, /Sat, Oct 3/);
+        assert.deepEqual(cells('[data-meal-report-kind="meal"]'), ['4', '2', '-3', '0', '-2', '-1']);
+        assert.equal(labelledCounts(document.querySelector('[data-day-total-card]')).Total, '-1');
+        props.meals.days = [];
+        await tick();
+        assert.equal(document.querySelector('table, [data-meal-type-card]'), null);
+        assert.match(document.body.textContent, /No meals yet\./);
     } finally { app.unmount(); }
 });
 
@@ -127,38 +190,5 @@ test('shared mobile labels follow hidden columns and paging without replacing sl
         table.search('no match').draw();
         await tick();
         assert.equal(document.querySelector('td.dt-empty').hasAttribute('data-label'), false);
-    } finally { app.unmount(); }
-});
-
-test('empty report disables export with an accessible tooltip, and populated zero rows become exportable', async () => {
-    const { app, props } = mount([]);
-    try {
-        await tick();
-        assert.match(document.body.textContent, /No meals yet/);
-        assert.equal(document.querySelector('table, a'), null);
-        assert.equal(document.querySelector('button').disabled, true);
-        const trigger = document.querySelector('[aria-label="Nothing to export yet."]');
-        assert.ok(trigger);
-        trigger.dispatchEvent(new dom.window.FocusEvent('focus'));
-        await tick();
-        assert.equal(document.querySelector('[role="tooltip"]').textContent, 'Nothing to export yet.');
-        props.meals.rows = [row({ projected: 0, used: 0, remaining: 0, total: 0 })];
-        await tick();
-        assert.equal(document.querySelector('[role="tooltip"]'), null);
-        assert.equal(document.querySelectorAll('tbody tr').length, 1);
-        assert.deepEqual([...document.querySelectorAll('tbody td')].slice(3).map((cell) => cell.textContent), ['0', '-0', '0', '-0', '0']);
-        assert.ok(document.querySelector('a[href="/reports/meals/export"]'));
-    } finally { app.unmount(); }
-});
-
-test('type names are rendered as text and refreshed counts update the displayed report', async () => {
-    const { app, props } = mount([row({ meal_name: '<img src=x onerror=alert(1)>' })]);
-    try {
-        await tick();
-        assert.equal(document.querySelector('img'), null);
-        assert.match(document.querySelector('tbody').textContent, /<img src=x onerror=alert\(1\)>/);
-        props.meals.rows = [row({ used: 3, remaining: 0, extras: 2, total: -3 })];
-        await tick();
-        assert.deepEqual([...document.querySelectorAll('tbody td')].slice(3).map((cell) => cell.textContent), ['2', '-3', '0', '-2', '-3']);
     } finally { app.unmount(); }
 });

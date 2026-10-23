@@ -6,7 +6,6 @@ final class RoutePermissions
 {
     public const ABILITIES = [
         'reports.index' => 'meals.report.view',
-        'reports.meals.export' => 'meals.report.view',
         'meals.index' => 'meals.view',
         'meals.people.index' => 'meals.view',
         'meals.people.show' => 'meals.view',

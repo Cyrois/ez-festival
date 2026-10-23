@@ -66,10 +66,10 @@ class MealEntitlementQuery
     }
 
     /** One row per shift meal and listed person; deliberately never deduplicated by meal. */
-    public function forEvent(Event $event): Builder
+    public function forEvent(Event $event, bool $includeOverrides = false): Builder
     {
         return $this->active(DB::table('meal_assignments as grants'))
-            ->where('grants.is_override', false)
+            ->when(! $includeOverrides, fn (Builder $query) => $query->where('grants.is_override', false))
             ->leftJoin('shift_meals', 'shift_meals.id', '=', 'grants.shift_meal_id')
             ->leftJoin('shifts', 'shifts.id', '=', 'grants.source_shift_id')
             ->join('meals', 'meals.id', '=', 'grants.meal_id')

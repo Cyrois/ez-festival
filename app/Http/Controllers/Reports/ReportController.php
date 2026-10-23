@@ -17,7 +17,7 @@ class ReportController extends Controller
         $event = $context->requireCurrent($request->user());
 
         return Inertia::render('Reports/Index', [
-            'meals' => (new MealReportResource($meals->rows($event)))->resolve($request),
+            'meals' => (new MealReportResource($meals->days($event)))->resolve($request),
         ]);
     }
 }

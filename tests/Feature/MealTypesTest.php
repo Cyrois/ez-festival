@@ -252,7 +252,7 @@ class MealTypesTest extends TestCase
                     ->where('permissionGroups.meals.4.key', 'meals.undo_claim')
                     ->where('permissionGroups.meals.5.key', 'meals.report.view')
                     ->where('permissionGroups.meals.5.label', 'View meal report')
-                    ->where('permissionGroups.meals.5.tooltip', 'The meal report under Kitchen, and its export.')
+                    ->where('permissionGroups.meals.5.tooltip', 'The meal report under Kitchen.')
                     ->where('permissionGroups.meals.5.includes', [])
                     ->where('permissionGroups.meals.0.tooltip', 'The Kitchen page and Kitchen settings.'));
         }

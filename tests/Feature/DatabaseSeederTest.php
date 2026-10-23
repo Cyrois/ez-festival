@@ -40,7 +40,6 @@ class DatabaseSeederTest extends TestCase
         $this->assertTrue($user->person->can_log_in);
         $this->withoutVite();
         $this->actingAs($user)->get(route('reports.index'))->assertOk();
-        $this->get(route('reports.meals.export'))->assertOk();
         $teamEngagement = $user->person
             ->teamEngagements()
             ->whereBelongsTo($event)

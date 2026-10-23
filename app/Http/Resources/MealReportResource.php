@@ -9,6 +9,6 @@ class MealReportResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        return ['rows' => $this->resource->values()->all()];
+        return ['days' => $this->resource->all()];
     }
 }
