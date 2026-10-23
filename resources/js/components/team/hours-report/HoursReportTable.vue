@@ -75,7 +75,17 @@ const tableOptions = computed(() => ({
         ...(props.shiftPeople ? [{ targets: 0, className: 'md:pl-10' }] : []),
         { targets: [1, 2, 3], className: 'text-right tabular-nums' },
         ...(hasTrailingColumn.value
-            ? [{ targets: 4, className: 'dt-row-action w-12 text-right' }]
+            ? [
+                  {
+                      targets: 4,
+                      className: [
+                          'dt-row-action w-12 text-right',
+                          hasRowAction.value && 'dt-summary-action',
+                      ]
+                          .filter(Boolean)
+                          .join(' '),
+                  },
+              ]
             : []),
     ],
     createdRow: props.showingPeople
@@ -115,9 +125,7 @@ const tableOptions = computed(() => ({
             :options="tableOptions"
             :embedded="shiftPeople"
             :column-widths="columnWidths"
-            :mobile-layout="
-                showingPeople || locationRows ? 'summary' : 'stacked'
-            "
+            mobile-layout="summary"
         >
             <template #nameCell="{ rowData }">
                 <span class="inline-flex flex-wrap items-center gap-2">
@@ -217,7 +225,7 @@ const tableOptions = computed(() => ({
                     :href="rowData.member_url"
                     target="_blank"
                     rel="noopener"
-                    class="inline-flex h-10 w-10 items-center justify-center rounded-lg text-primary focus-visible:outline-primary"
+                    class="inline-flex h-10 w-10 items-center justify-center rounded-lg text-primary focus-visible:outline-primary max-md:h-11 max-md:w-11"
                     :aria-label="
                         $t('team.reports.view_member', {
                             name: rowData.name,
@@ -229,7 +237,7 @@ const tableOptions = computed(() => ({
                 <Link
                     v-else-if="locationRows && !showingPeople"
                     :href="rowHref(rowData)"
-                    class="inline-flex h-10 w-10 items-center justify-center rounded-lg text-primary focus-visible:outline-primary"
+                    class="inline-flex h-10 w-10 items-center justify-center rounded-lg text-primary focus-visible:outline-primary max-md:h-11 max-md:w-11"
                     :aria-label="
                         $t('team.reports.view_location', { name: rowData.name })
                     "
@@ -240,6 +248,7 @@ const tableOptions = computed(() => ({
                     v-else-if="!showingPeople"
                     variant="ghost"
                     size="icon"
+                    class="max-md:h-11 max-md:w-11"
                     :aria-label="
                         $t('team.reports.view_group', {
                             name: rowData.name,

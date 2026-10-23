@@ -79,6 +79,7 @@ const locationItems = computed(() => [
                         v-model="startDate"
                         type="date"
                         :invalid="invalid"
+                        class="min-w-0 max-md:h-11"
                     />
                 </FormField>
                 <FormField
@@ -93,6 +94,7 @@ const locationItems = computed(() => [
                         v-model="endDate"
                         type="date"
                         :invalid="invalid"
+                        class="min-w-0 max-md:h-11"
                     />
                 </FormField>
                 <HoursReportEmploymentFilter
