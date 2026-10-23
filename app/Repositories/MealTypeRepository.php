@@ -21,7 +21,7 @@ class MealTypeRepository
         $sort = match ($column) {
             0 => 'name_key',
             1 => 'starts_at',
-            default => 'sort_order',
+            default => 'starts_at',
         };
 
         return [
